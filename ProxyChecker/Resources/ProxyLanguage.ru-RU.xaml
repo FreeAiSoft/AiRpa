@@ -1,0 +1,40 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:v="clr-namespace:System;assembly=mscorlib">
+
+    <v:String x:Key="lang_proxy_checker_ExternalIP">Внешний IP:</v:String>
+    <v:String x:Key="lang_proxy_checker_Undefined">не определён</v:String>
+
+    <v:String x:Key="lang_proxy_checker_datagrid_header_port">Порт</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_header_login">Логин</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_header_pwd">Пароль</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_header_type">Тип</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_header_anonimity">Анонимность</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_header_state">Состояние</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_header_comment">Комментарий</v:String>
+
+    <v:String x:Key="lang_proxy_checker_datagrid_CheckButton">Проверить</v:String>
+
+    <v:String x:Key="lang_proxy_checker_datagrid_rowdetails_ExternalIpPort">Внешний IP:Port</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_rowdetails_Country">Страна:</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_rowdetails_City">Город:</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_rowdetails_Provider">провайдер:</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_rowdetails_Organization">организация:</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_rowdetails_IpType">Тип IP</v:String>
+
+    <v:String x:Key="lang_proxy_checker_bottom_buttons_AddProxy">Добавить прокси</v:String>
+    <v:String x:Key="lang_proxy_checker_bottom_buttons_AddProxyFromFile">Добавить прокси из файла</v:String>
+    <v:String x:Key="lang_proxy_checker_bottom_buttons_CheckAllProxy">Проверить все прокси</v:String>
+    <v:String x:Key="lang_proxy_checker_bottom_buttons_DeleteAllProxy">Удалить все прокси</v:String>
+    <v:String x:Key="lang_proxy_checker_bottom_buttons_Import">Импорт</v:String>
+    <v:String x:Key="lang_proxy_checker_bottom_buttons_Export">Экспорт</v:String>
+    <v:String x:Key="lang_proxy_checker_bottom_buttons_BuyProxy">Купить прокси</v:String>
+
+    <v:String x:Key="lang_proxy_checker_messages_ProxyListIsEmpty">Список прокси пустой, нет прокси для экспорта</v:String>
+    <v:String x:Key="lang_proxy_checker_messages_InputProxyListInTextField">Введите список прокси в текстовое поле</v:String>
+    <v:String x:Key="lang_proxy_checker_messages_CanNotAccessToWithoutProxy">Не удалось получить доступ к {0} без прокси</v:String>
+    <v:String x:Key="lang_proxy_checker_messages_CanNotCheckProxy">Не удалось получить данные по IP адресу</v:String>
+    <v:String x:Key="lang_proxy_checker_messages_BadFormatProxy">Строка {0} не соответствует выбранному формату</v:String>
+    <v:String x:Key="lang_proxy_checker_messages_ParsingStringProxyError">Парсинг строки {0} завершился ошибкой</v:String>
+    <v:String x:Key="lang_proxy_checker_messages_ProxyAlreadyExist">Прокси с ip {0} и портом {1} уже были добавлены</v:String>
+</ResourceDictionary>

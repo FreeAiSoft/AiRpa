@@ -1,0 +1,40 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:v="clr-namespace:System;assembly=mscorlib">
+
+    <v:String x:Key="lang_proxy_checker_ExternalIP">External IP:</v:String>
+    <v:String x:Key="lang_proxy_checker_Undefined">undefined</v:String>
+
+    <v:String x:Key="lang_proxy_checker_datagrid_header_port">Port</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_header_login">Login</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_header_pwd">Pwd</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_header_type">Type</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_header_anonimity">Anonymity</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_header_state">State</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_header_comment">Comment</v:String>
+
+    <v:String x:Key="lang_proxy_checker_datagrid_CheckButton">Check</v:String>
+
+    <v:String x:Key="lang_proxy_checker_datagrid_rowdetails_ExternalIpPort">External IP:Port</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_rowdetails_Country">Country:</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_rowdetails_City">City:</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_rowdetails_Provider">Provider:</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_rowdetails_Organization">Organization:</v:String>
+    <v:String x:Key="lang_proxy_checker_datagrid_rowdetails_IpType">Type IP</v:String>
+
+    <v:String x:Key="lang_proxy_checker_bottom_buttons_AddProxy">Add proxy</v:String>
+    <v:String x:Key="lang_proxy_checker_bottom_buttons_AddProxyFromFile">Add proxy from file</v:String>
+    <v:String x:Key="lang_proxy_checker_bottom_buttons_CheckAllProxy">Check all proxy</v:String>
+    <v:String x:Key="lang_proxy_checker_bottom_buttons_DeleteAllProxy">Delete all proxy</v:String>
+    <v:String x:Key="lang_proxy_checker_bottom_buttons_Import">Import</v:String>
+    <v:String x:Key="lang_proxy_checker_bottom_buttons_Export">Export</v:String>
+    <v:String x:Key="lang_proxy_checker_bottom_buttons_BuyProxy">Buy proxy</v:String>
+
+    <v:String x:Key="lang_proxy_checker_messages_ProxyListIsEmpty">Proxy list is empty</v:String>
+    <v:String x:Key="lang_proxy_checker_messages_InputProxyListInTextField">Input proxy list in text field</v:String>
+    <v:String x:Key="lang_proxy_checker_messages_CanNotAccessToWithoutProxy">Can not access to {0} without proxy</v:String>
+    <v:String x:Key="lang_proxy_checker_messages_CanNotCheckProxy">Can not check IP</v:String>
+    <v:String x:Key="lang_proxy_checker_messages_BadFormatProxy">String {0} is bad</v:String>
+    <v:String x:Key="lang_proxy_checker_messages_ParsingStringProxyError">Parsing string {0} failed</v:String>
+    <v:String x:Key="lang_proxy_checker_messages_ProxyAlreadyExist">Proxy with ip {0} and port {1} already exist</v:String>
+</ResourceDictionary>

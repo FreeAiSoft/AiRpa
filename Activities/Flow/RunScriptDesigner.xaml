@@ -1,0 +1,63 @@
+﻿<sap:ActivityDesigner x:Class="Activities.Flow.RunScriptDesigner"
+                      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                      xmlns:s="clr-namespace:System;assembly=mscorlib"
+                      xmlns:sap="clr-namespace:System.Activities.Presentation;assembly=System.Activities.Presentation"
+                      xmlns:sapv="clr-namespace:System.Activities.Presentation.View;assembly=System.Activities.Presentation"
+                      xmlns:sapc="clr-namespace:System.Activities.Presentation.Converters;assembly=System.Activities.Presentation"
+                      xmlns:conv="clr-namespace:Activities.Converters">
+
+    <sap:ActivityDesigner.Resources>
+        <ResourceDictionary>
+            <sapc:ArgumentToExpressionConverter x:Key="ArgumentToExpressionConverter" />
+            <conv:BoolConverter x:Key="BoolConverter" />
+            <conv:BoolToColorConverter x:Key="BoolToColorConverter" />
+        </ResourceDictionary>
+    </sap:ActivityDesigner.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition />
+            <RowDefinition />
+        </Grid.RowDefinitions>
+        <Grid Width="300">
+            <CheckBox x:Name="isEnabledCheckBox"
+                      ToolTip="Вкл/Выкл"
+                      IsChecked="{Binding Path=ModelItem.IsEnabled, Mode=TwoWay, Converter={StaticResource BoolConverter}}" />
+            <TextBlock Text="Запуск активности"
+                       Foreground="{Binding ElementName=isEnabledCheckBox, Path=IsChecked, Converter={StaticResource BoolToColorConverter}}"
+                       HorizontalAlignment="Center"
+                       FontWeight="Black" />
+        </Grid>
+        <Grid Width="300"
+              Grid.Row="1"
+              IsEnabled="{Binding ElementName=isEnabledCheckBox, Path=IsChecked}">
+            <Grid.Style>
+                <Style TargetType="{x:Type Grid}">
+                    <Setter Property="Visibility"
+                            Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding ShowExpanded, UpdateSourceTrigger=PropertyChanged}"
+                                     Value="True">
+                            <Setter Property="Visibility"
+                                    Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+            <Grid.RowDefinitions>
+                <RowDefinition />
+                <RowDefinition />
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="Путь к активности" />
+            <sapv:ExpressionTextBox Expression="{Binding Path=ModelItem.PathToXamlActivity, Mode=TwoWay,Converter={StaticResource ArgumentToExpressionConverter}, ConverterParameter=In}"
+                                    ExpressionType="s:String"
+                                    HintText="Путь к активности"
+                                    OwnerActivity="{Binding Path=ModelItem}"
+                                    Grid.Row="1"
+                                    MaxLines="1" />
+
+        </Grid>
+    </Grid>
+</sap:ActivityDesigner>

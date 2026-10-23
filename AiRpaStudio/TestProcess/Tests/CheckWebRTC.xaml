@@ -1,0 +1,76 @@
+﻿<Activity mc:Ignorable="sap sap2010 sads" x:Class="CheckWebRTC" sap2010:ExpressionActivityEditor.ExpressionActivityEditor="C#" sap2010:WorkflowViewState.IdRef="CheckWebRTC_1"
+ xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:ab="clr-namespace:Activities.Browser;assembly=Activities.Browser"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ xmlns:mca="clr-namespace:Microsoft.CSharp.Activities;assembly=System.Activities"
+ xmlns:p="clr-namespace:PuppeteerSharp;assembly=PuppeteerSharp"
+ xmlns:sads="http://schemas.microsoft.com/netfx/2010/xaml/activities/debugger"
+ xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+ xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+ xmlns:scg="clr-namespace:System.Collections.Generic;assembly=mscorlib"
+ xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>System</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Data</x:String>
+      <x:String>System.Linq</x:String>
+      <x:String>System.Text</x:String>
+      <x:String>PuppeteerSharp</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>mscorlib</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Core</AssemblyReference>
+      <AssemblyReference>System.Data</AssemblyReference>
+      <AssemblyReference>System.ServiceModel</AssemblyReference>
+      <AssemblyReference>System.Xml</AssemblyReference>
+      <AssemblyReference>netstandard, Version=2.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51</AssemblyReference>
+      <AssemblyReference>Microsoft.Bcl.AsyncInterfaces, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51</AssemblyReference>
+      <AssemblyReference>PuppeteerSharp</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <Sequence sap2010:WorkflowViewState.IdRef="Sequence_1">
+    <Sequence.Variables>
+      <Variable x:TypeArguments="p:IBrowser" Name="browser" />
+      <Variable x:TypeArguments="p:IPage" Name="page" />
+    </Sequence.Variables>
+    <ab:StartSwitch ActivityLogger="{x:Null}" Args="{x:Null}" Headless="{x:Null}" DelayAfter="0" DelayBefore="0" DisplayName="Старт профиля Switch" sap2010:WorkflowViewState.IdRef="StartSwitch_2" IsEnabled="True" IsNeedLogging="False" IsNeedTrace="False" IsSafe="False" ProfileName="Профиль 3" SwitchInstallPath="C:\MybotSwitchPro" Timeout="300" Url="https://browserleaks.com/webrtc">
+      <ab:StartSwitch.Browser>
+        <OutArgument x:TypeArguments="p:IBrowser">
+          <mca:CSharpReference x:TypeArguments="p:IBrowser">browser</mca:CSharpReference>
+        </OutArgument>
+      </ab:StartSwitch.Browser>
+      <ab:StartSwitch.Page>
+        <OutArgument x:TypeArguments="p:IPage">
+          <mca:CSharpReference x:TypeArguments="p:IPage">page</mca:CSharpReference>
+        </OutArgument>
+      </ab:StartSwitch.Page>
+    </ab:StartSwitch>
+    <ab:CloseBrowser ActivityLogger="{x:Null}" DelayAfter="0" DelayBefore="0" DisplayName="Закрыть браузер" sap2010:WorkflowViewState.IdRef="CloseBrowser_1" IsEnabled="True" IsNeedLogging="False" IsNeedTrace="False" IsSafe="False" Timeout="30">
+      <ab:CloseBrowser.Browser>
+        <InArgument x:TypeArguments="p:IBrowser">
+          <mca:CSharpValue x:TypeArguments="p:IBrowser">browser</mca:CSharpValue>
+        </InArgument>
+      </ab:CloseBrowser.Browser>
+    </ab:CloseBrowser>
+    <sads:DebugSymbol.Symbol>d0FDOlxVc2Vyc1xNYXh4eFxEb2N1bWVudHNcQXZhdGFyUlBBXFByb2Nlc3NcVGVzdHNcQ2hlY2tXZWJSVEMueGFtbA8kAz0OAgEBKQU0FgIBCTUFOxcCAQIpXilhAgEVKZsCKaYCAgEUKbkCKcwCAgETKdUCKdoCAgESKW4pcQIBESnfAimAAwIBEDELMVQCAQ0sCyxaAgEKNTs1PgIBCDXwATX0AQIBBzVLNU4CAQY4CzhSAgED</sads:DebugSymbol.Symbol>
+  </Sequence>
+  <sap2010:WorkflowViewState.ViewStateManager>
+    <sap2010:ViewStateManager>
+      <sap2010:ViewStateData Id="StartSwitch_2" sap:VirtualizedContainerService.HintSize="314,120" />
+      <sap2010:ViewStateData Id="CloseBrowser_1" sap:VirtualizedContainerService.HintSize="314,22" />
+      <sap2010:ViewStateData Id="Sequence_1" sap:VirtualizedContainerService.HintSize="336,306">
+        <sap:WorkflowViewStateService.ViewState>
+          <scg:Dictionary x:TypeArguments="x:String, x:Object">
+            <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+          </scg:Dictionary>
+        </sap:WorkflowViewStateService.ViewState>
+      </sap2010:ViewStateData>
+      <sap2010:ViewStateData Id="CheckWebRTC_1" sap:VirtualizedContainerService.HintSize="376,426" />
+    </sap2010:ViewStateManager>
+  </sap2010:WorkflowViewState.ViewStateManager>
+</Activity>

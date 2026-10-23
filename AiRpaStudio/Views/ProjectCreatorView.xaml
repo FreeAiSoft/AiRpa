@@ -1,0 +1,66 @@
+﻿<mah:MetroWindow x:Class="RPA.Views.ProjectCreatorView"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                 xmlns:local="clr-namespace:RPA.Views"
+                 mc:Ignorable="d"
+                 xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+                 xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                 Height="330"
+                 Width="450"
+                 Title="Create project"
+                 WindowTransitionsEnabled="True"
+                 WindowStartupLocation="CenterScreen"
+                 WindowState="Normal"
+                 ResizeMode="NoResize">
+    <Grid Margin="5">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="50"/>
+            <RowDefinition Height="50"/>
+            <RowDefinition />
+            <RowDefinition Height="50"/>
+        </Grid.RowDefinitions>
+        <TextBox Text="{Binding Project.Name, UpdateSourceTrigger=PropertyChanged}"
+                 TextWrapping="NoWrap"
+                 Margin="5"
+                 VerticalContentAlignment="Center"
+                 mah:TextBoxHelper.Watermark="{Binding RelativeSource={RelativeSource Self}, Path=ToolTip}"
+                 ToolTip="project name"
+                 mah:TextBoxHelper.ClearTextButton="True" />
+        <Grid Grid.Row="1" 
+              Margin="5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition Width="auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox Text="{Binding SelectedPath}"
+                     ToolTip="root path"
+                     mah:TextBoxHelper.ClearTextButton="True"
+                     mah:TextBoxHelper.Watermark="{Binding RelativeSource={RelativeSource Self}, Path=ToolTip}"
+                     VerticalContentAlignment="Center" />
+            <Button Content="..."
+                    Command="{Binding Cmd}"
+                    CommandParameter="SetFolder"
+                    Margin="5,0,0,0"
+                    Width="40"
+                    Grid.Column="1"
+                    Style="{StaticResource MahApps.Styles.Button.Flat}" />
+        </Grid>
+        <TextBox Text="{Binding Project.Description, UpdateSourceTrigger=PropertyChanged}"
+                 Grid.Row="2"
+                 TextWrapping="Wrap"
+                 Margin="5"
+                 VerticalScrollBarVisibility="Auto"
+                 AcceptsReturn="True"
+                 mah:TextBoxHelper.Watermark="{Binding RelativeSource={RelativeSource Self}, Path=ToolTip}"
+                 ToolTip="project name"
+                 mah:TextBoxHelper.ClearTextButton="True"/>
+        <Button Content="Create"
+                Command="{Binding Cmd}"
+                CommandParameter="CreateProject"
+                Grid.Row="3"
+                Style="{StaticResource MahApps.Styles.Button.Flat}"
+                Margin="5"/>
+    </Grid>
+</mah:MetroWindow>

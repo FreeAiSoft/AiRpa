@@ -1,0 +1,72 @@
+﻿<sap:ActivityDesigner x:Class="Activities.Flow.Designers.RunScriptDesigner"
+                      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                      xmlns:s="clr-namespace:System;assembly=mscorlib"
+                      xmlns:sap="clr-namespace:System.Activities.Presentation;assembly=System.Activities.Presentation"
+                      xmlns:sapv="clr-namespace:System.Activities.Presentation.View;assembly=System.Activities.Presentation"
+                      xmlns:sapc="clr-namespace:System.Activities.Presentation.Converters;assembly=System.Activities.Presentation"
+                      xmlns:conv="clr-namespace:ActivityLibraryBase.Converters;assembly=ActivityLibraryBase"
+                      xmlns:baseControls="clr-namespace:ActivityLibraryBase.Controls;assembly=ActivityLibraryBase"
+                      xmlns:local="clr-namespace:Activities.Flow.Resources">
+
+    <sap:ActivityDesigner.Resources>
+        <ResourceDictionary>
+            <sapc:ArgumentToExpressionConverter x:Key="ArgumentToExpressionConverter" />
+            <conv:BoolConverter x:Key="BoolConverter" />
+            <conv:BoolToColorConverter x:Key="BoolToColorConverter" />
+        </ResourceDictionary>
+    </sap:ActivityDesigner.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition />
+            <RowDefinition />
+        </Grid.RowDefinitions>
+        <baseControls:ActivityTop x:Name="activityTop"
+                                  TitleText="{x:Static local:ActivitiesFlow.start_activity}" />
+        <Grid Width="300"
+              Grid.Row="1"
+              IsEnabled="{Binding ElementName=activityTop, Path=IsEnabledActivity}">
+            <Grid.Style>
+                <Style TargetType="{x:Type Grid}">
+                    <Setter Property="Visibility"
+                            Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding ShowExpanded, UpdateSourceTrigger=PropertyChanged}"
+                                     Value="True">
+                            <Setter Property="Visibility"
+                                    Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+            <Grid.RowDefinitions>
+                <RowDefinition />
+                <RowDefinition />
+                <RowDefinition />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{x:Static local:ActivitiesFlow.path_to_activity}" 
+                       Grid.ColumnSpan="2"/>
+            <sapv:ExpressionTextBox Expression="{Binding Path=ModelItem.PathToXamlActivity, Mode=TwoWay,Converter={StaticResource ArgumentToExpressionConverter}, ConverterParameter=In}"
+                                    ExpressionType="s:String"
+                                    HintText="{x:Static local:ActivitiesFlow.path_to_activity}"
+                                    OwnerActivity="{Binding Path=ModelItem}"
+                                    Grid.Row="1"
+                                    MaxLines="1"
+                                    Grid.ColumnSpan="2" />
+            <Button Content="{x:Static local:ActivitiesFlow.change_args}"
+                    Grid.Row="2"
+                    Margin="0 5 2 0"
+                    Click="Button_Click_Change"/>
+            <Button Content="{x:Static local:ActivitiesFlow.import_args}"
+                    Grid.Row="2" 
+                    Grid.Column="1"
+                    Margin="2 5 0 0"
+                    Click="Button_Click_Import"/>
+        </Grid>
+    </Grid>
+</sap:ActivityDesigner>

@@ -1,0 +1,699 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.props" Condition="Exists('..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.props')" />
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{F9E9AE3C-2D3B-4013-BFE8-37C9B351DE31}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>RPA</RootNamespace>
+    <AssemblyName>AiRpaStudio</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <ProjectTypeGuids>{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <WarningLevel>4</WarningLevel>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+    <LangVersion>8.0</LangVersion>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>x64</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>23456789.ico</ApplicationIcon>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x64\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>8.0</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>8.0</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="ControlzEx, Version=4.0.0.0, Culture=neutral, PublicKeyToken=69f1c32f803d307e, processorArchitecture=MSIL">
+      <HintPath>..\packages\ControlzEx.4.4.0\lib\net462\ControlzEx.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Humanizer, Version=2.14.0.0, Culture=neutral, PublicKeyToken=979442b78dfc278e, processorArchitecture=MSIL">
+      <HintPath>..\packages\Humanizer.Core.2.14.1\lib\netstandard2.0\Humanizer.dll</HintPath>
+    </Reference>
+    <Reference Include="Material.Icons, Version=2.4.1.0, Culture=neutral, PublicKeyToken=34ed5903a64b4509, processorArchitecture=MSIL">
+      <HintPath>..\packages\Material.Icons.2.4.1\lib\netstandard2.0\Material.Icons.dll</HintPath>
+    </Reference>
+    <Reference Include="Material.Icons.WPF, Version=2.4.1.0, Culture=neutral, PublicKeyToken=34ed5903a64b4509, processorArchitecture=MSIL">
+      <HintPath>..\packages\Material.Icons.WPF.2.4.1\lib\net461\Material.Icons.WPF.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Bcl.AsyncInterfaces.8.0.0\lib\net462\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis, Version=3.6.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.CodeAnalysis.Common.3.6.0\lib\netstandard2.0\Microsoft.CodeAnalysis.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.AnalyzerUtilities, Version=3.3.2.30504, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.CodeAnalysis.AnalyzerUtilities.3.3.0\lib\netstandard2.0\Microsoft.CodeAnalysis.AnalyzerUtilities.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.CSharp, Version=3.6.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.CodeAnalysis.CSharp.3.6.0\lib\netstandard2.0\Microsoft.CodeAnalysis.CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.CSharp.Features, Version=3.6.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.CodeAnalysis.CSharp.Features.3.6.0\lib\netstandard2.0\Microsoft.CodeAnalysis.CSharp.Features.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.CSharp.Scripting, Version=3.6.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.CodeAnalysis.CSharp.Scripting.3.6.0\lib\netstandard2.0\Microsoft.CodeAnalysis.CSharp.Scripting.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.CSharp.Workspaces, Version=3.6.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.CodeAnalysis.CSharp.Workspaces.3.6.0\lib\netstandard2.0\Microsoft.CodeAnalysis.CSharp.Workspaces.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.Elfie, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.CodeAnalysis.Elfie.1.0.0\lib\net45\Microsoft.CodeAnalysis.Elfie.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.Features, Version=3.6.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.CodeAnalysis.Features.3.6.0\lib\netstandard2.0\Microsoft.CodeAnalysis.Features.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.Scripting, Version=3.6.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.CodeAnalysis.Scripting.Common.3.6.0\lib\netstandard2.0\Microsoft.CodeAnalysis.Scripting.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.VisualBasic, Version=3.6.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.CodeAnalysis.VisualBasic.3.6.0\lib\netstandard2.0\Microsoft.CodeAnalysis.VisualBasic.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.Workspaces, Version=3.6.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.CodeAnalysis.Workspaces.Common.3.6.0\lib\netstandard2.0\Microsoft.CodeAnalysis.Workspaces.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.DiaSymReader, Version=1.4.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.DiaSymReader.1.4.0\lib\net20\Microsoft.DiaSymReader.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.DependencyInjection, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Extensions.DependencyInjection.8.0.0\lib\net462\Microsoft.Extensions.DependencyInjection.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.DependencyInjection.Abstractions, Version=8.0.0.2, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Extensions.DependencyInjection.Abstractions.8.0.2\lib\net462\Microsoft.Extensions.DependencyInjection.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Logging, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Extensions.Logging.8.0.0\lib\net462\Microsoft.Extensions.Logging.dll</HintPath>
+    </Reference>
+    <Reference Include="MahApps.Metro, Version=2.0.0.0, Culture=neutral, PublicKeyToken=51482d6f650b2b3f, processorArchitecture=MSIL">
+      <HintPath>..\packages\MahApps.Metro.2.4.9\lib\net47\MahApps.Metro.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Activities.Extensions, Version=2.0.6.9, Culture=neutral, PublicKeyToken=23b0c89d0d5ad43f, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Activities.Extensions.2.0.6.9\lib\Net45\Microsoft.Activities.Extensions.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Expression.Interactions, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Windows.Interactivity.WPF.2.0.20525\lib\net40\Microsoft.Expression.Interactions.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Extensions.Logging.Abstractions.8.0.0\lib\net462\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Options, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Extensions.Options.8.0.0\lib\net462\Microsoft.Extensions.Options.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Primitives, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Extensions.Primitives.8.0.0\lib\net462\Microsoft.Extensions.Primitives.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Xaml.Behaviors, Version=1.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Xaml.Behaviors.Wpf.1.1.19\lib\net45\Microsoft.Xaml.Behaviors.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.13.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="NLog, Version=6.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
+      <HintPath>..\packages\NLog.6.1.0\lib\net46\NLog.dll</HintPath>
+    </Reference>
+    <Reference Include="PuppeteerSharp, Version=20.2.2.0, Culture=neutral, PublicKeyToken=db12f80f85d8ba23, processorArchitecture=MSIL">
+      <HintPath>..\packages\PuppeteerSharp.20.2.2\lib\netstandard2.0\PuppeteerSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="RoslynPad.Editor.Windows, Version=1.2.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\RoslynPad.Editor.Windows.1.2.0\lib\net48\RoslynPad.Editor.Windows.dll</HintPath>
+    </Reference>
+    <Reference Include="RoslynPad.Roslyn, Version=3.6.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\RoslynPad.Roslyn.3.6.0\lib\netstandard2.0\RoslynPad.Roslyn.dll</HintPath>
+    </Reference>
+    <Reference Include="RoslynPad.Roslyn.Windows, Version=3.6.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\RoslynPad.Roslyn.Windows.3.6.0\lib\net48\RoslynPad.Roslyn.Windows.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Activities">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Activities.Core.Presentation">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Activities.Presentation">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.ClientModel, Version=1.3.0.0, Culture=neutral, PublicKeyToken=92742159e12e44c8, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.ClientModel.1.3.0\lib\netstandard2.0\System.ClientModel.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Collections.Immutable, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Collections.Immutable.6.0.0\lib\net461\System.Collections.Immutable.dll</HintPath>
+    </Reference>
+    <Reference Include="System.ComponentModel.Composition" />
+    <Reference Include="System.ComponentModel.DataAnnotations" />
+    <Reference Include="System.Composition.AttributedModel, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Composition.AttributedModel.6.0.0\lib\net461\System.Composition.AttributedModel.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Composition.Convention, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Composition.Convention.6.0.0\lib\net461\System.Composition.Convention.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Composition.Hosting, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Composition.Hosting.6.0.0\lib\net461\System.Composition.Hosting.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Composition.Runtime, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Composition.Runtime.6.0.0\lib\net461\System.Composition.Runtime.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Composition.TypedParts, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Composition.TypedParts.6.0.0\lib\net461\System.Composition.TypedParts.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Diagnostics.DiagnosticSource, Version=8.0.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Diagnostics.DiagnosticSource.8.0.1\lib\net462\System.Diagnostics.DiagnosticSource.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Pipelines, Version=6.0.0.3, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.IO.Pipelines.6.0.3\lib\net461\System.IO.Pipelines.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Memory, Version=4.0.1.2, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Memory.Data, Version=8.0.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Memory.Data.8.0.1\lib\net462\System.Memory.Data.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Numerics.Vectors, Version=4.1.4.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Reactive, Version=4.3.0.0, Culture=neutral, PublicKeyToken=94bc3704cddfc263, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Reactive.4.3.1\lib\net46\System.Reactive.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Reactive.Linq, Version=3.0.3000.0, Culture=neutral, PublicKeyToken=94bc3704cddfc263, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Reactive.Linq.4.3.1\lib\net46\System.Reactive.Linq.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Reflection.Metadata, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Reflection.Metadata.5.0.0\lib\net461\System.Reflection.Metadata.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.ServiceModel" />
+    <Reference Include="System.ServiceModel.Activities">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Text.Encoding.CodePages, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Text.Encoding.CodePages.6.0.0\lib\net461\System.Text.Encoding.CodePages.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Text.Encodings.Web, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Text.Encodings.Web.8.0.0\lib\net462\System.Text.Encodings.Web.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Text.Json, Version=8.0.0.6, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Text.Json.8.0.6\lib\net462\System.Text.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Threading.Tasks.Extensions, Version=4.2.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Threading.Tasks.Extensions.4.5.4\lib\net461\System.Threading.Tasks.Extensions.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.ValueTuple, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.ValueTuple.4.5.0\lib\net47\System.ValueTuple.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Windows" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Windows.Interactivity, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Windows.Interactivity.WPF.2.0.20525\lib\net40\System.Windows.Interactivity.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Workflow.ComponentModel" />
+    <Reference Include="System.Xml" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xaml">
+      <RequiredTargetFramework>4.0</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="WindowsBase" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+  </ItemGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </ApplicationDefinition>
+    <Compile Include="AiAgent\Control\AiAgentChatControl.xaml.cs">
+      <DependentUpon>AiAgentChatControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="AiAgent\Control\AiAgentHistoryControl.xaml.cs">
+      <DependentUpon>AiAgentHistoryControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="AiAgent\Control\AiAgentSettingsControl.xaml.cs">
+      <DependentUpon>AiAgentSettingsControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="AiAgent\Control\McpAutoApproveControl.xaml.cs">
+      <DependentUpon>McpAutoApproveControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="AiAgent\Control\OllamaSettingsControl.xaml.cs">
+      <DependentUpon>OllamaSettingsControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="AiAgent\Control\OpenRouterSettingsControl.xaml.cs">
+      <DependentUpon>OpenRouterSettingsControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="AiAgent\Converters\BoolToColorConverter.cs" />
+    <Compile Include="AiAgent\Converters\BoolToVisibilityConverter.cs" />
+    <Compile Include="AiAgent\Converters\ContentPartTemplateSelector.cs" />
+    <Compile Include="AiAgent\Converters\MessageAlignmentConverter.cs" />
+    <Compile Include="AiAgent\Converters\MessageBackgroundConverter.cs" />
+    <Compile Include="AiAgent\Converters\MessageContentParser.cs" />
+    <Compile Include="AiAgent\Converters\MessageContentToPartsConverter.cs" />
+    <Compile Include="AiAgent\Converters\MessageTemplateSelector.cs" />
+    <Compile Include="AiAgent\Converters\NullToVisibilityConverter.cs" />
+    <Compile Include="AiAgent\Converters\ProviderTypeToVisibilityConverter.cs" />
+    <Compile Include="AiAgent\Models\AiModel.cs" />
+    <Compile Include="AiAgent\Models\ChatMessage.cs" />
+    <Compile Include="AiAgent\Models\Conversation.cs" />
+    <Compile Include="AiAgent\Models\McpToolPermission.cs" />
+    <Compile Include="AiAgent\Models\MessageContentPart.cs" />
+    <Compile Include="AiAgent\Models\OllamaModel.cs" />
+    <Compile Include="AiAgent\Models\OllamaResponse.cs" />
+    <Compile Include="AiAgent\Models\OpenRouterModels.cs" />
+    <Compile Include="AiAgent\Models\ProviderSettings.cs" />
+    <Compile Include="AiAgent\Models\ProviderType.cs" />
+    <Compile Include="AiAgent\Services\ActivityCommandParser.cs" />
+    <Compile Include="AiAgent\Services\AiProviderFactory.cs" />
+    <Compile Include="AiAgent\Services\IAiProvider.cs" />
+    <Compile Include="AiAgent\Services\IConversationStorage.cs" />
+    <Compile Include="AiAgent\Services\IOllamaService.cs" />
+    <Compile Include="AiAgent\Services\JsonConversationStorage.cs" />
+    <Compile Include="AiAgent\Services\OllamaService.cs" />
+    <Compile Include="AiAgent\Services\OpenRouterService.cs" />
+    <Compile Include="AiAgent\Services\RpaAiIntegrationService.cs" />
+    <Compile Include="AiAgent\Prompts\ActivityPrompts.cs" />
+    <Compile Include="AiAgent\ViewModels\AiAgentChatViewModel.cs" />
+    <Compile Include="AiAgent\ViewModels\RelayCommand.cs" />
+    <Compile Include="Consts.cs" />
+    <Compile Include="Controls\ProjectManagerControl.xaml.cs">
+      <DependentUpon>ProjectManagerControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controls\TextBoxFocusBehavior.cs" />
+    <Compile Include="Controls\ToolboxPanel.xaml.cs">
+      <DependentUpon>ToolboxPanel.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controls\SearchableComboBox.xaml.cs">
+      <DependentUpon>SearchableComboBox.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Converters\DocumentTitleConverter.cs" />
+    <Compile Include="Converters\FileExtensionConverter.cs" />
+    <Compile Include="Converters\InverseBooleanToVisibilityConverter.cs" />
+    <Compile Include="Converters\MultiConverter.cs" />
+    <Compile Include="Converters\TypeVisibilityCheck.cs" />
+    <Compile Include="Converters\WorkflowStateToIsEnabledConverter.cs" />
+    <Compile Include="Core\ActivityRunner.cs" />
+    <Compile Include="Core\DebugValidationErrorService.cs" />
+    <Compile Include="CSharpExpressionEditor\DesignerValidator.cs" />
+    <Compile Include="Core\Services\DesignerVariableContextMenuService.cs" />
+    <Compile Include="CSharpExpressionEditor\CSharpExpressionHelper.cs" />
+    <Compile Include="CSharpExpressionEditor\DocumentViewModel.cs" />
+    <Compile Include="CSharpExpressionEditor\ExpressionHelper.cs" />
+    <Compile Include="CSharpExpressionEditor\ExpressionSelection.cs" />
+    <Compile Include="CSharpExpressionEditor\ExpressionValidationContext.cs" />
+    <Compile Include="CSharpExpressionEditor\ExpressionValidator.cs" />
+    <Compile Include="CSharpExpressionEditor\LineToHeightConverter.cs" />
+    <Compile Include="CSharpExpressionEditor\ParserContext.cs" />
+    <Compile Include="CSharpExpressionEditor\RoslynExpressionEditor.xaml.cs">
+      <DependentUpon>RoslynExpressionEditor.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="CSharpExpressionEditor\RoslynExpressionEditorInstance2.cs" />
+    <Compile Include="CSharpExpressionEditor\RoslynExpressionEditorService.cs" />
+    <Compile Include="CSharpExpressionEditor\RoslynExpressionValidator.cs" />
+    <Compile Include="CSharpExpressionEditor\VariableCompletionData.cs" />
+    <Compile Include="CSharpExpressionEditor\VariableInfo.cs" />
+    <Compile Include="CSharpExpressionEditor\XamlUtilities.cs" />
+    <Compile Include="Entities\Project.cs" />
+    <Compile Include="EntryPoint.cs" />
+    <Compile Include="Enums\FSNodeType.cs" />
+    <Compile Include="Enums\ProjectType.cs" />
+    <Compile Include="Enums\WorkflowState.cs" />
+    <Compile Include="Helpers\AssembliesHelper.cs" />
+    <Compile Include="Helpers\XamlHelper.cs" />
+    <Compile Include="Logging\Log.cs" />
+    <Compile Include="Core\WorkflowDesignerEx.cs" />
+    <Compile Include="Extensions\SourceLocationExtensions.cs" />
+    <Compile Include="Extensions\StringExtensions.cs" />
+    <Compile Include="Extensions\TrackingEventArgsExtensions.cs" />
+    <Compile Include="Helpers\CommandService.cs" />
+    <Compile Include="Helpers\ConsoleWriter.cs" />
+    <Compile Include="Helpers\ConsoleWriterEventArgs.cs" />
+    <Compile Include="Helpers\CustomCommands.cs" />
+    <Compile Include="Helpers\DebuggerMappingsHelper.cs" />
+    <Compile Include="Helpers\DocGroupHelper.cs" />
+    <Compile Include="Helpers\FSNodeComparer.cs" />
+    <Compile Include="Helpers\IOHelper.cs" />
+    <Compile Include="Helpers\LoadActivityToDesignerHelper.cs" />
+    <Compile Include="Helpers\LocalizeHelper.cs" />
+    <Compile Include="Helpers\ObjectHelper.cs" />
+    <Compile Include="Helpers\PropertyWindowStyleHelper.cs" />
+    <Compile Include="Helpers\TrackHandler.cs" />
+    <Compile Include="Helpers\WFToolboxHelper.cs" />
+    <Compile Include="Logging\LogItem.cs" />
+    <Compile Include="Mcp\HttpMcpServerHost.cs" />
+    <Compile Include="Mcp\IMcpServer.cs" />
+    <Compile Include="Mcp\IMcpTool.cs" />
+    <Compile Include="Mcp\McpModels.cs" />
+    <Compile Include="Mcp\RpaMcpServer.cs" />
+    <Compile Include="Mcp\StdioMcpServerHost.cs" />
+    <Compile Include="Mcp\Tools\AddActivityTool.cs" />
+    <Compile Include="Mcp\Tools\AddAnnotationTool.cs" />
+    <Compile Include="Mcp\Tools\AddAssemblyReferenceTool.cs" />
+    <Compile Include="Mcp\Tools\AddNamespaceTool.cs" />
+    <Compile Include="Mcp\Tools\AnalyzeWorkflowTool.cs" />
+    <Compile Include="Mcp\Tools\BaseMcpTool.cs" />
+    <Compile Include="Mcp\Tools\CopyActivityTool.cs" />
+    <Compile Include="Mcp\Tools\CreateActivityFileTool.cs" />
+    <Compile Include="Mcp\Tools\CreateArgumentTool.cs" />
+    <Compile Include="Mcp\Tools\CreateFromTemplateTool.cs" />
+    <Compile Include="Mcp\Tools\CreateVariableTool.cs" />
+    <Compile Include="Mcp\Tools\DebugWorkflowTool.cs" />
+    <Compile Include="Mcp\Tools\DeleteVariableTool.cs" />
+    <Compile Include="Mcp\Tools\ExtractToWorkflowTool.cs" />
+    <Compile Include="Mcp\Tools\FindActivityTool.cs" />
+    <Compile Include="Mcp\Tools\GetActivityDetailsTool.cs" />
+    <Compile Include="Mcp\Tools\GetActivityTreeTool.cs" />
+    <Compile Include="Mcp\Tools\GetChildActivitiesTool.cs" />
+    <Compile Include="Mcp\Tools\GetFileInfoTool.cs" />
+    <Compile Include="Mcp\Tools\GetOpenTabsTool.cs" />
+    <Compile Include="Mcp\Tools\GetParentActivityTool.cs" />
+    <Compile Include="Mcp\Tools\GetValidationErrorsTool.cs" />
+    <Compile Include="Mcp\Tools\GetWorkflowInfoTool.cs" />
+    <Compile Include="Mcp\Tools\GetWorkflowStatisticsTool.cs" />
+    <Compile Include="Mcp\Tools\InlineWorkflowTool.cs" />
+    <Compile Include="Mcp\Tools\JsonExampleGenerator.cs" />
+    <Compile Include="Mcp\Tools\ListActivitiesTool.cs" />
+    <Compile Include="Mcp\Tools\ListAnnotationsTool.cs" />
+    <Compile Include="Mcp\Tools\ListArgumentsTool.cs" />
+    <Compile Include="Mcp\Tools\ListAssembliesTool.cs" />
+    <Compile Include="Mcp\Tools\ListBreakpointsTool.cs" />
+    <Compile Include="Mcp\Tools\ListFilesTool.cs" />
+    <Compile Include="Mcp\Tools\ListNamespacesTool.cs" />
+    <Compile Include="Mcp\Tools\ListTemplatesTool.cs" />
+    <Compile Include="Mcp\Tools\ListVariablesTool.cs" />
+    <Compile Include="Mcp\Tools\MoveActivityTool.cs" />
+    <Compile Include="Mcp\Tools\ParameterValidator.cs" />
+    <Compile Include="Mcp\Tools\ReadFileTool.cs" />
+    <Compile Include="Mcp\Tools\RemoveActivityTool.cs" />
+    <Compile Include="Mcp\Tools\RemoveBreakpointTool.cs" />
+    <Compile Include="Mcp\Tools\RenameActivityTool.cs" />
+    <Compile Include="Mcp\Tools\RunWorkflowTool.cs" />
+    <Compile Include="Mcp\Tools\SaveAsTemplateTool.cs" />
+    <Compile Include="Mcp\Tools\SaveWorkflowTool.cs" />
+    <Compile Include="Mcp\Tools\SearchFilesTool.cs" />
+    <Compile Include="Mcp\Tools\SetActiveTabTool.cs" />
+    <Compile Include="Mcp\Tools\SetActivityPropertyTool.cs" />
+    <Compile Include="Mcp\Tools\SetBreakpointTool.cs" />
+    <Compile Include="Mcp\Tools\StopExecutionTool.cs" />
+    <Compile Include="Mcp\Tools\UpdateActivityTool.cs" />
+    <Compile Include="Mcp\Tools\UpdateVariableTool.cs" />
+    <Compile Include="Models\ActivityCreator.cs" />
+    <Compile Include="Core\CustomWfDesigner.cs" />
+    <Compile Include="CSharpExpressionEditor\QueryCompletionData.cs" />
+    <Compile Include="Models\AppSettings.cs" />
+    <Compile Include="Entities\FSNode.cs" />
+    <Compile Include="Models\Main.cs" />
+    <Compile Include="Models\McpIntegration.cs" />
+    <Compile Include="Models\ProjectCreator.cs" />
+    <Compile Include="Models\ProjectManager.cs" />
+    <Compile Include="Resources\Main.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Main.resx</DependentUpon>
+    </Compile>
+    <Compile Include="Services.cs" />
+    <Compile Include="VbExpressionEditor\VbExpressionEditorInstance.cs" />
+    <Compile Include="VbExpressionEditor\VbExpressionEditorService.cs" />
+    <Compile Include="ViewModels\ActivityCreatorViewModel.cs" />
+    <Compile Include="ViewModels\AppSettingsViewModel.cs" />
+    <Compile Include="ViewModels\MainViewModel.cs" />
+    <Compile Include="ViewModels\ProjectCreatorViewModel.cs" />
+    <Compile Include="Views\ActivityCreatorView.xaml.cs">
+      <DependentUpon>ActivityCreatorView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\AppSettingsView.xaml.cs">
+      <DependentUpon>AppSettingsView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\MainView.xaml.cs">
+      <DependentUpon>MainView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="App.xaml.cs">
+      <DependentUpon>App.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Views\ProjectCreatorView.xaml.cs">
+      <DependentUpon>ProjectCreatorView.xaml</DependentUpon>
+    </Compile>
+    <XamlAppDef Include="Main.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </XamlAppDef>
+    <Page Include="AiAgent\Control\AiAgentChatControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="AiAgent\Control\AiAgentHistoryControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="AiAgent\Control\AiAgentSettingsControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="AiAgent\Control\McpAutoApproveControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="AiAgent\Control\OllamaSettingsControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="AiAgent\Control\OpenRouterSettingsControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Controls\ProjectManagerControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controls\ToolboxPanel.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Controls\SearchableComboBox.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="CSharpExpressionEditor\RoslynExpressionEditor.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Resources\ButtonStyles.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\ActivityCreatorView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\ProjectCreatorView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <XamlAppDef Include="Activity1.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </XamlAppDef>
+    <Page Include="Views\AppSettingsView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\MainView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\Main.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>Main.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\Main.ru-RU.resx" />
+    <None Include=".editorconfig" />
+    <None Include="app.manifest" />
+    <None Include="NLog.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="packages.config" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="TODO.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Activities.Browser\Activities.Browser.csproj">
+      <Project>{0739d690-4cca-412e-bdf2-56dab379175d}</Project>
+      <Name>Activities.Browser</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Activities.Debug\Activities.Debug.csproj">
+      <Project>{642bd9a9-0b46-43e5-8e81-ca9fca572bbe}</Project>
+      <Name>Activities.Debug</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Activities.Flow\Activities.Flow.csproj">
+      <Project>{cf949441-8403-47a7-8c7d-aec36aeebf29}</Project>
+      <Name>Activities.Flow</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Activities.OS\Activities.OS.csproj">
+      <Project>{6673637a-e9dd-41fd-964a-10b30e4f3b61}</Project>
+      <Name>Activities.OS</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ActivitiesTracker\ActivitiesTracker.csproj">
+      <Project>{FECBFAF5-2B02-464D-A9B0-EA1C7B692FAB}</Project>
+      <Name>ActivitiesTracker</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ActivityLibraryBase\ActivityLibraryBase.csproj">
+      <Project>{B406DE8E-8CF4-42F3-A234-F7B64B496EB0}</Project>
+      <Name>ActivityLibraryBase</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\AvalonDock.Themes.Metro\AvalonDock.Themes.Metro.csproj">
+      <Project>{695b08d6-50a2-4184-9d2c-4b10cdc5f347}</Project>
+      <Name>AvalonDock.Themes.Metro</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\AvalonDock\AvalonDock.csproj">
+      <Project>{0949a8e6-fdf8-4ef7-a10b-ad478c1c6442}</Project>
+      <Name>AvalonDock</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\AvalonEdit\ICSharpCode.AvalonEdit\ICSharpCode.AvalonEdit.csproj">
+      <Project>{5ff052ef-ca43-f4eb-6e5e-1112181266a4}</Project>
+      <Name>ICSharpCode.AvalonEdit</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\FW.EasyMvvm\FW.EasyMvvm.csproj">
+      <Project>{2bccbbf2-e0c7-4051-b699-cf914ac2cd44}</Project>
+      <Name>FW.EasyMvvm</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\LogControlLibrary\LogControlLibrary.csproj">
+      <Project>{980a6090-179d-4285-9bce-4d35cde32c03}</Project>
+      <Name>LogControlLibrary</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\RpaCommon\RpaCommon.csproj">
+      <Project>{b2b92cb0-0614-4bbb-889a-886310c4f70f}</Project>
+      <Name>RpaCommon</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Analyzer Include="..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\analyzers\dotnet\cs\Microsoft.CodeAnalysis.Analyzers.dll" />
+    <Analyzer Include="..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\analyzers\dotnet\cs\Microsoft.CodeAnalysis.Analyzers.dll" />
+    <Analyzer Include="..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\analyzers\dotnet\cs\Microsoft.CodeAnalysis.CSharp.Analyzers.dll" />
+    <Analyzer Include="..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\analyzers\dotnet\cs\Microsoft.CodeAnalysis.CSharp.Analyzers.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="RPA-icon.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="AiAgent\Prompts\ActivitySystemPrompt.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\ExpressionEditor\Event.png" />
+    <EmbeddedResource Include="Resources\ExpressionEditor\Field.png" />
+    <EmbeddedResource Include="Resources\ExpressionEditor\Method.png" />
+    <EmbeddedResource Include="Resources\ExpressionEditor\Property.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="23456789.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="TESTS.txt" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\packages\NETStandard.Library.2.0.3\build\netstandard2.0\NETStandard.Library.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\NETStandard.Library.2.0.3\build\netstandard2.0\NETStandard.Library.targets'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.props'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.targets'))" />
+  </Target>
+  <Import Project="..\packages\NETStandard.Library.2.0.3\build\netstandard2.0\NETStandard.Library.targets" Condition="Exists('..\packages\NETStandard.Library.2.0.3\build\netstandard2.0\NETStandard.Library.targets')" />
+  <Import Project="..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.targets" Condition="Exists('..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.targets')" />
+</Project>

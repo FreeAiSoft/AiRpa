@@ -1,0 +1,55 @@
+﻿<sap:ActivityDesigner x:Class="Activities.Browser.Designers.CreateTabDesigner"
+                      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                      xmlns:s="clr-namespace:System;assembly=mscorlib"
+                      xmlns:sap="clr-namespace:System.Activities.Presentation;assembly=System.Activities.Presentation"
+                      xmlns:sapv="clr-namespace:System.Activities.Presentation.View;assembly=System.Activities.Presentation"
+                      xmlns:sapc="clr-namespace:System.Activities.Presentation.Converters;assembly=System.Activities.Presentation"
+                      xmlns:conv="clr-namespace:ActivityLibraryBase.Converters;assembly=ActivityLibraryBase"
+                      xmlns:baseControls="clr-namespace:ActivityLibraryBase.Controls;assembly=ActivityLibraryBase"
+                      xmlns:localResx="clr-namespace:Activities.Browser.Resources">
+
+    <sap:ActivityDesigner.Resources>
+        <ResourceDictionary>
+            <sapc:ArgumentToExpressionConverter x:Key="ArgumentToExpressionConverter" />
+            <conv:BoolToColorConverter x:Key="BoolToColorConverter" />
+        </ResourceDictionary>
+    </sap:ActivityDesigner.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition />
+            <RowDefinition />
+        </Grid.RowDefinitions>
+        <baseControls:ActivityTop x:Name="activityTop"
+                                  TitleText="{x:Static localResx:ActivitiesBrowser.create_tab}" />
+        <Grid Width="300"
+              Grid.Row="1"
+              IsEnabled="{Binding ElementName=activityTop, Path=IsEnabledActivity}">
+            <Grid.Style>
+                <Style TargetType="{x:Type Grid}">
+                    <Setter Property="Visibility"
+                            Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding ShowExpanded, UpdateSourceTrigger=PropertyChanged}"
+                                     Value="True">
+                            <Setter Property="Visibility"
+                                    Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+            <Grid.RowDefinitions>
+                <RowDefinition />
+                <RowDefinition />
+            </Grid.RowDefinitions>
+            <TextBlock Text="Url" />
+            <sapv:ExpressionTextBox Expression="{Binding Path=ModelItem.Url, Mode=TwoWay,Converter={StaticResource ArgumentToExpressionConverter}, ConverterParameter=In}"
+                                    ExpressionType="s:String"
+                                    HintText="url"
+                                    OwnerActivity="{Binding Path=ModelItem}"
+                                    Grid.Row="1"
+                                    MaxLines="1" />
+        </Grid>
+    </Grid>
+</sap:ActivityDesigner>

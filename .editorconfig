@@ -1,0 +1,4 @@
+﻿[*.cs]
+
+# IDE0061: Use block body for local function
+dotnet_diagnostic.IDE0061.severity = none

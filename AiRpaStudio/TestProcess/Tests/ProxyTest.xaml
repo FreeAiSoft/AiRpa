@@ -1,0 +1,222 @@
+﻿<Activity mc:Ignorable="sap sap2010 sads" x:Class="ProxyTest"
+ xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:ab="clr-namespace:Activities.Browser;assembly=Activities.Browser"
+ xmlns:adm="clr-namespace:Activities.Debug.Main;assembly=Activities.Debug"
+ xmlns:aom="clr-namespace:Activities.OS.Main;assembly=Activities.OS"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ xmlns:mca="clr-namespace:Microsoft.CSharp.Activities;assembly=System.Activities"
+ xmlns:p="clr-namespace:PuppeteerSharp;assembly=PuppeteerSharp"
+ xmlns:sads="http://schemas.microsoft.com/netfx/2010/xaml/activities/debugger"
+ xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+ xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+ xmlns:scg="clr-namespace:System.Collections.Generic;assembly=mscorlib"
+ xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <x:Members>
+    <x:Property Name="isTestSuccess" Type="InOutArgument(x:Boolean)" />
+  </x:Members>
+  <sap2010:ExpressionActivityEditor.ExpressionActivityEditor>C#</sap2010:ExpressionActivityEditor.ExpressionActivityEditor>
+  <sap2010:WorkflowViewState.IdRef>ProxyTest_1</sap2010:WorkflowViewState.IdRef>
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>System</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Data</x:String>
+      <x:String>System.Linq</x:String>
+      <x:String>System.Text</x:String>
+      <x:String>PuppeteerSharp</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>mscorlib</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Core</AssemblyReference>
+      <AssemblyReference>System.Data</AssemblyReference>
+      <AssemblyReference>System.ServiceModel</AssemblyReference>
+      <AssemblyReference>System.Xml</AssemblyReference>
+      <AssemblyReference>netstandard, Version=2.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51</AssemblyReference>
+      <AssemblyReference>PuppeteerSharp</AssemblyReference>
+      <AssemblyReference>Microsoft.Bcl.AsyncInterfaces, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51</AssemblyReference>
+      <AssemblyReference>System.Memory</AssemblyReference>
+      <AssemblyReference>System.ComponentModel.Composition</AssemblyReference>
+      <AssemblyReference>System.Runtime.WindowsRuntime</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <Sequence sap2010:WorkflowViewState.IdRef="Sequence_1">
+    <Sequence.Variables>
+      <Variable x:TypeArguments="p:IBrowser" Name="browser" />
+      <Variable x:TypeArguments="p:IPage" Name="page" />
+      <Variable x:TypeArguments="x:String" Default="45.83.8.230" Name="proxyIp" />
+      <Variable x:TypeArguments="x:String" Name="myIp" />
+    </Sequence.Variables>
+    <ab:StartSwitch ActivityLogger="{x:Null}" DelayAfter="0" DelayBefore="0" DisplayName="Старт профиля без прокси" Headless="False" sap2010:WorkflowViewState.IdRef="StartSwitch_3" IsEnabled="True" IsNeedLogging="False" IsNeedTrace="False" IsSafe="False" ProfileName="Профиль 2" Timeout="300" Url=" ">
+      <ab:StartSwitch.Args>
+        <InArgument x:TypeArguments="x:String">
+          <Literal x:TypeArguments="x:String" Value="" />
+        </InArgument>
+      </ab:StartSwitch.Args>
+      <ab:StartSwitch.Browser>
+        <OutArgument x:TypeArguments="p:IBrowser">
+          <mca:CSharpReference x:TypeArguments="p:IBrowser">browser</mca:CSharpReference>
+        </OutArgument>
+      </ab:StartSwitch.Browser>
+      <ab:StartSwitch.Page>
+        <OutArgument x:TypeArguments="p:IPage">
+          <mca:CSharpReference x:TypeArguments="p:IPage">page</mca:CSharpReference>
+        </OutArgument>
+      </ab:StartSwitch.Page>
+      <ab:StartSwitch.SwitchInstallPath>
+        <InArgument x:TypeArguments="x:String">
+          <mca:CSharpValue x:TypeArguments="x:String">@"C:\Users\Chris\Desktop\SwitchPro"</mca:CSharpValue>
+        </InArgument>
+      </ab:StartSwitch.SwitchInstallPath>
+    </ab:StartSwitch>
+    <aom:KillProcess ActivityLogger="{x:Null}" ProcessName="{x:Null}" DelayAfter="0" DelayBefore="0" DisplayName="Terminate the process" sap2010:WorkflowViewState.IdRef="KillProcess_1" IsEnabled="True" IsNeedLogging="False" IsNeedTrace="False" IsSafe="False" Timeout="30">
+      <aom:KillProcess.ProcessFilePath>
+        <InArgument x:TypeArguments="x:String">
+          <mca:CSharpValue x:TypeArguments="x:String">@"C:\MybotSwitchPro\chr\chrome.exe"</mca:CSharpValue>
+        </InArgument>
+      </aom:KillProcess.ProcessFilePath>
+    </aom:KillProcess>
+    <adm:Logger Exception="{x:Null}" EventLevel="Info" sap2010:WorkflowViewState.IdRef="Logger_2" IsEnabled="True">
+      <adm:Logger.Fields>
+        <scg:Dictionary x:TypeArguments="x:String, InArgument" />
+      </adm:Logger.Fields>
+      <adm:Logger.LogMessage>
+        <InArgument x:TypeArguments="x:String">
+          <mca:CSharpValue x:TypeArguments="x:String">"proxyIp: " + proxyIp</mca:CSharpValue>
+        </InArgument>
+      </adm:Logger.LogMessage>
+    </adm:Logger>
+    <ab:StartSwitch ActivityLogger="{x:Null}" Args="{x:Null}" Headless="{x:Null}" DelayAfter="0" DelayBefore="0" DisplayName="Старт профиля без прокси" sap2010:WorkflowViewState.IdRef="StartSwitch_2" IsEnabled="True" IsNeedLogging="False" IsNeedTrace="False" IsSafe="False" ProfileName="Профиль 2" Timeout="300" Url="https://browserleaks.com/ip">
+      <ab:StartSwitch.Browser>
+        <OutArgument x:TypeArguments="p:IBrowser">
+          <mca:CSharpReference x:TypeArguments="p:IBrowser">browser</mca:CSharpReference>
+        </OutArgument>
+      </ab:StartSwitch.Browser>
+      <ab:StartSwitch.Page>
+        <OutArgument x:TypeArguments="p:IPage">
+          <mca:CSharpReference x:TypeArguments="p:IPage">page</mca:CSharpReference>
+        </OutArgument>
+      </ab:StartSwitch.Page>
+      <ab:StartSwitch.SwitchInstallPath>
+        <InArgument x:TypeArguments="x:String">
+          <mca:CSharpValue x:TypeArguments="x:String">@"C:\Users\Chris\Desktop\SwitchPro"</mca:CSharpValue>
+        </InArgument>
+      </ab:StartSwitch.SwitchInstallPath>
+    </ab:StartSwitch>
+    <ab:GetWebElementAttribute ActivityLogger="{x:Null}" XPathSelector="{x:Null}" AttributeName="data-ip" CSSSelector="#client-ipv4" DelayAfter="0" DelayBefore="0" DisplayName="Получить аттрибут" sap2010:WorkflowViewState.IdRef="GetWebElementAttribute_2" IsEnabled="True" IsNeedLogging="False" IsNeedTrace="False" IsSafe="False" Timeout="30">
+      <ab:GetWebElementAttribute.AttributeValue>
+        <OutArgument x:TypeArguments="x:String">
+          <mca:CSharpReference x:TypeArguments="x:String">myIp</mca:CSharpReference>
+        </OutArgument>
+      </ab:GetWebElementAttribute.AttributeValue>
+      <ab:GetWebElementAttribute.Page>
+        <InArgument x:TypeArguments="p:IPage">
+          <mca:CSharpValue x:TypeArguments="p:IPage">page</mca:CSharpValue>
+        </InArgument>
+      </ab:GetWebElementAttribute.Page>
+    </ab:GetWebElementAttribute>
+    <ab:CloseBrowser ActivityLogger="{x:Null}" DelayAfter="0" DelayBefore="0" DisplayName="Закрыть браузер" sap2010:WorkflowViewState.IdRef="CloseBrowser_2" IsEnabled="True" IsNeedLogging="False" IsNeedTrace="False" IsSafe="False" Timeout="30">
+      <ab:CloseBrowser.Browser>
+        <InArgument x:TypeArguments="p:IBrowser">
+          <mca:CSharpValue x:TypeArguments="p:IBrowser">browser</mca:CSharpValue>
+        </InArgument>
+      </ab:CloseBrowser.Browser>
+    </ab:CloseBrowser>
+    <Delay Duration="00:00:07" sap2010:WorkflowViewState.IdRef="Delay_1" />
+    <ab:StartSwitch ActivityLogger="{x:Null}" Headless="{x:Null}" DelayAfter="0" DelayBefore="0" DisplayName="Старт профиля с прокси" sap2010:WorkflowViewState.IdRef="StartSwitch_1" IsEnabled="True" IsNeedLogging="False" IsNeedTrace="False" IsSafe="False" ProfileName="Профиль 2" Timeout="300" Url="https://browserleaks.com/ip">
+      <ab:StartSwitch.Args>
+        <InArgument x:TypeArguments="x:String">
+          <mca:CSharpValue x:TypeArguments="x:String">"--proxy-login=NvL5EQ --proxy_pwd=wCPZB5 --proxy-pwd=wCPZB5 --proxy-server=http://"+proxyIp+":8000"</mca:CSharpValue>
+        </InArgument>
+      </ab:StartSwitch.Args>
+      <ab:StartSwitch.Browser>
+        <OutArgument x:TypeArguments="p:IBrowser">
+          <mca:CSharpReference x:TypeArguments="p:IBrowser">browser</mca:CSharpReference>
+        </OutArgument>
+      </ab:StartSwitch.Browser>
+      <ab:StartSwitch.Page>
+        <OutArgument x:TypeArguments="p:IPage">
+          <mca:CSharpReference x:TypeArguments="p:IPage">page</mca:CSharpReference>
+        </OutArgument>
+      </ab:StartSwitch.Page>
+      <ab:StartSwitch.SwitchInstallPath>
+        <InArgument x:TypeArguments="x:String">
+          <mca:CSharpValue x:TypeArguments="x:String">@"C:\Users\Chris\Desktop\SwitchPro"</mca:CSharpValue>
+        </InArgument>
+      </ab:StartSwitch.SwitchInstallPath>
+    </ab:StartSwitch>
+    <ab:GetWebElementAttribute ActivityLogger="{x:Null}" XPathSelector="{x:Null}" AttributeName="data-ip" CSSSelector="#client-ipv4" DelayAfter="0" DelayBefore="0" DisplayName="Получить аттрибут" sap2010:WorkflowViewState.IdRef="GetWebElementAttribute_1" IsEnabled="True" IsNeedLogging="False" IsNeedTrace="False" IsSafe="False" Timeout="30">
+      <ab:GetWebElementAttribute.AttributeValue>
+        <OutArgument x:TypeArguments="x:String">
+          <mca:CSharpReference x:TypeArguments="x:String">proxyIp</mca:CSharpReference>
+        </OutArgument>
+      </ab:GetWebElementAttribute.AttributeValue>
+      <ab:GetWebElementAttribute.Page>
+        <InArgument x:TypeArguments="p:IPage">
+          <mca:CSharpValue x:TypeArguments="p:IPage">page</mca:CSharpValue>
+        </InArgument>
+      </ab:GetWebElementAttribute.Page>
+    </ab:GetWebElementAttribute>
+    <ab:CloseBrowser ActivityLogger="{x:Null}" DelayAfter="0" DelayBefore="0" DisplayName="Закрыть браузер" sap2010:WorkflowViewState.IdRef="CloseBrowser_1" IsEnabled="True" IsNeedLogging="False" IsNeedTrace="False" IsSafe="False" Timeout="30">
+      <ab:CloseBrowser.Browser>
+        <InArgument x:TypeArguments="p:IBrowser">
+          <mca:CSharpValue x:TypeArguments="p:IBrowser">browser</mca:CSharpValue>
+        </InArgument>
+      </ab:CloseBrowser.Browser>
+    </ab:CloseBrowser>
+    <If sap2010:WorkflowViewState.IdRef="If_2">
+      <If.Condition>
+        <InArgument x:TypeArguments="x:Boolean">
+          <mca:CSharpValue x:TypeArguments="x:Boolean">proxyIp!=myIp &amp;&amp; !string.IsNullOrWhiteSpace(proxyIp) &amp;&amp; !string.IsNullOrWhiteSpace(myIp)</mca:CSharpValue>
+        </InArgument>
+      </If.Condition>
+      <If.Then>
+        <Assign sap2010:WorkflowViewState.IdRef="Assign_4">
+          <Assign.To>
+            <OutArgument x:TypeArguments="x:Boolean">
+              <mca:CSharpReference x:TypeArguments="x:Boolean">isTestSuccess</mca:CSharpReference>
+            </OutArgument>
+          </Assign.To>
+          <Assign.Value>
+            <InArgument x:TypeArguments="x:Boolean">True</InArgument>
+          </Assign.Value>
+        </Assign>
+      </If.Then>
+    </If>
+    <sads:DebugSymbol.Symbol>d0dDOlxVc2Vyc1xNYXh4eFxzb3VyY2VccmVwb3NcTXlCb3RcUlBBXFRlc3RQcm9jZXNzXFRlc3RzXFxQcm94eVRlc3QueGFtbEguA74BDgIBATI0MkECAQI1BUoWAwGTAUsFURcDAYkBUgVbEgMBggFcBWwWAgFqbQV4IQIBWHkFfxcCAU6AAQWAAUwCAUyBAQWWARYCAS6XAQWiASECARyjAQWpARcCARKqAQW8AQoCAQM1OjU9AwGsATWMAjWXAgMBqwFHC0dsAwGlATWgAjWlAgMBpAE4Czg6AwGjATVKNU0DAaIBNaoCNa0CAwGhATV+NYUBAwGgAUILQlQDAZoBPQs9WgMBlAFLUktVAwGSAUuMAkuQAgMBkQFOC05sAwGLAUtiS2UDAYoBWAtYXgMBgwFcXlxhAwGBAVyfAlyqAgMBgAFpC2lsAgF6XLMCXLgCAgF5XG5ccQIBeFy9AlzaAgIBd2QLZFQCAXFfC19aAgFrbZEBbZQBAgFpbXdthQECAWhwC3BVAgFibdICbdYCAgFhbaEBbaQBAgFgdQt1TAIBWm1hbWoCAVl5O3k+AgFXefABefQBAgFWeUt5TgIBVXwLfFICAU+AARWAAR8CAU2BAU6BAVECAUuBAY0CgQGYAgIBSpMBC5MBbAIBRIEBoQKBAaYCAgFDhAELhAGsAQIBPYEBXoEBYQIBPIEBqwKBAcgCAgE7jgELjgFUAgE1iQELiQFaAgEvlwGRAZcBlAECAS2XAXeXAYUBAgEsmgELmgFYAgEmlwHSApcB1gICASWXAaEBlwGkAQIBJJ8BC58BTAIBHpcBYZcBagIBHaMBO6MBPgIBG6MB8AGjAfQBAgEaowFLowFOAgEZpgELpgFSAgETrQELrQGyAQIBBLEBCboBEgIBCrgBNbgBOQIBEbQBD7QBYwIBCw==</sads:DebugSymbol.Symbol>
+  </Sequence>
+  <sap2010:WorkflowViewState.ViewStateManager>
+    <sap2010:ViewStateManager>
+      <sap2010:ViewStateData Id="StartSwitch_3" sap:VirtualizedContainerService.HintSize="464,120" />
+      <sap2010:ViewStateData Id="KillProcess_1" sap:VirtualizedContainerService.HintSize="464,20" />
+      <sap2010:ViewStateData Id="Logger_2" sap:VirtualizedContainerService.HintSize="464,52">
+        <sap:WorkflowViewStateService.ViewState>
+          <scg:Dictionary x:TypeArguments="x:String, x:Object">
+            <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+            <x:Boolean x:Key="IsPinned">False</x:Boolean>
+          </scg:Dictionary>
+        </sap:WorkflowViewStateService.ViewState>
+      </sap2010:ViewStateData>
+      <sap2010:ViewStateData Id="StartSwitch_2" sap:VirtualizedContainerService.HintSize="464,118" />
+      <sap2010:ViewStateData Id="GetWebElementAttribute_2" sap:VirtualizedContainerService.HintSize="464,118" />
+      <sap2010:ViewStateData Id="CloseBrowser_2" sap:VirtualizedContainerService.HintSize="464,20" />
+      <sap2010:ViewStateData Id="Delay_1" sap:VirtualizedContainerService.HintSize="464,22" />
+      <sap2010:ViewStateData Id="StartSwitch_1" sap:VirtualizedContainerService.HintSize="464,118" />
+      <sap2010:ViewStateData Id="GetWebElementAttribute_1" sap:VirtualizedContainerService.HintSize="464,118" />
+      <sap2010:ViewStateData Id="CloseBrowser_1" sap:VirtualizedContainerService.HintSize="464,20" />
+      <sap2010:ViewStateData Id="Assign_4" sap:VirtualizedContainerService.HintSize="242,50" />
+      <sap2010:ViewStateData Id="If_2" sap:VirtualizedContainerService.HintSize="464,200" />
+      <sap2010:ViewStateData Id="Sequence_1" sap:VirtualizedContainerService.HintSize="486,1450">
+        <sap:WorkflowViewStateService.ViewState>
+          <scg:Dictionary x:TypeArguments="x:String, x:Object">
+            <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+          </scg:Dictionary>
+        </sap:WorkflowViewStateService.ViewState>
+      </sap2010:ViewStateData>
+      <sap2010:ViewStateData Id="ProxyTest_1" sap:VirtualizedContainerService.HintSize="526,1530" />
+    </sap2010:ViewStateManager>
+  </sap2010:WorkflowViewState.ViewStateManager>
+</Activity>

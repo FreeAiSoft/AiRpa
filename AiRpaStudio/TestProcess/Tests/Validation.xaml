@@ -1,0 +1,94 @@
+﻿<Activity mc:Ignorable="sap sap2010 sads" x:Class="Validation" sap2010:ExpressionActivityEditor.ExpressionActivityEditor="C#" sap2010:WorkflowViewState.IdRef="Validation_1"
+ xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:ab="clr-namespace:Activities.Browser;assembly=Activities.Browser"
+ xmlns:af="clr-namespace:Activities.Flow;assembly=Activities.Flow"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ xmlns:mca="clr-namespace:Microsoft.CSharp.Activities;assembly=System.Activities"
+ xmlns:sads="http://schemas.microsoft.com/netfx/2010/xaml/activities/debugger"
+ xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+ xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+ xmlns:scg="clr-namespace:System.Collections.Generic;assembly=mscorlib"
+ xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>System</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Data</x:String>
+      <x:String>System.Linq</x:String>
+      <x:String>System.Text</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>mscorlib</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Core</AssemblyReference>
+      <AssemblyReference>System.Data</AssemblyReference>
+      <AssemblyReference>System.ServiceModel</AssemblyReference>
+      <AssemblyReference>System.Xml</AssemblyReference>
+      <AssemblyReference>netstandard, Version=2.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <Sequence sap2010:WorkflowViewState.IdRef="Sequence_1">
+    <af:RunScript DisplayName="Run1" sap2010:WorkflowViewState.IdRef="RunScript_1" IsEnabled="True">
+      <af:RunScript.Arguments>
+        <scg:Dictionary x:TypeArguments="x:String, Argument" />
+      </af:RunScript.Arguments>
+      <af:RunScript.PathToXamlActivity>
+        <InArgument x:TypeArguments="x:String">
+          <mca:CSharpValue x:TypeArguments="x:String">1</mca:CSharpValue>
+        </InArgument>
+      </af:RunScript.PathToXamlActivity>
+    </af:RunScript>
+    <af:RunScript DisplayName="Run2" sap2010:WorkflowViewState.IdRef="RunScript_2" IsEnabled="True">
+      <af:RunScript.Arguments>
+        <scg:Dictionary x:TypeArguments="x:String, Argument" />
+      </af:RunScript.Arguments>
+      <af:RunScript.PathToXamlActivity>
+        <InArgument x:TypeArguments="x:String">
+          <mca:CSharpValue x:TypeArguments="x:String">"Tests\ProxyTest.xaml"+-</mca:CSharpValue>
+        </InArgument>
+      </af:RunScript.PathToXamlActivity>
+    </af:RunScript>
+    <af:RunScript DisplayName="Run3" sap2010:WorkflowViewState.IdRef="RunScript_3" IsEnabled="True" PathToXamlActivity="Tests\CheckWebRTC.xaml">
+      <af:RunScript.Arguments>
+        <scg:Dictionary x:TypeArguments="x:String, Argument" />
+      </af:RunScript.Arguments>
+    </af:RunScript>
+    <ab:StartBrowser ActivityLogger="{x:Null}" Args="{x:Null}" Browser="{x:Null}" ExecutablePath="{x:Null}" Headless="{x:Null}" Page="{x:Null}" Url="{x:Null}" UserDataDir="{x:Null}" DisplayName="Старт браузера" sap2010:WorkflowViewState.IdRef="StartBrowser_2" IsEnabled="True" IsNeedLogging="False" IsNeedTrace="False" IsSafe="False">
+      <ab:StartBrowser.DelayAfter>
+        <InArgument x:TypeArguments="x:Int32">
+          <mca:CSharpValue x:TypeArguments="x:Int32">4.7M</mca:CSharpValue>
+        </InArgument>
+      </ab:StartBrowser.DelayAfter>
+      <ab:StartBrowser.DelayBefore>
+        <InArgument x:TypeArguments="x:Int32">
+          <mca:CSharpValue x:TypeArguments="x:Int32">1.4</mca:CSharpValue>
+        </InArgument>
+      </ab:StartBrowser.DelayBefore>
+      <ab:StartBrowser.Timeout>
+        <InArgument x:TypeArguments="x:Int32">
+          <mca:CSharpValue x:TypeArguments="x:Int32">"ffffffffffff"</mca:CSharpValue>
+        </InArgument>
+      </ab:StartBrowser.Timeout>
+    </ab:StartBrowser>
+    <sads:DebugSymbol.Symbol>d0dDOlxVc2Vyc1xNYXh4eFxzb3VyY2VccmVwb3NcTXlCb3RcUlBBXFRlc3RQcm9jZXNzXFRlc3RzXFZhbGlkYXRpb24ueGFtbAshA00OAgEBIgUrFAIBCiwFNRQCAQg2BToUAgEGOwVLFwIBAigLKEoCAQsyCzJhAgEJNng2kAECAQc+Cz5MAgEFSAtIVgIBBEMLQ0sCAQM=</sads:DebugSymbol.Symbol>
+  </Sequence>
+  <sap2010:WorkflowViewState.ViewStateManager>
+    <sap2010:ViewStateManager>
+      <sap2010:ViewStateData Id="RunScript_1" sap:VirtualizedContainerService.HintSize="314,118" />
+      <sap2010:ViewStateData Id="RunScript_2" sap:VirtualizedContainerService.HintSize="314,118" />
+      <sap2010:ViewStateData Id="RunScript_3" sap:VirtualizedContainerService.HintSize="314,118" />
+      <sap2010:ViewStateData Id="StartBrowser_2" sap:VirtualizedContainerService.HintSize="314,87" />
+      <sap2010:ViewStateData Id="Sequence_1" sap:VirtualizedContainerService.HintSize="336,685">
+        <sap:WorkflowViewStateService.ViewState>
+          <scg:Dictionary x:TypeArguments="x:String, x:Object">
+            <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+          </scg:Dictionary>
+        </sap:WorkflowViewStateService.ViewState>
+      </sap2010:ViewStateData>
+      <sap2010:ViewStateData Id="Validation_1" sap:VirtualizedContainerService.HintSize="376,725" />
+    </sap2010:ViewStateManager>
+  </sap2010:WorkflowViewState.ViewStateManager>
+</Activity>
