@@ -103,8 +103,9 @@ namespace RPA.Models
         /// Create project
         /// </summary>
         /// <param name="isStart">If true - first start</param>
-        public void CreateProject(bool isStart = false)
+        public void CreateProject()
         {
+            bool isStart = true;
             SelectedPath = SelectedPath.Trim();
 
             if (string.IsNullOrWhiteSpace(SelectedPath))

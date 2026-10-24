@@ -86,7 +86,7 @@ namespace RPA.Models
             //create if not exist
             if (!Directory.Exists(Path.Combine(projectCreator.SelectedPath, projectCreator.Project.Name)))
             {
-                projectCreator.CreateProject(true);
+                projectCreator.CreateProject();
                 Properties.Settings.Default.LastLoadedProjectPath = projectCreator.RootFolder;
                 Properties.Settings.Default.Save();
             }

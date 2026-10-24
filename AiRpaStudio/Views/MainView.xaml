@@ -129,21 +129,9 @@
         <Menu Grid.Row="0"
               FontFamily="Consolas">
             <MenuItem Header="{DynamicResource lang_main_file}">
-                <MenuItem Header="Default (VB ExpressionEditor)"
-                          Command="ApplicationCommands.New" />
-                <MenuItem Header="Custom (VB Intellisense ExpressionEditor)"
-                          Command="mw:CustomCommands.CmdWfNewVB" />
-                <MenuItem Header="New activity (C# ExpressionEditor)"
+                <MenuItem Header="New process"
                           Command="{Binding Cmd}"
-                          CommandParameter="CmdWorkflowNewCSharp" />
-                <MenuItem Header="New project">
-                    <MenuItem Header="New process"
-                              Command="{Binding Cmd}"
-                              CommandParameter="CmdWorkflowNewProcess" />
-                    <MenuItem Header="New library"
-                              Command="{Binding Cmd}"
-                              CommandParameter="CmdWorkflowNewLibrary" />
-                </MenuItem>
+                          CommandParameter="CmdWorkflowNewProcess" />
                 <MenuItem Header="Load project"
                           Command="{Binding Cmd}"
                           CommandParameter="CmdTryLoadProject" />
