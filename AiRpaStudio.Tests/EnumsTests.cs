@@ -13,6 +13,8 @@ public class EnumsTests
         Assert.That((int)FSNodeType.File, Is.EqualTo(0));
         Assert.That((int)FSNodeType.Dir, Is.EqualTo(1));
         Assert.That((int)FSNodeType.Project, Is.EqualTo(2));
+        Assert.That((int)FSNodeType.Solution, Is.EqualTo(3));
+        Assert.That((int)FSNodeType.VsProject, Is.EqualTo(4));
     }
 
     [Test]

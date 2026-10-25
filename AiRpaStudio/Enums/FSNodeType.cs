@@ -4,6 +4,8 @@
     {
         File,
         Dir,
-        Project
+        Project,
+        Solution,
+        VsProject
     }
 }

@@ -6,7 +6,6 @@
                  xmlns:local="clr-namespace:RPA.Views"
                  mc:Ignorable="d"
                  xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
-                 xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                  Height="130"
                  Width="250"
                  Title="Настройки"

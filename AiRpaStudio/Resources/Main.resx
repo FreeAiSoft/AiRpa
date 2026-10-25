@@ -177,4 +177,76 @@
   <data name="lang_toolbox_os" xml:space="preserve">
     <value>Operating System</value>
   </data>
+  <data name="lang_main_new_vs_template" xml:space="preserve">
+    <value>New WF Activity Library (VS Template)</value>
+  </data>
+  <data name="lang_main_open_vs_project" xml:space="preserve">
+    <value>Open VS Project (.sln/.csproj)</value>
+  </data>
+  <data name="lang_cm_open_in_vs" xml:space="preserve">
+    <value>Open in Visual Studio</value>
+  </data>
+  <data name="lang_cm_build_msbuild" xml:space="preserve">
+    <value>Build (MSBuild)</value>
+  </data>
+  <data name="lang_load_into_studio" xml:space="preserve">
+    <value>Load into studio</value>
+  </data>
+  <data name="lang_create_vs_template_title" xml:space="preserve">
+    <value>Create WF Activity Library</value>
+  </data>
+  <data name="lang_open_vs_project_title" xml:space="preserve">
+    <value>Open Visual Studio Project</value>
+  </data>
+  <data name="lang_vs_project_created" xml:space="preserve">
+    <value>Project created</value>
+  </data>
+  <data name="lang_open_in_vs" xml:space="preserve">
+    <value>Open in VS</value>
+  </data>
+  <data name="lang_close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="lang_build" xml:space="preserve">
+    <value>Build</value>
+  </data>
+  <data name="lang_msg_specify_project_folder" xml:space="preserve">
+    <value>Specify the project folder.</value>
+  </data>
+  <data name="lang_msg_folder_not_exists" xml:space="preserve">
+    <value>Folder {0} does not exist. Specify an existing project folder.</value>
+  </data>
+  <data name="lang_msg_enter_project_name" xml:space="preserve">
+    <value>Enter a project name.</value>
+  </data>
+  <data name="lang_msg_specify_project_file" xml:space="preserve">
+    <value>Specify a project file (.sln or .csproj).</value>
+  </data>
+  <data name="lang_msg_specify_path" xml:space="preserve">
+    <value>Specify the project file path.</value>
+  </data>
+  <data name="lang_msg_open_vs_error" xml:space="preserve">
+    <value>Failed to open in Visual Studio: {0}</value>
+  </data>
+  <data name="lang_msg_build_started" xml:space="preserve">
+    <value>Building: {0}</value>
+  </data>
+  <data name="lang_msg_build_success" xml:space="preserve">
+    <value>Build completed successfully.</value>
+  </data>
+  <data name="lang_msg_build_failed" xml:space="preserve">
+    <value>Build failed (code {0}).</value>
+  </data>
+  <data name="lang_msg_vs_project_loaded" xml:space="preserve">
+    <value>VS project loaded: {0}</value>
+  </data>
+  <data name="lang_msg_vs_project_load_error" xml:space="preserve">
+    <value>Failed to load VS project: {0}</value>
+  </data>
+  <data name="lang_msg_open_file_error" xml:space="preserve">
+    <value>Failed to open file: {0}</value>
+  </data>
+  <data name="lang_msg_xaml_load_failed" xml:space="preserve">
+    <value>Failed to load in the designer: {0}</value>
+  </data>
 </root>

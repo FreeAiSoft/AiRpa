@@ -4,8 +4,11 @@
 - Любая разработка идёт только через тестирование (red → green → refactor).
 - Сначала пишется падающий тест, затем минимальная реализация, затем рефакторинг.
 - Каждая новая возможность должна быть покрыта юнит-тестами в проекте `AiRpaStudio.Tests`.
-- Перед завершением задачи все тесты обязаны проходить
-  (`dotnet test AiRpaStudio.Tests\AiRpaStudio.Tests.csproj`).
+- Перед завершением задачи все тесты обязаны проходить.
+  ⚠️ `dotnet test` в этом репозитории НЕ работает: legacy WPF-проекты не собираются
+  SDK-шным MSBuild. Правильная команда — MSBuild из Visual Studio + vstest:
+  `MSBuild.exe AiRpaStudio.Tests\AiRpaStudio.Tests.csproj -t:Build`, затем
+  `vstest.console.exe AiRpaStudio.Tests\bin\Debug\net48\AiRpaStudio.Tests.dll`.
 
 ## Соглашения проекта
 - Целевая платформа: .NET Framework 4.8, WPF-приложение (`OutputType=WinExe`),
@@ -24,7 +27,9 @@
 ## Сборка и тесты
 - Решение: `AiRpa.sln` (корень репозитория).
 - Проект приложения: `AiRpaStudio\AiRpaStudio.csproj`.
-- Тесты: `dotnet test AiRpaStudio.Tests\AiRpaStudio.Tests.csproj` (SDK-style, net48 + NUnit).
+- Тесты: `AiRpaStudio.Tests\AiRpaStudio.Tests.csproj` (SDK-style, net48 + NUnit).
+  Запуск — через MSBuild из Visual Studio + `vstest.console.exe` (см. выше), т.к.
+  `dotnet test` не собирает legacy WPF-проекты решения.
 - Полная сборка решения: MSBuild из Visual Studio.
 
 ## Шаблон MVVM проекта AiRpaStudio (FW.EasyMvvm) — обязательное требование

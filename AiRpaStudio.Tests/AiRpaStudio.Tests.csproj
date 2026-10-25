@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RPA\AiRpaStudio.csproj" />
+    <ProjectReference Include="..\AiRpaStudio\AiRpaStudio.csproj" />
   </ItemGroup>
 
   <ItemGroup>

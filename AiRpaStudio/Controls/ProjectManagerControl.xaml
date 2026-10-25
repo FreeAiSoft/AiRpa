@@ -60,6 +60,14 @@
                       x:Name="OpenFileMenuItem"
                       Click="OpenFileMenuItem_Click"
                       Focusable="False"/>
+            <MenuItem Header="{DynamicResource lang_cm_open_in_vs}"
+                      x:Name="OpenInVsMenuItem"
+                      Click="OpenInVsMenuItem_Click"
+                      Focusable="False"/>
+            <MenuItem Header="{DynamicResource lang_cm_build_msbuild}"
+                      x:Name="BuildWithMsBuildMenuItem"
+                      Click="BuildWithMsBuildMenuItem_Click"
+                      Focusable="False"/>
             <MenuItem Header="Удалить файл"
                       x:Name="DeleteFileMenuItem"
                       Click="DeleteFileMenuItem_Click"
@@ -90,6 +98,14 @@
             <MenuItem Header="Добавить активность"
                       x:Name="AddActivityToFolderMenuItem"
                       Click="AddActivityToFolderMenuItem_Click"
+                      Focusable="False"/>
+        </ContextMenu>
+        <ContextMenu x:Key="VsProjectContext" Focusable="False">
+            <MenuItem Header="{DynamicResource lang_cm_open_in_vs}"
+                      Click="OpenInVsMenuItem_Click"
+                      Focusable="False"/>
+            <MenuItem Header="{DynamicResource lang_cm_build_msbuild}"
+                      Click="BuildWithMsBuildMenuItem_Click"
                       Focusable="False"/>
         </ContextMenu>
         
@@ -231,6 +247,16 @@
                                                  Value="{x:Static enums:FSNodeType.Dir}">
                                         <Setter Property="ContextMenu"
                                                 Value="{StaticResource ProjectFolderContext}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding FSNodeType}"
+                                                 Value="{x:Static enums:FSNodeType.Solution}">
+                                        <Setter Property="ContextMenu"
+                                                Value="{StaticResource VsProjectContext}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding FSNodeType}"
+                                                 Value="{x:Static enums:FSNodeType.VsProject}">
+                                        <Setter Property="ContextMenu"
+                                                Value="{StaticResource VsProjectContext}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>

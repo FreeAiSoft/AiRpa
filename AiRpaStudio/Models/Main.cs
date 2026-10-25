@@ -2,12 +2,16 @@
 using System.Activities.Core.Presentation;
 using System.Globalization;
 using System.IO;
+using System.Diagnostics;
 using FW.EasyMvvm.Core;
+using MahApps.Metro.Controls;
+using MahApps.Metro.Controls.Dialogs;
 using RPA.Core;
 using RPA.Enums;
 using RPA.Helpers;
 using RPA.ViewModels;
 using RPA.Views;
+using RPA.VsProject;
 using RpaCommon;
 
 namespace RPA.Models
@@ -163,7 +167,31 @@ namespace RPA.Models
         {
             if (filePath.EndsWith(".xaml", StringComparison.OrdinalIgnoreCase))
             {
-                CustomWfDesigner.ActiveWorkflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(filePath);
+                try
+                {
+                    CustomWfDesigner.ActiveWorkflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(filePath);
+                }
+                catch (Exception ex)
+                {
+                    CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_xaml_load_failed", ex.Message), (int)RpaCommon.Enums.LogLevel.Error);
+                    OnSendMessage(LocalizeHelper.Get("lang_msg_xaml_load_failed", ex.Message));
+                }
+            }
+            else if (filePath.EndsWith(".sln", StringComparison.OrdinalIgnoreCase)
+                     || filePath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+            {
+                CmdVsOpenInVisualStudio(filePath);
+            }
+            else
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true });
+                }
+                catch (Exception ex)
+                {
+                    OnSendMessage(LocalizeHelper.Get("lang_msg_open_file_error", ex.Message));
+                }
             }
         }
 
@@ -285,6 +313,139 @@ namespace RPA.Models
             CustomWfDesigner.CmdRedo();
         }
 
+        #region Visual Studio
+
+        /// <summary>
+        /// Create WF Activity Library from Visual Studio template
+        /// </summary>
+        public void CmdVsNewProjectFromTemplate()
+        {
+            VsTemplateProjectCreator creator = new VsTemplateProjectCreator();
+            MvvmFactory.CreateWindow(creator, new VsTemplateProjectCreatorViewModel(), new VsTemplateProjectCreatorView(), ViewMode.ShowDialog);
+            if (creator.IsCreate)
+            {
+                OfferVsProjectActions(creator);
+            }
+        }
+
+        /// <summary>
+        /// Open a .sln/.csproj file in an external Visual Studio instance (always a new instance)
+        /// </summary>
+        /// <param name="path"></param>
+        public void CmdVsOpenInVisualStudio(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                OnSendMessage(LocalizeHelper.Get("lang_msg_specify_path"));
+                return;
+            }
+
+            try
+            {
+                VsProjectOpener.OpenInVisualStudio(path);
+            }
+            catch (Exception ex)
+            {
+                CustomWfDesigner.Log("Ошибка открытия в Visual Studio: " + ex.Message, (int)RpaCommon.Enums.LogLevel.Error);
+                OnSendMessage(LocalizeHelper.Get("lang_msg_open_vs_error", ex.Message));
+            }
+        }
+
+        /// <summary>
+        /// Opens a .sln/.csproj file (dialog) and either opens it in VS or loads it into the studio.
+        /// </summary>
+        public void CmdVsOpenProject()
+        {
+            VsProjectOpen model = new VsProjectOpen();
+            MvvmFactory.CreateWindow(model, new VsProjectOpenViewModel(), new VsProjectOpenView(), ViewMode.ShowDialog);
+            if (model.IsLoadIntoStudio)
+            {
+                LoadVsProjectIntoStudio(model.FilePath);
+            }
+        }
+
+        /// <summary>
+        /// Builds a .sln/.csproj project via MSBuild and logs the output.
+        /// </summary>
+        public void CmdVsBuild(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                OnSendMessage(LocalizeHelper.Get("lang_msg_specify_path"));
+                return;
+            }
+
+            CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_build_started", path), (int)RpaCommon.Enums.LogLevel.Info);
+
+            VsBuildResult result = VsProjectBuilder.Build(
+                path,
+                "Debug",
+                message => CustomWfDesigner.Log(message));
+
+            if (result.Success)
+            {
+                CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_build_success"), (int)RpaCommon.Enums.LogLevel.Info);
+            }
+            else
+            {
+                CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_build_failed", result.ExitCode), (int)RpaCommon.Enums.LogLevel.Error);
+            }
+        }
+
+        private void LoadVsProjectIntoStudio(string path)
+        {
+            try
+            {
+                CallResult resp = ProjectManager.InitVsProjectTree(path);
+                if (!resp.Success)
+                {
+                    OnSendMessage(resp.Error.Message);
+                    return;
+                }
+
+                CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_vs_project_loaded", path), (int)RpaCommon.Enums.LogLevel.Info);
+            }
+            catch (Exception ex)
+            {
+                CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_vs_project_load_error", ex.Message), (int)RpaCommon.Enums.LogLevel.Error);
+                OnSendMessage(LocalizeHelper.Get("lang_msg_vs_project_load_error", ex.Message));
+            }
+        }
+
+        private async void OfferVsProjectActions(VsTemplateProjectCreator creator)
+        {
+            if (!(ViewModel?.View is MetroWindow window))
+            {
+                return;
+            }
+
+            MessageDialogResult choice = await window.ShowMessageAsync(
+                LocalizeHelper.Get("lang_vs_project_created"),
+                creator.ProjectFilePath,
+                MessageDialogStyle.AffirmativeAndNegativeAndDoubleAuxiliary,
+                new MetroDialogSettings
+                {
+                    AffirmativeButtonText = LocalizeHelper.Get("lang_open_in_vs"),
+                    NegativeButtonText = LocalizeHelper.Get("lang_close"),
+                    FirstAuxiliaryButtonText = LocalizeHelper.Get("lang_load_into_studio"),
+                    SecondAuxiliaryButtonText = LocalizeHelper.Get("lang_build")
+                });
+
+            switch (choice)
+            {
+                case MessageDialogResult.Affirmative:
+                    CmdVsOpenInVisualStudio(creator.ProjectFilePath);
+                    break;
+                case MessageDialogResult.FirstAuxiliary:
+                    LoadVsProjectIntoStudio(creator.ProjectFilePath);
+                    break;
+                case MessageDialogResult.SecondAuxiliary:
+                    CmdVsBuild(creator.ProjectFilePath);
+                    break;
+            }
+        }
+
+        #endregion Visual Studio
 
         #endregion Commands
     }

@@ -140,6 +140,11 @@ namespace RPA.Entities
                 }
             }
 
+            else if (fSNodeType == FSNodeType.Solution || fSNodeType == FSNodeType.VsProject)
+            {
+                Name = Path.GetFileNameWithoutExtension(fullPath);
+            }
+
             FSNodeType = fSNodeType;
         }
 

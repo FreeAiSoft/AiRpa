@@ -26,8 +26,8 @@ namespace RPA.Helpers
             }
 
             // Folders should come before files
-            bool xIsFolder = x.FSNodeType == FSNodeType.Dir || x.FSNodeType == FSNodeType.Project;
-            bool yIsFolder = y.FSNodeType == FSNodeType.Dir || y.FSNodeType == FSNodeType.Project;
+            bool xIsFolder = IsFolder(x.FSNodeType);
+            bool yIsFolder = IsFolder(y.FSNodeType);
 
             if (xIsFolder && !yIsFolder)
             {
@@ -42,6 +42,14 @@ namespace RPA.Helpers
                 // Both are folders or both are files, sort alphabetically
                 return string.Compare(x.Name, y.Name, StringComparison.OrdinalIgnoreCase);
             }
+        }
+
+        private static bool IsFolder(FSNodeType type)
+        {
+            return type == FSNodeType.Dir
+                || type == FSNodeType.Project
+                || type == FSNodeType.Solution
+                || type == FSNodeType.VsProject;
         }
     }
 }

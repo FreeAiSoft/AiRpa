@@ -205,8 +205,18 @@ namespace RPA.Controls
                                 }
                                 else
                                 {
-                                    // Для всех остальных файлов показываем все пункты меню
-                                    menuItem.Visibility = Visibility.Visible;
+                                    if (menuItem.Name == "OpenInVsMenuItem" || menuItem.Name == "BuildWithMsBuildMenuItem")
+                                    {
+                                        bool isVsProjectFile = fsNode.Name != null &&
+                                            (fsNode.Name.EndsWith(".sln", StringComparison.OrdinalIgnoreCase) ||
+                                             fsNode.Name.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase));
+                                        menuItem.Visibility = isVsProjectFile ? Visibility.Visible : Visibility.Collapsed;
+                                    }
+                                    else
+                                    {
+                                        // Для всех остальных файлов показываем все пункты меню
+                                        menuItem.Visibility = Visibility.Visible;
+                                    }
                                 }
                             }
                         }
@@ -284,6 +294,36 @@ namespace RPA.Controls
                     MainViewModel mainViewModel = (MainViewModel)DataContext;
                     Models.Main main = (Models.Main)mainViewModel.Model;
                     main.CmdTryLoadFile(runtimeFullPath);
+                }
+            }
+        }
+
+        private void OpenInVsMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem mnu)
+            {
+                FrameworkElement target = ((ContextMenu)mnu.Parent).PlacementTarget as FrameworkElement;
+                if (target?.Tag is FSNode fSNode)
+                {
+                    string runtimeFullPath = fSNode.RuntimeFullPath;
+                    MainViewModel mainViewModel = (MainViewModel)DataContext;
+                    Models.Main main = (Models.Main)mainViewModel.Model;
+                    main.CmdVsOpenInVisualStudio(runtimeFullPath);
+                }
+            }
+        }
+
+        private void BuildWithMsBuildMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem mnu)
+            {
+                FrameworkElement target = ((ContextMenu)mnu.Parent).PlacementTarget as FrameworkElement;
+                if (target?.Tag is FSNode fSNode)
+                {
+                    string runtimeFullPath = fSNode.RuntimeFullPath;
+                    MainViewModel mainViewModel = (MainViewModel)DataContext;
+                    Models.Main main = (Models.Main)mainViewModel.Model;
+                    main.CmdVsBuild(runtimeFullPath);
                 }
             }
         }

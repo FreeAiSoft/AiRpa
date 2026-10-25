@@ -9,6 +9,7 @@ using RPA.Core;
 using RPA.Entities;
 using RPA.Enums;
 using RPA.Helpers;
+using RPA.VsProject;
 using RpaCommon;
 
 namespace RPA.Models
@@ -77,6 +78,48 @@ namespace RPA.Models
             FSNodes = new ObservableCollection<FSNode>() { tempFSNode };
 
             return new CallResult();
+        }
+
+        /// <summary>
+        /// Loads a Visual Studio .sln/.csproj into the file tree.
+        /// </summary>
+        public CallResult InitVsProjectTree(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return new CallResult { Error = new Error("Путь к проекту не указан.") };
+            }
+
+            if (!File.Exists(path))
+            {
+                return new CallResult { Error = new Error($"Файл {path} не найден.") };
+            }
+
+            try
+            {
+                FSNode root;
+                if (path.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+                {
+                    root = VsProjectLoader.LoadSolution(path);
+                }
+                else if (path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+                {
+                    root = VsProjectLoader.LoadProject(path);
+                }
+                else
+                {
+                    return new CallResult { Error = new Error("Поддерживаются только файлы .sln и .csproj.") };
+                }
+
+                ProjectFolder = Path.GetDirectoryName(path);
+                FSNodes = new ObservableCollection<FSNode> { root };
+
+                return new CallResult();
+            }
+            catch (Exception ex)
+            {
+                return new CallResult { Error = new Error(ex) };
+            }
         }
 
         private void SetChilds(FSNode fSNode)

@@ -177,4 +177,76 @@
   <data name="lang_toolbox_os" xml:space="preserve">
     <value>Операционная система</value>
   </data>
+  <data name="lang_main_new_vs_template" xml:space="preserve">
+    <value>Новая WF-библиотека активностей (шаблон VS)</value>
+  </data>
+  <data name="lang_main_open_vs_project" xml:space="preserve">
+    <value>Открыть VS-проект (.sln/.csproj)</value>
+  </data>
+  <data name="lang_cm_open_in_vs" xml:space="preserve">
+    <value>Открыть в Visual Studio</value>
+  </data>
+  <data name="lang_cm_build_msbuild" xml:space="preserve">
+    <value>Собрать (MSBuild)</value>
+  </data>
+  <data name="lang_load_into_studio" xml:space="preserve">
+    <value>Загрузить в студию</value>
+  </data>
+  <data name="lang_create_vs_template_title" xml:space="preserve">
+    <value>Создание WF-библиотеки активностей</value>
+  </data>
+  <data name="lang_open_vs_project_title" xml:space="preserve">
+    <value>Открытие проекта Visual Studio</value>
+  </data>
+  <data name="lang_vs_project_created" xml:space="preserve">
+    <value>Проект создан</value>
+  </data>
+  <data name="lang_open_in_vs" xml:space="preserve">
+    <value>Открыть в VS</value>
+  </data>
+  <data name="lang_close" xml:space="preserve">
+    <value>Закрыть</value>
+  </data>
+  <data name="lang_build" xml:space="preserve">
+    <value>Собрать</value>
+  </data>
+  <data name="lang_msg_specify_project_folder" xml:space="preserve">
+    <value>Укажи папку проекта.</value>
+  </data>
+  <data name="lang_msg_folder_not_exists" xml:space="preserve">
+    <value>Папка {0} не существует. Укажи существующую папку проекта.</value>
+  </data>
+  <data name="lang_msg_enter_project_name" xml:space="preserve">
+    <value>Введи имя проекта.</value>
+  </data>
+  <data name="lang_msg_specify_project_file" xml:space="preserve">
+    <value>Укажите файл проекта (.sln или .csproj).</value>
+  </data>
+  <data name="lang_msg_specify_path" xml:space="preserve">
+    <value>Укажите путь к файлу проекта.</value>
+  </data>
+  <data name="lang_msg_open_vs_error" xml:space="preserve">
+    <value>Ошибка открытия в Visual Studio: {0}</value>
+  </data>
+  <data name="lang_msg_build_started" xml:space="preserve">
+    <value>Сборка: {0}</value>
+  </data>
+  <data name="lang_msg_build_success" xml:space="preserve">
+    <value>Сборка завершена успешно.</value>
+  </data>
+  <data name="lang_msg_build_failed" xml:space="preserve">
+    <value>Сборка завершена с ошибками (код {0}).</value>
+  </data>
+  <data name="lang_msg_vs_project_loaded" xml:space="preserve">
+    <value>VS-проект загружен: {0}</value>
+  </data>
+  <data name="lang_msg_vs_project_load_error" xml:space="preserve">
+    <value>Ошибка загрузки VS-проекта: {0}</value>
+  </data>
+  <data name="lang_msg_open_file_error" xml:space="preserve">
+    <value>Не удалось открыть файл: {0}</value>
+  </data>
+  <data name="lang_msg_xaml_load_failed" xml:space="preserve">
+    <value>Не удалось загрузить в дизайнер: {0}</value>
+  </data>
 </root>

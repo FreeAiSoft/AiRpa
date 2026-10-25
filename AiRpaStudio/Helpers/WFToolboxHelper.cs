@@ -136,42 +136,6 @@ namespace RPA.Helpers
             }
             System.Diagnostics.Debug.WriteLine("============================");
 
-            // Загрузка и вывод зависимостей сборки PuppeteerSharp
-            try
-            {
-                Assembly puppeteerAssembly = AppDomain.CurrentDomain.Load("PuppeteerSharp");
-
-                System.Diagnostics.Debug.WriteLine("");
-                System.Diagnostics.Debug.WriteLine("=== PuppeteerSharp Dependencies ===");
-                AssemblyName[] puppeteerReferences = puppeteerAssembly.GetReferencedAssemblies();
-                foreach (AssemblyName refAssembly in puppeteerReferences)
-                {
-                    System.Diagnostics.Debug.WriteLine($"  - {refAssembly.FullName}");
-                }
-                System.Diagnostics.Debug.WriteLine($"Total dependencies: {puppeteerReferences.Length}");
-                System.Diagnostics.Debug.WriteLine("====================================");
-
-                // Принудительная загрузка всех зависимостей PuppeteerSharp в память
-                System.Diagnostics.Debug.WriteLine("=== Loading PuppeteerSharp Dependencies ===");
-                foreach (AssemblyName refAssembly in puppeteerReferences)
-                {
-                    try
-                    {
-                        Assembly loadedAssembly = AppDomain.CurrentDomain.Load(refAssembly);
-                        System.Diagnostics.Debug.WriteLine($"  ✓ Loaded: {refAssembly.Name}");
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"  ✗ Failed to load {refAssembly.Name}: {ex.Message}");
-                    }
-                }
-                System.Diagnostics.Debug.WriteLine("===========================================");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to load PuppeteerSharp assembly: {ex.Message}");
-            }
-
             // Принудительная загрузка netstandard и всех его зависимостей
             try
             {

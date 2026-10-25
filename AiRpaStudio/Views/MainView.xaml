@@ -132,6 +132,12 @@
                 <MenuItem Header="New process"
                           Command="{Binding Cmd}"
                           CommandParameter="CmdWorkflowNewProcess" />
+                <MenuItem Header="{DynamicResource lang_main_new_vs_template}"
+                          Command="{Binding Cmd}"
+                          CommandParameter="CmdVsNewProjectFromTemplate" />
+                <MenuItem Header="{DynamicResource lang_main_open_vs_project}"
+                          Command="{Binding Cmd}"
+                          CommandParameter="CmdVsOpenProject" />
                 <MenuItem Header="Load project"
                           Command="{Binding Cmd}"
                           CommandParameter="CmdTryLoadProject" />
