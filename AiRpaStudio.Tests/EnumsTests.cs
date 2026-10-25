@@ -1,5 +1,4 @@
 using ActivitiesTracker.Enums;
-using RPA.AiAgent.Models;
 using RPA.Enums;
 using RPA.Mcp;
 
@@ -37,28 +36,6 @@ public class EnumsTests
         Assert.That((int)WorkflowState.Aborted, Is.EqualTo(7));
         Assert.That((int)WorkflowState.StartingError, Is.EqualTo(8));
         Assert.That((int)WorkflowState.Complete, Is.EqualTo(9));
-    }
-
-    [Test]
-    public void MessageType_Values()
-    {
-        Assert.That((int)MessageType.Normal, Is.EqualTo(0));
-        Assert.That((int)MessageType.System, Is.EqualTo(1));
-        Assert.That((int)MessageType.McpCommand, Is.EqualTo(2));
-    }
-
-    [Test]
-    public void ContentPartType_Values()
-    {
-        Assert.That((int)ContentPartType.Text, Is.EqualTo(0));
-        Assert.That((int)ContentPartType.CodeBlock, Is.EqualTo(1));
-    }
-
-    [Test]
-    public void ProviderType_Values()
-    {
-        Assert.That((int)ProviderType.Ollama, Is.EqualTo(0));
-        Assert.That((int)ProviderType.OpenRouter, Is.EqualTo(1));
     }
 
     [Test]

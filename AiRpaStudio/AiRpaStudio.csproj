@@ -277,56 +277,6 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Compile Include="AiAgent\Control\AiAgentChatControl.xaml.cs">
-      <DependentUpon>AiAgentChatControl.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="AiAgent\Control\AiAgentHistoryControl.xaml.cs">
-      <DependentUpon>AiAgentHistoryControl.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="AiAgent\Control\AiAgentSettingsControl.xaml.cs">
-      <DependentUpon>AiAgentSettingsControl.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="AiAgent\Control\McpAutoApproveControl.xaml.cs">
-      <DependentUpon>McpAutoApproveControl.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="AiAgent\Control\OllamaSettingsControl.xaml.cs">
-      <DependentUpon>OllamaSettingsControl.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="AiAgent\Control\OpenRouterSettingsControl.xaml.cs">
-      <DependentUpon>OpenRouterSettingsControl.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="AiAgent\Converters\BoolToColorConverter.cs" />
-    <Compile Include="AiAgent\Converters\BoolToVisibilityConverter.cs" />
-    <Compile Include="AiAgent\Converters\ContentPartTemplateSelector.cs" />
-    <Compile Include="AiAgent\Converters\MessageAlignmentConverter.cs" />
-    <Compile Include="AiAgent\Converters\MessageBackgroundConverter.cs" />
-    <Compile Include="AiAgent\Converters\MessageContentParser.cs" />
-    <Compile Include="AiAgent\Converters\MessageContentToPartsConverter.cs" />
-    <Compile Include="AiAgent\Converters\MessageTemplateSelector.cs" />
-    <Compile Include="AiAgent\Converters\NullToVisibilityConverter.cs" />
-    <Compile Include="AiAgent\Converters\ProviderTypeToVisibilityConverter.cs" />
-    <Compile Include="AiAgent\Models\AiModel.cs" />
-    <Compile Include="AiAgent\Models\ChatMessage.cs" />
-    <Compile Include="AiAgent\Models\Conversation.cs" />
-    <Compile Include="AiAgent\Models\McpToolPermission.cs" />
-    <Compile Include="AiAgent\Models\MessageContentPart.cs" />
-    <Compile Include="AiAgent\Models\OllamaModel.cs" />
-    <Compile Include="AiAgent\Models\OllamaResponse.cs" />
-    <Compile Include="AiAgent\Models\OpenRouterModels.cs" />
-    <Compile Include="AiAgent\Models\ProviderSettings.cs" />
-    <Compile Include="AiAgent\Models\ProviderType.cs" />
-    <Compile Include="AiAgent\Services\ActivityCommandParser.cs" />
-    <Compile Include="AiAgent\Services\AiProviderFactory.cs" />
-    <Compile Include="AiAgent\Services\IAiProvider.cs" />
-    <Compile Include="AiAgent\Services\IConversationStorage.cs" />
-    <Compile Include="AiAgent\Services\IOllamaService.cs" />
-    <Compile Include="AiAgent\Services\JsonConversationStorage.cs" />
-    <Compile Include="AiAgent\Services\OllamaService.cs" />
-    <Compile Include="AiAgent\Services\OpenRouterService.cs" />
-    <Compile Include="AiAgent\Services\RpaAiIntegrationService.cs" />
-    <Compile Include="AiAgent\Prompts\ActivityPrompts.cs" />
-    <Compile Include="AiAgent\ViewModels\AiAgentChatViewModel.cs" />
-    <Compile Include="AiAgent\ViewModels\RelayCommand.cs" />
     <Compile Include="Consts.cs" />
     <Compile Include="Controls\ProjectManagerControl.xaml.cs">
       <DependentUpon>ProjectManagerControl.xaml</DependentUpon>
@@ -491,30 +441,6 @@
       <SubType>Designer</SubType>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </XamlAppDef>
-    <Page Include="AiAgent\Control\AiAgentChatControl.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="AiAgent\Control\AiAgentHistoryControl.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="AiAgent\Control\AiAgentSettingsControl.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="AiAgent\Control\McpAutoApproveControl.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="AiAgent\Control\OllamaSettingsControl.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="AiAgent\Control\OpenRouterSettingsControl.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
     <Page Include="Controls\ProjectManagerControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -655,11 +581,6 @@
   </ItemGroup>
   <ItemGroup>
     <Resource Include="RPA-icon.ico" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="AiAgent\Prompts\ActivitySystemPrompt.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\ExpressionEditor\Event.png" />

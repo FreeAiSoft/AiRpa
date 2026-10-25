@@ -22,7 +22,7 @@
 - Локализация: RU/EN через `ResourceManager` + `Properties.Settings.Language` (см. `App.xaml.cs`).
 - Настройки сохраняются через `Properties.Settings` (метод `Save()`).
 - Логирование: `RPA.Logging.Log` (запись в `log.txt`) + просмотр через `LogControlLibrary`.
-- AI-интеграция: MCP-сервер (`RPA.Mcp`, stdio/http) и AI-агент (`RPA.AiAgent`).
+- AI-интеграция: MCP-сервер (`RPA.Mcp`, stdio/http).
 
 ## Сборка и тесты
 - Решение: `AiRpa.sln` (корень репозитория).
@@ -73,10 +73,4 @@
   имена pass-through свойств ViewModel обязаны совпадать с именами свойств модели.
 - Сообщения «модель → представление»: `BaseModel.OnSendMessage(string)` →
   `IView.OnSendMessage(string)` (обычно MahApps `ShowMessageAsync`), а не `MessageBox`.
-
-### Исключение (не путать с основным шаблоном)
-- `RPA.AiAgent` использует классический MVVM: `AiAgentChatViewModel : INotifyPropertyChanged`
-  с DI-сервисами в конструкторе и `RelayCommand`-свойствами (собственный
-  `RPA.AiAgent.ViewModels.RelayCommand`). Новый код в `RPA.AiAgent` — в этом стиле;
-  код окон/моделей студии — по правилам выше.
 

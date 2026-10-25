@@ -16,7 +16,6 @@ using AvalonDock.Layout.Serialization;
 using FW.EasyMvvm.Core;
 using MahApps.Metro.Controls;
 using MahApps.Metro.Controls.Dialogs;
-using RPA.AiAgent.Control;
 using RPA.Controls;
 using RPA.Core;
 using RPA.Helpers;
@@ -33,7 +32,6 @@ namespace RPA.Views
         private ObservableCollection<WorkflowDesignerEx> WorkflowDesigners => ((MainViewModel)DataContext).WorkflowDesigners;
 
         private ToolboxPanel _wfToolbox;
-        private AiAgentChatControl _aiAgentChatControl;
         private DocGroupHelper docGroupHelper;
         private Border WfToolboxBorder;
         private Border WfOutlineViewBorder;
@@ -70,7 +68,6 @@ namespace RPA.Views
             {
                 Child = projectManagerControl
             };
-            _aiAgentChatControl = new AiAgentChatControl();
         }
 
         private void InitializeLayoutRoot()
@@ -108,11 +105,6 @@ namespace RPA.Views
                         {
                             args.Content = LogViewerControl;
                         }
-                        else if (contentId == "AIChat" || args.Model.Title == "AI Agent Chat")
-                        {
-                            args.Content = _aiAgentChatControl;
-                        }
-
                         // Handle document pane
                         if (args.Model is LayoutDocument)
                         {
@@ -284,19 +276,6 @@ namespace RPA.Views
             };
             logPane.Children.Add(logAnchorable);
             rightLayoutAnchorablePaneGroup.Children.Add(logPane);
-
-            // AI Agent Chat pane
-            LayoutAnchorablePane aiChatPane = new LayoutAnchorablePane();
-            LayoutAnchorable aiChatAnchorable = new LayoutAnchorable
-            {
-                ContentId = "AIChat",
-                Title = "AI Agent Chat",
-                CanClose = false,
-                CanHide = false,
-                Content = _aiAgentChatControl
-            };
-            aiChatPane.Children.Add(aiChatAnchorable);
-            rightLayoutAnchorablePaneGroup.Children.Add(aiChatPane);
 
             layoutPanel.Children.Add(rightLayoutAnchorablePaneGroup);
 
