@@ -39,13 +39,39 @@ namespace RPA.Chat.Services
             }
         }
 
-        /// <summary>Title for a history card.</summary>
-        public string CardTitle => string.IsNullOrWhiteSpace(Title) ? "(empty)" : Title;
+        /// <summary>Title for a history card. The default "New chat" placeholder is hidden.</summary>
+        public string CardTitle
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(Title)) return "";
+                return Title == "New chat" ? "" : Title;
+            }
+        }
 
         /// <summary>Local date shown on a history card.</summary>
         public string DisplayDate => UpdatedAtUtc == default(DateTime)
             ? ""
             : UpdatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+
+        /// <summary>
+        /// First message with actual text, flattened to a single line. Used as the
+        /// one-line preview on the history card (the view truncates it with an ellipsis).
+        /// </summary>
+        public string Preview
+        {
+            get
+            {
+                if (Messages == null) return "";
+                foreach (var message in Messages)
+                {
+                    if (string.IsNullOrWhiteSpace(message?.Text)) continue;
+                    var singleLine = message.Text.Replace('\r', ' ').Replace('\n', ' ').Trim();
+                    if (singleLine.Length > 0) return singleLine;
+                }
+                return "";
+            }
+        }
     }
 
     /// <summary>

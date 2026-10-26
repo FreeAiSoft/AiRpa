@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -9,6 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
@@ -96,6 +98,7 @@ namespace RPA.Chat.ViewModels
         private string _statusText = "";
         private string _tokenUsageText = "";
         private double _contextFillFraction;
+        private string _contextUsageText = "";
         private bool _isConversationView = true;
         private string _noticeMessage = "";
         private bool _hasNotice;
@@ -103,6 +106,10 @@ namespace RPA.Chat.ViewModels
         public ChatViewModel()
         {
             _uiContext = SynchronizationContext.Current;
+
+            var messagesView = (ListCollectionView)CollectionViewSource.GetDefaultView(_messages);
+            messagesView.Filter = m => !ReferenceEquals(m, _messages.FirstOrDefault());
+            _messages.CollectionChanged += OnMessagesCollectionChanged;
 
             _modeItems.Add(new SegmentedToggleItem { Label = "Plan", Value = "Plan", Accent = ModeBrush("#64B5F6"), ToolTip = "Plan mode" });
             _modeItems.Add(new SegmentedToggleItem { Label = "Act", Value = "Act", Accent = ModeBrush("#4CAF50"), ToolTip = "Act mode" });
@@ -238,6 +245,12 @@ namespace RPA.Chat.ViewModels
 
         public AgentMode Mode => _mode;
 
+        /// <summary>Accent brush of the currently selected mode (Plan/Act/Help), used to tint the focused input border.</summary>
+        public Brush ModeAccentBrush =>
+            _mode == AgentMode.Act ? ModeBrush("#4CAF50")
+            : _mode == AgentMode.Help ? ModeBrush("#F44336")
+            : ModeBrush("#64B5F6");
+
         public bool CanSend => !IsSending;
 
         public string StatusText
@@ -258,10 +271,34 @@ namespace RPA.Chat.ViewModels
             private set { if (_contextFillFraction != value) { _contextFillFraction = value; OnPropertyChanged(); } }
         }
 
+        /// <summary>Caption for the context-window progress bar of the pinned message.</summary>
+        public string ContextUsageText
+        {
+            get => _contextUsageText;
+            private set { if (_contextUsageText != value) { _contextUsageText = value; OnPropertyChanged(); } }
+        }
+
+        /// <summary>Text of the pinned first message (with role label), or empty when the chat is empty.</summary>
+        public string PinnedMessageText => _messages.Count > 0 ? _messages[0].DisplayText : "";
+
+        /// <summary>True when the pinned first message should be rendered: conversation view is active and there is at least one message.</summary>
+        public bool IsPinnedMessageVisible => _isConversationView && _messages.Count > 0;
+
+        /// <summary>Messages rendered in the scroll list — everything except the pinned first message.</summary>
+        public ICollectionView ChatMessages => CollectionViewSource.GetDefaultView(_messages);
+
         public bool IsConversationView
         {
             get => _isConversationView;
-            private set { if (_isConversationView != value) { _isConversationView = value; OnPropertyChanged(); } }
+            private set
+            {
+                if (_isConversationView != value)
+                {
+                    _isConversationView = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsPinnedMessageVisible));
+                }
+            }
         }
 
         public bool HasAttachments => _attachments.Count > 0;
@@ -871,6 +908,19 @@ namespace RPA.Chat.ViewModels
             OnUi(UpdateTokenUsageDisplay);
         }
 
+        private void OnMessagesCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            OnPropertyChanged(nameof(PinnedMessageText));
+            OnPropertyChanged(nameof(IsPinnedMessageVisible));
+        }
+
+        private static string FormatTokens(int tokens)
+        {
+            if (tokens >= 1000)
+                return (tokens / 1000.0).ToString("0.#") + "k";
+            return tokens.ToString();
+        }
+
         private void UpdateTokenUsageDisplay()
         {
             var t = _tokenUsage;
@@ -878,6 +928,7 @@ namespace RPA.Chat.ViewModels
             {
                 TokenUsageText = "";
                 ContextFillFraction = 0;
+                ContextUsageText = "";
                 return;
             }
 
@@ -885,6 +936,9 @@ namespace RPA.Chat.ViewModels
             var window = t.ContextWindowSize;
             var input = total.PromptTokens > 0 ? total.PromptTokens : _lastEstimatedInputTokens;
             ContextFillFraction = window > 0 ? Math.Min(1.0, (double)input / window) : 0.0;
+            ContextUsageText = window > 0
+                ? "Context window: " + FormatTokens(input) + " / " + FormatTokens(window)
+                : "";
             TokenUsageText = "in " + total.PromptTokens + " · out " + total.CompletionTokens
                 + " · $" + total.EstimatedCostUsd.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
         }
@@ -925,6 +979,7 @@ namespace RPA.Chat.ViewModels
             _mode = newMode;
             OnPropertyChanged(nameof(ModeName));
             OnPropertyChanged(nameof(Mode));
+            OnPropertyChanged(nameof(ModeAccentBrush));
             if (_restoringUiState) return;
             AppendModeSwitch("Mode: " + _mode);
             PersistUiState();
@@ -1218,6 +1273,7 @@ namespace RPA.Chat.ViewModels
                 _mode = state.AgentMode;
                 OnPropertyChanged(nameof(ModeName));
                 OnPropertyChanged(nameof(Mode));
+                OnPropertyChanged(nameof(ModeAccentBrush));
 
                 if (state.ChatViewMode == ChatViewMode.History)
                 {

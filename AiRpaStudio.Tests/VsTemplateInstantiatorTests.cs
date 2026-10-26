@@ -129,4 +129,43 @@ public class VsTemplateInstantiatorTests
         Assert.That(result.Success, Is.False);
         Assert.That(result.Errors, Does.Contain("Output directory is required."));
     }
+
+    [Test]
+    public void Instantiate_ProjectTemplate_ProducesValidGuidFormats()
+    {
+        string output = Path.Combine(Path.GetTempPath(), "vs_inst_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var template = VsTemplateParser.Parse(Path.Combine(TemplateRoot, "ActivityLibrary2010", "ActivityLibrary.vstemplate"));
+            VsTemplateInstantiator.Instantiate(template, CreateRequest(output));
+
+            string assemblyInfo = File.ReadAllText(Path.Combine(output, "Properties", "AssemblyInfo.cs"));
+            string guidLine = assemblyInfo
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .First(line => line.Contains("[assembly: Guid("));
+            string assemblyGuid = guidLine.Split('"')[1];
+
+            Assert.That(assemblyGuid, Does.Not.StartWith("{"));
+            Assert.That(assemblyGuid, Does.Not.EndWith("}"));
+            Assert.That(Guid.TryParseExact(assemblyGuid, "D", out _), Is.True);
+
+            string csproj = File.ReadAllText(Path.Combine(output, "MyProject.csproj"));
+            string projectGuidLine = csproj
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .First(line => line.Contains("<ProjectGuid>"));
+            string projectGuid = projectGuidLine
+                .Replace("<ProjectGuid>", string.Empty)
+                .Replace("</ProjectGuid>", string.Empty)
+                .Trim();
+
+            Assert.That(projectGuid, Does.StartWith("{"));
+            Assert.That(projectGuid, Does.EndWith("}"));
+            Assert.That(Guid.TryParseExact(projectGuid.Trim('{', '}'), "D", out _), Is.True);
+        }
+        finally
+        {
+            if (Directory.Exists(output))
+                Directory.Delete(output, true);
+        }
+    }
 }

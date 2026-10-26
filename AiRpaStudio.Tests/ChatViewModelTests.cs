@@ -72,6 +72,26 @@ public class ChatViewModelTests
     }
 
     [Test]
+    public void ShowHistory_HidesPinnedMessage()
+    {
+        var vm = new ChatViewModel();
+        vm.AppendSystemMessage("hello");
+
+        Assert.That(vm.IsConversationView, Is.True);
+        Assert.That(vm.IsPinnedMessageVisible, Is.True);
+
+        vm.ShowHistoryCommand.Execute(null);
+
+        Assert.That(vm.IsConversationView, Is.False);
+        Assert.That(vm.IsPinnedMessageVisible, Is.False);
+
+        vm.BackToChatCommand.Execute(null);
+
+        Assert.That(vm.IsConversationView, Is.True);
+        Assert.That(vm.IsPinnedMessageVisible, Is.True);
+    }
+
+    [Test]
     public void ClearInput_Executes_ClearsInputText()
     {
         var vm = new ChatViewModel();

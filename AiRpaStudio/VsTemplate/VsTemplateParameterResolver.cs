@@ -79,7 +79,11 @@ namespace RPA.VsTemplate
         {
             if (!_guids.TryGetValue(name, out string value))
             {
-                value = Guid.NewGuid().ToString("B").ToUpperInvariant();
+                // The C# compiler validates [assembly: Guid(...)] strictly in the "D" format
+                // (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx, no braces); the braced "B"/registry format
+                // is rejected with CS0591. Braces are added in the template itself where they are
+                // required (e.g. <ProjectGuid>{$guid1$}</ProjectGuid>).
+                value = Guid.NewGuid().ToString("D").ToUpperInvariant();
                 _guids[name] = value;
             }
 

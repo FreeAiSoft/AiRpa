@@ -1,3 +1,4 @@
+using System;
 using RPA.VsTemplate;
 
 namespace AiRpaStudio.Tests;
@@ -61,7 +62,9 @@ public class VsTemplateParameterResolverTests
 
         Assert.That(guid1, Is.EqualTo(guid1Again));
         Assert.That(guid2, Is.Not.EqualTo(guid1));
-        Assert.That(guid1, Does.StartWith("{").And.EndWith("}"));
+        Assert.That(guid1, Does.Not.StartWith("{"));
+        Assert.That(guid1, Does.Not.EndWith("}"));
+        Assert.That(Guid.TryParseExact(guid1, "D", out _), Is.True);
     }
 
     [Test]

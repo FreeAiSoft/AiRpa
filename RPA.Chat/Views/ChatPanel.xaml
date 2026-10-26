@@ -13,6 +13,7 @@
             <BooleanToVisibilityConverter x:Key="BoolToVis" />
             <conv:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
             <conv:MarkdownToElementConverter x:Key="MarkdownToElement" />
+            <conv:ModeBorderBrushConverter x:Key="ModeBorderBrushConverter" />
 
             <!-- Transparent icon button (toolbar / input / overlays) -->
             <Style x:Key="IconButtonStyle" TargetType="Button">
@@ -73,6 +74,36 @@
                 </Setter>
             </Style>
 
+            <!-- Stealth card button for history items: slightly lighter than the window background. -->
+            <Style x:Key="HistoryCardButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="{DynamicResource Dark.Control}" />
+                <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="2" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Dark.ControlHover}" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Dark.ControlPressed}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.4" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <!-- Filled accent button -->
             <Style x:Key="PrimaryButtonStyle" TargetType="Button">
                 <Setter Property="Background" Value="{DynamicResource Dark.Accent}" />
@@ -105,22 +136,22 @@
 
             <!-- Material-style switch -->
             <Style x:Key="SwitchToggleButtonStyle" TargetType="ToggleButton">
-                <Setter Property="Width" Value="40" />
-                <Setter Property="Height" Value="20" />
+                <Setter Property="Width" Value="27" />
+                <Setter Property="Height" Value="13" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ToggleButton">
                             <Grid>
-                                <Border x:Name="Track" Background="{DynamicResource Dark.Control}" CornerRadius="10" />
-                                <Ellipse x:Name="Thumb" Width="16" Height="16" Fill="White" HorizontalAlignment="Left" Margin="2,0,0,0" />
+                                <Border x:Name="Track" Background="{DynamicResource Dark.ControlHover}" CornerRadius="6.5" />
+                                <Ellipse x:Name="Thumb" Width="11" Height="11" Fill="White" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="1,0,0,0" />
                             </Grid>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsChecked" Value="True">
                                     <Setter TargetName="Track" Property="Background" Value="{DynamicResource Dark.Primary}" />
                                     <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right" />
-                                    <Setter TargetName="Thumb" Property="Margin" Value="0,0,2,0" />
+                                    <Setter TargetName="Thumb" Property="Margin" Value="0,0,1,0" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -137,6 +168,43 @@
                 <Setter Property="VerticalContentAlignment" Value="Center" />
                 <Setter Property="CaretBrush" Value="{DynamicResource Dark.Text}" />
             </Style>
+            <!-- Composer input field: border takes the active mode accent while focused or hovered. -->
+            <Style x:Key="ComposerTextBoxStyle" TargetType="TextBox">
+                <Setter Property="Background" Value="{DynamicResource Dark.Control}" />
+                <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Dark.Border}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="6,4" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="CaretBrush" Value="{DynamicResource Dark.Text}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TextBox">
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    SnapsToDevicePixels="True">
+                                <Border.BorderBrush>
+                                    <MultiBinding Converter="{StaticResource ModeBorderBrushConverter}">
+                                        <Binding Path="DataContext.ModeAccentBrush" RelativeSource="{RelativeSource TemplatedParent}" />
+                                        <Binding Path="IsKeyboardFocused" RelativeSource="{RelativeSource TemplatedParent}" />
+                                        <Binding Path="IsMouseOver" RelativeSource="{RelativeSource TemplatedParent}" />
+                                        <Binding Path="BorderBrush" RelativeSource="{RelativeSource TemplatedParent}" />
+                                    </MultiBinding>
+                                </Border.BorderBrush>
+                                <ScrollViewer x:Name="PART_ContentHost" Focusable="False"
+                                              HorizontalScrollBarVisibility="Hidden"
+                                              VerticalScrollBarVisibility="Hidden" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.4" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
             <Style x:Key="OutlinedPasswordBoxStyle" TargetType="PasswordBox">
                 <Setter Property="Background" Value="{DynamicResource Dark.Control}" />
                 <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
@@ -146,6 +214,34 @@
                 <Setter Property="VerticalContentAlignment" Value="Center" />
                 <Setter Property="CaretBrush" Value="{DynamicResource Dark.Text}" />
             </Style>
+            <Style x:Key="OutlinedComboBoxItemStyle" TargetType="ComboBoxItem">
+                <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Padding" Value="6,4" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ComboBoxItem">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsHighlighted" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Dark.ControlHover}" />
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Dark.Accent}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.4" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
             <Style x:Key="OutlinedComboBoxStyle" TargetType="ComboBox">
                 <Setter Property="Background" Value="{DynamicResource Dark.Control}" />
                 <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
@@ -153,6 +249,77 @@
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="Padding" Value="6,4" />
                 <Setter Property="MinHeight" Value="28" />
+                <Setter Property="ItemContainerStyle" Value="{StaticResource OutlinedComboBoxItemStyle}" />
+                <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ComboBox">
+                            <Grid SnapsToDevicePixels="True">
+                                <ToggleButton x:Name="ToggleButton"
+                                              Background="{TemplateBinding Background}"
+                                              BorderBrush="{TemplateBinding BorderBrush}"
+                                              BorderThickness="{TemplateBinding BorderThickness}"
+                                              Focusable="False"
+                                              ClickMode="Press"
+                                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                    CornerRadius="2">
+                                                <Path x:Name="Arrow" Data="M 0 0 L 3 3 L 6 0"
+                                                      Stroke="{DynamicResource Dark.Text}"
+                                                      StrokeThickness="1.5"
+                                                      Fill="Transparent"
+                                                      Width="8" Height="5"
+                                                      HorizontalAlignment="Right"
+                                                      VerticalAlignment="Center"
+                                                      Margin="0,0,8,0" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Dark.ControlHover}" />
+                                                </Trigger>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter TargetName="Bd" Property="Opacity" Value="0.4" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+                                <ContentPresenter x:Name="ContentSite"
+                                                  IsHitTestVisible="False"
+                                                  Content="{TemplateBinding SelectionBoxItem}"
+                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                  ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                                  Margin="6,4,24,4"
+                                                  HorizontalAlignment="Left"
+                                                  VerticalAlignment="Center" />
+                                <Popup x:Name="PART_Popup"
+                                       Placement="Bottom"
+                                       IsOpen="{TemplateBinding IsDropDownOpen}"
+                                       AllowsTransparency="True"
+                                       Focusable="False"
+                                       PopupAnimation="Slide"
+                                       StaysOpen="False">
+                                    <Border x:Name="DropDownBorder"
+                                            Background="{DynamicResource Dark.Panel}"
+                                            BorderBrush="{DynamicResource Dark.Border}"
+                                            BorderThickness="1"
+                                            CornerRadius="2"
+                                            MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                            MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                            SnapsToDevicePixels="True">
+                                        <ScrollViewer Margin="4" VerticalScrollBarVisibility="Auto">
+                                            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                        </ScrollViewer>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
 
             <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
@@ -218,6 +385,59 @@
                     </Setter.Value>
                 </Setter>
             </Style>
+
+            <!-- Thin (5px) dark scrollbar -->
+            <Style x:Key="ThinScrollBarStyle" TargetType="ScrollBar">
+                <Setter Property="Width" Value="5" />
+                <Setter Property="MinWidth" Value="5" />
+                <Setter Property="MaxWidth" Value="5" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Grid Background="{TemplateBinding Background}">
+                                <Track x:Name="PART_Track" Orientation="Vertical" IsDirectionReversed="True" Focusable="False">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.PageUpCommand" Focusable="False">
+                                            <RepeatButton.Template>
+                                                <ControlTemplate TargetType="RepeatButton">
+                                                    <Border Background="Transparent" />
+                                                </ControlTemplate>
+                                            </RepeatButton.Template>
+                                        </RepeatButton>
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.PageDownCommand" Focusable="False">
+                                            <RepeatButton.Template>
+                                                <ControlTemplate TargetType="RepeatButton">
+                                                    <Border Background="Transparent" />
+                                                </ControlTemplate>
+                                            </RepeatButton.Template>
+                                        </RepeatButton>
+                                    </Track.IncreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb Focusable="False">
+                                            <Thumb.Template>
+                                                <ControlTemplate TargetType="Thumb">
+                                                    <Border x:Name="Bd" Background="{DynamicResource Dark.Border}" CornerRadius="2.5" />
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Bd" Property="Background" Value="#55555C" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsDragging" Value="True">
+                                                            <Setter TargetName="Bd" Property="Background" Value="#6A6A71" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Thumb.Template>
+                                        </Thumb>
+                                    </Track.Thumb>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -261,7 +481,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="3*" MinHeight="60" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="1*" MinHeight="60" />
+                    <RowDefinition Height="1*" MinHeight="90" />
                 </Grid.RowDefinitions>
 
                 <!-- Toolbar + notice + commit -->
@@ -329,14 +549,15 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <StackPanel Grid.Row="0" Margin="0,0,0,4" Visibility="{Binding IsConversationView, Converter={StaticResource BoolToVis}}">
-                        <ProgressBar Height="4" Minimum="0" Maximum="1" Value="{Binding ContextFillFraction, Mode=OneWay}"
-                                     Foreground="{DynamicResource Dark.Accent}" />
-                        <TextBlock Text="{Binding TokenUsageText}" FontSize="11" Foreground="{DynamicResource Dark.SubtleText}"
-                                   Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
+                    <controls:PinnedChatMessageControl Grid.Row="0"
+                                                       MessageText="{Binding PinnedMessageText}"
+                                                       ProgressMaximum="1"
+                                                       ProgressValue="{Binding ContextFillFraction, Mode=OneWay}"
+                                                       ContextText="{Binding ContextUsageText}"
+                                                       Visibility="{Binding IsPinnedMessageVisible, Converter={StaticResource BoolToVis}}"
+                                                       CloseRequested="OnPinnedClose" />
                     <controls:ChatMessagesControl x:Name="ChatMessages" Grid.Row="1"
-                                                  ItemsSource="{Binding Messages}"
+                                                  ItemsSource="{Binding ChatMessages}"
                                                   Visibility="{Binding IsConversationView, Converter={StaticResource BoolToVis}}" />
 
                     <!-- History -->
@@ -347,52 +568,64 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <Grid Grid.Row="0">
-                            <Button HorizontalAlignment="Left" Content="New chat" Command="{Binding NewChatCommand}" Padding="10,2" />
-                            <Button HorizontalAlignment="Right" Content="Clear history" Command="{Binding ClearHistoryCommand}" Padding="10,2" />
+                            <Button Style="{StaticResource IconButtonStyle}" Width="32" Height="32" HorizontalAlignment="Right"
+                                    Command="{Binding ClearHistoryCommand}" ToolTip="Clear history">
+                                <materialIcons:MaterialIcon Kind="Broom" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
+                            </Button>
                         </Grid>
                         <TextBlock Grid.Row="1" Text="Chat history" FontWeight="Bold" HorizontalAlignment="Center"
                                    Margin="0,16,0,8" Foreground="{DynamicResource Dark.Text}" />
-                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                            <ItemsControl ItemsSource="{Binding Conversations}" MaxWidth="420" HorizontalAlignment="Center">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Margin="0,0,0,6">
-                                            <Button HorizontalContentAlignment="Stretch" Padding="10,8,32,8"
-                                                    Command="{Binding DataContext.OpenConversationCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}">
-                                                <StackPanel>
-                                                    <TextBlock Text="{Binding CardTitle}" TextWrapping="Wrap" FontWeight="SemiBold"
-                                                               Foreground="{DynamicResource Dark.Text}" />
-                                                    <TextBlock Text="{Binding DisplayDate}" Margin="0,4,0,0" Foreground="{DynamicResource Dark.MutedText}" />
-                                                </StackPanel>
-                                            </Button>
-                                            <Button HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0"
-                                                    Style="{StaticResource IconButtonStyle}" Width="22" Height="22" ToolTip="Delete chat"
-                                                    Command="{Binding DataContext.DeleteConversationCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}">
-                                                <materialIcons:MaterialIcon Kind="Delete" Width="14" Height="14" Foreground="{DynamicResource Dark.Text}" />
-                                            </Button>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="10*" />
+                                <ColumnDefinition Width="80*" />
+                                <ColumnDefinition Width="10*" />
+                            </Grid.ColumnDefinitions>
+                            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <ScrollViewer.Resources>
+                                    <Style TargetType="ScrollBar" BasedOn="{StaticResource ThinScrollBarStyle}" />
+                                </ScrollViewer.Resources>
+                                <ItemsControl ItemsSource="{Binding Conversations}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,6">
+                                                <Button Style="{StaticResource HistoryCardButtonStyle}" Padding="10,8,32,8"
+                                                        Command="{Binding DataContext.OpenConversationCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Preview}" Margin="0,4,0,0"
+                                                                   TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Dark.MutedText}" />
+                                                        <TextBlock Text="{Binding DisplayDate}" Margin="0,4,0,0" Foreground="{DynamicResource Dark.SubtleText}" />
+                                                    </StackPanel>
+                                                </Button>
+                                                <Button HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0"
+                                                        Style="{StaticResource IconButtonStyle}" Width="22" Height="22" ToolTip="Delete chat"
+                                                        Command="{Binding DataContext.DeleteConversationCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}">
+                                                    <materialIcons:MaterialIcon Kind="Delete" Width="14" Height="14" Foreground="{DynamicResource Dark.Text}" />
+                                                </Button>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
                     </Grid>
                 </Grid>
 
-                <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                              ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Background="Transparent" />
+                <GridSplitter Grid.Row="2" Margin="8,0" Height="2" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                              ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Background="{DynamicResource Dark.Border}" />
                 <!-- Composer -->
-                <Grid Grid.Row="3" Margin="8,0,8,8">
+                <Grid Grid.Row="3" Margin="8,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" MinHeight="66" />
+                        <RowDefinition Height="*" MinHeight="35" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <!-- Status -->
-                    <Grid Grid.Row="0" Margin="0,4,0,0">
+                    <Grid Grid.Row="0" Margin="0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
@@ -425,16 +658,20 @@
                     </ItemsControl>
 
                     <!-- Input -->
-                    <Grid Grid.Row="2" Margin="0,6,0,0">
+                    <Grid Grid.Row="2" Margin="0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBox Grid.Column="0" AcceptsReturn="True" TextWrapping="Wrap" FontSize="17"
-                                 VerticalScrollBarVisibility="Auto" MinHeight="66" VerticalContentAlignment="Top"
-                                 Style="{StaticResource OutlinedTextBoxStyle}"
+                        <TextBox Grid.Column="0" AcceptsReturn="True" TextWrapping="Wrap" FontSize="14"
+                                 VerticalScrollBarVisibility="Auto" MinHeight="35" VerticalContentAlignment="Top"
+                                 Style="{StaticResource ComposerTextBoxStyle}"
                                  Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged}"
-                                 KeyDown="OnInputKeyDown" />
+                                 PreviewKeyDown="OnInputPreviewKeyDown">
+                            <TextBox.Resources>
+                                <Style TargetType="ScrollBar" BasedOn="{StaticResource ThinScrollBarStyle}" />
+                            </TextBox.Resources>
+                        </TextBox>
                         <controls:BottomUpWrapPanel Grid.Column="1" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="6,0,0,0">
                             <Button Style="{StaticResource IconButtonStyle}" Width="28" Height="28"
                                     Command="{Binding ClearInputCommand}" ToolTip="Clear message">
@@ -463,15 +700,23 @@
                     <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,6,0,0">
                         <TextBlock Text="Mode:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{DynamicResource Dark.SubtleText}" />
                         <controls:SegmentedToggle ItemsSource="{Binding ModeItems}" SelectedValue="{Binding ModeName, Mode=TwoWay}" VerticalAlignment="Center" />
-                        <Button Content="Compact now" Command="{Binding CompactNowCommand}" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center"
-                                ToolTip="Summarize the conversation to free context space" />
-                        <Button Content="Memory bank" Command="{Binding UpdateMemoryCommand}" Padding="8,2" Margin="6,0,0,0" VerticalAlignment="Center"
-                                ToolTip="Ask the agent to update the project memory bank" />
-                        <Button Content="Permissions" Command="{Binding PermissionsCommand}" Padding="8,2" Margin="6,0,0,0" VerticalAlignment="Center"
-                                ToolTip="Configure agent permissions (read files, edit files, execute commands, web fetch)" />
-                        <Button Content="Docs" Command="{Binding DocsCommand}" Padding="8,2" Margin="6,0,0,0" VerticalAlignment="Center"
-                                ToolTip="Open the documentation" />
-                        <Button Content="Do it!!!" Command="{Binding DoItCommand}" Padding="8,2" Margin="6,0,0,0" VerticalAlignment="Center"
+                        <Button Style="{StaticResource IconButtonStyle}" Width="28" Height="28" Margin="10,0,0,0" VerticalAlignment="Center"
+                                Command="{Binding CompactNowCommand}" ToolTip="Summarize the conversation to free context space">
+                            <materialIcons:MaterialIcon Kind="Compress" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
+                        </Button>
+                        <Button Style="{StaticResource IconButtonStyle}" Width="28" Height="28" Margin="6,0,0,0" VerticalAlignment="Center"
+                                Command="{Binding UpdateMemoryCommand}" ToolTip="Ask the agent to update the project memory bank">
+                            <materialIcons:MaterialIcon Kind="Database" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
+                        </Button>
+                        <Button Style="{StaticResource IconButtonStyle}" Width="28" Height="28" Margin="6,0,0,0" VerticalAlignment="Center"
+                                Command="{Binding PermissionsCommand}" ToolTip="Configure agent permissions (read files, edit files, execute commands, web fetch)">
+                            <materialIcons:MaterialIcon Kind="ShieldLockOutline" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
+                        </Button>
+                        <Button Style="{StaticResource IconButtonStyle}" Width="28" Height="28" Margin="6,0,0,0" VerticalAlignment="Center"
+                                Command="{Binding DocsCommand}" ToolTip="Open the documentation">
+                            <materialIcons:MaterialIcon Kind="BookOpenPageVariant" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
+                        </Button>
+                        <Button Content="Do it!!!" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding DoItCommand}" Padding="10,4" Margin="6,0,0,0" VerticalAlignment="Center"
                                 ToolTip="Send 'Do it!!!' to the agent" />
                     </StackPanel>
                 </Grid>
@@ -570,22 +815,106 @@
                          ItemContainerStyle="{StaticResource SettingsNavItemStyle}" Margin="0,0,8,0"
                          Background="Transparent" BorderThickness="0">
                     <ListBoxItem ToolTip="API">
-                        <materialIcons:MaterialIcon Kind="Network" Width="24" Height="24" Foreground="{DynamicResource Dark.Text}" />
+                        <materialIcons:MaterialIcon>
+                            <materialIcons:MaterialIcon.Style>
+                                <Style TargetType="materialIcons:MaterialIcon">
+                                    <Setter Property="Width" Value="24" />
+                                    <Setter Property="Height" Value="24" />
+                                    <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
+                                    <Setter Property="Kind" Value="NetworkOutline" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                            <Setter Property="Kind" Value="Network" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </materialIcons:MaterialIcon.Style>
+                        </materialIcons:MaterialIcon>
                     </ListBoxItem>
                     <ListBoxItem ToolTip="General">
-                        <materialIcons:MaterialIcon Kind="Cog" Width="24" Height="24" Foreground="{DynamicResource Dark.Text}" />
+                        <materialIcons:MaterialIcon>
+                            <materialIcons:MaterialIcon.Style>
+                                <Style TargetType="materialIcons:MaterialIcon">
+                                    <Setter Property="Width" Value="24" />
+                                    <Setter Property="Height" Value="24" />
+                                    <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
+                                    <Setter Property="Kind" Value="CogOutline" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                            <Setter Property="Kind" Value="Cog" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </materialIcons:MaterialIcon.Style>
+                        </materialIcons:MaterialIcon>
                     </ListBoxItem>
                     <ListBoxItem ToolTip="Sound">
-                        <materialIcons:MaterialIcon Kind="Microphone" Width="24" Height="24" Foreground="{DynamicResource Dark.Text}" />
+                        <materialIcons:MaterialIcon>
+                            <materialIcons:MaterialIcon.Style>
+                                <Style TargetType="materialIcons:MaterialIcon">
+                                    <Setter Property="Width" Value="24" />
+                                    <Setter Property="Height" Value="24" />
+                                    <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
+                                    <Setter Property="Kind" Value="MicrophoneOutline" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                            <Setter Property="Kind" Value="Microphone" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </materialIcons:MaterialIcon.Style>
+                        </materialIcons:MaterialIcon>
                     </ListBoxItem>
                     <ListBoxItem ToolTip="Timeouts">
-                        <materialIcons:MaterialIcon Kind="Timer" Width="24" Height="24" Foreground="{DynamicResource Dark.Text}" />
+                        <materialIcons:MaterialIcon>
+                            <materialIcons:MaterialIcon.Style>
+                                <Style TargetType="materialIcons:MaterialIcon">
+                                    <Setter Property="Width" Value="24" />
+                                    <Setter Property="Height" Value="24" />
+                                    <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
+                                    <Setter Property="Kind" Value="TimerOutline" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                            <Setter Property="Kind" Value="Timer" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </materialIcons:MaterialIcon.Style>
+                        </materialIcons:MaterialIcon>
                     </ListBoxItem>
                     <ListBoxItem ToolTip="Gallery">
-                        <materialIcons:MaterialIcon Kind="ViewGrid" Width="24" Height="24" Foreground="{DynamicResource Dark.Text}" />
+                        <materialIcons:MaterialIcon>
+                            <materialIcons:MaterialIcon.Style>
+                                <Style TargetType="materialIcons:MaterialIcon">
+                                    <Setter Property="Width" Value="24" />
+                                    <Setter Property="Height" Value="24" />
+                                    <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
+                                    <Setter Property="Kind" Value="ViewGridOutline" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                            <Setter Property="Kind" Value="ViewGrid" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </materialIcons:MaterialIcon.Style>
+                        </materialIcons:MaterialIcon>
                     </ListBoxItem>
                     <ListBoxItem ToolTip="Proxy">
-                        <materialIcons:MaterialIcon Kind="Proxy" Width="24" Height="24" Foreground="{DynamicResource Dark.Text}" />
+                        <materialIcons:MaterialIcon>
+                            <materialIcons:MaterialIcon.Style>
+                                <Style TargetType="materialIcons:MaterialIcon">
+                                    <Setter Property="Width" Value="24" />
+                                    <Setter Property="Height" Value="24" />
+                                    <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
+                                    <Setter Property="Kind" Value="ProxyOutline" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                            <Setter Property="Kind" Value="Proxy" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </materialIcons:MaterialIcon.Style>
+                        </materialIcons:MaterialIcon>
                     </ListBoxItem>
                 </ListBox>
 
@@ -717,21 +1046,9 @@
                             <StackPanel Margin="12,8">
                                 <TextBlock Text="Gallery" FontWeight="Bold" FontSize="16" Margin="0,0,0,12" Foreground="{DynamicResource Dark.Text}" />
                                 <TextBlock Text="Primary prompt (pinned)" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{DynamicResource Dark.Text}" />
-                                <Border Background="{DynamicResource Chat.UserBackground}" Padding="8,6" Margin="0,0,0,12">
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Text="You: Fix the null-check in the parser and add a regression test."
-                                                   TextWrapping="Wrap" Foreground="{DynamicResource Dark.Text}" />
-                                        <ProgressBar Grid.Row="1" Height="4" Margin="0,6,0,0" Minimum="0" Maximum="100" Value="42"
-                                                     Foreground="{DynamicResource Dark.Accent}" />
-                                        <TextBlock Grid.Row="2" Margin="0,4,0,0" Foreground="{DynamicResource Dark.SubtleText}"
-                                                   Text="Context window: 12.4k / 200k" />
-                                    </Grid>
-                                </Border>
+                                <controls:PinnedChatMessageControl MessageText="You: Fix the null-check in the parser and add a regression test."
+                                                                   ProgressValue="42"
+                                                                   ContextText="Context window: 12.4k / 200k" />
                                 <TextBlock Text="Notification banners" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{DynamicResource Dark.Text}" />
                                 <controls:NotificationBanner Kind="Trace" Message="Trace sample: most verbose level." Margin="0,0,0,8" />
                                 <controls:NotificationBanner Kind="Info" Message="Info sample: informational message." Margin="0,0,0,8" />
