@@ -1,13 +1,11 @@
-﻿<mah:MetroWindow x:Class="ProxyChecker.Views.ProxyImport"
+﻿<Window x:Class="ProxyChecker.Views.ProxyImport"
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                  xmlns:local="clr-namespace:ProxyChecker.Views"
                  mc:Ignorable="d"
-                 xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
                  ResizeMode="NoResize"
-                 WindowTransitionsEnabled="False"
                  WindowStartupLocation="CenterScreen"
                  Title="Proxy import"
                  Height="90"
@@ -35,9 +33,8 @@
                          TextWrapping="NoWrap" />
                 <Button Content="{DynamicResource lang_proxy_checker_bottom_buttons_Import}"
                         Click="Button_Click"
-                        Style="{StaticResource MahApps.Styles.Button}"
                         Margin="5,0,0,0" />
             </StackPanel>
         </StackPanel>
     </Grid>
-</mah:MetroWindow>
+</Window>

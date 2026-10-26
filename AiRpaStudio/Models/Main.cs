@@ -3,9 +3,8 @@ using System.Activities.Core.Presentation;
 using System.Globalization;
 using System.IO;
 using System.Diagnostics;
+using System.Windows;
 using FW.EasyMvvm.Core;
-using MahApps.Metro.Controls;
-using MahApps.Metro.Controls.Dialogs;
 using RPA.Core;
 using RPA.Enums;
 using RPA.Helpers;
@@ -275,14 +274,6 @@ namespace RPA.Models
         #endregion Files
 
         /// <summary>
-        /// App settings
-        /// </summary>
-        public void Settings()
-        {
-            MvvmFactory.CreateWindow(AppSettings.GetInstance(), new AppSettingsViewModel(), new AppSettingsView(), ViewMode.ShowDialog);
-        }
-
-        /// <summary>
         /// Creates a new Workflow Application instance and executes the Current Workflow
         /// </summary>
         public void CmdWorkflowRun()
@@ -412,35 +403,22 @@ namespace RPA.Models
             }
         }
 
-        private async void OfferVsProjectActions(VsTemplateProjectCreator creator)
+        private void OfferVsProjectActions(VsTemplateProjectCreator creator)
         {
-            if (!(ViewModel?.View is MetroWindow window))
-            {
-                return;
-            }
-
-            MessageDialogResult choice = await window.ShowMessageAsync(
-                LocalizeHelper.Get("lang_vs_project_created"),
+            MessageBoxResult choice = MessageBox.Show(
                 creator.ProjectFilePath,
-                MessageDialogStyle.AffirmativeAndNegativeAndDoubleAuxiliary,
-                new MetroDialogSettings
-                {
-                    AffirmativeButtonText = LocalizeHelper.Get("lang_open_in_vs"),
-                    NegativeButtonText = LocalizeHelper.Get("lang_close"),
-                    FirstAuxiliaryButtonText = LocalizeHelper.Get("lang_load_into_studio"),
-                    SecondAuxiliaryButtonText = LocalizeHelper.Get("lang_build")
-                });
+                LocalizeHelper.Get("lang_vs_project_created"),
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Information,
+                MessageBoxResult.Yes);
 
             switch (choice)
             {
-                case MessageDialogResult.Affirmative:
+                case MessageBoxResult.Yes:
                     CmdVsOpenInVisualStudio(creator.ProjectFilePath);
                     break;
-                case MessageDialogResult.FirstAuxiliary:
+                case MessageBoxResult.No:
                     LoadVsProjectIntoStudio(creator.ProjectFilePath);
-                    break;
-                case MessageDialogResult.SecondAuxiliary:
-                    CmdVsBuild(creator.ProjectFilePath);
                     break;
             }
         }

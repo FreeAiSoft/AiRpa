@@ -14,12 +14,11 @@ using System.Windows.Threading;
 using AvalonDock.Layout;
 using AvalonDock.Layout.Serialization;
 using FW.EasyMvvm.Core;
-using MahApps.Metro.Controls;
-using MahApps.Metro.Controls.Dialogs;
 using RPA.Controls;
 using RPA.Core;
 using RPA.Helpers;
 using RPA.Logging;
+using RPA.Models;
 using RPA.ViewModels;
 
 namespace RPA.Views
@@ -27,7 +26,7 @@ namespace RPA.Views
     /// <summary>
     /// Interaction logic for MainView.xaml
     /// </summary>
-    public partial class MainView : MetroWindow, IView
+    public partial class MainView : Window, IView
     {
         private ObservableCollection<WorkflowDesignerEx> WorkflowDesigners => ((MainViewModel)DataContext).WorkflowDesigners;
 
@@ -40,6 +39,9 @@ namespace RPA.Views
         public LogControlLibrary.Controls.LogViewerControl LogViewerControl { get; private set; }
         private ProjectManagerControl projectManagerControl;
         private Border wfProjectBorder;
+        private RPA.Chat.Views.ChatPanel chatPanel;
+        private RPA.NuGet.Views.NuGetPanel nuGetPanel;
+        private LayoutAnchorable nuGetAnchorable;
         private DispatcherTimer _layoutSaveTimer;
         private bool _resetLayout;
 
@@ -68,6 +70,23 @@ namespace RPA.Views
             {
                 Child = projectManagerControl
             };
+            chatPanel = new RPA.Chat.Views.ChatPanel();
+            // Route chat diagnostics to the studio log (viewed via LogControlLibrary).
+            RPA.Chat.Services.OutputWindowService.WriteSink = message => RPA.Logging.Log.Write(message);
+            RPA.Chat.Services.ChatLog.Sink = message => RPA.Logging.Log.Write(message);
+            // The chat resolves the current project folder for agent tools + MSBuild feedback.
+            RPA.Chat.Services.ChatEnvironment.SolutionPathProvider = () => ProjectManager.GetInstance().ProjectFolder;
+
+            nuGetPanel = new RPA.NuGet.Views.NuGetPanel();
+            // Re-detect the .csproj whenever the current studio project folder changes.
+            ProjectManager.GetInstance().PropertyChanged += OnProjectManagerPropertyChanged;
+            nuGetPanel.SetProjectFolder(ProjectManager.GetInstance().ProjectFolder);
+        }
+
+        private void OnProjectManagerPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ProjectManager.ProjectFolder))
+                nuGetPanel.SetProjectFolder(ProjectManager.GetInstance().ProjectFolder);
         }
 
         private void InitializeLayoutRoot()
@@ -104,6 +123,15 @@ namespace RPA.Views
                         else if (contentId == "Log" || args.Model.Title == (FindResource("lang_main_log") as string))
                         {
                             args.Content = LogViewerControl;
+                        }
+                        else if (contentId == "Chat")
+                        {
+                            args.Content = chatPanel;
+                        }
+                        else if (contentId == "NuGet")
+                        {
+                            args.Content = nuGetPanel;
+                            nuGetAnchorable = args.Model as LayoutAnchorable;
                         }
                         // Handle document pane
                         if (args.Model is LayoutDocument)
@@ -277,6 +305,33 @@ namespace RPA.Views
             logPane.Children.Add(logAnchorable);
             rightLayoutAnchorablePaneGroup.Children.Add(logPane);
 
+            // Chat pane
+            LayoutAnchorablePane chatPane = new LayoutAnchorablePane();
+            LayoutAnchorable chatAnchorable = new LayoutAnchorable
+            {
+                ContentId = "Chat",
+                Title = "Chat",
+                CanClose = false,
+                CanHide = false,
+                Content = chatPanel
+            };
+            chatPane.Children.Add(chatAnchorable);
+            rightLayoutAnchorablePaneGroup.Children.Add(chatPane);
+
+            // NuGet pane
+            LayoutAnchorablePane nuGetPane = new LayoutAnchorablePane();
+            LayoutAnchorable nuGetPanelAnchorable = new LayoutAnchorable
+            {
+                ContentId = "NuGet",
+                Title = "NuGet",
+                CanClose = false,
+                CanHide = false,
+                Content = nuGetPanel
+            };
+            nuGetPane.Children.Add(nuGetPanelAnchorable);
+            nuGetAnchorable = nuGetPanelAnchorable;
+            rightLayoutAnchorablePaneGroup.Children.Add(nuGetPane);
+
             layoutPanel.Children.Add(rightLayoutAnchorablePaneGroup);
 
             // Set the layout
@@ -286,19 +341,23 @@ namespace RPA.Views
             Log.Write("Default layout created successfully");
         }
 
-        public async void OnSendMessage(string message)
+        public void OnSendMessage(string message)
         {
-            _ = await this.ShowMessageAsync("", message);
+            MessageBox.Show(message);
         }
 
-        private void MenuItem_UpdateTheme_Click(object sender, RoutedEventArgs e)
+        private void NuGetPanelMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            dockManager.FloatingWindows.ToList().ForEach(floatingWindow =>
+            ShowNuGetPanel();
+        }
+
+        private void ShowNuGetPanel()
+        {
+            if (nuGetAnchorable != null)
             {
-                floatingWindow.UpdateLayout();
-                floatingWindow.OnApplyTemplate();
-                floatingWindow.UpdateDefaultStyle();
-            });
+                nuGetAnchorable.Show();
+                nuGetAnchorable.IsActive = true;
+            }
         }
 
         private void RemoveDesigner(string loadedFile)
@@ -311,7 +370,7 @@ namespace RPA.Views
             ((BaseViewModel)DataContext).Cmd.Execute(new List<object> { "CmdSetActiveDesigner", loadedFile });
         }
 
-        private void MetroWindow_Loaded(object sender, RoutedEventArgs e)
+        private void MainView_Loaded(object sender, RoutedEventArgs e)
         {
             docGroupHelper = new DocGroupHelper(docGroup, RemoveDesigner, SyncWFControls, (MainViewModel)DataContext, SetActiveDesigner);
             WorkflowDesigners.CollectionChanged += docGroupHelper.WorkflowDesigners_CollectionChanged;
@@ -337,20 +396,20 @@ namespace RPA.Views
             _layoutSaveTimer.Start();
         }
 
-        private async void LayoutSaveTimer_Tick(object sender, EventArgs e)
+        private void LayoutSaveTimer_Tick(object sender, EventArgs e)
         {
             // Timer elapsed - user stopped making changes for 2 seconds
             _layoutSaveTimer.Stop();
-            await SaveWorkspaceLayout();
+            SaveWorkspaceLayout();
         }
 
-        protected override async void OnClosing(CancelEventArgs e)
+        protected override void OnClosing(CancelEventArgs e)
         {
             // Save layout one final time before closing
             if (_layoutSaveTimer != null)
             {
                 _layoutSaveTimer.Stop();
-                await SaveWorkspaceLayout();
+                SaveWorkspaceLayout();
             }
 
             // Cleanup
@@ -398,12 +457,12 @@ namespace RPA.Views
 
         }
 
-        private async void SaveWorkspaceLayoutToStringCommand_Click(object sender, RoutedEventArgs e)
+        private void SaveWorkspaceLayoutToStringCommand_Click(object sender, RoutedEventArgs e)
         {
-            await SaveWorkspaceLayout();
+            SaveWorkspaceLayout();
         }
 
-        private async Task SaveWorkspaceLayout()
+        private void SaveWorkspaceLayout()
         {
             try
             {
@@ -422,19 +481,16 @@ namespace RPA.Views
             }
             catch (Exception ex)
             {
-                _ = await this.ShowMessageAsync("Error",
-                    $"Failed to save workspace layout: {ex.Message}",
-                    MessageDialogStyle.Affirmative);
+                MessageBox.Show($"Failed to save workspace layout: {ex.Message}", "Error");
             }
         }
 
-        private async void RestWorkspaceLayout_Click(object sender, RoutedEventArgs e)
+        private void RestWorkspaceLayout_Click(object sender, RoutedEventArgs e)
         {
             Properties.Settings.Default.ADLayout = null;
             Properties.Settings.Default.Save();
             _resetLayout = true;
-            _ = await this.ShowMessageAsync("", "Please reboot application for skip layout settings",
-                    MessageDialogStyle.Affirmative);
+            MessageBox.Show("Please reboot application for skip layout settings");
         }
     }
 }

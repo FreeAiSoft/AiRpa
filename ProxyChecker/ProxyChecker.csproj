@@ -8,19 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MahApps.Metro.IconPacks" Version="4.9.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\EasyMvvm\EasyMvvm.csproj" />
     <ProjectReference Include="..\IpApiClient\IpApiClient.csproj" />
     <ProjectReference Include="..\Shared\Shared.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="MahApps.Metro">
-      <HintPath>..\EasyMvvm\mahapps\MahApps.Metro.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
 </Project>

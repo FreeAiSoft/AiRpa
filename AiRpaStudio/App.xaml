@@ -6,11 +6,6 @@
     <Application.Resources>
         
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Fonts.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/Light.Crimson.xaml" />
-            </ResourceDictionary.MergedDictionaries>
             <DrawingImage x:Key="Bulb">
                 <DrawingImage.Drawing>
                     <GeometryDrawing Brush="Gold">

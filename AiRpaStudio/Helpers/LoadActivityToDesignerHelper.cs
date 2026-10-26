@@ -14,7 +14,6 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
-using MahApps.Metro.Controls;
 using Microsoft.CSharp.Activities;
 using Newtonsoft.Json;
 using RPA.Core;
@@ -81,9 +80,28 @@ namespace RPA.Helpers
             return workflowDesignerEx;
         }
 
+        private static IEnumerable<DependencyObject> FindVisualChildren(DependencyObject root)
+        {
+            if (root == null || !(root is Visual))
+            {
+                yield break;
+            }
+
+            int count = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+            {
+                DependencyObject child = VisualTreeHelper.GetChild(root, i);
+                yield return child;
+                foreach (DependencyObject descendant in FindVisualChildren(child))
+                {
+                    yield return descendant;
+                }
+            }
+        }
+
         private static void SetVariablesStyle(WorkflowDesignerEx workflowDesignerEx)
         {
-            IEnumerable<DependencyObject> childs = workflowDesignerEx.View.FindChildren<DependencyObject>();
+            IEnumerable<DependencyObject> childs = FindVisualChildren(workflowDesignerEx.View);
             FrameworkElement shellBar = childs
                 .Select(c => c is FrameworkElement element ? element : null)
                 .First(f => f?.Name == "shellBar");

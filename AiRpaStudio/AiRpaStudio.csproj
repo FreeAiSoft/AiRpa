@@ -66,10 +66,6 @@
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="ControlzEx, Version=4.0.0.0, Culture=neutral, PublicKeyToken=69f1c32f803d307e, processorArchitecture=MSIL">
-      <HintPath>..\packages\ControlzEx.4.4.0\lib\net462\ControlzEx.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="Humanizer, Version=2.14.0.0, Culture=neutral, PublicKeyToken=979442b78dfc278e, processorArchitecture=MSIL">
       <HintPath>..\packages\Humanizer.Core.2.14.1\lib\netstandard2.0\Humanizer.dll</HintPath>
     </Reference>
@@ -126,10 +122,6 @@
     </Reference>
     <Reference Include="Microsoft.Extensions.Logging, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Extensions.Logging.8.0.0\lib\net462\Microsoft.Extensions.Logging.dll</HintPath>
-    </Reference>
-    <Reference Include="MahApps.Metro, Version=2.0.0.0, Culture=neutral, PublicKeyToken=51482d6f650b2b3f, processorArchitecture=MSIL">
-      <HintPath>..\packages\MahApps.Metro.2.4.9\lib\net47\MahApps.Metro.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="Microsoft.Extensions.Logging.Abstractions, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Extensions.Logging.Abstractions.8.0.0\lib\net462\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
@@ -417,14 +409,10 @@
     <Compile Include="VbExpressionEditor\VbExpressionEditorInstance.cs" />
     <Compile Include="VbExpressionEditor\VbExpressionEditorService.cs" />
     <Compile Include="ViewModels\ActivityCreatorViewModel.cs" />
-    <Compile Include="ViewModels\AppSettingsViewModel.cs" />
     <Compile Include="ViewModels\MainViewModel.cs" />
     <Compile Include="ViewModels\ProjectCreatorViewModel.cs" />
     <Compile Include="Views\ActivityCreatorView.xaml.cs">
       <DependentUpon>ActivityCreatorView.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\AppSettingsView.xaml.cs">
-      <DependentUpon>AppSettingsView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\MainView.xaml.cs">
       <DependentUpon>MainView.xaml</DependentUpon>
@@ -474,10 +462,6 @@
       <SubType>Designer</SubType>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </XamlAppDef>
-    <Page Include="Views\AppSettingsView.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Include="Views\MainView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -572,6 +556,14 @@
       <Project>{b2b92cb0-0614-4bbb-889a-886310c4f70f}</Project>
       <Name>RpaCommon</Name>
     </ProjectReference>
+    <ProjectReference Include="..\RPA.Chat\RPA.Chat.csproj">
+      <Project>{102402ad-575c-480d-a1d8-9ee05c8b4b82}</Project>
+      <Name>RPA.Chat</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\RPA.NuGet\RPA.NuGet.csproj">
+      <Project>{b6a2c9e4-1d5f-4e7a-9c3b-8f2d6a1e4b7c}</Project>
+      <Name>RPA.NuGet</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Analyzer Include="..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\analyzers\dotnet\cs\Microsoft.CodeAnalysis.Analyzers.dll" />
@@ -609,6 +601,20 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="VSTemplates\ActivityLibrary2010\*">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Built-in user documentation (RU/EN) shipped next to the assemblies and consumed
+         by the Plan/Help chat modes via VibeCoder.Core.Services.HelpDocumentation. Only the
+         user-facing subset is shipped; the repo's developer docs (docs\*.md) stay out. -->
+    <None Include="Docs\00-index.md">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Docs\ru\*.md">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Docs\en\*.md">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

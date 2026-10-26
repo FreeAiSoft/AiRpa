@@ -23,6 +23,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AiRpaStudio\AiRpaStudio.csproj" />
+    <ProjectReference Include="..\VibeCoder.Core\VibeCoder.Core.csproj" />
+    <ProjectReference Include="..\RPA.Chat\RPA.Chat.csproj" />
+    <ProjectReference Include="..\RPA.NuGet\RPA.NuGet.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,6 +34,7 @@
     <Reference Include="WindowsBase" />
     <Reference Include="System.Xaml" />
     <Reference Include="System.Activities" />
+    <Reference Include="System.Net.Http" />
   </ItemGroup>
 
   <ItemGroup>

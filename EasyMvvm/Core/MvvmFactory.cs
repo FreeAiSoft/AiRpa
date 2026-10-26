@@ -1,5 +1,5 @@
-﻿using MahApps.Metro.Controls;
-using System;
+﻿using System;
+using System.Windows;
 
 namespace EasyMvvm.Core
 {
@@ -10,9 +10,9 @@ namespace EasyMvvm.Core
             model.Run();
 
             viewModel.SetModel(model, view);
-            (view as MetroWindow).DataContext = viewModel;
+            (view as Window).DataContext = viewModel;
             model.SendMessage += (sender, e) => view.OnSendMessageAsync(e);
-            (view as MetroWindow).Closing += (sender, e) => model.Closing();
+            (view as Window).Closing += (sender, e) => model.Closing();
             model.Loaded();
 
             if (viewMode == ViewMode.Show)

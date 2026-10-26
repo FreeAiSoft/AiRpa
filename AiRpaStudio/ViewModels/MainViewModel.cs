@@ -17,8 +17,6 @@ namespace RPA.ViewModels
 
         #region Properties
 
-        public string AdditionalColor => Services.AppSettings?.AdditionalColor;
-
         public ObservableCollection<WorkflowDesignerEx> WorkflowDesigners => main.CustomWfDesigner.WorkflowDesigners;
 
         public WorkflowDesignerEx ActiveWorkflowDesigner => main.CustomWfDesigner.ActiveWorkflowDesignerEx;

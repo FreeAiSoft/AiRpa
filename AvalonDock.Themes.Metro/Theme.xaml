@@ -1116,7 +1116,7 @@
     <Style x:Key="{x:Type avalonDockControls:LayoutGridResizerControl}"
            TargetType="{x:Type avalonDockControls:LayoutGridResizerControl}">
         <Setter Property="Background"
-                Value="{DynamicResource AvalonDock_ThemeMetro_BaseColor7}" />
+                Value="Transparent" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type avalonDockControls:LayoutGridResizerControl}">

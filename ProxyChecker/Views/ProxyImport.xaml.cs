@@ -1,5 +1,4 @@
-﻿using MahApps.Metro.Controls;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
 using ProxyChecker.Models;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -13,7 +12,7 @@ namespace ProxyChecker.Views
     /// <summary>
     /// Interaction logic for ProxyImport.xaml
     /// </summary>
-    public partial class ProxyImport : MetroWindow, INotifyPropertyChanged
+    public partial class ProxyImport : Window, INotifyPropertyChanged
     {
         public ProxyMod ProxyMod { get; set; }
         public string ErrorMessage { get; set; }

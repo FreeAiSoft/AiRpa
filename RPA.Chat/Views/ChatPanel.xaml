@@ -1,0 +1,796 @@
+<UserControl x:Class="RPA.Chat.Views.ChatPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:RPA.Chat.Controls"
+             xmlns:conv="clr-namespace:RPA.Chat.Converters"
+             xmlns:materialIcons="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/RPA.Chat;component/Themes/ChatTheme.Dark.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="BoolToVis" />
+            <conv:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
+            <conv:MarkdownToElementConverter x:Key="MarkdownToElement" />
+
+            <!-- Transparent icon button (toolbar / input / overlays) -->
+            <Style x:Key="IconButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="4" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Dark.ControlHover}" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Dark.ControlPressed}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.4" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <!-- Icon toggle button (theme switch), checked shows a subtle tint -->
+            <Style x:Key="ToggleIconButtonStyle" TargetType="ToggleButton">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="4" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Dark.ControlHover}" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="#3364B5F6" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.4" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Filled accent button -->
+            <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="{DynamicResource Dark.Accent}" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="10,4" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="2" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.85" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.7" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.4" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Material-style switch -->
+            <Style x:Key="SwitchToggleButtonStyle" TargetType="ToggleButton">
+                <Setter Property="Width" Value="40" />
+                <Setter Property="Height" Value="20" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Grid>
+                                <Border x:Name="Track" Background="{DynamicResource Dark.Control}" CornerRadius="10" />
+                                <Ellipse x:Name="Thumb" Width="16" Height="16" Fill="White" HorizontalAlignment="Left" Margin="2,0,0,0" />
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Track" Property="Background" Value="{DynamicResource Dark.Primary}" />
+                                    <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right" />
+                                    <Setter TargetName="Thumb" Property="Margin" Value="0,0,2,0" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <!-- Outlined field styles -->
+            <Style x:Key="OutlinedTextBoxStyle" TargetType="TextBox">
+                <Setter Property="Background" Value="{DynamicResource Dark.Control}" />
+                <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Dark.Border}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="6,4" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="CaretBrush" Value="{DynamicResource Dark.Text}" />
+            </Style>
+            <Style x:Key="OutlinedPasswordBoxStyle" TargetType="PasswordBox">
+                <Setter Property="Background" Value="{DynamicResource Dark.Control}" />
+                <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Dark.Border}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="6,4" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="CaretBrush" Value="{DynamicResource Dark.Text}" />
+            </Style>
+            <Style x:Key="OutlinedComboBoxStyle" TargetType="ComboBox">
+                <Setter Property="Background" Value="{DynamicResource Dark.Control}" />
+                <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Dark.Border}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="6,4" />
+                <Setter Property="MinHeight" Value="28" />
+            </Style>
+
+            <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource Dark.SubtleText}" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Margin" Value="0,8,0,2" />
+            </Style>
+
+            <!-- Main tab (icon 44x44) -->
+            <Style x:Key="MainTabItemStyle" TargetType="TabItem">
+                <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
+                <Setter Property="Width" Value="44" />
+                <Setter Property="Height" Value="44" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TabItem">
+                            <Grid>
+                                <Border x:Name="AccentHighlight" Background="{DynamicResource Dark.Primary}" Opacity="0" />
+                                <Border x:Name="Bd" Background="Transparent">
+                                    <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Dark.ControlHover}" />
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="AccentHighlight" Property="Opacity" Value="0.2" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <!-- Settings nav item (icon 44x44) -->
+            <Style x:Key="SettingsNavItemStyle" TargetType="ListBoxItem">
+                <Setter Property="Width" Value="44" />
+                <Setter Property="Height" Value="44" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Grid>
+                                <Border x:Name="AccentHighlight" Background="{DynamicResource Dark.Primary}" Opacity="0" />
+                                <Border x:Name="Bd" Background="Transparent">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Dark.ControlHover}" />
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="AccentHighlight" Property="Opacity" Value="0.2" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <TabControl Background="{DynamicResource Dark.Window}">
+        <TabControl.Template>
+            <ControlTemplate TargetType="TabControl">
+                <Grid Background="{TemplateBinding Background}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TabPanel Grid.Row="0" IsItemsHost="True" Background="Transparent" />
+                    <Border Grid.Row="1" Background="Transparent" BorderThickness="0">
+                        <ContentPresenter ContentSource="SelectedContent" />
+                    </Border>
+                </Grid>
+            </ControlTemplate>
+        </TabControl.Template>
+
+        <!-- ============ Chat tab ============ -->
+        <TabItem Style="{StaticResource MainTabItemStyle}" ToolTip="Chat">
+            <TabItem.Header>
+                <materialIcons:MaterialIcon>
+                    <materialIcons:MaterialIcon.Style>
+                        <Style TargetType="materialIcons:MaterialIcon">
+                            <Setter Property="Width" Value="24" />
+                            <Setter Property="Height" Value="24" />
+                            <Setter Property="Foreground" Value="{DynamicResource Dark.Primary}" />
+                            <Setter Property="Kind" Value="MessageOutline" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TabItem}}" Value="True">
+                                    <Setter Property="Kind" Value="Message" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </materialIcons:MaterialIcon.Style>
+                </materialIcons:MaterialIcon>
+            </TabItem.Header>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="3*" MinHeight="60" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="1*" MinHeight="60" />
+                </Grid.RowDefinitions>
+
+                <!-- Toolbar + notice + commit -->
+                <StackPanel Grid.Row="0" Margin="8,6,8,0">
+                    <controls:NotificationBanner Visibility="{Binding HasNotice, Converter={StaticResource BoolToVis}}"
+                                                 Message="{Binding NoticeMessage}" Kind="{Binding NoticeKind}"
+                                                 CloseRequested="OnNoticeClose" Margin="0,0,0,6" />
+                    <WrapPanel>
+                        <Button Style="{StaticResource IconButtonStyle}" Width="32" Height="32" Margin="0,0,4,0"
+                                Command="{Binding NewChatCommand}" ToolTip="New chat">
+                            <materialIcons:MaterialIcon Kind="Plus" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
+                        </Button>
+                        <Button Style="{StaticResource IconButtonStyle}" Width="32" Height="32" Margin="0,0,4,0"
+                                Command="{Binding ShowHistoryCommand}" ToolTip="History">
+                            <materialIcons:MaterialIcon Kind="TimelineTextOutline" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
+                        </Button>
+                        <Button Style="{StaticResource IconButtonStyle}" Width="32" Height="32" Margin="0,0,4,0"
+                                Command="{Binding CommitCommand}" ToolTip="Commit">
+                            <materialIcons:MaterialIcon Kind="SourceCommit" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
+                        </Button>
+                        <Button Style="{StaticResource IconButtonStyle}" Width="32" Height="32" Margin="0,0,4,0"
+                                Command="{Binding SendErrorsCommand}" ToolTip="Send errors to chat">
+                            <materialIcons:MaterialIcon Kind="AlertCircleOutline" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
+                        </Button>
+                        <Button Style="{StaticResource IconButtonStyle}" Width="32" Height="32" Margin="0,0,4,0"
+                                Command="{Binding CopyConversationCommand}" ToolTip="Copy all chat messages">
+                            <materialIcons:MaterialIcon Kind="ContentCopy" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
+                        </Button>
+                        <ToggleButton Style="{StaticResource ToggleIconButtonStyle}" Width="32" Height="32" Margin="0,0,4,0"
+                                      IsChecked="{Binding IsDarkTheme, Mode=TwoWay}" ToolTip="Toggle dark / light theme">
+                            <materialIcons:MaterialIcon Kind="ThemeLightDark" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
+                        </ToggleButton>
+                    </WrapPanel>
+
+                    <!-- Commit panel -->
+                    <Border Margin="0,6,0,0" BorderThickness="1" BorderBrush="{DynamicResource Dark.Border}"
+                            Background="{DynamicResource Dark.Panel}" CornerRadius="2" Padding="8,6"
+                            Visibility="{Binding IsCommitOpen, Converter={StaticResource BoolToVis}}">
+                        <StackPanel>
+                            <controls:NotificationBanner Kind="Warning" Message="{Binding CommitWarningMessage}"
+                                                         Visibility="{Binding HasCommitWarning, Converter={StaticResource BoolToVis}}"
+                                                         CloseRequested="OnCommitWarningClose" />
+                            <controls:NotificationBanner Kind="{Binding CommitResultKind}" Message="{Binding CommitResultMessage}"
+                                                         Visibility="{Binding HasCommitResult, Converter={StaticResource BoolToVis}}"
+                                                         CloseRequested="OnCommitResultClose" />
+                            <StackPanel Visibility="{Binding IsCommitEditorVisible, Converter={StaticResource BoolToVis}}">
+                                <TextBox AcceptsReturn="True" TextWrapping="Wrap" MinHeight="48" MaxHeight="120"
+                                         VerticalScrollBarVisibility="Auto" Margin="0,4,0,6"
+                                         Style="{StaticResource OutlinedTextBoxStyle}"
+                                         Text="{Binding CommitMessage, UpdateSourceTrigger=PropertyChanged}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Commit" Command="{Binding CommitSendCommand}" Padding="10,2" />
+                                    <Button Content="Auto-generate message" Command="{Binding CommitAutoGenerateCommand}" Padding="10,2" Margin="8,0,0,0" />
+                                    <Button Content="Close" Command="{Binding CommitCloseCommand}" Padding="10,2" Margin="8,0,0,0" />
+                                    <TextBlock Text="{Binding CommitStatusText}" VerticalAlignment="Center" Margin="10,0,0,0"
+                                               Foreground="{DynamicResource Dark.SubtleText}" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                <!-- Conversation / history -->
+                <Grid Grid.Row="1" Margin="8,4,8,4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Margin="0,0,0,4" Visibility="{Binding IsConversationView, Converter={StaticResource BoolToVis}}">
+                        <ProgressBar Height="4" Minimum="0" Maximum="1" Value="{Binding ContextFillFraction, Mode=OneWay}"
+                                     Foreground="{DynamicResource Dark.Accent}" />
+                        <TextBlock Text="{Binding TokenUsageText}" FontSize="11" Foreground="{DynamicResource Dark.SubtleText}"
+                                   Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <controls:ChatMessagesControl x:Name="ChatMessages" Grid.Row="1"
+                                                  ItemsSource="{Binding Messages}"
+                                                  Visibility="{Binding IsConversationView, Converter={StaticResource BoolToVis}}" />
+
+                    <!-- History -->
+                    <Grid Grid.Row="0" Grid.RowSpan="2" Visibility="{Binding IsConversationView, Converter={StaticResource InverseBoolToVis}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0">
+                            <Button HorizontalAlignment="Left" Content="New chat" Command="{Binding NewChatCommand}" Padding="10,2" />
+                            <Button HorizontalAlignment="Right" Content="Clear history" Command="{Binding ClearHistoryCommand}" Padding="10,2" />
+                        </Grid>
+                        <TextBlock Grid.Row="1" Text="Chat history" FontWeight="Bold" HorizontalAlignment="Center"
+                                   Margin="0,16,0,8" Foreground="{DynamicResource Dark.Text}" />
+                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ItemsControl ItemsSource="{Binding Conversations}" MaxWidth="420" HorizontalAlignment="Center">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,6">
+                                            <Button HorizontalContentAlignment="Stretch" Padding="10,8,32,8"
+                                                    Command="{Binding DataContext.OpenConversationCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding CardTitle}" TextWrapping="Wrap" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource Dark.Text}" />
+                                                    <TextBlock Text="{Binding DisplayDate}" Margin="0,4,0,0" Foreground="{DynamicResource Dark.MutedText}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0"
+                                                    Style="{StaticResource IconButtonStyle}" Width="22" Height="22" ToolTip="Delete chat"
+                                                    Command="{Binding DataContext.DeleteConversationCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <materialIcons:MaterialIcon Kind="Delete" Width="14" Height="14" Foreground="{DynamicResource Dark.Text}" />
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Grid>
+
+                <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                              ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Background="Transparent" />
+                <!-- Composer -->
+                <Grid Grid.Row="3" Margin="8,0,8,8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" MinHeight="66" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Status -->
+                    <Grid Grid.Row="0" Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="1" Text="{Binding StatusText}" VerticalAlignment="Center" Foreground="{DynamicResource Dark.SubtleText}" />
+                    </Grid>
+
+                    <!-- Attachments -->
+                    <ItemsControl Grid.Row="1" ItemsSource="{Binding Attachments}"
+                                  Visibility="{Binding HasAttachments, Converter={StaticResource BoolToVis}}" Margin="0,4,0,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource Dark.Control}" BorderBrush="{DynamicResource Dark.Border}"
+                                        BorderThickness="1" CornerRadius="2" Padding="6,2" Margin="0,0,6,4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding DisplayText}" VerticalAlignment="Center" MaxWidth="280"
+                                                   TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Dark.Text}" FontSize="13" />
+                                        <Button Content="✕" Margin="6,0,0,0" Padding="4,0" BorderThickness="0" Background="Transparent"
+                                                Command="{Binding DataContext.RemoveAttachmentCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Input -->
+                    <Grid Grid.Row="2" Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" AcceptsReturn="True" TextWrapping="Wrap" FontSize="17"
+                                 VerticalScrollBarVisibility="Auto" MinHeight="66" VerticalContentAlignment="Top"
+                                 Style="{StaticResource OutlinedTextBoxStyle}"
+                                 Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged}"
+                                 KeyDown="OnInputKeyDown" />
+                        <controls:BottomUpWrapPanel Grid.Column="1" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="6,0,0,0">
+                            <Button Style="{StaticResource IconButtonStyle}" Width="28" Height="28"
+                                    Command="{Binding ClearInputCommand}" ToolTip="Clear message">
+                                <materialIcons:MaterialIcon Kind="Broom" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
+                            </Button>
+                            <Button Style="{StaticResource IconButtonStyle}" Width="28" Height="28"
+                                    Command="{Binding AttachFilesCommand}" ToolTip="Attach image or file">
+                                <materialIcons:MaterialIcon Kind="Paperclip" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
+                            </Button>
+                            <Button Style="{StaticResource IconButtonStyle}" Width="28" Height="28"
+                                    Command="{Binding ToggleRecordingCommand}" ToolTip="{Binding MicToolTip}" Opacity="{Binding MicLevel}">
+                                <materialIcons:MaterialIcon Kind="Microphone" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
+                            </Button>
+                            <Button Style="{StaticResource IconButtonStyle}" Width="28" Height="28"
+                                    Command="{Binding StopCommand}" ToolTip="Cancel"
+                                    Visibility="{Binding IsSending, Converter={StaticResource BoolToVis}}">
+                                <materialIcons:MaterialIcon Kind="Stop" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
+                            </Button>
+                            <Button Style="{StaticResource IconButtonStyle}" Width="28" Height="28"
+                                    Command="{Binding SendCommand}" ToolTip="Send (Enter)">
+                                <materialIcons:MaterialIcon Kind="Send" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
+                            </Button>
+                        </controls:BottomUpWrapPanel>
+                    </Grid>
+                    <!-- Mode + actions -->
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Text="Mode:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{DynamicResource Dark.SubtleText}" />
+                        <controls:SegmentedToggle ItemsSource="{Binding ModeItems}" SelectedValue="{Binding ModeName, Mode=TwoWay}" VerticalAlignment="Center" />
+                        <Button Content="Compact now" Command="{Binding CompactNowCommand}" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center"
+                                ToolTip="Summarize the conversation to free context space" />
+                        <Button Content="Memory bank" Command="{Binding UpdateMemoryCommand}" Padding="8,2" Margin="6,0,0,0" VerticalAlignment="Center"
+                                ToolTip="Ask the agent to update the project memory bank" />
+                        <Button Content="Permissions" Command="{Binding PermissionsCommand}" Padding="8,2" Margin="6,0,0,0" VerticalAlignment="Center"
+                                ToolTip="Configure agent permissions (read files, edit files, execute commands, web fetch)" />
+                        <Button Content="Docs" Command="{Binding DocsCommand}" Padding="8,2" Margin="6,0,0,0" VerticalAlignment="Center"
+                                ToolTip="Open the documentation" />
+                        <Button Content="Do it!!!" Command="{Binding DoItCommand}" Padding="8,2" Margin="6,0,0,0" VerticalAlignment="Center"
+                                ToolTip="Send 'Do it!!!' to the agent" />
+                    </StackPanel>
+                </Grid>
+                <!-- Permissions overlay -->
+                <Border Grid.Row="0" Grid.RowSpan="4" Background="{DynamicResource Dark.Panel}" BorderBrush="{DynamicResource Dark.Border}"
+                        BorderThickness="1" CornerRadius="2" Padding="12,10"
+                        Visibility="{Binding IsPermissionsOpen, Converter={StaticResource BoolToVis}}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="260" TextElement.FontSize="14">
+                        <TextBlock Text="Agent permissions" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,10" Foreground="{DynamicResource Dark.Text}" />
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <ToggleButton Style="{StaticResource SwitchToggleButtonStyle}" IsChecked="{Binding Settings.AllowReadFiles, Mode=TwoWay}" VerticalAlignment="Center" />
+                            <TextBlock Text="Read files" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource Dark.Text}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <ToggleButton Style="{StaticResource SwitchToggleButtonStyle}" IsChecked="{Binding Settings.AllowEditFiles, Mode=TwoWay}" VerticalAlignment="Center" />
+                            <TextBlock Text="Edit files" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource Dark.Text}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <ToggleButton Style="{StaticResource SwitchToggleButtonStyle}" IsChecked="{Binding Settings.AllowExecuteCommand, Mode=TwoWay}" VerticalAlignment="Center" />
+                            <TextBlock Text="Execute command" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource Dark.Text}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <ToggleButton Style="{StaticResource SwitchToggleButtonStyle}" IsChecked="{Binding Settings.AllowWebFetch, Mode=TwoWay}" VerticalAlignment="Center" />
+                            <TextBlock Text="Web fetch" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource Dark.Text}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <ToggleButton Style="{StaticResource SwitchToggleButtonStyle}" IsChecked="{Binding Settings.AllowSubagents, Mode=TwoWay}" VerticalAlignment="Center" />
+                            <TextBlock Text="Sub-agents" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource Dark.Text}" />
+                        </StackPanel>
+                        <Button Content="Close" Command="{Binding PermissionsCloseCommand}" Margin="0,12,0,0" Padding="10,3" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Docs overlay -->
+                <Border Grid.Row="0" Grid.RowSpan="4" Background="{DynamicResource Dark.Panel}" BorderBrush="{DynamicResource Dark.Border}"
+                        BorderThickness="1" CornerRadius="2" Padding="12,10"
+                        Visibility="{Binding IsDocsOpen, Converter={StaticResource BoolToVis}}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Documentation" FontWeight="Bold" FontSize="16"
+                                       Foreground="{DynamicResource Dark.Text}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <Button Grid.Column="1" Content="Home" Command="{Binding DocsHomeCommand}" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Center" />
+                            <Button Grid.Column="2" Style="{StaticResource IconButtonStyle}" Width="20" Height="20" Margin="8,0,0,0" VerticalAlignment="Center"
+                                    ToolTip="Close" Command="{Binding DocsCloseCommand}">
+                                <TextBlock Text="✕" FontSize="11" Foreground="{DynamicResource Dark.Text}" />
+                            </Button>
+                        </Grid>
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ContentControl Content="{Binding DocsContent, Converter={StaticResource MarkdownToElement}}" Margin="4" />
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+        </TabItem>
+        <!-- ============ Settings tab ============ -->
+        <TabItem Style="{StaticResource MainTabItemStyle}" ToolTip="Settings">
+            <TabItem.Header>
+                <materialIcons:MaterialIcon>
+                    <materialIcons:MaterialIcon.Style>
+                        <Style TargetType="materialIcons:MaterialIcon">
+                            <Setter Property="Width" Value="24" />
+                            <Setter Property="Height" Value="24" />
+                            <Setter Property="Foreground" Value="{DynamicResource Dark.Primary}" />
+                            <Setter Property="Kind" Value="CogOutline" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TabItem}}" Value="True">
+                                    <Setter Property="Kind" Value="Cog" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </materialIcons:MaterialIcon.Style>
+                </materialIcons:MaterialIcon>
+            </TabItem.Header>
+
+            <Grid DataContext="{Binding SettingsViewModel}" Margin="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <ListBox x:Name="SettingsNav" Grid.Column="0" Grid.Row="0"
+                         SelectedIndex="{Binding SettingsSectionIndex, Mode=TwoWay}"
+                         ItemContainerStyle="{StaticResource SettingsNavItemStyle}" Margin="0,0,8,0"
+                         Background="Transparent" BorderThickness="0">
+                    <ListBoxItem ToolTip="API">
+                        <materialIcons:MaterialIcon Kind="Network" Width="24" Height="24" Foreground="{DynamicResource Dark.Text}" />
+                    </ListBoxItem>
+                    <ListBoxItem ToolTip="General">
+                        <materialIcons:MaterialIcon Kind="Cog" Width="24" Height="24" Foreground="{DynamicResource Dark.Text}" />
+                    </ListBoxItem>
+                    <ListBoxItem ToolTip="Sound">
+                        <materialIcons:MaterialIcon Kind="Microphone" Width="24" Height="24" Foreground="{DynamicResource Dark.Text}" />
+                    </ListBoxItem>
+                    <ListBoxItem ToolTip="Timeouts">
+                        <materialIcons:MaterialIcon Kind="Timer" Width="24" Height="24" Foreground="{DynamicResource Dark.Text}" />
+                    </ListBoxItem>
+                    <ListBoxItem ToolTip="Gallery">
+                        <materialIcons:MaterialIcon Kind="ViewGrid" Width="24" Height="24" Foreground="{DynamicResource Dark.Text}" />
+                    </ListBoxItem>
+                    <ListBoxItem ToolTip="Proxy">
+                        <materialIcons:MaterialIcon Kind="Proxy" Width="24" Height="24" Foreground="{DynamicResource Dark.Text}" />
+                    </ListBoxItem>
+                </ListBox>
+
+                <TabControl Grid.Column="1" Grid.Row="0" SelectedIndex="{Binding SelectedIndex, ElementName=SettingsNav}"
+                            Background="Transparent" BorderThickness="0">
+                    <TabControl.Template>
+                        <ControlTemplate TargetType="TabControl">
+                            <ContentPresenter ContentSource="SelectedContent" />
+                        </ControlTemplate>
+                    </TabControl.Template>
+                    <!-- API -->
+                    <TabItem>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Margin="12,8">
+                                <TextBlock Text="API" FontWeight="Bold" FontSize="16" Margin="0,0,0,12" Foreground="{DynamicResource Dark.Text}" />
+                                <TextBlock Text="Base URL" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.BaseUrl, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="API key" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.ApiKey, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Model" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.Model, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Temperature" Style="{StaticResource FieldLabelStyle}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Slider Width="200" Minimum="0" Maximum="1" TickFrequency="0.1" IsSnapToTickEnabled="True"
+                                            SmallChange="0.1" LargeChange="0.2" Value="{Binding Data.Temperature, Mode=TwoWay}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Data.Temperature, StringFormat={}{0:0.0}}" VerticalAlignment="Center" Margin="10,0,0,0"
+                                               Width="40" Foreground="{DynamicResource Dark.Text}" />
+                                </StackPanel>
+                                <TextBlock Text="Context window (tokens)" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.ContextWindowSize, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Input price ($/1M tokens)" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.InputPricePerMillion, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Cache-hit price ($/1M tokens)" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.CacheHitPricePerMillion, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Output price ($/1M tokens)" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.OutputPricePerMillion, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Tool calling" Style="{StaticResource FieldLabelStyle}" />
+                                <ComboBox Style="{StaticResource OutlinedComboBoxStyle}" ItemsSource="{Binding ToolCallingModeOptions}"
+                                          SelectedValue="{Binding Data.ToolCallingMode, Mode=TwoWay}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <ToggleButton Style="{StaticResource SwitchToggleButtonStyle}" IsChecked="{Binding Data.UseToolRole, Mode=TwoWay}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Use 'tool' role for tool results" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource Dark.Text}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                    <!-- General -->
+                    <TabItem>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Margin="12,8">
+                                <TextBlock Text="General" FontWeight="Bold" FontSize="16" Margin="0,0,0,12" Foreground="{DynamicResource Dark.Text}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <ToggleButton Style="{StaticResource SwitchToggleButtonStyle}" IsChecked="{Binding Data.AutoCompact, Mode=TwoWay}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Auto-compact (summarize)" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource Dark.Text}" />
+                                </StackPanel>
+                                <TextBlock Text="Compact threshold (0..1)" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.CompactThreshold, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Reserve fraction (0..1)" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.ReserveFraction, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Keep recent messages" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.KeepRecentMessages, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Tool result max chars" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.ToolResultMaxChars, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Max agent iterations" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.MaxIterations, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Memory bank" Style="{StaticResource FieldLabelStyle}" />
+                                <ComboBox Style="{StaticResource OutlinedComboBoxStyle}" ItemsSource="{Binding MemoryBankModeOptions}"
+                                          SelectedValue="{Binding Data.MemoryBankMode, Mode=TwoWay}" />
+                                <TextBlock Text="User name" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.UserName, UpdateSourceTrigger=PropertyChanged}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <ToggleButton Style="{StaticResource SwitchToggleButtonStyle}" IsChecked="{Binding Data.AddressByName, Mode=TwoWay}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Address me by name" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource Dark.Text}" />
+                                </StackPanel>
+                                <TextBlock Text="Skills directory" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.SkillsPath, UpdateSourceTrigger=PropertyChanged}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <ToggleButton Style="{StaticResource SwitchToggleButtonStyle}" IsChecked="{Binding Data.AllowSubagents, Mode=TwoWay}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Enable sub-agents (spawn_agent)" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource Dark.Text}" />
+                                </StackPanel>
+                                <TextBlock Text="Sub-agent max iterations" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.SubagentMaxIterations, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Sub-agent max depth" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.SubagentMaxDepth, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                    <!-- Sound -->
+                    <TabItem>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Margin="12,8">
+                                <TextBlock Text="Sound" FontWeight="Bold" FontSize="16" Margin="0,0,0,12" Foreground="{DynamicResource Dark.Text}" />
+                                <TextBlock Text="Speech recognition" Style="{StaticResource FieldLabelStyle}" />
+                                <ComboBox Style="{StaticResource OutlinedComboBoxStyle}" ItemsSource="{Binding SpeechToTextProviderOptions}"
+                                          SelectedValue="{Binding Data.SpeechToTextProvider, Mode=TwoWay}" />
+                                <TextBlock Text="Whisper STT model" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.SpeechToTextModel, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Speech language" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.SpeechToTextLanguage, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Vosk model directory" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.VoskModelPath, UpdateSourceTrigger=PropertyChanged}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <ToggleButton Style="{StaticResource SwitchToggleButtonStyle}" IsChecked="{Binding Data.SpeechAutoSend, Mode=TwoWay}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Auto-send voice input" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource Dark.Text}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <!-- Timeouts -->
+                    <TabItem>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Margin="12,8">
+                                <TextBlock Text="Timeouts" FontWeight="Bold" FontSize="16" Margin="0,0,0,12" Foreground="{DynamicResource Dark.Text}" />
+                                <TextBlock Text="Request timeout (s)" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.TimeoutSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Retry budget (min)" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.RetryTimeoutMinutes, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Retry base delay (s)" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.RetryBaseDelaySeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Retry max delay (s)" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.RetryMaxDelaySeconds, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                    <!-- Gallery -->
+                    <TabItem>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Margin="12,8">
+                                <TextBlock Text="Gallery" FontWeight="Bold" FontSize="16" Margin="0,0,0,12" Foreground="{DynamicResource Dark.Text}" />
+                                <TextBlock Text="Primary prompt (pinned)" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{DynamicResource Dark.Text}" />
+                                <Border Background="{DynamicResource Chat.UserBackground}" Padding="8,6" Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Grid.Row="0" Text="You: Fix the null-check in the parser and add a regression test."
+                                                   TextWrapping="Wrap" Foreground="{DynamicResource Dark.Text}" />
+                                        <ProgressBar Grid.Row="1" Height="4" Margin="0,6,0,0" Minimum="0" Maximum="100" Value="42"
+                                                     Foreground="{DynamicResource Dark.Accent}" />
+                                        <TextBlock Grid.Row="2" Margin="0,4,0,0" Foreground="{DynamicResource Dark.SubtleText}"
+                                                   Text="Context window: 12.4k / 200k" />
+                                    </Grid>
+                                </Border>
+                                <TextBlock Text="Notification banners" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{DynamicResource Dark.Text}" />
+                                <controls:NotificationBanner Kind="Trace" Message="Trace sample: most verbose level." Margin="0,0,0,8" />
+                                <controls:NotificationBanner Kind="Info" Message="Info sample: informational message." Margin="0,0,0,8" />
+                                <controls:NotificationBanner Kind="Success" Message="Success sample: action completed." Margin="0,0,0,8" />
+                                <controls:NotificationBanner Kind="Warning" Message="Warning sample: shows copy and send-to-chat." Margin="0,0,0,8" />
+                                <controls:NotificationBanner Kind="Error" Message="Error sample: shows copy and send-to-chat." Margin="0,0,0,8" />
+                                <TextBlock Text="Chat messages" FontWeight="SemiBold" Margin="0,16,0,8" Foreground="{DynamicResource Dark.Text}" />
+                                <controls:ChatMessagesControl x:Name="GalleryChatMessages" MaxHeight="480" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <!-- Proxy -->
+                    <TabItem>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Margin="12,8">
+                                <TextBlock Text="Proxy" FontWeight="Bold" FontSize="16" Margin="0,0,0,12" Foreground="{DynamicResource Dark.Text}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <ToggleButton Style="{StaticResource SwitchToggleButtonStyle}" IsChecked="{Binding Data.ProxyEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Route requests through a proxy" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource Dark.Text}" />
+                                </StackPanel>
+                                <TextBlock Text="Host" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.ProxyHost, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Port" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.ProxyPort, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Username" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.ProxyUsername, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Password" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.ProxyPassword, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                </TabControl>
+                <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,8,0,0">
+                    <Button Style="{StaticResource IconButtonStyle}" Width="32" Height="32" Margin="0,0,8,0"
+                            Command="{Binding SaveCommand}" ToolTip="Save settings">
+                        <materialIcons:MaterialIcon Kind="ContentSaveCogOutline" Width="20" Height="20" Foreground="{DynamicResource Dark.Primary}" />
+                    </Button>
+                    <Button Style="{StaticResource IconButtonStyle}" Width="32" Height="32"
+                            Command="{Binding DataContext.RefreshPromptsCommand, RelativeSource={RelativeSource AncestorType=TabControl}}"
+                            ToolTip="Update prompts">
+                        <materialIcons:MaterialIcon Kind="Reload" Width="20" Height="20" Foreground="{DynamicResource Dark.Primary}" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </TabItem>
+    </TabControl>
+</UserControl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+

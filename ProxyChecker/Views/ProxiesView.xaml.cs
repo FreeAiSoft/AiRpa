@@ -1,38 +1,37 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using EasyMvvm.Core;
-using MahApps.Metro.Controls;
-using MahApps.Metro.Controls.Dialogs;
 
 namespace ProxyChecker.Views
 {
     /// <summary>
     /// Interaction logic for ProxiesView.xaml
     /// </summary>
-    public partial class ProxiesView : MetroWindow, IView
+    public partial class ProxiesView : Window, IView
     {
         public ProxiesView()
         {
             InitializeComponent();
         }
 
-        public async void OnSendMessageAsync(string message)
+        public void OnSendMessageAsync(string message)
         {
-            _ = await this.ShowMessageAsync("", message);
+            MessageBox.Show(message);
         }
 
         private void ShowDetailsClick(object sender, RoutedEventArgs e)
         {
             e.Handled = true;
             Button button = sender as Button;
-            button.TryFindParent<DataGridRow>().DetailsVisibility = Visibility.Visible;
+            FindParent<DataGridRow>(button).DetailsVisibility = Visibility.Visible;
         }
 
         private void HideDetailsClick(object sender, RoutedEventArgs e)
         {
             e.Handled = true;
             Button button = sender as Button;
-            button.TryFindParent<DataGridRow>().DetailsVisibility = Visibility.Collapsed;
+            FindParent<DataGridRow>(button).DetailsVisibility = Visibility.Collapsed;
         }
 
         private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -55,6 +54,16 @@ namespace ProxyChecker.Views
 #pragma warning restore IDE1006 // Naming Styles
         {
 
+        }
+
+        private static T FindParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            DependencyObject parent = VisualTreeHelper.GetParent(child);
+            while (parent != null && !(parent is T))
+            {
+                parent = VisualTreeHelper.GetParent(parent);
+            }
+            return parent as T;
         }
     }
 }

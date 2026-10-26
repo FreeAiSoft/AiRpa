@@ -13,8 +13,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using Activities.Flow;
-using MahApps.Metro.Controls;
-using MahApps.Metro.Controls.Dialogs;
 using RPA.Core;
 using RPA.Entities;
 using RPA.Helpers;
@@ -594,7 +592,7 @@ namespace RPA.Controls
             }
         }
 
-        public async void CommitRename(FSNode fSNode, string newName)
+        public void CommitRename(FSNode fSNode, string newName)
         {
             // Выходим из режима редактирования
             fSNode.IsEditing = false;
@@ -629,10 +627,7 @@ namespace RPA.Controls
                                 // Удаляем временный узел при ошибке
                                 _ = parent.Childs.Remove(fSNode);
 
-                                if (Window.GetWindow(this) is MetroWindow window2)
-                                {
-                                    _ = await window2.ShowMessageAsync("Ошибка", $"Папка '{newName}' уже существует");
-                                }
+                                MessageBox.Show($"Папка '{newName}' уже существует", "Ошибка");
                                 return;
                             }
 
@@ -657,15 +652,12 @@ namespace RPA.Controls
                                 // Удаляем временный узел при ошибке
                                 _ = parent.Childs.Remove(fSNode);
 
-                                if (Window.GetWindow(this) is MetroWindow window2)
-                                {
-                                    _ = await window2.ShowMessageAsync("Ошибка", $"Файл '{activityName}' уже существует");
-                                }
+                                MessageBox.Show($"Файл '{activityName}' уже существует", "Ошибка");
                                 return;
                             }
 
                             // Создаем файл активности через команду
-                            if (Window.GetWindow(this) is MetroWindow window3)
+                            if (Window.GetWindow(this) is Window window3)
                             {
                                 if (window3.DataContext != null)
                                 {
@@ -688,10 +680,7 @@ namespace RPA.Controls
                         // Удаляем временный узел при ошибке
                         _ = parent.Childs.Remove(fSNode);
 
-                        if (Window.GetWindow(this) is MetroWindow window2)
-                        {
-                            _ = await window2.ShowMessageAsync("Ошибка", $"Ошибка при создании: {ex.Message}");
-                        }
+                        MessageBox.Show($"Ошибка при создании: {ex.Message}", "Ошибка");
                     }
                 }
                 return;
@@ -723,9 +712,9 @@ namespace RPA.Controls
                 return;
             }
 
-            if (renameResult.Error != null && Window.GetWindow(this) is MetroWindow window)
+            if (renameResult.Error != null)
             {
-                _ = await window.ShowMessageAsync("Ошибка", renameResult.Error.Message);
+                MessageBox.Show(renameResult.Error.Message, "Ошибка");
                 fSNode.Name = fSNode.OriginalName;
             }
             else
@@ -774,32 +763,24 @@ namespace RPA.Controls
             return null;
         }
 
-        private async void DeleteFolderMenuItem_Click(object sender, RoutedEventArgs e)
+        private void DeleteFolderMenuItem_Click(object sender, RoutedEventArgs e)
         {
             if (sender is MenuItem mnu)
             {
                 FrameworkElement target = ((ContextMenu)mnu.Parent).PlacementTarget as FrameworkElement;
                 if (target?.Tag is FSNode fSNode)
                 {
-                    if (Window.GetWindow(this) is MetroWindow window)
-                    {
-                        MessageDialogResult result = await window.ShowMessageAsync(
-                            "Подтверждение удаления",
-                            $"Вы действительно хотите удалить папку '{fSNode.Name}' и всё её содержимое?",
-                            MessageDialogStyle.AffirmativeAndNegative,
-                            new MetroDialogSettings
-                            {
-                                AffirmativeButtonText = "Да",
-                                NegativeButtonText = "Нет"
-                            });
+                    MessageBoxResult result = MessageBox.Show(
+                        $"Вы действительно хотите удалить папку '{fSNode.Name}' и всё её содержимое?",
+                        "Подтверждение удаления",
+                        MessageBoxButton.YesNo);
 
-                        if (result == MessageDialogResult.Affirmative)
+                    if (result == MessageBoxResult.Yes)
+                    {
+                        RpaCommon.CallResult deleteResult = Services.ProjectManager.DeleteFolder(fSNode);
+                        if (deleteResult.Error != null)
                         {
-                            RpaCommon.CallResult deleteResult = Services.ProjectManager.DeleteFolder(fSNode);
-                            if (deleteResult.Error != null)
-                            {
-                                _ = await window.ShowMessageAsync("Ошибка", deleteResult.Error.Message);
-                            }
+                            MessageBox.Show(deleteResult.Error.Message, "Ошибка");
                         }
                     }
                 }

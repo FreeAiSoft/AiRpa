@@ -1,6 +1,6 @@
-﻿using MahApps.Metro.Controls;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Windows;
 
 namespace FW.EasyMvvm.Core
 {
@@ -11,9 +11,9 @@ namespace FW.EasyMvvm.Core
             model.Run();
 
             viewModel.SetModel(model, view);
-            (view as MetroWindow).DataContext = viewModel;
+            (view as Window).DataContext = viewModel;
             model.SendMessage += (object sender, string e) => view.OnSendMessage(e);
-            (view as MetroWindow).Loaded += (sender, e) => model.Loaded();
+            (view as Window).Loaded += (sender, e) => model.Loaded();
 
             childModels?.ForEach(child => RegisterModel(model, child));
 

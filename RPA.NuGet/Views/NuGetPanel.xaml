@@ -1,0 +1,81 @@
+<UserControl x:Class="RPA.NuGet.Views.NuGetPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Search bar -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,6">
+            <Button x:Name="SearchButton" DockPanel.Dock="Right" Content="Search" Padding="12,4" Click="SearchButton_Click" />
+            <CheckBox x:Name="PrereleaseCheckBox" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,8,0" Content="Include prerelease" IsChecked="{Binding IncludePrerelease}" />
+            <TextBox x:Name="SearchTextBox" VerticalContentAlignment="Center" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" KeyDown="SearchTextBox_KeyDown" />
+        </DockPanel>
+
+        <!-- Project selector -->
+        <DockPanel Grid.Row="1" Margin="0,0,0,6">
+            <Button x:Name="BrowseButton" DockPanel.Dock="Right" Content="Browse..." Padding="12,4" Click="BrowseButton_Click" />
+            <TextBox x:Name="ProjectPathTextBox" IsReadOnly="True" VerticalContentAlignment="Center" Text="{Binding ProjectPath}" />
+        </DockPanel>
+
+        <!-- Packages -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <GroupBox Grid.Column="0" Header="Available" Margin="0,0,4,0">
+                <ListView x:Name="AvailableList" ItemsSource="{Binding Available}" SelectionMode="Single">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontWeight="Bold" Text="{Binding Id}" />
+                                        <TextBlock Margin="6,0,0,0" Text="{Binding Version}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Description}" TextWrapping="Wrap" Foreground="Gray" MaxHeight="40" />
+                                </StackPanel>
+                                <Button Grid.Column="1" VerticalAlignment="Center" Content="Install" Padding="10,2" Click="InstallButton_Click" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </GroupBox>
+
+            <GroupBox Grid.Column="1" Header="Installed" Margin="4,0,0,0">
+                <ListView x:Name="InstalledList" ItemsSource="{Binding Installed}" SelectionMode="Single">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock FontWeight="Bold" Text="{Binding Id}" />
+                                    <TextBlock Margin="6,0,0,0" Text="{Binding Version}" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="Update" Padding="10,2" Margin="4,0" Click="UpdateButton_Click" />
+                                <Button Grid.Column="2" Content="Uninstall" Padding="10,2" Click="UninstallButton_Click" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </GroupBox>
+        </Grid>
+
+        <!-- Status -->
+        <TextBlock Grid.Row="3" Margin="0,6,0,0" Text="{Binding StatusText}" TextWrapping="Wrap" VerticalAlignment="Center" />
+    </Grid>
+</UserControl>

@@ -33,8 +33,8 @@ namespace AvalonDock.Themes
 
             BrushConverter converter = new BrushConverter();
 
-            string accent = Application.Current.Resources["MahApps.Brushes.Accent"].ToString();
-            string accent2 = Application.Current.Resources["MahApps.Brushes.Accent2"].ToString();
+            string accent = "#DC143C";
+            string accent2 = "#FF8C00";
 
             resourceDictionary.Add("AvalonDock_ThemeMetro_BaseColor1", (Brush)converter.ConvertFromString("#FFFFFF"));
             resourceDictionary.Add("AvalonDock_ThemeMetro_BaseColor2", (Brush)converter.ConvertFromString("#000000"));

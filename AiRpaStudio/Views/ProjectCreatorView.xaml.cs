@@ -1,13 +1,12 @@
-﻿using FW.EasyMvvm.Core;
-using MahApps.Metro.Controls;
-using MahApps.Metro.Controls.Dialogs;
+﻿using System.Windows;
+using FW.EasyMvvm.Core;
 
 namespace RPA.Views
 {
     /// <summary>
     /// Interaction logic for ProjectCreatorView.xaml
     /// </summary>
-    public partial class ProjectCreatorView : MetroWindow, IView
+    public partial class ProjectCreatorView : Window, IView
     {
         public ProjectCreatorView()
         {
@@ -16,7 +15,7 @@ namespace RPA.Views
 
         void IView.OnSendMessage(string message)
         {
-            _ = this.ShowMessageAsync("", message);
+            MessageBox.Show(message);
         }
     }
 }

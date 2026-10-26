@@ -1,64 +1,17 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 using AvalonDock;
-using ControlzEx.Theming;
 using FW.EasyMvvm.Core;
 using RPA.Logging;
-using RPA.Properties;
 
 namespace RPA.Models
 {
     public class AppSettings : BaseModel
     {
-        public event Action<string> ChangeTheme;
-
-        #region MVVM
-
-        #region Fields
-
-        private string lightOrDark;
-        private string selectedTheme;
-
-        #endregion Fields
-
-        #region Properties
-
-        public string LightOrDark
-        {
-            get => string.IsNullOrEmpty(lightOrDark) ? "Light" : lightOrDark;
-            set
-            {
-                lightOrDark = value;
-                UpdateSettings();
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(AdditionalColor));
-            }
-        }
-
-        public string AdditionalColor => LightOrDark == "Light" ? "#FFE5E5E5" : "#FF313131";
-
-        public List<string> Themes { get; set; } = new List<string>();
-
-        public string SelectedTheme
-        {
-            get => selectedTheme;
-            set
-            {
-                selectedTheme = value;
-                UpdateSettings();
-                OnPropertyChanged();
-            }
-        }
-
-        #endregion Properties
-
-        #endregion MVVM
-
         private DockingManager _dockManager;
 
         #region Singleton
@@ -72,42 +25,9 @@ namespace RPA.Models
 
         public AppSettings()
         {
-            ThemeManager.Current.Themes
-                .Where(t => t.BaseColorScheme == "Light")
-                .Select(t => t.ColorScheme)
-                .ToList()
-                .ForEach(t => Themes.Add(t)); //просто получаем список тем
-
-            lightOrDark = Settings.Default.LightOrDark;
-            selectedTheme = string.IsNullOrEmpty(Settings.Default.Theme) ? "Steel" : Settings.Default.Theme;
-            SetSettings();
         }
 
         #endregion Singleton
-
-        private void UpdateSettings()
-        {
-            if (LightOrDark != null)
-            {
-                Settings.Default.LightOrDark = LightOrDark;
-                Settings.Default.Theme = SelectedTheme;
-            }
-            Settings.Default.Save();
-            SetSettings();
-        }
-
-        public void SetSettings()
-        {
-            if (string.IsNullOrEmpty(LightOrDark) || string.IsNullOrEmpty(SelectedTheme))
-            {
-                return;
-            }
-
-            string theme = $"{LightOrDark}.{SelectedTheme}";
-            _ = ThemeManager.Current.ChangeTheme(Application.Current, theme);
-            SetTheme();
-            ChangeTheme?.Invoke("AdditionalColor");
-        }
 
         #region Commands
 
@@ -152,11 +72,11 @@ namespace RPA.Models
 
             BrushConverter converter = new BrushConverter();
 
-            string accent = Application.Current.Resources["MahApps.Brushes.Accent"].ToString();
-            string accent2 = Application.Current.Resources["MahApps.Brushes.Accent2"].ToString();
+            string accent = "#DC143C";
+            string accent2 = "#FF8C00";
 
-            string background = LightOrDark == "Light" ? "#FFFFFF" : "#FF222222";
-            string foreground = LightOrDark == "Light" ? "#FF222222" : "#FFFFFF";
+            string background = "#FFFFFF";
+            string foreground = "#FF222222";
 
             _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor1"] = (Brush)converter.ConvertFromString(background); // background
             _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor2"] = (Brush)converter.ConvertFromString(foreground); // foreground

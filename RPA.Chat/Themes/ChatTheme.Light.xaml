@@ -1,0 +1,24 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Light chat-control theme: light counterpart of the VibeCoder palette. -->
+    <SolidColorBrush x:Key="Dark.Window" Color="#F5F5F5" />
+    <SolidColorBrush x:Key="Dark.Panel" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Dark.Control" Color="#EEEEEE" />
+    <SolidColorBrush x:Key="Dark.ControlHover" Color="#E0E0E0" />
+    <SolidColorBrush x:Key="Dark.ControlPressed" Color="#BBDEFB" />
+    <SolidColorBrush x:Key="Dark.Border" Color="#DDDDDD" />
+    <SolidColorBrush x:Key="Dark.Text" Color="#1F1F1F" />
+    <SolidColorBrush x:Key="Dark.SubtleText" Color="#616161" />
+    <SolidColorBrush x:Key="Dark.MutedText" Color="#9E9E9E" />
+    <SolidColorBrush x:Key="Dark.Accent" Color="#1976D2" />
+    <SolidColorBrush x:Key="Dark.ErrorText" Color="#C62828" />
+    <SolidColorBrush x:Key="Dark.Primary" Color="#1976D2" />
+    <SolidColorBrush x:Key="Chat.UserBorder" Color="#CC1976D2" />
+    <SolidColorBrush x:Key="Chat.UserBackground" Color="#331976D2" />
+    <SolidColorBrush x:Key="Commit.SuccessBackground" Color="#2E7D32" />
+    <SolidColorBrush x:Key="Commit.ErrorBackground" Color="#E65100" />
+    <SolidColorBrush x:Key="Mode.PlanBrush" Color="#1976D2" />
+    <SolidColorBrush x:Key="Mode.ActBrush" Color="#2E7D32" />
+    <SolidColorBrush x:Key="Mode.HelpBrush" Color="#C62828" />
+    <SolidColorBrush x:Key="Code.Background" Color="#FFFFFF" />
+</ResourceDictionary>
