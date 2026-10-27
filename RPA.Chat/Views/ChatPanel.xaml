@@ -44,35 +44,6 @@
                     </Setter.Value>
                 </Setter>
             </Style>
-            <!-- Icon toggle button (theme switch), checked shows a subtle tint -->
-            <Style x:Key="ToggleIconButtonStyle" TargetType="ToggleButton">
-                <Setter Property="Background" Value="Transparent" />
-                <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
-                <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="Padding" Value="4" />
-                <Setter Property="Cursor" Value="Hand" />
-                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="ToggleButton">
-                            <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Dark.ControlHover}" />
-                                </Trigger>
-                                <Trigger Property="IsChecked" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#3364B5F6" />
-                                </Trigger>
-                                <Trigger Property="IsEnabled" Value="False">
-                                    <Setter TargetName="Bd" Property="Opacity" Value="0.4" />
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
 
             <!-- Stealth card button for history items: slightly lighter than the window background. -->
             <Style x:Key="HistoryCardButtonStyle" TargetType="Button">
@@ -510,10 +481,6 @@
                                 Command="{Binding CopyConversationCommand}" ToolTip="Copy all chat messages">
                             <materialIcons:MaterialIcon Kind="ContentCopy" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
                         </Button>
-                        <ToggleButton Style="{StaticResource ToggleIconButtonStyle}" Width="32" Height="32" Margin="0,0,4,0"
-                                      IsChecked="{Binding IsDarkTheme, Mode=TwoWay}" ToolTip="Toggle dark / light theme">
-                            <materialIcons:MaterialIcon Kind="ThemeLightDark" Width="18" Height="18" Foreground="{DynamicResource Dark.Text}" />
-                        </ToggleButton>
                     </WrapPanel>
 
                     <!-- Commit panel -->

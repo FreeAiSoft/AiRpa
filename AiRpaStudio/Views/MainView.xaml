@@ -56,7 +56,7 @@
             <Setter Property="Background"
                     Value="Transparent" />
             <Setter Property="BorderBrush"
-                    Value="#DDDDDD" />
+                    Value="{DynamicResource Studio.ToolbarBorder}" />
             <Setter Property="VerticalAlignment"
                     Value="Center" />
             <Setter Property="Template">
@@ -80,12 +80,12 @@
                 <Trigger Property="IsMouseOver"
                          Value="True">
                     <Setter Property="Background"
-                            Value="#F5F5F5" />
+                            Value="{DynamicResource Studio.ToolbarHoverBackground}" />
                 </Trigger>
                 <Trigger Property="IsPressed"
                          Value="True">
                     <Setter Property="Background"
-                            Value="#E0E0E0" />
+                            Value="{DynamicResource Studio.ToolbarPressedBackground}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -97,9 +97,82 @@
             <Setter Property="BorderThickness"
                     Value="1,1,1,1" />
         </Style>
+
+        <!-- Стиль для переключателя темы (кнопка справа от тулбара) -->
+        <Style TargetType="ToggleButton"
+               x:Key="ThemeToggleButtonStyle">
+            <Setter Property="Width"
+                    Value="28" />
+            <Setter Property="Height"
+                    Value="28" />
+            <Setter Property="Margin"
+                    Value="0" />
+            <Setter Property="BorderThickness"
+                    Value="1" />
+            <Setter Property="Background"
+                    Value="Transparent" />
+            <Setter Property="BorderBrush"
+                    Value="{DynamicResource Studio.ToolbarBorder}" />
+            <Setter Property="VerticalAlignment"
+                    Value="Center" />
+            <Setter Property="Cursor"
+                    Value="Hand" />
+            <Setter Property="FocusVisualStyle"
+                    Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled"
+                         Value="False">
+                    <Setter Property="Opacity"
+                            Value="0.4" />
+                </Trigger>
+                <Trigger Property="IsMouseOver"
+                         Value="True">
+                    <Setter Property="Background"
+                            Value="{DynamicResource Studio.ToolbarHoverBackground}" />
+                </Trigger>
+                <Trigger Property="IsChecked"
+                         Value="True">
+                    <Setter Property="Background"
+                            Value="{DynamicResource Studio.ToolbarCheckedBackground}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Тёмная/светлая подложка тулбара -->
+        <Style TargetType="ToolBar">
+            <Setter Property="Background"
+                    Value="{DynamicResource Studio.ToolbarBackground}" />
+            <Setter Property="BorderThickness"
+                    Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToolBar">
+                        <Border Background="{TemplateBinding Background}">
+                            <ToolBarPanel IsItemsHost="True" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ToolBarTray">
+            <Setter Property="Background"
+                    Value="{DynamicResource Studio.ToolbarBackground}" />
+        </Style>
     </Window.Resources>
 
-    <Grid>
+    <Grid Background="{DynamicResource Studio.WindowBackground}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -109,8 +182,10 @@
         <!--#region Top-->
 
         <Menu Grid.Row="0"
-              FontFamily="Consolas">
-            <MenuItem Header="{DynamicResource lang_main_file}">
+              FontFamily="Consolas"
+              Background="{DynamicResource Studio.MenuBackground}">
+            <MenuItem Header="{DynamicResource lang_main_file}"
+                      Foreground="{DynamicResource Studio.MenuForeground}">
                 <MenuItem Header="New process"
                           Command="{Binding Cmd}"
                           CommandParameter="CmdWorkflowNewProcess" />
@@ -140,7 +215,8 @@
                 <MenuItem Header="Close"
                           Command="{Binding ActiveDocument.CloseCommand}" />
             </MenuItem>
-            <MenuItem Header="{DynamicResource lang_main_settings}">
+            <MenuItem Header="{DynamicResource lang_main_settings}"
+                      Foreground="{DynamicResource Studio.MenuForeground}">
                 <MenuItem SnapsToDevicePixels="True"
                           ToolTip="Save Workspace Layout"
                           Header="Save Layout"
@@ -154,7 +230,8 @@
                           ToolTip="Load Workspace Layout"
                           Header="Load Layout" />
             </MenuItem>
-            <MenuItem Header="Tools">
+            <MenuItem Header="Tools"
+                      Foreground="{DynamicResource Studio.MenuForeground}">
                 <MenuItem Header="NuGet Package Manager"
                           Click="NuGetPanelMenuItem_Click" />
             </MenuItem>
@@ -162,12 +239,22 @@
         </Menu>
 
         <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
             <!--#region Верхние кнопки-->
             <ToolBarTray Grid.Column="0"
                          SnapsToDevicePixels="True">
                 <ToolBar  VerticalAlignment="Stretch"
                           ToolBarTray.IsLocked="True"
                           Margin="5 0 0 0">
+                    <ToolBar.Resources>
+                        <Style TargetType="materialIcons:MaterialIcon">
+                            <Setter Property="Foreground"
+                                    Value="{DynamicResource Studio.ToolbarForeground}" />
+                        </Style>
+                    </ToolBar.Resources>
 
                     <Button ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Command.Text}"
                             Command="{Binding Cmd}"
@@ -202,7 +289,7 @@
                     <Separator Margin="5"
                                Width="1"
                                Height="28"
-                               Foreground="#DDDDDD"/>
+                               Foreground="{DynamicResource Studio.ToolbarBorder}"/>
                     
                     <Button ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Command.Text}"
                             Command="{Binding Cmd}"
@@ -238,7 +325,7 @@
                     <Separator Margin="5"
                                Width="1"
                                Height="28"
-                               Foreground="#DDDDDD"/>
+                               Foreground="{DynamicResource Studio.ToolbarBorder}"/>
                     
                     <Button ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Command.Text}"
                             Command="{Binding Cmd}"
@@ -262,14 +349,27 @@
                     <Separator Margin="5"
                                Width="1"
                                Height="28"
-                               Foreground="#DDDDDD" />
+                               Foreground="{DynamicResource Studio.ToolbarBorder}" />
                     <ComboBox ItemsSource="{Binding Langs}"
                               Margin="3"
                               SelectedValue="{Binding Language, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <ToggleButton x:Name="ThemeToggleButton"
+                                  Grid.Column="1"
+                                  Style="{StaticResource ThemeToggleButtonStyle}"
+                                  ToolTip="Toggle dark / light theme"
+                                  VerticalAlignment="Center"
+                                  Margin="5,0,5,0">
+                        <materialIcons:MaterialIcon Kind="ThemeLightDark"
+                                                    Width="20"
+                                                    Height="20"
+                                                    Foreground="{DynamicResource Studio.ToolbarForeground}" />
+                    </ToggleButton>
 
                 </ToolBar>
             </ToolBarTray>
             <!--#endregion Верхние кнопки-->
+
+            
         </Grid>
 
         <!--#endregion Top-->

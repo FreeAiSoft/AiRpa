@@ -87,4 +87,22 @@ public class ExtensionsTests
         var item = args.GetLogItem();
         Assert.That(item.LogLevel, Is.EqualTo(LogLevel.Trace));
     }
+
+    [Test]
+    public void ToLogLevel_Debug_ReturnsDebug()
+    {
+        Assert.That("debug".ToLogLevel(), Is.EqualTo(LogLevel.Debug));
+    }
+
+    [Test]
+    public void ToLogLevel_Error_ReturnsError()
+    {
+        Assert.That("error".ToLogLevel(), Is.EqualTo(LogLevel.Error));
+    }
+
+    [Test]
+    public void ToLogLevel_Fatal_ReturnsFatal()
+    {
+        Assert.That("fatal".ToLogLevel(), Is.EqualTo(LogLevel.Fatal));
+    }
 }

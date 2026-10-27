@@ -1,0 +1,15 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Marker used by AppSettings.ApplyTheme to locate and swap this dictionary. -->
+    <SolidColorBrush x:Key="Studio.ThemeMarker" Color="Transparent" />
+
+    <SolidColorBrush x:Key="Studio.WindowBackground" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Studio.MenuBackground" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Studio.MenuForeground" Color="#FF222222" />
+    <SolidColorBrush x:Key="Studio.ToolbarBackground" Color="#F0F0F0" />
+    <SolidColorBrush x:Key="Studio.ToolbarForeground" Color="#FF222222" />
+    <SolidColorBrush x:Key="Studio.ToolbarBorder" Color="#DDDDDD" />
+    <SolidColorBrush x:Key="Studio.ToolbarHoverBackground" Color="#F5F5F5" />
+    <SolidColorBrush x:Key="Studio.ToolbarPressedBackground" Color="#E0E0E0" />
+    <SolidColorBrush x:Key="Studio.ToolbarCheckedBackground" Color="#E0E0E0" />
+</ResourceDictionary>

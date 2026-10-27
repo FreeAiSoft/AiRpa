@@ -63,8 +63,13 @@ namespace RPA.Models
             _dockManager = dockManager;
         }
 
-        internal void SetTheme()
+        private static readonly Uri DarkThemeUri = new Uri("pack://application:,,,/AiRpaStudio;component/Themes/StudioTheme.Dark.xaml", UriKind.Absolute);
+        private static readonly Uri LightThemeUri = new Uri("pack://application:,,,/AiRpaStudio;component/Themes/StudioTheme.Light.xaml", UriKind.Absolute);
+
+        internal void ApplyTheme(bool dark)
         {
+            ApplyStudioThemeDictionary(dark);
+
             if (_dockManager == null)
             {
                 return;
@@ -75,16 +80,18 @@ namespace RPA.Models
             string accent = "#DC143C";
             string accent2 = "#FF8C00";
 
-            string background = "#FFFFFF";
-            string foreground = "#FF222222";
+            string background = dark ? "#2D2D30" : "#FFFFFF";
+            string foreground = dark ? "#F1F1F1" : "#FF222222";
+            string baseColor5 = dark ? "#3E3E42" : "#333333";
+            string baseColor7 = dark ? "#3F3F46" : "#EEEEEE";
 
             _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor1"] = (Brush)converter.ConvertFromString(background); // background
             _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor2"] = (Brush)converter.ConvertFromString(foreground); // foreground
             _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor3"] = (Brush)converter.ConvertFromString(accent);
             _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor4"] = (Brush)converter.ConvertFromString(accent2);
-            _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor5"] = (Brush)converter.ConvertFromString("#333333");
+            _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor5"] = (Brush)converter.ConvertFromString(baseColor5);
             _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor6"] = (Brush)converter.ConvertFromString("#8C8E94");
-            _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor7"] = (Brush)converter.ConvertFromString("#EEEEEE");
+            _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor7"] = (Brush)converter.ConvertFromString(baseColor7);
 
             _dockManager.FloatingWindows.ToList().ForEach(floatingWindow =>
             {
@@ -92,10 +99,33 @@ namespace RPA.Models
                 floatingWindow.Resources["AvalonDock_ThemeMetro_BaseColor2"] = (Brush)converter.ConvertFromString(foreground); // foreground
                 floatingWindow.Resources["AvalonDock_ThemeMetro_BaseColor3"] = (Brush)converter.ConvertFromString(accent);
                 floatingWindow.Resources["AvalonDock_ThemeMetro_BaseColor4"] = (Brush)converter.ConvertFromString(accent2);
-                floatingWindow.Resources["AvalonDock_ThemeMetro_BaseColor5"] = (Brush)converter.ConvertFromString("#333333");
+                floatingWindow.Resources["AvalonDock_ThemeMetro_BaseColor5"] = (Brush)converter.ConvertFromString(baseColor5);
                 floatingWindow.Resources["AvalonDock_ThemeMetro_BaseColor6"] = (Brush)converter.ConvertFromString("#8C8E94");
-                floatingWindow.Resources["AvalonDock_ThemeMetro_BaseColor7"] = (Brush)converter.ConvertFromString("#EEEEEE");
+                floatingWindow.Resources["AvalonDock_ThemeMetro_BaseColor7"] = (Brush)converter.ConvertFromString(baseColor7);
             });
+        }
+
+        private static void ApplyStudioThemeDictionary(bool dark)
+        {
+            if (Application.Current == null)
+            {
+                return;
+            }
+
+            ResourceDictionary dictionary = new ResourceDictionary { Source = dark ? DarkThemeUri : LightThemeUri };
+
+            var merged = Application.Current.Resources.MergedDictionaries;
+            ResourceDictionary old = merged.FirstOrDefault(r => r.Contains("Studio.ThemeMarker"));
+            if (old != null)
+            {
+                int index = merged.IndexOf(old);
+                merged.Remove(old);
+                merged.Insert(index, dictionary);
+            }
+            else
+            {
+                merged.Add(dictionary);
+            }
         }
 
         #endregion Commands

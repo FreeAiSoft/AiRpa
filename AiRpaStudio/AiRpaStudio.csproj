@@ -337,60 +337,10 @@
     <Compile Include="Mcp\HttpMcpServerHost.cs" />
     <Compile Include="Mcp\IMcpServer.cs" />
     <Compile Include="Mcp\IMcpTool.cs" />
+    <Compile Include="Mcp\McpCommandHelper.cs" />
     <Compile Include="Mcp\McpModels.cs" />
     <Compile Include="Mcp\RpaMcpServer.cs" />
     <Compile Include="Mcp\StdioMcpServerHost.cs" />
-    <Compile Include="Mcp\Tools\AddActivityTool.cs" />
-    <Compile Include="Mcp\Tools\AddAnnotationTool.cs" />
-    <Compile Include="Mcp\Tools\AddAssemblyReferenceTool.cs" />
-    <Compile Include="Mcp\Tools\AddNamespaceTool.cs" />
-    <Compile Include="Mcp\Tools\AnalyzeWorkflowTool.cs" />
-    <Compile Include="Mcp\Tools\BaseMcpTool.cs" />
-    <Compile Include="Mcp\Tools\CopyActivityTool.cs" />
-    <Compile Include="Mcp\Tools\CreateActivityFileTool.cs" />
-    <Compile Include="Mcp\Tools\CreateArgumentTool.cs" />
-    <Compile Include="Mcp\Tools\CreateFromTemplateTool.cs" />
-    <Compile Include="Mcp\Tools\CreateVariableTool.cs" />
-    <Compile Include="Mcp\Tools\DebugWorkflowTool.cs" />
-    <Compile Include="Mcp\Tools\DeleteVariableTool.cs" />
-    <Compile Include="Mcp\Tools\ExtractToWorkflowTool.cs" />
-    <Compile Include="Mcp\Tools\FindActivityTool.cs" />
-    <Compile Include="Mcp\Tools\GetActivityDetailsTool.cs" />
-    <Compile Include="Mcp\Tools\GetActivityTreeTool.cs" />
-    <Compile Include="Mcp\Tools\GetChildActivitiesTool.cs" />
-    <Compile Include="Mcp\Tools\GetFileInfoTool.cs" />
-    <Compile Include="Mcp\Tools\GetOpenTabsTool.cs" />
-    <Compile Include="Mcp\Tools\GetParentActivityTool.cs" />
-    <Compile Include="Mcp\Tools\GetValidationErrorsTool.cs" />
-    <Compile Include="Mcp\Tools\GetWorkflowInfoTool.cs" />
-    <Compile Include="Mcp\Tools\GetWorkflowStatisticsTool.cs" />
-    <Compile Include="Mcp\Tools\InlineWorkflowTool.cs" />
-    <Compile Include="Mcp\Tools\JsonExampleGenerator.cs" />
-    <Compile Include="Mcp\Tools\ListActivitiesTool.cs" />
-    <Compile Include="Mcp\Tools\ListAnnotationsTool.cs" />
-    <Compile Include="Mcp\Tools\ListArgumentsTool.cs" />
-    <Compile Include="Mcp\Tools\ListAssembliesTool.cs" />
-    <Compile Include="Mcp\Tools\ListBreakpointsTool.cs" />
-    <Compile Include="Mcp\Tools\ListFilesTool.cs" />
-    <Compile Include="Mcp\Tools\ListNamespacesTool.cs" />
-    <Compile Include="Mcp\Tools\ListTemplatesTool.cs" />
-    <Compile Include="Mcp\Tools\ListVariablesTool.cs" />
-    <Compile Include="Mcp\Tools\MoveActivityTool.cs" />
-    <Compile Include="Mcp\Tools\ParameterValidator.cs" />
-    <Compile Include="Mcp\Tools\ReadFileTool.cs" />
-    <Compile Include="Mcp\Tools\RemoveActivityTool.cs" />
-    <Compile Include="Mcp\Tools\RemoveBreakpointTool.cs" />
-    <Compile Include="Mcp\Tools\RenameActivityTool.cs" />
-    <Compile Include="Mcp\Tools\RunWorkflowTool.cs" />
-    <Compile Include="Mcp\Tools\SaveAsTemplateTool.cs" />
-    <Compile Include="Mcp\Tools\SaveWorkflowTool.cs" />
-    <Compile Include="Mcp\Tools\SearchFilesTool.cs" />
-    <Compile Include="Mcp\Tools\SetActiveTabTool.cs" />
-    <Compile Include="Mcp\Tools\SetActivityPropertyTool.cs" />
-    <Compile Include="Mcp\Tools\SetBreakpointTool.cs" />
-    <Compile Include="Mcp\Tools\StopExecutionTool.cs" />
-    <Compile Include="Mcp\Tools\UpdateActivityTool.cs" />
-    <Compile Include="Mcp\Tools\UpdateVariableTool.cs" />
     <Compile Include="Models\ActivityCreator.cs" />
     <Compile Include="Core\CustomWfDesigner.cs" />
     <Compile Include="CSharpExpressionEditor\QueryCompletionData.cs" />
@@ -446,6 +396,14 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Resources\ButtonStyles.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Themes\StudioTheme.Light.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Themes\StudioTheme.Dark.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

@@ -54,7 +54,6 @@ namespace RPA.Models
             new DesignerMetadata().Register();
             SetLanguage();
             _ = AppSettings.GetInstance();
-            Services.AppSettings.SetTheme();
         }
 
         private void SetLanguage()

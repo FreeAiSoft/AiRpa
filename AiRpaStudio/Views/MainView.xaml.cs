@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Threading;
 using AvalonDock.Layout;
@@ -77,6 +78,16 @@ namespace RPA.Views
             // The chat resolves the current project folder for agent tools + MSBuild feedback.
             RPA.Chat.Services.ChatEnvironment.SolutionPathProvider = () => ProjectManager.GetInstance().ProjectFolder;
 
+            // Theme: the studio window follows the chat theme (single source of truth).
+            chatPanel.ViewModel.ThemeChanged += OnChatThemeChanged;
+            Services.AppSettings.ApplyTheme(chatPanel.ViewModel.IsDarkTheme);
+            ThemeToggleButton.SetBinding(ToggleButton.IsCheckedProperty,
+                new Binding(nameof(RPA.Chat.ViewModels.ChatViewModel.IsDarkTheme))
+                {
+                    Source = chatPanel.ViewModel,
+                    Mode = BindingMode.TwoWay
+                });
+
             nuGetPanel = new RPA.NuGet.Views.NuGetPanel();
             // Re-detect the .csproj whenever the current studio project folder changes.
             ProjectManager.GetInstance().PropertyChanged += OnProjectManagerPropertyChanged;
@@ -87,6 +98,11 @@ namespace RPA.Views
         {
             if (e.PropertyName == nameof(ProjectManager.ProjectFolder))
                 nuGetPanel.SetProjectFolder(ProjectManager.GetInstance().ProjectFolder);
+        }
+
+        private void OnChatThemeChanged()
+        {
+            Services.AppSettings.ApplyTheme(chatPanel.ViewModel.IsDarkTheme);
         }
 
         private void InitializeLayoutRoot()
