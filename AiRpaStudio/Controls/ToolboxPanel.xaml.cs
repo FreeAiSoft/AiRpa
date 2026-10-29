@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using RPA.Helpers;
 
 namespace RPA.Controls
 {
@@ -59,6 +60,19 @@ namespace RPA.Controls
                 {
                     firstBorder.BorderThickness = new Thickness(0);
                 }
+            }
+
+            WfVisualTreeThemer.Apply(toolbox);
+        }
+
+        /// <summary>
+        /// Повторно применяет тему MaterialDesign к нативному ToolboxControl (вызывается при смене темы).
+        /// </summary>
+        public void ApplyTheme()
+        {
+            if (toolboxControl != null)
+            {
+                WfVisualTreeThemer.Apply(toolboxControl);
             }
         }
 

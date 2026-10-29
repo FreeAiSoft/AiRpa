@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -6,6 +6,8 @@ using System.Windows;
 using System.Windows.Media;
 using AvalonDock;
 using FW.EasyMvvm.Core;
+using MaterialDesignThemes.Wpf;
+using RPA.Helpers;
 using RPA.Logging;
 
 namespace RPA.Models
@@ -63,12 +65,16 @@ namespace RPA.Models
             _dockManager = dockManager;
         }
 
-        private static readonly Uri DarkThemeUri = new Uri("pack://application:,,,/AiRpaStudio;component/Themes/StudioTheme.Dark.xaml", UriKind.Absolute);
-        private static readonly Uri LightThemeUri = new Uri("pack://application:,,,/AiRpaStudio;component/Themes/StudioTheme.Light.xaml", UriKind.Absolute);
+        private const string FallbackPrimaryHex = "#673AB7";   // DeepPurple — соответствует BundledTheme в App.xaml
+        private const string FallbackSecondaryHex = "#CDDC39";  // Lime — соответствует BundledTheme в App.xaml
 
         internal void ApplyTheme(bool dark)
         {
-            ApplyStudioThemeDictionary(dark);
+            ApplyMaterialDesignTheme(dark);
+
+            // Алиасы Studio.* и системные кисти пересобираются из новой палитры: в словаре должны
+            // лежать настоящие Brush, иначе WPF падает на Style-сеттерах (см. StudioBrushes).
+            StudioBrushes.ApplyToApplication();
 
             if (_dockManager == null)
             {
@@ -77,13 +83,12 @@ namespace RPA.Models
 
             BrushConverter converter = new BrushConverter();
 
-            string accent = "#DC143C";
-            string accent2 = "#FF8C00";
-
-            string background = dark ? "#2D2D30" : "#FFFFFF";
-            string foreground = dark ? "#F1F1F1" : "#FF222222";
-            string baseColor5 = dark ? "#3E3E42" : "#333333";
-            string baseColor7 = dark ? "#3F3F46" : "#EEEEEE";
+            string background = GetResourceHex("MaterialDesign.Brush.Background", dark ? "#2D2D30" : "#FFFFFF");
+            string foreground = GetResourceHex("MaterialDesign.Brush.Foreground", dark ? "#F1F1F1" : "#FF222222");
+            string accent = GetResourceHex("MaterialDesign.Brush.Primary", FallbackPrimaryHex);
+            string accent2 = GetResourceHex("MaterialDesign.Brush.Secondary", FallbackSecondaryHex);
+            string baseColor5 = GetResourceHex("MaterialDesign.Brush.ToolBar.Background", dark ? "#3E3E42" : "#EEEEEE");
+            string baseColor7 = GetResourceHex("MaterialDesign.Brush.Card.Border", dark ? "#3F3F46" : "#EEEEEE");
 
             _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor1"] = (Brush)converter.ConvertFromString(background); // background
             _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor2"] = (Brush)converter.ConvertFromString(foreground); // foreground
@@ -105,27 +110,24 @@ namespace RPA.Models
             });
         }
 
-        private static void ApplyStudioThemeDictionary(bool dark)
+        private static void ApplyMaterialDesignTheme(bool dark)
         {
-            if (Application.Current == null)
+            PaletteHelper paletteHelper = new PaletteHelper();
+            Theme newTheme = Theme.Create(
+                dark ? BaseTheme.Dark : BaseTheme.Light,
+                Color.FromRgb(103, 58, 183),   // DeepPurple
+                Color.FromRgb(205, 220, 57));  // Lime
+            paletteHelper.SetTheme(newTheme);
+        }
+
+        private static string GetResourceHex(string key, string fallback)
+        {
+            if (Application.Current?.Resources[key] is SolidColorBrush brush)
             {
-                return;
+                return brush.Color.ToString();
             }
 
-            ResourceDictionary dictionary = new ResourceDictionary { Source = dark ? DarkThemeUri : LightThemeUri };
-
-            var merged = Application.Current.Resources.MergedDictionaries;
-            ResourceDictionary old = merged.FirstOrDefault(r => r.Contains("Studio.ThemeMarker"));
-            if (old != null)
-            {
-                int index = merged.IndexOf(old);
-                merged.Remove(old);
-                merged.Insert(index, dictionary);
-            }
-            else
-            {
-                merged.Add(dictionary);
-            }
+            return fallback;
         }
 
         #endregion Commands

@@ -2,6 +2,10 @@
 
 ## Язык общения в чате - русский
 
+## Терминология
+- «студия» = WPF-проект `AiRpaStudio` (решение `AiRpa.sln`, проект `AiRpaStudio\AiRpaStudio.csproj`,
+  `RootNamespace`/`AssemblyName` = `RPA`).
+
 ## TDD — обязательное правило
 - Любая разработка идёт только через тестирование (red → green → refactor).
 - Сначала пишется падающий тест, затем минимальная реализация, затем рефакторинг.
@@ -33,6 +37,21 @@
   Запуск — через MSBuild из Visual Studio + `vstest.console.exe` (см. выше), т.к.
   `dotnet test` не собирает legacy WPF-проекты решения.
 - Полная сборка решения: MSBuild из Visual Studio.
+
+## Темы (MaterialDesign.Themes.Wpf) и хранилище исходников
+- Темы студии строятся на `MaterialDesignThemes.Wpf` (`BundledTheme` + `MaterialDesign2.Defaults.xaml`
+  + алиасы `Studio.*`, создаваемые в рантайме `Helpers\StudioBrushes.cs`); переключение Light/Dark — через
+  `MaterialDesignThemes.Wpf.PaletteHelper`.
+- ⚠️ Кисти `Studio.*` и `SystemColors.*BrushKey` НЕЛЬЗЯ объявлять в XAML как
+  `<DynamicResource x:Key=... ResourceKey=... />`: в словарь попадает `ResourceReferenceExpression`,
+  и WPF падает с `XamlParseException` на Style-сеттерах (проверяется тестом
+  `AiRpaStudio.Tests\StudioBrushesTests.cs`). Только кодом — `Helpers\StudioBrushes.cs`
+  (`ApplyToApplication()` при старте приложения и после каждой смены темы).
+- План темизации всех визуальных контролов: `AiRpaStudio\docs\Theming_MaterialDesign_Plan.md`.
+- Нативные WF-контролы (`ToolboxControl`, `OutlineView`, `PropertyInspectorView`) стилизуются
+  обходом визуального дерева; исходники для изучения их шаблонов:
+  `C:\Users\Maxxx\source\repos\.NET-Framework-4.8-RTM-Reference-Source`
+  (детали — `AiRpaStudio\docs\Reference_Source_Storage.md`).
 
 ## Шаблон MVVM проекта AiRpaStudio (FW.EasyMvvm) — обязательное требование
 

@@ -84,4 +84,16 @@ public class VsTemplateProjectCreatorTests
         Assert.That(request.TargetFrameworkVersion, Is.EqualTo("4.8.1"));
         Assert.That(request.OutputDirectory, Is.EqualTo(@"C:\out"));
     }
+
+    [Test]
+    public void CreateProject_InvalidPath_DoesNotSetIsCreate()
+    {
+        var creator = new VsTemplateProjectCreator();
+        creator.SelectedPath = Path.Combine(Path.GetTempPath(), "vspc_missing_" + Guid.NewGuid().ToString("N"));
+        creator.ProjectName = "MyLibrary";
+
+        creator.CreateProject();
+
+        Assert.That(creator.IsCreate, Is.False);
+    }
 }

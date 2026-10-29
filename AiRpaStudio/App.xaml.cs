@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Resources;
 using System.Windows;
+using RPA.Helpers;
 using RPA.Mcp;
 //#pragma warning disable
 namespace RPA
@@ -43,6 +44,11 @@ namespace RPA
             {
                 StartMcpServer(e.Args);
             }
+
+            // Кисти Studio.* и системные кисти — реальными Brush из активной палитры MaterialDesign
+            // (см. Helpers\StudioBrushes.cs: <DynamicResource x:Key="..."/> в словаре даёт
+            // ResourceReferenceExpression и валит XamlParseException на MenuItem).
+            StudioBrushes.ApplyToApplication();
 
             new EntryPoint().Run();
         }

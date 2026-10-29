@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Activities.Core.Presentation;
-using System.Globalization;
-using System.IO;
 using System.Diagnostics;
+using System.Globalization;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
 using System.Windows;
 using FW.EasyMvvm.Core;
 using RPA.Core;
@@ -29,6 +31,8 @@ namespace RPA.Models
         public CustomWfDesigner CustomWfDesigner { get; } = CustomWfDesigner.GetInstance();
 
         public ProjectManager ProjectManager { get; set; } = ProjectManager.GetInstance();
+
+        public ObservableCollection<CodeDocument> OpenCodeDocuments { get; } = new ObservableCollection<CodeDocument>();
 
         public string Language
         {
@@ -74,11 +78,42 @@ namespace RPA.Models
 
         public override void Loaded()
         {
-            if (string.IsNullOrWhiteSpace(Properties.Settings.Default.LastLoadedProjectPath))
+            string lastProjectPath = Properties.Settings.Default.LastLoadedProjectPath;
+
+            if (string.IsNullOrWhiteSpace(lastProjectPath))
             {
                 CreateHelloWorldProject();
+                lastProjectPath = Properties.Settings.Default.LastLoadedProjectPath;
             }
-            LoadProject(Properties.Settings.Default.LastLoadedProjectPath);
+
+            if (string.IsNullOrWhiteSpace(lastProjectPath))
+            {
+                return;
+            }
+
+            if (IsVsProjectPath(lastProjectPath))
+            {
+                LoadVsProjectIntoStudio(lastProjectPath);
+            }
+            else
+            {
+                LoadProject(lastProjectPath);
+            }
+        }
+
+        /// <summary>
+        /// Determines whether a stored project path points to a Visual Studio
+        /// solution/project (.sln/.csproj) instead of a simple RPA project folder.
+        /// </summary>
+        internal static bool IsVsProjectPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return false;
+            }
+
+            return path.EndsWith(".sln", StringComparison.OrdinalIgnoreCase)
+                || path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase);
         }
 
         private void CreateHelloWorldProject()
@@ -96,12 +131,24 @@ namespace RPA.Models
 
         private void LoadProject(string rootProjectFolder)
         {
+            if (string.IsNullOrWhiteSpace(rootProjectFolder))
+            {
+                return;
+            }
+
+            if (!Directory.Exists(rootProjectFolder) || !File.Exists(Path.Combine(rootProjectFolder, Consts.projectFileName)))
+            {
+                ClearInvalidLastProjectPath(rootProjectFolder);
+                return;
+            }
+
             try
             {
                 CallResult resp = ProjectManager.InitFileTree(rootProjectFolder);
                 if (!resp.Success)
                 {
                     OnSendMessage(resp.Error.Message);
+                    ClearInvalidLastProjectPath(rootProjectFolder);
                     return;
                 }
 
@@ -180,6 +227,10 @@ namespace RPA.Models
             {
                 CmdVsOpenInVisualStudio(filePath);
             }
+            else if (CodeLanguageProvider.GetLanguageForExtension(filePath) != null)
+            {
+                CmdOpenInCodeEditor(filePath);
+            }
             else
             {
                 try
@@ -190,6 +241,48 @@ namespace RPA.Models
                 {
                     OnSendMessage(LocalizeHelper.Get("lang_msg_open_file_error", ex.Message));
                 }
+            }
+        }
+
+        /// <summary>
+        /// Opens a file in the built-in code editor (XAML/C#/JSON/XML).
+        /// </summary>
+        public void CmdOpenInCodeEditor(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                return;
+            }
+
+            if (!File.Exists(filePath))
+            {
+                OnSendMessage(LocalizeHelper.Get("lang_msg_open_file_error", "File not found"));
+                return;
+            }
+
+            CodeDocument existing = OpenCodeDocuments.FirstOrDefault(
+                d => string.Equals(d.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+
+            if (existing != null)
+            {
+                (ViewModel?.View as MainView)?.ActivateCodeDocument(filePath);
+                return;
+            }
+
+            OpenCodeDocuments.Add(CodeDocument.Load(filePath));
+        }
+
+        /// <summary>
+        /// Closes a code document opened in the built-in editor.
+        /// </summary>
+        public void CmdCloseCodeDocument(string filePath)
+        {
+            CodeDocument document = OpenCodeDocuments.FirstOrDefault(
+                d => string.Equals(d.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+
+            if (document != null)
+            {
+                OpenCodeDocuments.Remove(document);
             }
         }
 
@@ -384,6 +477,17 @@ namespace RPA.Models
 
         private void LoadVsProjectIntoStudio(string path)
         {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            if (!File.Exists(path))
+            {
+                ClearInvalidLastProjectPath(path);
+                return;
+            }
+
             try
             {
                 CallResult resp = ProjectManager.InitVsProjectTree(path);
@@ -393,12 +497,29 @@ namespace RPA.Models
                     return;
                 }
 
+                Properties.Settings.Default.LastLoadedProjectPath = path;
+                Properties.Settings.Default.Save();
+
                 CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_vs_project_loaded", path), (int)RpaCommon.Enums.LogLevel.Info);
             }
             catch (Exception ex)
             {
                 CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_vs_project_load_error", ex.Message), (int)RpaCommon.Enums.LogLevel.Error);
                 OnSendMessage(LocalizeHelper.Get("lang_msg_vs_project_load_error", ex.Message));
+            }
+        }
+
+        private static void ClearInvalidLastProjectPath(string invalidPath)
+        {
+            if (string.IsNullOrWhiteSpace(invalidPath))
+            {
+                return;
+            }
+
+            if (Properties.Settings.Default.LastLoadedProjectPath == invalidPath)
+            {
+                Properties.Settings.Default.LastLoadedProjectPath = string.Empty;
+                Properties.Settings.Default.Save();
             }
         }
 

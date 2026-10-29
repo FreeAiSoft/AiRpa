@@ -13,10 +13,12 @@ namespace RPA.Helpers
     {
         private UIElement propertyInspector;
         private readonly MaterialIconDataProvider materialIconData = new MaterialIconDataProvider();
+        private MaterialThemeColors colors;
 
         public void SetPropertyStyles(UIElement propertyInspector)
         {
             this.propertyInspector = propertyInspector;
+            colors = MaterialThemePalette.Resolve(Application.Current?.Resources);
             ApplyTop();
             ApplyToolbar();
             ApplyPropertyInspectorButtonsStyle();
@@ -31,7 +33,7 @@ namespace RPA.Helpers
                 return;
             }
 
-            SolidColorBrush brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FAFAFA"));
+            SolidColorBrush brush = new SolidColorBrush(colors.Surface);
 
             // Navigate: PropertyInspector -> Border -> Grid -> StackPanel -> PropertyToolbar
             Border firstBorder = FindVisualChildren<Border>(propertyInspector).FirstOrDefault();
@@ -88,7 +90,7 @@ namespace RPA.Helpers
                 return;
             }
 
-            SolidColorBrush brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FAFAFA"));
+            SolidColorBrush brush = new SolidColorBrush(colors.Surface);
 
             // Navigate: PropertyInspector -> Border -> Grid -> StackPanel -> Border
             Border firstBorder = FindVisualChildren<Border>(propertyInspector).FirstOrDefault();
@@ -159,8 +161,8 @@ namespace RPA.Helpers
                                 // Check if it's a vertical separator (thin width or specific name)
                                 if (border.Width <= 2 || border.Name?.Contains("Separator") == true || border.Name?.Contains("Divider") == true)
                                 {
-                                    border.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#DDDDDD"));
-                                    border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#DDDDDD"));
+                                    border.Background = new SolidColorBrush(colors.Border);
+                                    border.BorderBrush = new SolidColorBrush(colors.Border);
                                     System.Diagnostics.Debug.WriteLine($"Set separator color to #DDDDDD: {border.Name ?? "unnamed"}");
                                 }
                             }
@@ -170,7 +172,7 @@ namespace RPA.Helpers
                             {
                                 if (rect.Width <= 2 || rect.Name?.Contains("Separator") == true || rect.Name?.Contains("Divider") == true)
                                 {
-                                    rect.Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#DDDDDD"));
+                                    rect.Fill = new SolidColorBrush(colors.Border);
                                     System.Diagnostics.Debug.WriteLine($"Set separator rectangle color to #DDDDDD: {rect.Name ?? "unnamed"}");
                                 }
                             }
@@ -180,7 +182,7 @@ namespace RPA.Helpers
 
                 // Apply custom style
                 SolidColorBrush buttonBackgroundBrush = new SolidColorBrush(Colors.Transparent);
-                SolidColorBrush buttonBorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#DDDDDD"));
+                SolidColorBrush buttonBorderBrush = new SolidColorBrush(colors.Border);
 
                 // Set SVG icon for PART_ByCategoryViewButton (ShapePlusOutline)
                 if (byCategoryButton != null)
@@ -189,7 +191,7 @@ namespace RPA.Helpers
 
                     if (byCategoryButton is ContentControl contentControl1)
                     {
-                        Viewbox iconViewbox = CreateSvgViewbox(iconSvgShapePlusOutline);
+                        Viewbox iconViewbox = CreateSvgViewbox(iconSvgShapePlusOutline, 20, MaterialThemePalette.ToHex(colors.Foreground));
                         if (iconViewbox != null)
                         {
                             // Wrap icon in a Border to ensure border visibility
@@ -219,8 +221,8 @@ namespace RPA.Helpers
                     // Add Checked/Unchecked and Hover event handlers for active state
                     if (byCategoryButton is System.Windows.Controls.Primitives.ToggleButton toggleButton1 && byCategoryBorder != null)
                     {
-                        SolidColorBrush activeColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E0E0E0"));
-                        SolidColorBrush hoverColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EFEFEF"));
+                        SolidColorBrush activeColor = new SolidColorBrush(colors.Selected);
+                        SolidColorBrush hoverColor = new SolidColorBrush(colors.Hover);
 
                         toggleButton1.Checked += (s, e) =>
                         {
@@ -270,7 +272,7 @@ namespace RPA.Helpers
 
                     if (alphaViewButton is ContentControl contentControl2)
                     {
-                        Viewbox iconViewbox = CreateSvgViewbox(iconSvgOrderAlphabeticalAscending);
+                        Viewbox iconViewbox = CreateSvgViewbox(iconSvgOrderAlphabeticalAscending, 20, MaterialThemePalette.ToHex(colors.Foreground));
                         if (iconViewbox != null)
                         {
                             // Wrap icon in a Border to ensure border visibility
@@ -300,8 +302,8 @@ namespace RPA.Helpers
                     // Add Checked/Unchecked and Hover event handlers for active state
                     if (alphaViewButton is System.Windows.Controls.Primitives.ToggleButton toggleButton2 && alphaViewBorder != null)
                     {
-                        SolidColorBrush activeColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E0E0E0"));
-                        SolidColorBrush hoverColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EFEFEF"));
+                        SolidColorBrush activeColor = new SolidColorBrush(colors.Selected);
+                        SolidColorBrush hoverColor = new SolidColorBrush(colors.Hover);
 
                         toggleButton2.Checked += (s, e) =>
                         {
@@ -347,7 +349,7 @@ namespace RPA.Helpers
                 // Style the Clear button (Очистить)
                 if (clearButton != null)
                 {
-                    Viewbox iconViewbox = CreateSvgViewbox(iconSvgClose, 12, "#666666");
+                    Viewbox iconViewbox = CreateSvgViewbox(iconSvgClose, 12, MaterialThemePalette.ToHex(colors.Foreground));
 
                     Border buttonBorder = null;
 
@@ -382,7 +384,7 @@ namespace RPA.Helpers
                                 FontSize = 16,
                                 HorizontalAlignment = HorizontalAlignment.Center,
                                 VerticalAlignment = VerticalAlignment.Center,
-                                Foreground = Brushes.Black
+                                Foreground = new SolidColorBrush(colors.Foreground)
                             }
                         };
                         clearButton.Content = buttonBorder;
@@ -399,7 +401,7 @@ namespace RPA.Helpers
                     // Add hover and pressed effects
                     clearButton.MouseEnter += (s, e) =>
                     {
-                        buttonBorder.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F5F5F5"));
+                        buttonBorder.Background = new SolidColorBrush(colors.Hover);
                     };
 
                     clearButton.MouseLeave += (s, e) =>
@@ -412,12 +414,12 @@ namespace RPA.Helpers
 
                     clearButton.PreviewMouseDown += (s, e) =>
                     {
-                        buttonBorder.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E0E0E0"));
+                        buttonBorder.Background = new SolidColorBrush(colors.Selected);
                     };
 
                     clearButton.PreviewMouseUp += (s, e) =>
                     {
-                        buttonBorder.Background = clearButton.IsMouseOver ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F5F5F5")) : (Brush)Brushes.Transparent;
+                        buttonBorder.Background = clearButton.IsMouseOver ? new SolidColorBrush(colors.Hover) : (Brush)Brushes.Transparent;
                     };
 
                     // Force the button to display content by using a simple template
@@ -479,7 +481,7 @@ namespace RPA.Helpers
                     // Add focus event handlers
                     searchTextBox.GotFocus += (s, e) =>
                     {
-                        SolidColorBrush focusColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#DDDDDD"));
+                        SolidColorBrush focusColor = new SolidColorBrush(colors.Border);
                         searchTextBox.BorderBrush = focusColor;
                         foreach (Border border in textBoxBorders)
                         {

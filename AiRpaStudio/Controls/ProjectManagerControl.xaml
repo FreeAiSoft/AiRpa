@@ -59,6 +59,10 @@
                       x:Name="OpenFileMenuItem"
                       Click="OpenFileMenuItem_Click"
                       Focusable="False"/>
+            <MenuItem Header="Открыть в редакторе кода"
+                      x:Name="OpenInCodeEditorMenuItem"
+                      Click="OpenInCodeEditorMenuItem_Click"
+                      Focusable="False"/>
             <MenuItem Header="{DynamicResource lang_cm_open_in_vs}"
                       x:Name="OpenInVsMenuItem"
                       Click="OpenInVsMenuItem_Click"
@@ -126,7 +130,7 @@
             <Setter Property="Background"
                     Value="Transparent" />
             <Setter Property="BorderBrush"
-                    Value="#DDDDDD" />
+                    Value="{DynamicResource Studio.ToolbarBorder}" />
             <Setter Property="VerticalAlignment"
                     Value="Center" />
             <Setter Property="Template">
@@ -145,12 +149,12 @@
                 <Trigger Property="IsMouseOver"
                          Value="True">
                     <Setter Property="Background"
-                            Value="#F5F5F5" />
+                            Value="{DynamicResource Studio.ToolbarHoverBackground}" />
                 </Trigger>
                 <Trigger Property="IsPressed"
                          Value="True">
                     <Setter Property="Background"
-                            Value="#E0E0E0" />
+                            Value="{DynamicResource Studio.ToolbarPressedBackground}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -286,7 +290,7 @@
                             <materialIcons:MaterialIcon Kind="Xml"
                                                         Width="12"
                                                         Height="12"
-                                                        Foreground="DarkGreen"
+                                                        Foreground="#4CAF50"
                                                         Margin="0,0,4,0"
                                                         VerticalAlignment="Center">
                                 <materialIcons:MaterialIcon.Style>
@@ -313,7 +317,7 @@
                             <materialIcons:MaterialIcon Kind="CodeJson"
                                                         Width="12"
                                                         Height="12"
-                                                        Foreground="DarkBlue"
+                                                        Foreground="#2196F3"
                                                         Margin="0,0,4,0"
                                                         VerticalAlignment="Center">
                                 <materialIcons:MaterialIcon.Style>

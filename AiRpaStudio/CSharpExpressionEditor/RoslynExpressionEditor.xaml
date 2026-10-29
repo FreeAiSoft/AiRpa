@@ -18,9 +18,6 @@
         <sapc:ArgumentToExpressionConverter x:Key="ArgumentToExpressionConverter" />
         <local:LineToHeightConverter x:Uid="res:LineToHeightConverter_1"
                                      x:Key="lineToHeightConverter" />
-        <SolidColorBrush x:Uid="SolidColorBrush_1"
-                         x:Key="WorkflowViewElementBorderBrush"
-                         Color="#FFD0D7E2" />
 
         <DrawingBrush x:Uid="DrawingBrush_65"
                       x:Key="TextBoxErrorIcon"
@@ -292,7 +289,7 @@
                 <Border x:Uid="Border_2"
                         Style="{StaticResource borderStyle}"
                         Grid.Column="0"
-                        BorderBrush="{DynamicResource WorkflowViewElementBorderBrush}"
+                        BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}"
                         BorderThickness="1,1,1,1"
                         CornerRadius="1"
                         HorizontalAlignment="Stretch">
@@ -327,7 +324,7 @@
                 <Border x:Uid="Border_5"
                         Grid.Column="0"
                         CornerRadius="1"
-                        BorderBrush="{DynamicResource WorkflowViewElementBorderBrush}"
+                        BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}"
                         BorderThickness="1,1,1,1"
                         Loaded="OnEditorLoaded"
                         Unloaded="OnEditorUnloaded"
@@ -368,7 +365,7 @@
         </Grid.ColumnDefinitions>
         <Border BorderThickness="1"
                 Margin="2"
-                BorderBrush="{DynamicResource WorkflowViewElementBorderBrush}"
+                BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}"
                 Grid.Column="0"
                 x:Name="border"
                 HorizontalAlignment="Stretch"

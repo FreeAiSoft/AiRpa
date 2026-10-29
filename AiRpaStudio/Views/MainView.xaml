@@ -12,12 +12,22 @@
                  xmlns:controls="clr-namespace:RPA.Controls"
                  xmlns:materialIcons="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
                  xmlns:converters="clr-namespace:RPA.Converters"
+                 xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
                  mc:Ignorable="d"
                  Title="RPA"
+                 Background="{DynamicResource Studio.WindowBackground}"
                  Height="650"
                  Width="1100"
                  WindowState="Maximized"
-                 Loaded="MainView_Loaded">
+                 Loaded="MainView_Loaded"
+                 StateChanged="MainView_StateChanged">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            ResizeBorderThickness="6"
+                            GlassFrameThickness="0"
+                            CornerRadius="0"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
     <Window.Resources>
         <!-- Converters -->
         <converters:IsStoppedConverter x:Key="IsStoppedConverter"/>
@@ -150,6 +160,64 @@
             </Style.Triggers>
         </Style>
 
+        <!-- Кнопки заголовка окна -->
+        <Style TargetType="Button"
+               x:Key="TitleBarButtonStyle">
+            <Setter Property="Width"
+                    Value="46" />
+            <Setter Property="Height"
+                    Value="32" />
+            <Setter Property="Background"
+                    Value="Transparent" />
+            <Setter Property="BorderThickness"
+                    Value="0" />
+            <Setter Property="Foreground"
+                    Value="{DynamicResource Studio.TitleBarForeground}" />
+            <Setter Property="TextElement.Foreground"
+                    Value="{DynamicResource Studio.TitleBarForeground}" />
+            <Setter Property="FocusVisualStyle"
+                    Value="{x:Null}" />
+            <Setter Property="Cursor"
+                    Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver"
+                         Value="True">
+                    <Setter Property="Background"
+                            Value="{DynamicResource Studio.TitleBarButtonHoverBackground}" />
+                </Trigger>
+                <Trigger Property="IsPressed"
+                         Value="True">
+                    <Setter Property="Opacity"
+                            Value="0.7" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="Button"
+               x:Key="TitleBarCloseButtonStyle"
+               BasedOn="{StaticResource TitleBarButtonStyle}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver"
+                         Value="True">
+                    <Setter Property="Background"
+                            Value="{DynamicResource Studio.TitleBarButtonCloseHoverBackground}" />
+                    <Setter Property="Foreground"
+                            Value="{DynamicResource Studio.TitleBarButtonCloseForeground}" />
+                    <Setter Property="TextElement.Foreground"
+                            Value="{DynamicResource Studio.TitleBarButtonCloseForeground}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- Тёмная/светлая подложка тулбара -->
         <Style TargetType="ToolBar">
             <Setter Property="Background"
@@ -170,18 +238,311 @@
             <Setter Property="Background"
                     Value="{DynamicResource Studio.ToolbarBackground}" />
         </Style>
+
+        <!-- ==================== MenuItem: собственные шаблоны ====================
+             Стандартные шаблоны WPF используют жёстко зашитые цвета (#FFF0F0F0 для
+             выпадающего подменю, #3D26A0DA для подсветки), поэтому переопределяем
+             их целиком и привязываем к теме. -->
+
+        <!-- Верхний пункт меню с выпадающим подменю -->
+        <ControlTemplate x:Key="MenuItemTopLevelHeaderTemplate"
+                         TargetType="MenuItem">
+            <Border x:Name="Border"
+                    Background="Transparent"
+                    SnapsToDevicePixels="True">
+                <DockPanel>
+                    <ContentPresenter x:Name="HeaderHost"
+                                      ContentSource="Header"
+                                      RecognizesAccessKey="True"
+                                      VerticalAlignment="Center"
+                                      Margin="8,0,8,0" />
+                    <Popup x:Name="PART_Popup"
+                           Placement="Bottom"
+                           IsOpen="{TemplateBinding IsSubmenuOpen}"
+                           AllowsTransparency="True"
+                           Focusable="False"
+                           PopupAnimation="Fade">
+                        <Border Background="{DynamicResource Studio.MenuBackground}"
+                                BorderBrush="{DynamicResource Studio.ToolbarBorder}"
+                                BorderThickness="1"
+                                Padding="2">
+                            <ScrollViewer CanContentScroll="True">
+                                <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle"
+                                                Margin="2"
+                                                SnapsToDevicePixels="True" />
+                            </ScrollViewer>
+                        </Border>
+                    </Popup>
+                </DockPanel>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsHighlighted"
+                         Value="True">
+                    <Setter TargetName="Border"
+                            Property="Background"
+                            Value="{DynamicResource Studio.ToolbarHoverBackground}" />
+                </Trigger>
+                <Trigger SourceName="PART_Popup"
+                         Property="IsOpen"
+                         Value="True">
+                    <Setter TargetName="Border"
+                            Property="Background"
+                            Value="{DynamicResource Studio.ToolbarHoverBackground}" />
+                </Trigger>
+                <Trigger Property="IsEnabled"
+                         Value="False">
+                    <Setter Property="Opacity"
+                            Value="0.5" />
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <!-- Верхний пункт меню без подменю -->
+        <ControlTemplate x:Key="MenuItemTopLevelItemTemplate"
+                         TargetType="MenuItem">
+            <Border x:Name="Border"
+                    Background="Transparent"
+                    SnapsToDevicePixels="True">
+                <DockPanel>
+                    <ContentPresenter x:Name="HeaderHost"
+                                      ContentSource="Header"
+                                      RecognizesAccessKey="True"
+                                      VerticalAlignment="Center"
+                                      Margin="8,0,8,0" />
+                </DockPanel>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsHighlighted"
+                         Value="True">
+                    <Setter TargetName="Border"
+                            Property="Background"
+                            Value="{DynamicResource Studio.ToolbarHoverBackground}" />
+                </Trigger>
+                <Trigger Property="IsEnabled"
+                         Value="False">
+                    <Setter Property="Opacity"
+                            Value="0.5" />
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <!-- Пункт выпадающего меню с вложенным подменю -->
+        <ControlTemplate x:Key="MenuItemSubmenuHeaderTemplate"
+                         TargetType="MenuItem">
+            <Border x:Name="Border"
+                    Background="Transparent"
+                    SnapsToDevicePixels="True">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ContentPresenter x:Name="HeaderHost"
+                                      Grid.Column="1"
+                                      ContentSource="Header"
+                                      RecognizesAccessKey="True"
+                                      VerticalAlignment="Center"
+                                      Margin="8,2,8,2" />
+                    <Path x:Name="Arrow"
+                          Grid.Column="2"
+                          Data="M 0 0 L 4 3.5 L 0 7 Z"
+                          Fill="{TemplateBinding Foreground}"
+                          Margin="4,0,8,0"
+                          VerticalAlignment="Center" />
+                    <Popup x:Name="PART_Popup"
+                           Placement="Right"
+                           HorizontalOffset="-1"
+                           IsOpen="{TemplateBinding IsSubmenuOpen}"
+                           AllowsTransparency="True"
+                           Focusable="False"
+                           PopupAnimation="Fade">
+                        <Border Background="{DynamicResource Studio.MenuBackground}"
+                                BorderBrush="{DynamicResource Studio.ToolbarBorder}"
+                                BorderThickness="1"
+                                Padding="2">
+                            <ScrollViewer CanContentScroll="True">
+                                <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle"
+                                                Margin="2"
+                                                SnapsToDevicePixels="True" />
+                            </ScrollViewer>
+                        </Border>
+                    </Popup>
+                </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsHighlighted"
+                         Value="True">
+                    <Setter TargetName="Border"
+                            Property="Background"
+                            Value="{DynamicResource Studio.ToolbarHoverBackground}" />
+                </Trigger>
+                <Trigger SourceName="PART_Popup"
+                         Property="IsOpen"
+                         Value="True">
+                    <Setter TargetName="Border"
+                            Property="Background"
+                            Value="{DynamicResource Studio.ToolbarHoverBackground}" />
+                </Trigger>
+                <Trigger Property="IsEnabled"
+                         Value="False">
+                    <Setter Property="Opacity"
+                            Value="0.5" />
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <!-- Обычный пункт выпадающего меню -->
+        <ControlTemplate x:Key="MenuItemSubmenuItemTemplate"
+                         TargetType="MenuItem">
+            <Border x:Name="Border"
+                    Background="Transparent"
+                    SnapsToDevicePixels="True">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ContentPresenter x:Name="HeaderHost"
+                                      Grid.Column="1"
+                                      ContentSource="Header"
+                                      RecognizesAccessKey="True"
+                                      VerticalAlignment="Center"
+                                      Margin="8,2,8,2" />
+                </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsHighlighted"
+                         Value="True">
+                    <Setter TargetName="Border"
+                            Property="Background"
+                            Value="{DynamicResource Studio.ToolbarHoverBackground}" />
+                </Trigger>
+                <Trigger Property="IsEnabled"
+                         Value="False">
+                    <Setter Property="Opacity"
+                            Value="0.5" />
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <!-- Стиль MenuItem: тематический текст + выбор шаблона по роли -->
+        <Style TargetType="MenuItem">
+            <Setter Property="Foreground"
+                    Value="{DynamicResource Studio.MenuForeground}" />
+            <Setter Property="Background"
+                    Value="Transparent" />
+            <Setter Property="SnapsToDevicePixels"
+                    Value="True" />
+            <Setter Property="Template"
+                    Value="{StaticResource MenuItemSubmenuItemTemplate}" />
+            <Style.Triggers>
+                <Trigger Property="Role"
+                         Value="TopLevelHeader">
+                    <Setter Property="Template"
+                            Value="{StaticResource MenuItemTopLevelHeaderTemplate}" />
+                </Trigger>
+                <Trigger Property="Role"
+                         Value="TopLevelItem">
+                    <Setter Property="Template"
+                            Value="{StaticResource MenuItemTopLevelItemTemplate}" />
+                </Trigger>
+                <Trigger Property="Role"
+                         Value="SubmenuHeader">
+                    <Setter Property="Template"
+                            Value="{StaticResource MenuItemSubmenuHeaderTemplate}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Меню: стандартный шаблон WPF использует жёстко зашитый светлый фон (#FFF0F0F0),
+             поэтому задаём собственный шаблон с привязкой к теме -->
+        <Style TargetType="Menu">
+            <Setter Property="Background"
+                    Value="{DynamicResource Studio.MenuBackground}" />
+            <Setter Property="Foreground"
+                    Value="{DynamicResource Studio.MenuForeground}" />
+            <Setter Property="ItemsPanel">
+                <Setter.Value>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Menu">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                SnapsToDevicePixels="True">
+                            <ItemsPresenter />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
-    <Grid Background="{DynamicResource Studio.WindowBackground}">
+    <Grid x:Name="RootGrid"
+          Background="{DynamicResource Studio.WindowBackground}">
         <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <!--#region TitleBar-->
+        <Grid Grid.Row="0"
+              Background="{DynamicResource Studio.TitleBarBackground}"
+              shell:WindowChrome.IsHitTestVisibleInChrome="True"
+              MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Text="RPA"
+                       Margin="10,0,0,0"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource Studio.TitleBarForeground}" />
+
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        Margin="0,0,5,0">
+                <Button ToolTip="Minimize"
+                        Style="{StaticResource TitleBarButtonStyle}"
+                        Click="TitleBarMinimize_Click">
+                    <materialIcons:MaterialIcon Kind="WindowMinimize"
+                                                Width="16"
+                                                Height="16" />
+                </Button>
+                <Button x:Name="MaximizeButton"
+                        ToolTip="Maximize"
+                        Style="{StaticResource TitleBarButtonStyle}"
+                        Click="TitleBarMaximize_Click">
+                    <materialIcons:MaterialIcon x:Name="MaximizeIcon"
+                                                Kind="WindowMaximize"
+                                                Width="16"
+                                                Height="16" />
+                </Button>
+                <Button ToolTip="Close"
+                        Style="{StaticResource TitleBarCloseButtonStyle}"
+                        Click="TitleBarClose_Click">
+                    <materialIcons:MaterialIcon Kind="WindowClose"
+                                                Width="16"
+                                                Height="16" />
+                </Button>
+            </StackPanel>
+        </Grid>
+        <!--#endregion TitleBar-->
+
         <!--#region Top-->
 
-        <Menu Grid.Row="0"
+        <Menu Grid.Row="1"
+              Margin="5,0,0,0"
               FontFamily="Consolas"
               Background="{DynamicResource Studio.MenuBackground}">
             <MenuItem Header="{DynamicResource lang_main_file}"
@@ -238,7 +599,7 @@
            
         </Menu>
 
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -377,7 +738,7 @@
         <avalonDock:DockingManager x:Name="dockManager"
                                    x:FieldModifier="private"
                                    SnapsToDevicePixels="True"
-                                   Grid.Row="2">
+                                   Grid.Row="3">
 
             <avalonDock:DockingManager.Theme>
                 <themes:MetroTheme />

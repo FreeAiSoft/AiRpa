@@ -23,10 +23,10 @@ using System.Windows.Input;
 using ICSharpCode.AvalonEdit.Highlighting;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Differencing;
+using NLog;
 using RoslynPad.Editor;
 using RoslynPad.Roslyn;
 using RpaCommon;
-using NLog;
 
 namespace RPA.CSharpExpressionEditor
 {
@@ -142,7 +142,7 @@ namespace RPA.CSharpExpressionEditor
         {
             var sw = Stopwatch.StartNew();
             _perfLogger.Info($"[RoslynExpressionEditor] Constructor START");
-            
+
             InitializeComponent();
             _perfLogger.Info($"[RoslynExpressionEditor] InitializeComponent completed in {sw.ElapsedMilliseconds}ms");
 
@@ -150,7 +150,7 @@ namespace RPA.CSharpExpressionEditor
 
             ContentTemplate = (DataTemplate)FindResource("textblock");
             _perfLogger.Info($"[RoslynExpressionEditor] ContentTemplate loaded in {sw.ElapsedMilliseconds}ms");
-            
+
             innerControl.ContentTemplate = ContentTemplate;
             HintText = "Enter C# Expression";
             Console.WriteLine(OwnerActivity);
@@ -164,7 +164,7 @@ namespace RPA.CSharpExpressionEditor
         {
             var sw = Stopwatch.StartNew();
             _perfLogger.Info($"[RoslynExpressionEditor] Commit START - isExplicitCommit: {isExplicitCommit}");
-            
+
             bool committed = false;
             //only generate and validate the expression when when we don't require explicit commit change
             //or when the commit is explicit
@@ -223,7 +223,7 @@ namespace RPA.CSharpExpressionEditor
         {
             var sw = Stopwatch.StartNew();
             _perfLogger.Info($"[RoslynExpressionEditor] GenerateExpression START - Text: '{Text}', UseLocationExpression: {UseLocationExpression}");
-            
+
             // Улучшенная логика определения типа
             if (ExpressionType == null)
             {
@@ -272,10 +272,10 @@ namespace RPA.CSharpExpressionEditor
                     _perfLogger.Info($"[RoslynExpressionEditor] GenerateExpression: Creating expression from string...");
                     ModelTreeManager modelTreeManager = Context.Services.GetService<ModelTreeManager>();
                     _perfLogger.Info($"[RoslynExpressionEditor] GenerateExpression: Got ModelTreeManager in {sw.ElapsedMilliseconds}ms");
-                    
+
                     ActivityWithResult newExpression = CSharpExpressionHelper.CreateExpressionFromString(Text, UseLocationExpression, resultType);
                     _perfLogger.Info($"[RoslynExpressionEditor] GenerateExpression: Created expression from string in {sw.ElapsedMilliseconds}ms");
-                    
+
                     ModelItem expressionItem = modelTreeManager.CreateModelItem(null, newExpression);
                     _perfLogger.Info($"[RoslynExpressionEditor] GenerateExpression: Created model item in {sw.ElapsedMilliseconds}ms");
 
@@ -449,7 +449,7 @@ namespace RPA.CSharpExpressionEditor
                                 try
                                 {
                                     (Type type, List<string> errors) = RoslynExpressionValidator.Instance.CheckExpression(validationContext.ExpressionText, OwnerActivity);
-                                    
+
                                     // Если создание прошло успешно, считаем что это допустимое выражение типа object
                                     error = type != null && ExpressionType.IsAssignableFrom(type) ? null : string.Join(Environment.NewLine, errors);
                                 }
@@ -477,7 +477,7 @@ namespace RPA.CSharpExpressionEditor
                             }
                         }
                     });
-                    
+
                     if (error != null)
                     {
                         errorMessage = error;
@@ -744,7 +744,7 @@ namespace RPA.CSharpExpressionEditor
         {
             var sw = Stopwatch.StartNew();
             _perfLogger.Info($"[RoslynExpressionEditor] OnGotTextBlockFocus START");
-            
+
             if (Context == null)
             {
                 _perfLogger.Info($"[RoslynExpressionEditor] OnGotTextBlockFocus: Context is null, returning");
@@ -763,7 +763,7 @@ namespace RPA.CSharpExpressionEditor
                     isInReadOnlyMode |= readOnlyState.IsReadOnly;
                 }
                 _perfLogger.Info($"[RoslynExpressionEditor] OnGotTextBlockFocus: Checked readonly mode in {sw.ElapsedMilliseconds}ms");
-                
+
                 if (sender is TextBlock textBlock)
                 {
                     BlockHeight = textBlock.ActualHeight;
@@ -812,7 +812,7 @@ namespace RPA.CSharpExpressionEditor
         {
             var sw = Stopwatch.StartNew();
             _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoaded START");
-            
+
             if (IsEditorLoaded)
             {
                 _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoaded: Editor already loaded, returning");
@@ -825,21 +825,21 @@ namespace RPA.CSharpExpressionEditor
                 _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoaded: ExpressionEditorService is null, returning");
                 return;
             }
-            
+
             Border border = (Border)sender;
             _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoaded: Got border in {sw.ElapsedMilliseconds}ms");
-            
+
             // Get the references and variables in scope
             AssemblyContextControlItem assemblies = (AssemblyContextControlItem)Context.Items.GetValue(typeof(AssemblyContextControlItem));
             _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoaded: Got assemblies in {sw.ElapsedMilliseconds}ms");
-            
+
             List<ModelItem> declaredVariables = CSharpExpressionHelper.GetEnvironmentModelItems(OwnerActivity, Context);
             _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoaded: Got declared variables ({declaredVariables?.Count ?? 0} items) in {sw.ElapsedMilliseconds}ms");
 
             ImportedNamespaceContextItem importedNamespaces = Context.Items.GetValue<ImportedNamespaceContextItem>();
             importedNamespaces.EnsureInitialized(Context);
             _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoaded: Initialized namespaces in {sw.ElapsedMilliseconds}ms");
-            
+
             //if the expression text is empty and the expression type is set, then we initialize the text to prompt text
             if (string.Equals(Text, string.Empty, StringComparison.OrdinalIgnoreCase) && ExpressionType != null)
             {
@@ -853,7 +853,7 @@ namespace RPA.CSharpExpressionEditor
                 BlockWidth = Math.Max(BlockWidth - 16, 0); //give 16 for error icon
             }
             _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoaded: Calculated dimensions in {sw.ElapsedMilliseconds}ms");
-            
+
             try
             {
                 _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoaded: Creating expression editor instance...");
@@ -903,7 +903,7 @@ namespace RPA.CSharpExpressionEditor
 
                 border.Child = HostControl;
                 _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoaded: Added editor to border in {sw.ElapsedMilliseconds}ms");
-                
+
                 ExpressionEditorInstance.Focus();
                 _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoaded: Focused editor in {sw.ElapsedMilliseconds}ms");
             }
@@ -983,12 +983,12 @@ namespace RPA.CSharpExpressionEditor
         {
             var sw = Stopwatch.StartNew();
             _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoadedForSize START");
-            
+
             // Use Dispatcher to apply size before window is fully rendered to avoid flicker
             _ = Dispatcher.BeginInvoke(new Action(() =>
             {
                 _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoadedForSize: Dispatcher action START in {sw.ElapsedMilliseconds}ms");
-                
+
                 // Find parent EditorDialog window
                 Window parentWindow = Window.GetWindow(this);
                 _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoadedForSize: Got parent window in {sw.ElapsedMilliseconds}ms");
@@ -997,7 +997,7 @@ namespace RPA.CSharpExpressionEditor
                 {
                     string windowTypeName = parentWindow.GetType().Name;
                     _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoadedForSize: Parent window type: {windowTypeName}");
-                    
+
                     // Check if parent is WorkflowElementDialogWindow or EditorDialog
                     if (windowTypeName == "WorkflowElementDialogWindow" ||
                         windowTypeName == "EditorDialog" ||

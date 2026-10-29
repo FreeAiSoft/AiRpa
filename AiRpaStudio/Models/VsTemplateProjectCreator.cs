@@ -99,6 +99,11 @@ namespace RPA.Models
                 ProjectFolder = outputDirectory;
                 ProjectFilePath = Path.Combine(outputDirectory, safeName + ".csproj");
                 IsCreate = true;
+
+                if (ViewModel?.View is System.Windows.Window)
+                {
+                    Close();
+                }
             }
             catch (Exception ex)
             {

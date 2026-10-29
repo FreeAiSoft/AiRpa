@@ -1,16 +1,16 @@
-﻿using Microsoft.CodeAnalysis.CSharp.Scripting.Hosting;
-using Microsoft.CodeAnalysis.CSharp.Scripting;
-using Microsoft.CodeAnalysis.Scripting.Hosting;
-using Microsoft.CodeAnalysis.Scripting;
-using Microsoft.CodeAnalysis;
-using RoslynPad.Roslyn;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Scripting;
+using Microsoft.CodeAnalysis.CSharp.Scripting.Hosting;
+using Microsoft.CodeAnalysis.Scripting;
+using Microsoft.CodeAnalysis.Scripting.Hosting;
+using RoslynPad.Roslyn;
 
 namespace RPA.CSharpExpressionEditor
 {

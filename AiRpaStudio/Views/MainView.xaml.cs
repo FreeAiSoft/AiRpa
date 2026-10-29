@@ -3,19 +3,22 @@ using System.Activities.Presentation;
 using System.Activities.Presentation.View;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
-using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Threading;
 using AvalonDock.Layout;
 using AvalonDock.Layout.Serialization;
 using FW.EasyMvvm.Core;
+using Material.Icons;
 using RPA.Controls;
+using RPA.Converters;
 using RPA.Core;
 using RPA.Helpers;
 using RPA.Logging;
@@ -40,14 +43,15 @@ namespace RPA.Views
         public LogControlLibrary.Controls.LogViewerControl LogViewerControl { get; private set; }
         private ProjectManagerControl projectManagerControl;
         private Border wfProjectBorder;
-        private RPA.Chat.Views.ChatPanel chatPanel;
-        private RPA.NuGet.Views.NuGetPanel nuGetPanel;
+        private Chat.Views.ChatPanel chatPanel;
+        private NuGet.Views.NuGetPanel nuGetPanel;
         private LayoutAnchorable nuGetAnchorable;
         private DispatcherTimer _layoutSaveTimer;
         private bool _resetLayout;
 
         public MainView()
         {
+            StudioBrushes.ApplyToApplication();
             InitializeComponent();
             Services.AppSettings.SetDockingManager(dockManager);// DockingManager можно отловить только здесь, такие дела
 
@@ -71,38 +75,117 @@ namespace RPA.Views
             {
                 Child = projectManagerControl
             };
-            chatPanel = new RPA.Chat.Views.ChatPanel();
+            chatPanel = new Chat.Views.ChatPanel();
             // Route chat diagnostics to the studio log (viewed via LogControlLibrary).
-            RPA.Chat.Services.OutputWindowService.WriteSink = message => RPA.Logging.Log.Write(message);
-            RPA.Chat.Services.ChatLog.Sink = message => RPA.Logging.Log.Write(message);
+            Chat.Services.OutputWindowService.WriteSink = message => Log.Write(message);
+            Chat.Services.ChatLog.Sink = message => Log.Write(message);
             // The chat resolves the current project folder for agent tools + MSBuild feedback.
-            RPA.Chat.Services.ChatEnvironment.SolutionPathProvider = () => ProjectManager.GetInstance().ProjectFolder;
+            Chat.Services.ChatEnvironment.SolutionPathProvider = () => ProjectManager.GetInstance().ProjectFolder;
 
             // Theme: the studio window follows the chat theme (single source of truth).
             chatPanel.ViewModel.ThemeChanged += OnChatThemeChanged;
             Services.AppSettings.ApplyTheme(chatPanel.ViewModel.IsDarkTheme);
-            ThemeToggleButton.SetBinding(ToggleButton.IsCheckedProperty,
-                new Binding(nameof(RPA.Chat.ViewModels.ChatViewModel.IsDarkTheme))
+            _ = ThemeToggleButton.SetBinding(ToggleButton.IsCheckedProperty,
+                new Binding(nameof(Chat.ViewModels.ChatViewModel.IsDarkTheme))
                 {
                     Source = chatPanel.ViewModel,
                     Mode = BindingMode.TwoWay
                 });
 
-            nuGetPanel = new RPA.NuGet.Views.NuGetPanel();
+            nuGetPanel = new NuGet.Views.NuGetPanel();
             // Re-detect the .csproj whenever the current studio project folder changes.
             ProjectManager.GetInstance().PropertyChanged += OnProjectManagerPropertyChanged;
-            nuGetPanel.SetProjectFolder(ProjectManager.GetInstance().ProjectFolder);
+            _ = nuGetPanel.SetProjectFolder(ProjectManager.GetInstance().ProjectFolder);
         }
 
         private void OnProjectManagerPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(ProjectManager.ProjectFolder))
-                nuGetPanel.SetProjectFolder(ProjectManager.GetInstance().ProjectFolder);
+            {
+                _ = nuGetPanel.SetProjectFolder(ProjectManager.GetInstance().ProjectFolder);
+            }
         }
 
         private void OnChatThemeChanged()
         {
             Services.AppSettings.ApplyTheme(chatPanel.ViewModel.IsDarkTheme);
+            ReapplyWorkflowControlThemes();
+        }
+
+        private void ReapplyWorkflowControlThemes()
+        {
+            _wfToolbox?.ApplyTheme();
+            WfVisualTreeThemer.Apply(WfOutlineViewBorder?.Child);
+
+            if (WfPropertyBorder?.Child is UIElement propertyInspector)
+            {
+                new PropertyWindowStyleHelper().SetPropertyStyles(propertyInspector);
+            }
+        }
+
+        private void MainView_StateChanged(object sender, EventArgs e)
+        {
+            ApplyMaximizeMargin();
+
+            if (MaximizeIcon == null)
+            {
+                return;
+            }
+
+            bool maximized = WindowState == WindowState.Maximized;
+            MaximizeIcon.Kind = maximized ? MaterialIconKind.WindowRestore : MaterialIconKind.WindowMaximize;
+            MaximizeButton.ToolTip = maximized ? "Restore" : "Maximize";
+        }
+
+        private void ApplyMaximizeMargin()
+        {
+            if (RootGrid == null)
+            {
+                return;
+            }
+
+            // В развёрнутом состоянии рамка окна уходит за границы экрана на толщину
+            // ResizeBorderThickness (см. MainView.xaml), поэтому контент по краям срезается.
+            RootGrid.Margin = WindowState == WindowState.Maximized ? new Thickness(6) : new Thickness(0);
+        }
+
+        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2)
+            {
+                ToggleMaximize();
+                return;
+            }
+
+            if (WindowState == WindowState.Maximized)
+            {
+                return;
+            }
+
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                DragMove();
+            }
+        }
+
+        private void TitleBarMinimize_Click(object sender, RoutedEventArgs e)
+        {
+            WindowState = WindowState.Minimized;
+        }
+
+        private void TitleBarMaximize_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleMaximize();
+        }
+
+        private void TitleBarClose_Click(object sender, RoutedEventArgs e)
+        {
+            Close();
+        }
+
+        private void ToggleMaximize()
+        {
+            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
         }
 
         private void InitializeLayoutRoot()
@@ -359,7 +442,7 @@ namespace RPA.Views
 
         public void OnSendMessage(string message)
         {
-            MessageBox.Show(message);
+            _ = MessageBox.Show(message);
         }
 
         private void NuGetPanelMenuItem_Click(object sender, RoutedEventArgs e)
@@ -388,8 +471,85 @@ namespace RPA.Views
 
         private void MainView_Loaded(object sender, RoutedEventArgs e)
         {
+            ApplyMaximizeMargin();
+
             docGroupHelper = new DocGroupHelper(docGroup, RemoveDesigner, SyncWFControls, (MainViewModel)DataContext, SetActiveDesigner);
             WorkflowDesigners.CollectionChanged += docGroupHelper.WorkflowDesigners_CollectionChanged;
+            ((MainViewModel)DataContext).OpenCodeDocuments.CollectionChanged += OpenCodeDocuments_CollectionChanged;
+        }
+
+        private void OpenCodeDocuments_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (e.Action == NotifyCollectionChangedAction.Add)
+            {
+                foreach (CodeDocument document in e.NewItems)
+                {
+                    AddCodeDocumentTab(document);
+                }
+            }
+            else if (e.Action == NotifyCollectionChangedAction.Remove)
+            {
+                foreach (CodeDocument document in e.OldItems)
+                {
+                    CloseCodeDocumentTab(document.FilePath);
+                }
+            }
+            else if (e.Action == NotifyCollectionChangedAction.Reset)
+            {
+                foreach (LayoutDocument document in docGroup.Children.OfType<LayoutDocument>()
+                    .Where(d => d.Content is CodeEditorView).ToList())
+                {
+                    document.Close();
+                }
+            }
+        }
+
+        private void AddCodeDocumentTab(CodeDocument document)
+        {
+            CodeEditorView view = new CodeEditorView();
+            view.LoadFile(document.FilePath);
+
+            LayoutDocument layoutDocument = new LayoutDocument
+            {
+                Content = view,
+                ContentId = "code:" + document.FilePath,
+                Title = document.Title
+            };
+
+            MultiBinding titleBinding = new MultiBinding
+            {
+                Converter = new DocumentTitleConverter()
+            };
+            titleBinding.Bindings.Add(new Binding { Source = document.Title });
+            titleBinding.Bindings.Add(new Binding("IsDirty") { Source = document });
+            _ = BindingOperations.SetBinding(layoutDocument, LayoutContent.TitleProperty, titleBinding);
+
+            layoutDocument.Closed += (s, e) =>
+            {
+                ((BaseViewModel)DataContext).Cmd.Execute(new List<object> { "CmdCloseCodeDocument", document.FilePath });
+            };
+
+            docGroup.Children.Add(layoutDocument);
+            layoutDocument.IsSelected = true;
+            layoutDocument.IsActive = true;
+        }
+
+        private void CloseCodeDocumentTab(string filePath)
+        {
+            LayoutDocument document = docGroup.Children.OfType<LayoutDocument>()
+                .FirstOrDefault(d => d.ContentId == "code:" + filePath);
+            document?.Close();
+        }
+
+        public void ActivateCodeDocument(string filePath)
+        {
+            LayoutDocument document = docGroup.Children.OfType<LayoutDocument>()
+                .FirstOrDefault(d => d.ContentId == "code:" + filePath);
+            if (document != null)
+            {
+                document.IsActive = true;
+                document.IsSelected = true;
+            }
         }
 
         private void InitializeLayoutAutoSave()
@@ -447,6 +607,7 @@ namespace RPA.Views
         {
             WfPropertyBorder.Child = workflowDesigner?.PropertyInspectorView;
             WfOutlineViewBorder.Child = workflowDesigner?.OutlineView;
+            WfVisualTreeThemer.Apply(workflowDesigner?.OutlineView);
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)
@@ -497,7 +658,7 @@ namespace RPA.Views
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to save workspace layout: {ex.Message}", "Error");
+                _ = MessageBox.Show($"Failed to save workspace layout: {ex.Message}", "Error");
             }
         }
 
@@ -506,7 +667,7 @@ namespace RPA.Views
             Properties.Settings.Default.ADLayout = null;
             Properties.Settings.Default.Save();
             _resetLayout = true;
-            MessageBox.Show("Please reboot application for skip layout settings");
+            _ = MessageBox.Show("Please reboot application for skip layout settings");
         }
     }
 }

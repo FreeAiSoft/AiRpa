@@ -1,0 +1,29 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Marker: используется для обнаружения словаря тем (совместимость). -->
+    <SolidColorBrush x:Key="Studio.ThemeMarker" Color="Transparent" />
+
+    <SolidColorBrush x:Key="Studio.TitleBarButtonCloseHoverBackground" Color="#E81123" />
+    <SolidColorBrush x:Key="Studio.TitleBarButtonCloseForeground" Color="#FFFFFF" />
+
+    <!-- ВНИМАНИЕ. Кисти Studio.* (WindowBackground, MenuForeground, Toolbar*, TitleBar*)
+         и системные кисти (SystemColors.*BrushKey) здесь НЕ объявляются.
+
+         Их нельзя объявлять как
+         DynamicResource-алиасом вида:  x:Key="Studio.MenuForeground"  ResourceKey="MaterialDesign.Brush.Foreground"
+         потому что в ResourceDictionary тогда попадает объект
+         System.Windows.ResourceReferenceExpression (отложенная ссылка), а не Brush.
+         Пока такой алиас используется как локальное значение, это работает, но как только
+         значение применяется через Style/Template
+         (StyleHelper.ApplyStyleOrTemplateValue -> DependencyObject.GetEffectiveValue),
+         WPF падает с
+             InvalidOperationException: "System.Windows.ResourceReferenceExpression"
+             не является допустимым значением для свойства "Foreground",
+         что на этапе разбора BAML выглядит как
+             XamlParseException при инициализации System.Windows.Controls.MenuItem
+             (MainView.xaml).
+
+         Алиасы создаются в рантайме реальными Brush из активной палитры MaterialDesign:
+         RPA.Helpers.StudioBrushes.ApplyToApplication() — вызывается при старте приложения
+         (App.Application_Startup) и после каждой смены темы (AppSettings.ApplyTheme). -->
+</ResourceDictionary>

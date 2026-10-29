@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SyntaxDefinition name="XAML" extensions=".xaml" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+	<Color foreground="#2E8B57" name="Comment" exampleText="&lt;!-- comment --&gt;" />
+	<Color foreground="#1E90FF" name="CData" exampleText="&lt;![CDATA[data]]&gt;" />
+	<Color foreground="#1E90FF" name="XmlDeclaration" exampleText='&lt;?xml version="1.0"?&gt;' />
+	<Color foreground="#8B008B" name="XmlTag" exampleText='&lt;Button Content="OK" /&gt;' />
+	<Color foreground="#B22222" name="AttributeName" exampleText='&lt;Button Background="Red" /&gt;' />
+	<Color foreground="#0000FF" name="AttributeValue" exampleText='&lt;Button Background="Red" /&gt;' />
+	<Color foreground="#008080" name="Entity" exampleText="&amp;amp;" />
+	<Color foreground="#B8860B" name="MarkupExtension" exampleText="{Binding Path=Name}" />
+
+	<RuleSet>
+		<Span color="Comment" multiline="true">
+			<Begin>&lt;!--</Begin>
+			<End>--&gt;</End>
+		</Span>
+		<Span color="CData" multiline="true">
+			<Begin>&lt;!\[CDATA\[</Begin>
+			<End>]]&gt;</End>
+		</Span>
+		<Span color="XmlDeclaration" multiline="true">
+			<Begin>&lt;\?</Begin>
+			<End>\?&gt;</End>
+		</Span>
+		<Span color="XmlTag" multiline="true">
+			<Begin>&lt;</Begin>
+			<End>&gt;</End>
+			<RuleSet>
+				<Span color="AttributeValue" multiline="true" ruleSet="AttributeValueSet">
+					<Begin>"</Begin>
+					<End>"|(?=&lt;)</End>
+				</Span>
+				<Span color="AttributeValue" multiline="true" ruleSet="AttributeValueSet">
+					<Begin>'</Begin>
+					<End>'|(?=&lt;)</End>
+				</Span>
+				<Rule color="AttributeName">[\d\w_\-\.]+(?=(\s*=))</Rule>
+				<Rule color="AttributeValue">=</Rule>
+			</RuleSet>
+		</Span>
+		<Import ruleSet="EntitySet" />
+	</RuleSet>
+
+	<RuleSet name="AttributeValueSet">
+		<Span color="MarkupExtension" multiline="false">
+			<Begin>\{</Begin>
+			<End>\}</End>
+		</Span>
+	</RuleSet>
+
+	<RuleSet name="EntitySet">
+		<Rule color="Entity">
+			&amp;
+			[\w\d\#]+
+			;
+		</Rule>
+	</RuleSet>
+</SyntaxDefinition>

@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Activities.Presentation.Model;
 using System.Activities.Presentation;
+using System.Activities.Presentation.Model;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -16,8 +16,8 @@ using Activities.Flow;
 using RPA.Core;
 using RPA.Entities;
 using RPA.Helpers;
-using RPA.ViewModels;
 using RPA.Models;
+using RPA.ViewModels;
 
 namespace RPA.Controls
 {
@@ -292,6 +292,21 @@ namespace RPA.Controls
                     MainViewModel mainViewModel = (MainViewModel)DataContext;
                     Models.Main main = (Models.Main)mainViewModel.Model;
                     main.CmdTryLoadFile(runtimeFullPath);
+                }
+            }
+        }
+
+        private void OpenInCodeEditorMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem mnu)
+            {
+                FrameworkElement target = ((ContextMenu)mnu.Parent).PlacementTarget as FrameworkElement;
+                if (target?.Tag is FSNode fSNode)
+                {
+                    string runtimeFullPath = fSNode.RuntimeFullPath;
+                    MainViewModel mainViewModel = (MainViewModel)DataContext;
+                    Models.Main main = (Models.Main)mainViewModel.Model;
+                    main.CmdOpenInCodeEditor(runtimeFullPath);
                 }
             }
         }

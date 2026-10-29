@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.props" Condition="Exists('..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
@@ -75,6 +75,12 @@
     <Reference Include="Material.Icons.WPF, Version=2.4.1.0, Culture=neutral, PublicKeyToken=34ed5903a64b4509, processorArchitecture=MSIL">
       <HintPath>..\packages\Material.Icons.WPF.2.4.1\lib\net461\Material.Icons.WPF.dll</HintPath>
     </Reference>
+    <Reference Include="MaterialDesignColors, Version=5.4.0.0, Culture=neutral, PublicKeyToken=df2a72020bd7962a, processorArchitecture=MSIL">
+      <HintPath>..\packages\MaterialDesignColors.5.4.0\lib\net462\MaterialDesignColors.dll</HintPath>
+    </Reference>
+    <Reference Include="MaterialDesignThemes.Wpf, Version=5.4.0.0, Culture=neutral, PublicKeyToken=df2a72020bd7962a, processorArchitecture=MSIL">
+      <HintPath>..\packages\MaterialDesignThemes.5.4.0\lib\net462\MaterialDesignThemes.Wpf.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Bcl.AsyncInterfaces.8.0.0\lib\net462\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
     </Reference>
@@ -133,8 +139,7 @@
       <HintPath>..\packages\Microsoft.Extensions.Primitives.8.0.0\lib\net462\Microsoft.Extensions.Primitives.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Xaml.Behaviors, Version=1.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>..\packages\Microsoft.Xaml.Behaviors.Wpf.1.1.19\lib\net45\Microsoft.Xaml.Behaviors.dll</HintPath>
-      <Private>True</Private>
+      <HintPath>..\packages\Microsoft.Xaml.Behaviors.Wpf.1.1.142\lib\net462\Microsoft.Xaml.Behaviors.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.13.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
@@ -165,8 +170,8 @@
     <Reference Include="System.Activities.Presentation">
       <Private>True</Private>
     </Reference>
-    <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
+    <Reference Include="System.Buffers, Version=4.0.5.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Buffers.4.6.1\lib\net462\System.Buffers.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System.ClientModel, Version=1.3.0.0, Culture=neutral, PublicKeyToken=92742159e12e44c8, processorArchitecture=MSIL">
@@ -201,8 +206,8 @@
     <Reference Include="System.IO.Pipelines, Version=6.0.0.3, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.IO.Pipelines.6.0.3\lib\net461\System.IO.Pipelines.dll</HintPath>
     </Reference>
-    <Reference Include="System.Memory, Version=4.0.1.2, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>
+    <Reference Include="System.Memory, Version=4.0.5.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Memory.4.6.3\lib\net462\System.Memory.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System.Memory.Data, Version=8.0.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
@@ -222,8 +227,8 @@
     <Reference Include="System.Reflection.Metadata, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Reflection.Metadata.5.0.0\lib\net461\System.Reflection.Metadata.dll</HintPath>
     </Reference>
-    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=6.0.3.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Runtime.CompilerServices.Unsafe.6.1.2\lib\net462\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System.ServiceModel" />
@@ -280,6 +285,11 @@
     <Compile Include="Controls\SearchableComboBox.xaml.cs">
       <DependentUpon>SearchableComboBox.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Controls\CodeEditorView.xaml.cs">
+      <DependentUpon>CodeEditorView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Helpers\CodeLanguageProvider.cs" />
+    <Compile Include="Models\CodeDocument.cs" />
     <Compile Include="Converters\DocumentTitleConverter.cs" />
     <Compile Include="Converters\FileExtensionConverter.cs" />
     <Compile Include="Converters\InverseBooleanToVisibilityConverter.cs" />
@@ -333,6 +343,9 @@
     <Compile Include="Helpers\PropertyWindowStyleHelper.cs" />
     <Compile Include="Helpers\TrackHandler.cs" />
     <Compile Include="Helpers\WFToolboxHelper.cs" />
+    <Compile Include="Helpers\WfVisualTreeThemer.cs" />
+    <Compile Include="Helpers\MaterialThemePalette.cs" />
+    <Compile Include="Helpers\StudioBrushes.cs" />
     <Compile Include="Logging\LogItem.cs" />
     <Compile Include="Mcp\HttpMcpServerHost.cs" />
     <Compile Include="Mcp\IMcpServer.cs" />
@@ -391,6 +404,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Controls\CodeEditorView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="CSharpExpressionEditor\RoslynExpressionEditor.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -404,6 +421,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Themes\StudioTheme.Dark.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Themes\StudioTheme.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -447,7 +468,9 @@
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Main.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-    <EmbeddedResource Include="Resources\Main.ru-RU.resx" />
+    <EmbeddedResource Include="Resources\Main.ru-RU.resx">
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
     <None Include=".editorconfig" />
     <None Include="app.manifest" />
     <None Include="NLog.config">
@@ -537,6 +560,7 @@
     <EmbeddedResource Include="Resources\ExpressionEditor\Field.png" />
     <EmbeddedResource Include="Resources\ExpressionEditor\Method.png" />
     <EmbeddedResource Include="Resources\ExpressionEditor\Property.png" />
+    <EmbeddedResource Include="Resources\Highlighting\Xaml.xshd" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="23456789.ico" />
@@ -555,6 +579,28 @@
     <Compile Include="VsTemplate\VsTemplateInstantiator.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Resource Include="Resources\Roboto\RobotoCondensed-Regular.ttf" />
+    <Resource Include="Resources\Roboto\RobotoCondensed-LightItalic.ttf" />
+    <Resource Include="Resources\Roboto\RobotoCondensed-Light.ttf" />
+    <Resource Include="Resources\Roboto\RobotoCondensed-Italic.ttf" />
+    <Resource Include="Resources\Roboto\RobotoCondensed-BoldItalic.ttf" />
+    <Resource Include="Resources\Roboto\RobotoCondensed-Bold.ttf" />
+    <Resource Include="Resources\Roboto\Roboto-ThinItalic.ttf" />
+    <Resource Include="Resources\Roboto\Roboto-Thin.ttf" />
+    <Resource Include="Resources\Roboto\Roboto-Regular.ttf" />
+    <Resource Include="Resources\Roboto\Roboto-MediumItalic.ttf" />
+    <Resource Include="Resources\Roboto\Roboto-Medium.ttf" />
+    <Resource Include="Resources\Roboto\Roboto-LightItalic.ttf" />
+    <Resource Include="Resources\Roboto\Roboto-Light.ttf" />
+    <Resource Include="Resources\Roboto\Roboto-Italic.ttf" />
+    <Resource Include="Resources\Roboto\Roboto-BoldItalic.ttf" />
+    <Resource Include="Resources\Roboto\Roboto-Bold.ttf" />
+    <Resource Include="Resources\Roboto\Roboto-BlackItalic.ttf" />
+    <Resource Include="Resources\Roboto\Roboto-Black.ttf" />
+    <Resource Include="Resources\Noto\NotoSans-Regular.ttf" />
+    <Resource Include="Resources\Noto\NotoSans-Italic.ttf" />
+    <Resource Include="Resources\Noto\NotoSans-BoldItalic.ttf" />
+    <Resource Include="Resources\Noto\NotoSans-Bold.ttf" />
     <None Include="VSTemplates\Activity\*">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -612,7 +658,9 @@
     <Error Condition="!Exists('..\packages\NETStandard.Library.2.0.3\build\netstandard2.0\NETStandard.Library.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\NETStandard.Library.2.0.3\build\netstandard2.0\NETStandard.Library.targets'))" />
     <Error Condition="!Exists('..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.props'))" />
     <Error Condition="!Exists('..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.targets'))" />
+    <Error Condition="!Exists('..\packages\MaterialDesignThemes.5.4.0\build\MaterialDesignThemes.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\MaterialDesignThemes.5.4.0\build\MaterialDesignThemes.targets'))" />
   </Target>
   <Import Project="..\packages\NETStandard.Library.2.0.3\build\netstandard2.0\NETStandard.Library.targets" Condition="Exists('..\packages\NETStandard.Library.2.0.3\build\netstandard2.0\NETStandard.Library.targets')" />
   <Import Project="..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.targets" Condition="Exists('..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.targets')" />
+  <Import Project="..\packages\MaterialDesignThemes.5.4.0\build\MaterialDesignThemes.targets" Condition="Exists('..\packages\MaterialDesignThemes.5.4.0\build\MaterialDesignThemes.targets')" />
 </Project>

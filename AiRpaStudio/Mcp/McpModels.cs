@@ -28,13 +28,13 @@
         public bool Success { get; set; }
         public object Content { get; set; }
         public string Error { get; set; }
-        
+
         /// <summary>
         /// Detailed validation error information (if applicable)
         /// </summary>
         public ValidationError ValidationError { get; set; }
     }
-    
+
     /// <summary>
     /// Detailed validation error information
     /// </summary>
@@ -44,38 +44,38 @@
         /// Type of validation error
         /// </summary>
         public ValidationErrorType Type { get; set; }
-        
+
         /// <summary>
         /// Human-readable error message
         /// </summary>
         public string Message { get; set; }
-        
+
         /// <summary>
         /// Name of the parameter with error
         /// </summary>
         public string ParameterName { get; set; }
-        
+
         /// <summary>
         /// Expected parameter type
         /// </summary>
         public string ExpectedType { get; set; }
-        
+
         /// <summary>
         /// Actual type received
         /// </summary>
         public string ActualType { get; set; }
-        
+
         /// <summary>
         /// Full tool schema for reference
         /// </summary>
         public object ToolSchema { get; set; }
-        
+
         /// <summary>
         /// Example of correct usage
         /// </summary>
         public string Example { get; set; }
     }
-    
+
     /// <summary>
     /// Type of validation error
     /// </summary>
@@ -87,7 +87,7 @@
         InvalidParameterFormat,
         UnknownParameter
     }
-    
+
     /// <summary>
     /// Result of parameter validation
     /// </summary>

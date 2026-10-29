@@ -2,7 +2,11 @@
 
 Встроенная пользовательская документация студии. Доступна на русском (`ru/`) и английском (`en/`) языках.
 
+Термин «студия» обозначает WPF-приложение `AiRpaStudio` (проект `AiRpaStudio` в решении `AiRpa.sln`).
+
 Built-in user documentation for the studio. Available in Russian (`ru/`) and English (`en/`).
+
+The term "studio" refers to the WPF application `AiRpaStudio` (the `AiRpaStudio` project in the `AiRpa.sln` solution).
 
 ## Разделы / Topics
 

@@ -100,12 +100,10 @@ namespace RPA.Models
         }
 
         /// <summary>
-        /// Create project
+        /// Creates the project on disk and, when invoked from a dialog, closes the window.
         /// </summary>
-        /// <param name="isStart">If true - first start</param>
         public void CreateProject()
         {
-            bool isStart = true;
             SelectedPath = SelectedPath.Trim();
 
             if (string.IsNullOrWhiteSpace(SelectedPath))
@@ -136,16 +134,16 @@ namespace RPA.Models
                 ObjectHelper.SaveObject(Path.Combine(RootFolder, Consts.projectFileName), Project);
                 CreateMainActivityFile(RootFolder);
                 IsCreate = true;
+
+                if (ViewModel?.View is System.Windows.Window)
+                {
+                    Close();
+                }
             }
             catch (Exception ex)
             {
                 OnSendMessage(ex.Message);
                 return;
-            }
-
-            if (!isStart)
-            {
-                Close();
             }
         }
 

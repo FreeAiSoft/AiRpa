@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using FW.EasyMvvm.Core;
 using RPA.Core;
 using RPA.Entities;
+using RPA.Models;
 
 namespace RPA.ViewModels
 {
@@ -22,6 +23,8 @@ namespace RPA.ViewModels
         public WorkflowDesignerEx ActiveWorkflowDesigner => main.CustomWfDesigner.ActiveWorkflowDesignerEx;
 
         public ObservableCollection<FSNode> FSNodes => main.ProjectManager.FSNodes;
+
+        public ObservableCollection<CodeDocument> OpenCodeDocuments => main.OpenCodeDocuments;
 
         public CustomWfDesigner CustomWfDesignerState => main.CustomWfDesigner;
 
