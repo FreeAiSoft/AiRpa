@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
@@ -11,21 +11,22 @@ namespace RPA.VsProject
         public static VsProjectInfo Parse(string projectPath)
         {
             if (string.IsNullOrWhiteSpace(projectPath))
+            {
                 throw new ArgumentException("Project path is required.", nameof(projectPath));
+            }
 
             string fullPath = Path.GetFullPath(projectPath);
             if (!File.Exists(fullPath))
+            {
                 throw new FileNotFoundException("Project file not found.", fullPath);
+            }
 
             XDocument document = XDocument.Load(fullPath);
-            XElement root = document.Root;
-            if (root == null)
-                throw new InvalidDataException("Project file is empty.");
-
+            XElement root = document.Root ?? throw new InvalidDataException("Project file is empty.");
             bool isSdkStyle = string.Equals(root.Name.LocalName, "Project", StringComparison.OrdinalIgnoreCase)
                               && (string)root.Attribute("Sdk") != null;
 
-            var info = new VsProjectInfo
+            VsProjectInfo info = new VsProjectInfo
             {
                 ProjectPath = fullPath,
                 IsSdkStyle = isSdkStyle,
@@ -44,9 +45,14 @@ namespace RPA.VsProject
                     string itemType = item.Name.LocalName;
                     string include = (string)item.Attribute("Include");
                     if (string.IsNullOrWhiteSpace(include))
+                    {
                         include = (string)item.Attribute("Update");
+                    }
+
                     if (string.IsNullOrWhiteSpace(include))
+                    {
                         continue;
+                    }
 
                     XElement hintPath = item.Elements().FirstOrDefault(e => e.Name.LocalName == "HintPath");
 
@@ -69,7 +75,7 @@ namespace RPA.VsProject
         private static string FirstElementValue(XElement root, string localName)
         {
             XElement element = root.Descendants().FirstOrDefault(e => e.Name.LocalName == localName);
-            return element == null ? null : element.Value.Trim();
+            return element?.Value.Trim();
         }
     }
 }

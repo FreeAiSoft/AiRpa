@@ -9,7 +9,7 @@ namespace RPA.VsTemplate
     {
         public static VsTemplateInstantiationResult Instantiate(VsTemplate template, VsTemplateInstantiationRequest request)
         {
-            var result = new VsTemplateInstantiationResult();
+            VsTemplateInstantiationResult result = new VsTemplateInstantiationResult();
 
             if (template == null)
             {
@@ -32,11 +32,11 @@ namespace RPA.VsTemplate
                 return result;
             }
 
-            var resolver = new VsTemplateParameterResolver(request);
+            VsTemplateParameterResolver resolver = new VsTemplateParameterResolver(request);
 
             try
             {
-                Directory.CreateDirectory(request.OutputDirectory);
+                _ = Directory.CreateDirectory(request.OutputDirectory);
             }
             catch (Exception ex)
             {
@@ -61,7 +61,9 @@ namespace RPA.VsTemplate
 
                     string targetDirectory = Path.GetDirectoryName(fullTarget);
                     if (!string.IsNullOrEmpty(targetDirectory))
-                        Directory.CreateDirectory(targetDirectory);
+                    {
+                        _ = Directory.CreateDirectory(targetDirectory);
+                    }
 
                     if (file.ReplaceParameters)
                     {
@@ -95,10 +97,14 @@ namespace RPA.VsTemplate
                 // Visual Studio names the project file after the project (e.g. MyProject.csproj).
                 string extension = ".csproj";
                 if (!string.IsNullOrWhiteSpace(file.TargetFileName))
+                {
                     extension = Path.GetExtension(file.TargetFileName);
+                }
 
                 if (string.IsNullOrEmpty(extension))
+                {
                     extension = ".csproj";
+                }
 
                 fileName = resolver.Resolve("safeprojectname") + extension;
             }
@@ -113,7 +119,9 @@ namespace RPA.VsTemplate
 
             string folder = file.TargetFolder;
             if (!string.IsNullOrWhiteSpace(folder))
+            {
                 folder = TemplateTextProcessor.ReplaceParameters(folder, resolver.Resolve);
+            }
 
             return string.IsNullOrWhiteSpace(folder) ? fileName : Path.Combine(folder, fileName);
         }

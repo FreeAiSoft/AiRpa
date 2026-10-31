@@ -20,6 +20,8 @@ namespace RPA.Helpers
         private readonly Action<WorkflowDesigner> syncWFControlsDelegate;
         private readonly MainViewModel _mainViewModel;
         private readonly Action<string> setActiveDesignerDelegate;
+        private readonly PropertyWindowStyleHelper _propertyStyleHelper = new PropertyWindowStyleHelper();
+
 
         #region Singleton
 
@@ -47,6 +49,9 @@ namespace RPA.Helpers
         {
             FrameworkElement workflowDesignerView = (FrameworkElement)workflowDesigner.View;
             ((FrameworkElement)workflowDesigner.PropertyInspectorView).Loaded += WorkflowDesignerView_Loaded;
+            // Поверхность дизайнера (F-04) темизируется после загрузки: шаблон DesignerView
+            // строится только к этому моменту.
+            workflowDesignerView.Loaded += DesignerView_Loaded;
             string fullFilePath = ((WorkflowFileItem)workflowDesigner.Context.Items.First(i => i.ItemType == typeof(WorkflowFileItem))).LoadedFile;
             string fileName = Path.GetFileName(fullFilePath);
             workflowDesignerView.Tag = fullFilePath;
@@ -95,7 +100,16 @@ namespace RPA.Helpers
 
         private void WorkflowDesignerView_Loaded(object sender, RoutedEventArgs e)
         {
-            new PropertyWindowStyleHelper().SetPropertyStyles((UIElement)sender);
+            _propertyStyleHelper.SetPropertyStyles((UIElement)sender);
+        }
+
+        private void DesignerView_Loaded(object sender, RoutedEventArgs e)
+        {
+            // Поверхность дизайнера: shell bar, breadcrumb, MiniMap и адаптеры ошибок (F-04/F-06).
+            if (sender is FrameworkElement designerView)
+            {
+                WfDesignerTheme.Apply(designerView);
+            }
         }
 
         private void DocDocument_IsSelectedChanged(object sender, EventArgs e)
@@ -179,11 +193,7 @@ namespace RPA.Helpers
         {
             LayoutDocument doc = (LayoutDocument)docGroup.Children.FirstOrDefault(c =>
             {
-                if (c.Content is FrameworkElement view && view.Tag != null)
-                {
-                    return view.Tag.ToString() == loadedFile;
-                }
-                return false;
+                return c.Content is FrameworkElement view && view.Tag != null && view.Tag.ToString() == loadedFile;
             });
 
             doc?.Close();

@@ -8,22 +8,23 @@
         
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <materialDesign:BundledTheme BaseTheme="Light"
-                                             PrimaryColor="DeepPurple"
-                                             SecondaryColor="Lime" />
+                <!--
+                    Базовая тема — тёмная: она же дефолт настроек (ChatViewModel.IsDarkTheme → UseDarkTheme ?? true),
+                    иначе первый кадр окна был светлым, а затем перекрашивался (M-04 плана).
+                    Primary нейтральный: акцентные цвета пробивались в фокус, выделение и
+                    скроллбары стандартных контролов. Точные цвета темы задаёт AppSettings.ApplyMaterialDesignTheme
+                    из палитры студии. SecondaryColor="Inherit", а не "Grey": в MaterialDesignColors 5.4 у перечисления
+                    SecondaryColor нет серых значений (Grey/Brown/BlueGrey есть только в PrimaryColor), и любое
+                    несуществующее имя роняет старт приложения XamlParseException в App.InitializeComponent.
+                -->
+                <materialDesign:BundledTheme BaseTheme="Dark"
+                                             PrimaryColor="Grey"
+                                             SecondaryColor="Inherit" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign2.Defaults.xaml" />
                 <ResourceDictionary Source="Themes/StudioTheme.xaml" />
+                <!-- Плоские скроллы 10px: подключается последним, иначе неявный стиль MaterialDesign побеждает. -->
+                <ResourceDictionary Source="Themes/StudioScrollBar.xaml" />
             </ResourceDictionary.MergedDictionaries>
-            <DrawingImage x:Key="Bulb">
-                <DrawingImage.Drawing>
-                    <GeometryDrawing Brush="Gold">
-                        <GeometryDrawing.Geometry>
-                            <EllipseGeometry RadiusX="1"
-                                             RadiusY="1" />
-                        </GeometryDrawing.Geometry>
-                    </GeometryDrawing>
-                </DrawingImage.Drawing>
-            </DrawingImage>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

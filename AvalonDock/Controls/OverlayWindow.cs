@@ -209,6 +209,9 @@ namespace AvalonDock.Controls
                     Resources.MergedDictionaries.Add(_host.Manager.Theme.GetResourceDictionary());
                 }
 			}
+			// Ресурсы оверлея изолированы от Application.Resources — прокидываем кисти палитры студии.
+			ThemeBrushBridge.Apply(Resources);
+
 		}
 
 		internal void EnableDropTargets()

@@ -62,9 +62,9 @@ namespace RPA.Helpers
         {
             double t = Clamp01(amount);
             return Color.FromRgb(
-                (byte)Math.Round(color.R + (255 - color.R) * t),
-                (byte)Math.Round(color.G + (255 - color.G) * t),
-                (byte)Math.Round(color.B + (255 - color.B) * t));
+                (byte)Math.Round(color.R + ((255 - color.R) * t)),
+                (byte)Math.Round(color.G + ((255 - color.G) * t)),
+                (byte)Math.Round(color.B + ((255 - color.B) * t)));
         }
 
         public static Color Darken(Color color, double amount)
@@ -157,17 +157,7 @@ namespace RPA.Helpers
 
         private static double Clamp01(double value)
         {
-            if (value < 0)
-            {
-                return 0;
-            }
-
-            if (value > 1)
-            {
-                return 1;
-            }
-
-            return value;
+            return value < 0 ? 0 : value > 1 ? 1 : value;
         }
 
         private static bool TryParseHexByte(string value, out byte result)

@@ -13,7 +13,7 @@ namespace RPA.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return value is CustomWfDesigner designer ? designer.CustomWfDesignerState == CustomWfDesignerState.Stop : (object)false;
+            return value is CustomWfDesigner designer && designer.CustomWfDesignerState == CustomWfDesignerState.Stop;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -29,11 +29,9 @@ namespace RPA.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return value is CustomWfDesigner designer
-                ? designer.CustomWfDesignerState == CustomWfDesignerState.Stop ||
+            return value is CustomWfDesigner designer && (designer.CustomWfDesignerState == CustomWfDesignerState.Stop ||
                        designer.CustomWfDesignerState == CustomWfDesignerState.Breakpoint ||
-                       designer.CustomWfDesignerState == CustomWfDesignerState.Pause
-                : (object)false;
+                       designer.CustomWfDesignerState == CustomWfDesignerState.Pause);
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -49,7 +47,7 @@ namespace RPA.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return value is CustomWfDesigner designer ? designer.CustomWfDesignerState == CustomWfDesignerState.Run : (object)false;
+            return value is CustomWfDesigner designer && designer.CustomWfDesignerState == CustomWfDesignerState.Run;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -65,7 +63,7 @@ namespace RPA.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return value is CustomWfDesigner designer ? designer.CustomWfDesignerState != CustomWfDesignerState.Stop : (object)false;
+            return value is CustomWfDesigner designer && designer.CustomWfDesignerState != CustomWfDesignerState.Stop;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

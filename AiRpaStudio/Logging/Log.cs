@@ -57,9 +57,7 @@ namespace RPA.Logging
             }
         }
 
-#pragma warning disable IDE0060 // Remove unused parameter
         public static void ReportException(string text)
-#pragma warning restore IDE0060 // Remove unused parameter
         {
             Write(text);
         }

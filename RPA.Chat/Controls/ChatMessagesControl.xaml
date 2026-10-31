@@ -4,16 +4,14 @@
              xmlns:core="clr-namespace:VibeCoder.Core.Services;assembly=VibeCoder.Core"
              xmlns:conv="clr-namespace:RPA.Chat.Converters"
              xmlns:materialIcons="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib"
              x:Name="Root">
     <UserControl.Resources>
-        <SolidColorBrush x:Key="Chat.UserBorder" Color="#CC64B5F6"/>
-        <SolidColorBrush x:Key="Chat.UserBackground" Color="#3364B5F6"/>
-        <SolidColorBrush x:Key="Chat.LastActBackground" Color="#334CAF50"/>
-        <SolidColorBrush x:Key="Chat.LastActBorder" Color="#4CAF50"/>
-        <SolidColorBrush x:Key="Chat.LastPlanBackground" Color="#4DFF8C00"/>
-        <SolidColorBrush x:Key="Chat.LastPlanBorder" Color="#FF8C00"/>
-        <SolidColorBrush x:Key="Question.OptionBorder" Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="Question.AnswerBorder" Color="#4CAF50"/>
+        <!--
+            Кисти чата живут только в ChatTheme.Dark.xaml / ChatTheme.Light.xaml (этап 8, F-08):
+            локальные SolidColorBrush перебивали словарь темы, из-за чего переключение Light/Dark
+            не доходило до этих элементов.
+        -->
 
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <conv:CodeTokensToTextBlockConverter x:Key="CodeToTextBlock"/>
@@ -54,7 +52,7 @@
         <Style x:Key="QuestionOptionButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource Dark.Text}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource Question.OptionBorder}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Question.OptionBorder}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="10,4"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -103,13 +101,13 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Thumb">
-                        <Border x:Name="ThumbBorder" Background="#666666" CornerRadius="2.5"/>
+                        <Border x:Name="ThumbBorder" Background="{DynamicResource Chat.ScrollThumb}" CornerRadius="5"/>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ThumbBorder" Property="Background" Value="#999999"/>
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="{DynamicResource Chat.ScrollThumbHover}"/>
                             </Trigger>
                             <Trigger Property="IsDragging" Value="True">
-                                <Setter TargetName="ThumbBorder" Property="Background" Value="#BBBBBB"/>
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="{DynamicResource Chat.ScrollThumbDragging}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -118,8 +116,9 @@
         </Style>
 
         <Style TargetType="ScrollBar">
-            <Setter Property="Width" Value="5"/>
-            <Setter Property="MinWidth" Value="5"/>
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="MinWidth" Value="10"/>
+            <Setter Property="MaxWidth" Value="10" />
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -141,8 +140,9 @@
                             <Trigger Property="Orientation" Value="Horizontal">
                                 <Setter Property="Width" Value="Auto"/>
                                 <Setter Property="MinWidth" Value="0"/>
-                                <Setter Property="Height" Value="5"/>
-                                <Setter Property="MinHeight" Value="5"/>
+                                <Setter Property="Height" Value="10"/>
+                                <Setter Property="MinHeight" Value="10"/>
+                                <Setter Property="MaxWidth" Value="{x:Static sys:Double.PositiveInfinity}"/>
                                 <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -176,30 +176,46 @@
             </Border>
         </DataTemplate>
 
+        <!--
+            Явный стиль заголовка «Reasoning». Без Style на ToggleButton ложится неявный стиль
+            MaterialDesign (переключатель 34x18), и заголовок сжимается по горизонтали.
+        -->
+        <Style x:Key="ReasoningHeaderToggleButtonStyle" TargetType="ToggleButton">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="ReasoningExpanderStyle" TargetType="Expander">
             <Setter Property="Foreground" Value="{DynamicResource Dark.Text}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Expander">
                         <DockPanel>
-                            <ToggleButton x:Name="HeaderSite" DockPanel.Dock="Top"
+                            <ToggleButton x:Name="HeaderSite" DockPanel.Dock="Top" Style="{StaticResource ReasoningHeaderToggleButtonStyle}"
                                           IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
                                           Background="Transparent" BorderThickness="0" Padding="0"
                                           Cursor="Hand" Focusable="False"
                                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Left">
-                                <ToggleButton.Template>
-                                    <ControlTemplate TargetType="ToggleButton">
-                                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
-                                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                              VerticalAlignment="Center"/>
-                                        </Border>
-                                    </ControlTemplate>
-                                </ToggleButton.Template>
                                 <StackPanel Orientation="Horizontal">
                                     <materialIcons:MaterialIcon x:Name="Chevron"
                                                                 Kind="ChevronRight" Width="16.8" Height="16.8"
                                                                 Foreground="{DynamicResource Dark.Text}"/>
-                                    <ContentPresenter ContentSource="Header" VerticalAlignment="Center" TextElement.Foreground="White"/>
+                                    <ContentPresenter ContentSource="Header" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Dark.Text}"/>
                                 </StackPanel>
                             </ToggleButton>
                             <ContentPresenter x:Name="ContentSite" DockPanel.Dock="Top" Margin="18,0,0,0"
@@ -226,44 +242,44 @@
                         <Setter Property="BorderThickness" Value="0"/>
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding KindName}" Value="User">
-                                <Setter Property="BorderBrush" Value="{StaticResource Chat.UserBorder}"/>
-                                <Setter Property="Background" Value="{StaticResource Chat.UserBackground}"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource Chat.UserBorder}"/>
+                                <Setter Property="Background" Value="{DynamicResource Chat.UserBackground}"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding KindName}" Value="ToolCall">
                                 <Setter Property="BorderBrush" Value="{DynamicResource Dark.Border}"/>
                                 <Setter Property="Background" Value="{DynamicResource Dark.Control}"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding KindName}" Value="ToolBlocked">
-                                <Setter Property="BorderBrush" Value="#B0563C"/>
-                                <Setter Property="Background" Value="#33221E"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource Chat.ToolBlockedBorder}"/>
+                                <Setter Property="Background" Value="{DynamicResource Chat.ToolBlockedBackground}"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding KindName}" Value="Error">
-                                <Setter Property="BorderBrush" Value="#B0563C"/>
-                                <Setter Property="Background" Value="#331F1F"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource Chat.ErrorBorder}"/>
+                                <Setter Property="Background" Value="{DynamicResource Chat.ErrorBackground}"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding KindName}" Value="Compaction">
-                                <Setter Property="BorderBrush" Value="#6B6B2E"/>
-                                <Setter Property="Background" Value="#262618"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource Chat.CompactionBorder}"/>
+                                <Setter Property="Background" Value="{DynamicResource Chat.CompactionBackground}"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding KindName}" Value="ModeSwitch">
-                                <Setter Property="BorderBrush" Value="#4A6B9A"/>
-                                <Setter Property="Background" Value="#1E2733"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource Chat.ModeSwitchBorder}"/>
+                                <Setter Property="Background" Value="{DynamicResource Chat.ModeSwitchBackground}"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding KindName}" Value="Question">
-                                <Setter Property="BorderBrush" Value="#4A6B9A"/>
-                                <Setter Property="Background" Value="#1E2733"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource Chat.ModeSwitchBorder}"/>
+                                <Setter Property="Background" Value="{DynamicResource Chat.ModeSwitchBackground}"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding KindName}" Value="Subagent">
-                                <Setter Property="BorderBrush" Value="#4A6B9A"/>
-                                <Setter Property="Background" Value="#1E2733"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource Chat.ModeSwitchBorder}"/>
+                                <Setter Property="Background" Value="{DynamicResource Chat.ModeSwitchBackground}"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding KindName}" Value="ResultAnswerPlan">
-                                <Setter Property="BorderBrush" Value="{StaticResource Chat.LastPlanBorder}"/>
-                                <Setter Property="Background" Value="{StaticResource Chat.LastPlanBackground}"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource Chat.LastPlanBorder}"/>
+                                <Setter Property="Background" Value="{DynamicResource Chat.LastPlanBackground}"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding KindName}" Value="ResultAnswerAct">
-                                <Setter Property="BorderBrush" Value="{StaticResource Chat.LastActBorder}"/>
-                                <Setter Property="Background" Value="{StaticResource Chat.LastActBackground}"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource Chat.LastActBorder}"/>
+                                <Setter Property="Background" Value="{DynamicResource Chat.LastActBackground}"/>
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
@@ -279,7 +295,7 @@
                                   Style="{StaticResource ReasoningExpanderStyle}"
                                   Visibility="{Binding ShowReasoning, Converter={StaticResource BoolToVis}}">
                             <TextBox Text="{Binding Reasoning, Mode=OneWay}" TextWrapping="Wrap"
-                                     Foreground="#C8C8C8" FontStyle="Italic"
+                                     Foreground="{DynamicResource Chat.ReasoningText}" FontStyle="Italic"
                                      IsReadOnly="True" Background="Transparent" BorderThickness="0" Padding="0"/>
                         </Expander>
                         <StackPanel x:Name="QuestionPanel" Visibility="Collapsed">
@@ -310,7 +326,7 @@
                                                                         <Binding Path="DataContext.Payload.Answer" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
                                                                     </MultiBinding>
                                                                 </DataTrigger.Binding>
-                                                                <Setter Property="BorderBrush" Value="{StaticResource Question.AnswerBorder}"/>
+                                                                <Setter Property="BorderBrush" Value="{DynamicResource Question.AnswerBorder}"/>
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -325,7 +341,7 @@
                                         <Style TargetType="Button" BasedOn="{StaticResource QuestionOptionButtonStyle}">
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding Payload.IsSkipped}" Value="True">
-                                                    <Setter Property="BorderBrush" Value="{StaticResource Question.AnswerBorder}"/>
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Question.AnswerBorder}"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -335,8 +351,8 @@
                         </StackPanel>
                         <StackPanel x:Name="SubagentPanel" Visibility="Collapsed">
                             <TextBlock Text="{Binding Payload.Item.Prompt}" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource Dark.Text}"/>
-                            <TextBlock Text="{Binding Payload.Item.StatusText}" Foreground="#C8C8C8" Margin="0,4,0,0"/>
-                            <TextBlock Text="{Binding Payload.Item.LatestToolCall}" Foreground="#9A9A9A" FontFamily="Consolas" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Payload.Item.LatestToolCall}"/>
+                            <TextBlock Text="{Binding Payload.Item.StatusText}" Foreground="{DynamicResource Chat.ReasoningText}" Margin="0,4,0,0"/>
+                            <TextBlock Text="{Binding Payload.Item.LatestToolCall}" Foreground="{DynamicResource Dark.MutedText}" FontFamily="Consolas" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Payload.Item.LatestToolCall}"/>
                             <Expander Header="Show output" Margin="0,8,0,0" Foreground="{DynamicResource Dark.Text}" IsExpanded="False"
                                       Visibility="{Binding Payload.Item.HasOutput, Converter={StaticResource BoolToVis}}">
                                 <TextBox Text="{Binding Payload.Item.Result, Mode=OneWay}" TextWrapping="Wrap"

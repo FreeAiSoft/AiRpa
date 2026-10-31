@@ -14,7 +14,7 @@ namespace RPA.VsProject
         public static FSNode LoadSolution(string solutionPath)
         {
             VsSolution solution = VsSolutionParser.Parse(solutionPath);
-            var root = new FSNode(solutionPath, FSNodeType.Solution)
+            FSNode root = new FSNode(solutionPath, FSNodeType.Solution)
             {
                 Childs = new ObservableCollection<FSNode>()
             };
@@ -24,11 +24,15 @@ namespace RPA.VsProject
             foreach (VsSolutionProject project in solution.Projects)
             {
                 if (!VsSolutionParser.IsCsproj(project))
+                {
                     continue;
+                }
 
                 string projectPath = Path.GetFullPath(Path.Combine(solutionDir, project.RelativePath));
                 if (!File.Exists(projectPath))
+                {
                     continue;
+                }
 
                 root.Childs.Add(LoadProject(projectPath));
             }
@@ -39,7 +43,7 @@ namespace RPA.VsProject
         public static FSNode LoadProject(string projectPath)
         {
             VsProjectInfo info = VsProjectParser.Parse(projectPath);
-            var root = new FSNode(projectPath, FSNodeType.VsProject)
+            FSNode root = new FSNode(projectPath, FSNodeType.VsProject)
             {
                 Name = info.Name,
                 Childs = BuildFileTree(Path.GetDirectoryName(projectPath), projectPath)
@@ -50,14 +54,16 @@ namespace RPA.VsProject
 
         private static ObservableCollection<FSNode> BuildFileTree(string directory, string excludeFilePath)
         {
-            var nodes = new List<FSNode>();
-            var ignoredDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "bin", "obj", ".vs", "packages" };
+            List<FSNode> nodes = new List<FSNode>();
+            HashSet<string> ignoredDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "bin", "obj", ".vs", "packages" };
 
             foreach (string dir in Directory.GetDirectories(directory))
             {
                 string dirName = Path.GetFileName(dir);
                 if (ignoredDirs.Contains(dirName))
+                {
                     continue;
+                }
 
                 nodes.Add(new FSNode(dir, FSNodeType.Dir)
                 {
@@ -68,11 +74,15 @@ namespace RPA.VsProject
             foreach (string file in Directory.GetFiles(directory))
             {
                 if (file.EndsWith(".xaml.breakpoints", StringComparison.OrdinalIgnoreCase))
+                {
                     continue;
+                }
 
                 if (!string.IsNullOrEmpty(excludeFilePath)
                     && string.Equals(file, excludeFilePath, StringComparison.OrdinalIgnoreCase))
+                {
                     continue;
+                }
 
                 nodes.Add(new FSNode(file, FSNodeType.File));
             }

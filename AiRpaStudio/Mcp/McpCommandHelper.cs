@@ -1,4 +1,5 @@
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace RPA.Mcp
 {
@@ -15,7 +16,7 @@ namespace RPA.Mcp
         /// </summary>
         public static string CreateInitializeRequest()
         {
-            var request = new McpRequest
+            McpRequest request = new McpRequest
             {
                 Method = "initialize",
                 Params = new { },
@@ -30,7 +31,7 @@ namespace RPA.Mcp
         /// </summary>
         public static string CreateListToolsRequest()
         {
-            var request = new McpRequest
+            McpRequest request = new McpRequest
             {
                 Method = "tools/list",
                 Params = new { },
@@ -47,7 +48,7 @@ namespace RPA.Mcp
         /// <param name="toolArguments">Tool arguments as an object</param>
         public static string CreateToolCallRequest(string toolName, object toolArguments)
         {
-            var request = new McpRequest
+            McpRequest request = new McpRequest
             {
                 Method = "tools/call",
                 Params = new
@@ -128,15 +129,15 @@ namespace RPA.Mcp
         {
             try
             {
-                var obj = JsonConvert.DeserializeObject<dynamic>(simpleCommand);
+                dynamic obj = JsonConvert.DeserializeObject<dynamic>(simpleCommand);
 
                 if (obj.action != null)
                 {
                     string action = obj.action.ToString();
 
                     // Remove "action" property and use the rest as arguments
-                    var argumentsObj = new Newtonsoft.Json.Linq.JObject();
-                    foreach (var prop in obj)
+                    JObject argumentsObj = new JObject();
+                    foreach (dynamic prop in obj)
                     {
                         if (prop.Name != "action")
                         {

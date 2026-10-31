@@ -1,11 +1,23 @@
 ﻿using System;
-using System.Diagnostics;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Media;
 using RPA.Helpers;
 
 namespace RPA.Core.Services
 {
+    /// <summary>
+    /// Обслуживание таблиц переменных/аргументов в дизайнере: открытие контекстного меню
+    /// редактирования без выхода из режима редактирования ячейки.
+    /// <para>
+    /// Меню и поле ввода строятся на палитре студии (<see cref="WfDesignerTheme.CreateEditingContextMenu"/>),
+    /// поэтому в тёмной теме нет белого выпадающего прямоугольника и «чёрный фон с зелёными буквами»,
+    /// оставшихся от отладочного варианта (F-06 плана docs\Vs2026_Theme_Plan.md).
+    /// </para>
+    /// </summary>
     internal class DesignerVariableContextMenuService
     {
         private readonly UIElement _view;
@@ -73,64 +85,64 @@ namespace RPA.Core.Services
         {
             // Найдем variableDataGrid внутри variableDesigner через логическое дерево (т.к. может быть невидимым)
             DataGrid dataGrid = XamlHelper.FindLogicalChild<DataGrid>(designer, nameDataGrid);
-            if (dataGrid != null && dataGrid.Columns.Count > 0)
+            if (dataGrid == null || dataGrid.Columns.Count == 0)
             {
-                // Добавляем обработчик для предотвращения выхода из режима редактирования при открытии контекстного меню
-                dataGrid.PreviewMouseRightButtonDown += VariableDataGrid_PreviewMouseRightButtonDown;
-                dataGrid.CellEditEnding += VariableDataGrid_CellEditEnding;
-
-                DataGridColumn firstColumn = dataGrid.Columns[0];
-                DataTemplate columnTemplate = null;
-
-                // Получаем DataTemplate в зависимости от типа столбца
-                if (firstColumn is DataGridTemplateColumn templateColumn)
-                {
-                    columnTemplate = templateColumn.CellEditingTemplate;
-                }
-
-                // Используем полученный DataTemplate
-                if (columnTemplate != null)
-                {
-                    Debug.WriteLine($"Получен DataTemplate первого столбца: {columnTemplate}");
-
-                    // Создаем стиль для TextBox с черным фоном и зелеными буквами
-                    Style textBoxStyle = new Style(typeof(TextBox));
-                    //textBoxStyle.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Colors.Black)));
-                    //textBoxStyle.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Colors.Green)));
-
-                    // Добавляем обработчики для правильной работы контекстного меню
-                    // Используем PreviewMouseRightButtonDown, чтобы захватить событие раньше
-                    textBoxStyle.Setters.Add(new EventSetter(UIElement.PreviewMouseRightButtonDownEvent,
-                        new System.Windows.Input.MouseButtonEventHandler(TextBox_PreviewMouseRightButtonDown)));
-                    // Предотвращаем потерю фокуса при открытом меню
-                    textBoxStyle.Setters.Add(new EventSetter(UIElement.PreviewLostKeyboardFocusEvent,
-                        new System.Windows.Input.KeyboardFocusChangedEventHandler(TextBox_PreviewLostKeyboardFocus)));
-
-                    // Добавляем стиль в Resources DataTemplate
-                    columnTemplate.Resources ??= new ResourceDictionary();
-
-                    // Устанавливаем стиль как ресурс по умолчанию для TextBox
-                    columnTemplate.Resources[typeof(TextBox)] = textBoxStyle;
-
-                    Debug.WriteLine("Стиль для TextBox установлен: черный фон, зеленые буквы");
-                }
-                else
-                {
-                    Debug.WriteLine("DataTemplate первого столбца не найден");
-                }
-            }
-            else
-            {
-                Debug.WriteLine("variableDataGrid не найден или не содержит столбцов");
+                return;
             }
 
-            Debug.WriteLine("VariableDesigner is now visible");
+            // Добавляем обработчик для предотвращения выхода из режима редактирования при открытии контекстного меню
+            dataGrid.PreviewMouseRightButtonDown += VariableDataGrid_PreviewMouseRightButtonDown;
+            dataGrid.CellEditEnding += VariableDataGrid_CellEditEnding;
+
+            DataGridColumn firstColumn = dataGrid.Columns[0];
+
+            // Получаем DataTemplate в зависимости от типа столбца
+            DataTemplate columnTemplate = firstColumn is DataGridTemplateColumn templateColumn
+                ? templateColumn.CellEditingTemplate
+                : null;
+
+            if (columnTemplate == null)
+            {
+                return;
+            }
+
+            Style textBoxStyle = CreateTextBoxStyle();
+            columnTemplate.Resources ??= new ResourceDictionary();
+
+            // Устанавливаем стиль как ресурс по умолчанию для TextBox
+            columnTemplate.Resources[typeof(TextBox)] = textBoxStyle;
+        }
+
+        /// <summary>
+        /// Стиль поля ввода в ячейке: обработчики контекстного меню + кисти палитры
+        /// (раньше здесь оставались закомментированные чёрный фон и зелёные буквы).
+        /// </summary>
+        private Style CreateTextBoxStyle()
+        {
+            StudioThemeColors palette = StudioPalette.Detect(Application.Current?.Resources);
+
+            var textBoxStyle = new Style(typeof(TextBox));
+            textBoxStyle.Setters.Add(new Setter(Control.BackgroundProperty, WfThemeStyles.Brush(palette.Surface)));
+            textBoxStyle.Setters.Add(new Setter(Control.ForegroundProperty, WfThemeStyles.Brush(palette.Foreground)));
+            textBoxStyle.Setters.Add(new Setter(Control.BorderBrushProperty, WfThemeStyles.Brush(palette.SeparatorStrong)));
+            textBoxStyle.Setters.Add(new Setter(TextBoxBase.CaretBrushProperty, WfThemeStyles.Brush(palette.Foreground)));
+            textBoxStyle.Setters.Add(new Setter(Control.FontFamilyProperty, WfThemeStyles.Font));
+
+            // Добавляем обработчики для правильной работы контекстного меню
+            // Используем PreviewMouseRightButtonDown, чтобы захватить событие раньше
+            textBoxStyle.Setters.Add(new EventSetter(UIElement.PreviewMouseRightButtonDownEvent,
+                new MouseButtonEventHandler(TextBox_PreviewMouseRightButtonDown)));
+            // Предотвращаем потерю фокуса при открытом меню
+            textBoxStyle.Setters.Add(new EventSetter(UIElement.PreviewLostKeyboardFocusEvent,
+                new KeyboardFocusChangedEventHandler(TextBox_PreviewLostKeyboardFocus)));
+
+            return textBoxStyle;
         }
 
         /// <summary>
         /// Обработчик правой кнопки мыши на DataGrid для отслеживания открытия контекстного меню
         /// </summary>
-        private void VariableDataGrid_PreviewMouseRightButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void VariableDataGrid_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
             _isContextMenuOpen = true;
         }
@@ -153,101 +165,86 @@ namespace RPA.Core.Services
         /// Обработчик нажатия правой кнопки мыши для TextBox в DataGrid.
         /// Показывает контекстное меню программно, обходя блокировку NoContextMenuGrid.
         /// </summary>
-        private void TextBox_PreviewMouseRightButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void TextBox_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (sender is TextBox textBox)
+            if (!(sender is TextBox textBox))
             {
-                // Создаем контекстное меню, если его еще нет
-                if (textBox.ContextMenu == null)
+                return;
+            }
+
+            // Создаем контекстное меню, если его еще нет
+            if (textBox.ContextMenu == null)
+            {
+                StudioThemeColors palette = StudioPalette.Detect(Application.Current?.Resources);
+                ContextMenu contextMenu = WfDesignerTheme.CreateEditingContextMenu(palette);
+
+                // Закрываем меню после выбора команды
+                void CloseMenu()
                 {
-                    textBox.ContextMenu = new ContextMenu
-                    {
-                        StaysOpen = true  // Меню остается открытым
-                    };
-
-                    // Добавляем стандартные команды редактирования с обработчиками закрытия
-                    MenuItem cutItem = new MenuItem
-                    {
-                        Command = System.Windows.Input.ApplicationCommands.Cut,
-                        Header = "Вырезать"
-                    };
-                    MenuItem copyItem = new MenuItem
-                    {
-                        Command = System.Windows.Input.ApplicationCommands.Copy,
-                        Header = "Копировать"
-                    };
-                    MenuItem pasteItem = new MenuItem
-                    {
-                        Command = System.Windows.Input.ApplicationCommands.Paste,
-                        Header = "Вставить"
-                    };
-
-                    // Закрываем меню после выбора команды
-                    void CloseMenu()
-                    {
-                        textBox.ContextMenu.IsOpen = false;
-                        _isContextMenuOpen = false;
-                        _ = textBox.Focus();
-                    }
-
-                    cutItem.Click += (s, args) => CloseMenu();
-                    copyItem.Click += (s, args) => CloseMenu();
-                    pasteItem.Click += (s, args) => CloseMenu();
-
-                    _ = textBox.ContextMenu.Items.Add(cutItem);
-                    _ = textBox.ContextMenu.Items.Add(copyItem);
-                    _ = textBox.ContextMenu.Items.Add(pasteItem);
-
-                    // Обработчик для закрытия меню при клике вне его
-                    void mouseHandler(object s, System.Windows.Input.MouseButtonEventArgs args)
-                    {
-                        if (!textBox.ContextMenu.IsMouseOver && !textBox.IsMouseOver)
-                        {
-                            CloseMenu();
-                            System.Windows.Input.Mouse.RemovePreviewMouseDownHandler(Application.Current.MainWindow, mouseHandler);
-                        }
-                    }
-
-                    // Обработчик для закрытия меню по Escape
-                    void keyHandler(object s, System.Windows.Input.KeyEventArgs args)
-                    {
-                        if (args.Key == System.Windows.Input.Key.Escape)
-                        {
-                            CloseMenu();
-                            System.Windows.Input.Keyboard.RemovePreviewKeyDownHandler(Application.Current.MainWindow, keyHandler);
-                        }
-                    }
-
-                    textBox.ContextMenu.Opened += (s, args) =>
-                    {
-                        System.Windows.Input.Mouse.AddPreviewMouseDownHandler(Application.Current.MainWindow, mouseHandler);
-                        System.Windows.Input.Keyboard.AddPreviewKeyDownHandler(Application.Current.MainWindow, keyHandler);
-                    };
+                    contextMenu.IsOpen = false;
+                    _isContextMenuOpen = false;
+                    _ = textBox.Focus();
                 }
 
-                // Фокусируемся на TextBox и показываем меню с небольшой задержкой
-                _ = textBox.Focus();
-
-                // Открываемменю через Dispatcher, чтобы фокус успел установиться
-                _ = System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(
-                    System.Windows.Threading.DispatcherPriority.Input,
-                    new Action(() =>
+                foreach (MenuItem item in contextMenu.Items)
+                {
+                    if (item != null)
                     {
-                        textBox.ContextMenu.PlacementTarget = textBox;
-                        textBox.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
-                        textBox.ContextMenu.IsOpen = true;
-                    }));
+                        item.Click += (s, args) => CloseMenu();
+                    }
+                }
 
-                // Помечаем событие как обработанное полностью
-                e.Handled = true;
+                textBox.ContextMenu = contextMenu;
+
+                // Обработчик для закрытия меню при клике вне его
+                void mouseHandler(object s, MouseButtonEventArgs args)
+                {
+                    if (!contextMenu.IsMouseOver && !textBox.IsMouseOver)
+                    {
+                        CloseMenu();
+                        Mouse.RemovePreviewMouseDownHandler(Application.Current.MainWindow, mouseHandler);
+                    }
+                }
+
+                // Обработчик для закрытия меню по Escape
+                void keyHandler(object s, KeyEventArgs args)
+                {
+                    if (args.Key == Key.Escape)
+                    {
+                        CloseMenu();
+                        Keyboard.RemovePreviewKeyDownHandler(Application.Current.MainWindow, keyHandler);
+                    }
+                }
+
+                contextMenu.Opened += (s, args) =>
+                {
+                    Mouse.AddPreviewMouseDownHandler(Application.Current.MainWindow, mouseHandler);
+                    Keyboard.AddPreviewKeyDownHandler(Application.Current.MainWindow, keyHandler);
+                };
             }
+
+            // Фокусируемся на TextBox и показываем меню с небольшой задержкой
+            _ = textBox.Focus();
+
+            // Открываем меню через Dispatcher, чтобы фокус успел установиться
+            _ = System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(
+                System.Windows.Threading.DispatcherPriority.Input,
+                new Action(() =>
+                {
+                    textBox.ContextMenu.PlacementTarget = textBox;
+                    textBox.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+                    textBox.ContextMenu.IsOpen = true;
+                }));
+
+            // Помечаем событие как обработанное полностью
+            e.Handled = true;
         }
 
         /// <summary>
         /// Обработчик потери фокуса клавиатуры для TextBox.
         /// Предотвращает потерю фокуса при открытом контекстном меню.
         /// </summary>
-        private void TextBox_PreviewLostKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+        private void TextBox_PreviewLostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
         {
             if (sender is TextBox textBox && textBox.ContextMenu != null && textBox.ContextMenu.IsOpen)
             {

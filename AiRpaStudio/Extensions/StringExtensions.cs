@@ -9,40 +9,28 @@ namespace RPA.Extensions
 
         public static ActivityState ToActityState(this string activityInstanceState)
         {
-            switch (activityInstanceState)
+            return activityInstanceState switch
             {
-                case "Executing":
-                    return ActivityState.Executing;
-                case "Closed":
-                    return ActivityState.Closed;
-                case "Canceled":
-                    return ActivityState.Canceled;
-                case "Faulted":
-                    return ActivityState.Faulted;
-                default:
-                    throw new ArgumentException($"Unknow state {activityInstanceState}");
-            }
+                "Executing" => ActivityState.Executing,
+                "Closed" => ActivityState.Closed,
+                "Canceled" => ActivityState.Canceled,
+                "Faulted" => ActivityState.Faulted,
+                _ => throw new ArgumentException($"Unknow state {activityInstanceState}"),
+            };
         }
 
         public static LogLevel ToLogLevel(this string logLevel)
         {
-            switch (logLevel.ToLower())
+            return logLevel.ToLower() switch
             {
-                case "trace":
-                    return LogLevel.Trace;
-                case "debug":
-                    return LogLevel.Debug;
-                case "info":
-                    return LogLevel.Info;
-                case "warn":
-                    return LogLevel.Warn;
-                case "error":
-                    return LogLevel.Error;
-                case "fatal":
-                    return LogLevel.Fatal;
-                default:
-                    throw new ArgumentException($"Unknow log level {logLevel}");
-            }
+                "trace" => LogLevel.Trace,
+                "debug" => LogLevel.Debug,
+                "info" => LogLevel.Info,
+                "warn" => LogLevel.Warn,
+                "error" => LogLevel.Error,
+                "fatal" => LogLevel.Fatal,
+                _ => throw new ArgumentException($"Unknow log level {logLevel}"),
+            };
         }
     }
 }

@@ -7,53 +7,38 @@ using LogControlLibrary.Models;
 namespace LogControlLibrary.Converters
 {
     /// <summary>
-    /// Конвертер для преобразования уровня логирования в цвет ховера
+    /// Уровень логирования → фон строки под курсором.
+    /// <para>
+    /// Как и фон строки, подсветка — полупрозрачная накладка, поэтому она одинаково выглядит на тёмном
+    /// и на светлом фоне (docs\Vs2026_Theme_Plan.md, §8 п.8, F-07).
+    /// </para>
     /// </summary>
     public class LogLevelToHoverConverter : IValueConverter
     {
-        /// <summary>
-        /// Цвет ховера для уровня Trace (светло-серый)
-        /// </summary>
-        public Brush TraceBrush { get; set; } = new SolidColorBrush(Color.FromRgb(248, 248, 248));
+        private const byte HoverAlpha = 0x28;
 
-        /// <summary>
-        /// Цвет ховера для уровня Debug (тусклый синий)
-        /// </summary>
-        public Brush DebugBrush { get; set; } = new SolidColorBrush(Color.FromArgb(40, 65, 105, 225));
+        /// <summary>Trace — нейтральная подсветка.</summary>
+        public Brush TraceBrush { get; set; } = Frozen(Overlay(0x8C, 0x8C, 0x8C));
 
-        /// <summary>
-        /// Цвет ховера для уровня Info (тусклый зеленый)
-        /// </summary>
-        public Brush InfoBrush { get; set; } = new SolidColorBrush(Color.FromArgb(40, 34, 139, 34));
+        /// <summary>Debug — синяя подсветка.</summary>
+        public Brush DebugBrush { get; set; } = Frozen(Overlay(0x5B, 0x9B, 0xD5));
 
-        /// <summary>
-        /// Цвет ховера для уровня Warning (тусклый оранжевый)
-        /// </summary>
-        public Brush WarningBrush { get; set; } = new SolidColorBrush(Color.FromArgb(40, 255, 140, 0));
+        /// <summary>Info — зелёная подсветка.</summary>
+        public Brush InfoBrush { get; set; } = Frozen(Overlay(0x4E, 0x9A, 0x45));
 
-        /// <summary>
-        /// Цвет ховера для уровня Error (тусклый красный)
-        /// </summary>
-        public Brush ErrorBrush { get; set; } = new SolidColorBrush(Color.FromArgb(40, 220, 20, 60));
+        /// <summary>Warning — янтарная подсветка.</summary>
+        public Brush WarningBrush { get; set; } = Frozen(Overlay(0xC0, 0x8A, 0x00));
 
-        /// <summary>
-        /// Цвет ховера для уровня Fatal (тусклый темно-красный)
-        /// </summary>
-        public Brush FatalBrush { get; set; } = new SolidColorBrush(Color.FromArgb(40, 139, 0, 0));
+        /// <summary>Error — красная подсветка.</summary>
+        public Brush ErrorBrush { get; set; } = Frozen(Overlay(0xD1, 0x4B, 0x4B));
 
-        /// <summary>
-        /// Цвет ховера по умолчанию (светло-серый)
-        /// </summary>
-        public Brush DefaultBrush { get; set; } = new SolidColorBrush(Color.FromRgb(248, 248, 248));
+        /// <summary>Fatal — тёмно-красная подсветка.</summary>
+        public Brush FatalBrush { get; set; } = Frozen(Overlay(0xA6, 0x3A, 0x3A));
 
-        /// <summary>
-        /// Преобразование уровня логирования в кисть для ховера
-        /// </summary>
-        /// <param name="value">Значение для преобразования (LogLevel)</param>
-        /// <param name="targetType">Целевой тип</param>
-        /// <param name="parameter">Параметр преобразования</param>
-        /// <param name="culture">Культура</param>
-        /// <returns>Кисть для ховера</returns>
+        /// <summary>Значение по умолчанию — нейтральная подсветка.</summary>
+        public Brush DefaultBrush { get; set; } = Frozen(Overlay(0x8C, 0x8C, 0x8C));
+
+        /// <summary>Преобразование уровня логирования в кисть подсветки.</summary>
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is LogLevel logLevel)
@@ -80,17 +65,22 @@ namespace LogControlLibrary.Converters
             return DefaultBrush;
         }
 
-        /// <summary>
-        /// Обратное преобразование (не поддерживается)
-        /// </summary>
-        /// <param name="value">Значение для обратного преобразования</param>
-        /// <param name="targetType">Целевой тип</param>
-        /// <param name="parameter">Параметр преобразования</param>
-        /// <param name="culture">Культура</param>
-        /// <returns>Исключение</returns>
+        /// <summary>Обратное преобразование (не поддерживается).</summary>
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotSupportedException("Обратное преобразование не поддерживается для LogLevelToHoverConverter");
+        }
+
+        private static Color Overlay(byte r, byte g, byte b)
+        {
+            return Color.FromArgb(HoverAlpha, r, g, b);
+        }
+
+        private static Brush Frozen(Color color)
+        {
+            SolidColorBrush brush = new SolidColorBrush(color);
+            brush.Freeze();
+            return brush;
         }
     }
 }

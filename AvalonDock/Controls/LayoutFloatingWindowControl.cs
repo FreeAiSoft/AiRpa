@@ -327,6 +327,9 @@ namespace AvalonDock.Controls
 				//Resources.MergedDictionaries.Add(new ResourceDictionary { Source = manager.Theme.GetResourceUri() });
 				Resources.MergedDictionaries.Add(manager.Theme.GetResourceDictionary());
 			}
+			// Ресурсы плавающего окна изолированы от Application.Resources — прокидываем кисти палитры студии.
+			ThemeBrushBridge.Apply(Resources);
+
 		}
 
 		internal void AttachDrag(bool onActivated = true)
@@ -507,6 +510,16 @@ namespace AvalonDock.Controls
 		#endregion Internal Methods
 
 		#region Overrides
+
+		/// <inheritdoc />
+		protected override void OnSourceInitialized(EventArgs e)
+		{
+			base.OnSourceInitialized(e);
+			// Скругление откреплённой панели или документа (W-06/W-07): DWM на Windows 11, region через
+			// WindowChrome (CornerRadius темы) — на Windows 10. Механизм подставляет студия через мост:
+			// ядро AvalonDock не ссылается на сборку студии.
+			WindowCornerBridge.Apply(new WindowInteropHelper(this).Handle);
+		}
 
 		/// <inheritdoc />
 		protected override void OnClosed(EventArgs e)

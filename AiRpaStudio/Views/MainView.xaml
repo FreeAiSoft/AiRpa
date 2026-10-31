@@ -15,7 +15,7 @@
                  xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
                  mc:Ignorable="d"
                  Title="RPA"
-                 Background="{DynamicResource Studio.WindowBackground}"
+                 Background="{DynamicResource Studio.Surface}"
                  Height="650"
                  Width="1100"
                  WindowState="Maximized"
@@ -25,7 +25,7 @@
         <shell:WindowChrome CaptionHeight="0"
                             ResizeBorderThickness="6"
                             GlassFrameThickness="0"
-                            CornerRadius="0"
+                            CornerRadius="8"
                             UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
     <Window.Resources>
@@ -486,7 +486,7 @@
     </Window.Resources>
 
     <Grid x:Name="RootGrid"
-          Background="{DynamicResource Studio.WindowBackground}">
+          Background="{DynamicResource Studio.Surface}">
         <Grid.RowDefinitions>
             <RowDefinition Height="32" />
             <RowDefinition Height="Auto" />
@@ -628,7 +628,7 @@
                     </Button>
                     <Button ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Command.Text}"
                             Command="{Binding Cmd}"
-                            Foreground="#4169E1"
+                            Foreground="{DynamicResource Studio.ToolbarForeground}"
                             CommandParameter="CmdWorkflowSave"
                             IsEnabled="{Binding CanSave}"
                             Style="{StaticResource LogLevelButtonLastStyle}">
@@ -638,7 +638,7 @@
                     </Button>
                     <Button ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Command.Text}"
                             Command="{Binding Cmd}"
-                            Foreground="#4169E1"
+                            Foreground="{DynamicResource Studio.ToolbarForeground}"
                             CommandParameter="CmdWorkflowSaveAll"
                             IsEnabled="{Binding CanSaveAll}"
                             Style="{StaticResource LogLevelButtonLastStyle}">
@@ -655,7 +655,7 @@
                     <Button ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Command.Text}"
                             Command="{Binding Cmd}"
                             CommandParameter="CmdWorkflowRun"
-                            Foreground="#228B22"
+                            Foreground="{DynamicResource Studio.Semantic.Run}"
                             IsEnabled="{Binding CustomWfDesignerState, Converter={StaticResource CanRunConverter}}"
                             Style="{StaticResource LogLevelButtonStyle}">
                         <materialIcons:MaterialIcon Kind="Play"
@@ -665,7 +665,7 @@
                     <Button ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Command.Text}"
                             Command="{Binding Cmd}"
                             CommandParameter="CmdWorkflowPause"
-                            Foreground="Orange"
+                            Foreground="{DynamicResource Studio.Semantic.Pause}"
                             IsEnabled="{Binding CustomWfDesignerState, Converter={StaticResource CanPauseConverter}}"
                             Style="{StaticResource LogLevelButtonStyle}">
                         <materialIcons:MaterialIcon Kind="Pause"
@@ -675,7 +675,7 @@
                     <Button ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Command.Text}"
                             Command="{Binding Cmd}"
                             CommandParameter="CmdWorkflowStop"
-                            Foreground="#DC143C"
+                            Foreground="{DynamicResource Studio.Semantic.Stop}"
                             IsEnabled="{Binding CustomWfDesignerState, Converter={StaticResource CanStopConverter}}"
                             Style="{StaticResource LogLevelButtonLastStyle}">
                         <materialIcons:MaterialIcon Kind="Stop"

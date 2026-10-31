@@ -10,8 +10,10 @@
                  Title="Create project"
                  WindowStartupLocation="CenterScreen"
                  WindowState="Normal"
-                 ResizeMode="NoResize">
-    <Grid Margin="5">
+                 ResizeMode="NoResize"
+                 Background="{DynamicResource Studio.Surface}"
+                 Foreground="{DynamicResource Studio.Foreground}">
+    <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="50"/>
             <RowDefinition Height="50"/>
@@ -20,11 +22,11 @@
         </Grid.RowDefinitions>
         <TextBox Text="{Binding Project.Name, UpdateSourceTrigger=PropertyChanged}"
                  TextWrapping="NoWrap"
-                 Margin="5"
+                 Margin="0,0,0,8"
                  VerticalContentAlignment="Center"
                  ToolTip="project name"/>
-        <Grid Grid.Row="1" 
-              Margin="5">
+        <Grid Grid.Row="1"
+              Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition />
                 <ColumnDefinition Width="auto" />
@@ -35,21 +37,21 @@
             <Button Content="..."
                     Command="{Binding Cmd}"
                     CommandParameter="SetFolder"
-                    Margin="5,0,0,0"
-                    Width="40"
+                    Margin="8,0,0,0"
+                    Width="28"
                     Grid.Column="1"/>
         </Grid>
         <TextBox Text="{Binding Project.Description, UpdateSourceTrigger=PropertyChanged}"
                  Grid.Row="2"
                  TextWrapping="Wrap"
-                 Margin="5"
+                 Margin="0,0,0,8"
                  VerticalScrollBarVisibility="Auto"
                  AcceptsReturn="True"
-                 ToolTip="project name"/>
+                 ToolTip="project description"/>
         <Button Content="Create"
                 Command="{Binding Cmd}"
                 CommandParameter="CreateProject"
                 Grid.Row="3"
-                Margin="5"/>
+                Height="32"/>
     </Grid>
 </Window>

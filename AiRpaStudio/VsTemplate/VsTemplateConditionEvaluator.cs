@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace RPA.VsTemplate
 {
@@ -8,7 +8,9 @@ namespace RPA.VsTemplate
         public static bool Evaluate(string expression, Func<string, string> resolveParameter)
         {
             if (string.IsNullOrWhiteSpace(expression))
+            {
                 return false;
+            }
 
             string expr = expression.Trim();
 
@@ -17,10 +19,14 @@ namespace RPA.VsTemplate
 
             // Strip optional surrounding parentheses.
             while (expr.Length >= 2 && expr[0] == '(' && expr[expr.Length - 1] == ')')
+            {
                 expr = expr.Substring(1, expr.Length - 2).Trim();
+            }
 
             if (string.IsNullOrEmpty(expr))
+            {
                 return false;
+            }
 
             string op = FindOperator(expr);
             if (op == null)
@@ -42,7 +48,9 @@ namespace RPA.VsTemplate
             foreach (string op in operators)
             {
                 if (expr.IndexOf(op, StringComparison.Ordinal) >= 0)
+                {
                     return op;
+                }
             }
 
             return null;
@@ -58,14 +66,11 @@ namespace RPA.VsTemplate
 
         private static string StripQuotes(string value)
         {
-            if (value.Length >= 2 &&
+            return value.Length >= 2 &&
                 ((value[0] == '"' && value[value.Length - 1] == '"') ||
-                 (value[0] == '\'' && value[value.Length - 1] == '\'')))
-            {
-                return value.Substring(1, value.Length - 2);
-            }
-
-            return value;
+                 (value[0] == '\'' && value[value.Length - 1] == '\''))
+                ? value.Substring(1, value.Length - 2)
+                : value;
         }
 
         private static bool Compare(string left, string right, string op)
@@ -81,20 +86,22 @@ namespace RPA.VsTemplate
                     case "<": return comparison < 0;
                     case "==": return comparison == 0;
                     case "!=": return comparison != 0;
+                    default:
+                        break;
                 }
             }
 
             int ordinal = string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
-            switch (op)
+            return op switch
             {
-                case ">=": return ordinal >= 0;
-                case "<=": return ordinal <= 0;
-                case ">": return ordinal > 0;
-                case "<": return ordinal < 0;
-                case "==": return ordinal == 0;
-                case "!=": return ordinal != 0;
-                default: return false;
-            }
+                ">=" => ordinal >= 0,
+                "<=" => ordinal <= 0,
+                ">" => ordinal > 0,
+                "<" => ordinal < 0,
+                "==" => ordinal == 0,
+                "!=" => ordinal != 0,
+                _ => false,
+            };
         }
     }
 }

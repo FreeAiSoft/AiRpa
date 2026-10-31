@@ -10,42 +10,47 @@
                  Title="{DynamicResource lang_open_vs_project_title}"
                  WindowStartupLocation="CenterScreen"
                  WindowState="Normal"
-                 ResizeMode="NoResize">
-    <Grid Margin="5">
+                 ResizeMode="NoResize"
+                 Background="{DynamicResource Studio.Surface}"
+                 Foreground="{DynamicResource Studio.Foreground}">
+    <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="50"/>
             <RowDefinition Height="50"/>
         </Grid.RowDefinitions>
         <Grid Grid.Row="0"
-              Margin="5">
+              Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition />
                 <ColumnDefinition Width="auto" />
             </Grid.ColumnDefinitions>
             <TextBox Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}"
                      ToolTip="path to .sln or .csproj"
+                     HorizontalContentAlignment="Left"
                      VerticalContentAlignment="Center" />
             <Button Content="..."
                     Command="{Binding Cmd}"
                     CommandParameter="SetFile"
-                    Margin="5,0,0,0"
-                    Width="40"
+                    Margin="8,0,0,0"
+                    Width="28"
                     Grid.Column="1"/>
         </Grid>
         <Grid Grid.Row="1"
-              Margin="5">
+              Margin="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition />
                 <ColumnDefinition />
             </Grid.ColumnDefinitions>
             <Button Content="{DynamicResource lang_cm_open_in_vs}"
                     Command="{Binding Cmd}"
-                    CommandParameter="OpenInVisualStudio"/>
+                    CommandParameter="OpenInVisualStudio"
+                    Height="32"/>
             <Button Content="{DynamicResource lang_load_into_studio}"
                     Command="{Binding Cmd}"
                     CommandParameter="LoadIntoStudio"
                     Grid.Column="1"
-                    Margin="5,0,0,0"/>
+                    Margin="8,0,0,0"
+                    Height="32"/>
         </Grid>
     </Grid>
 </Window>

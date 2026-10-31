@@ -111,9 +111,9 @@ namespace RPA.Chat.ViewModels
             messagesView.Filter = m => !ReferenceEquals(m, _messages.FirstOrDefault());
             _messages.CollectionChanged += OnMessagesCollectionChanged;
 
-            _modeItems.Add(new SegmentedToggleItem { Label = "Plan", Value = "Plan", Accent = ModeBrush("#64B5F6"), ToolTip = "Plan mode" });
-            _modeItems.Add(new SegmentedToggleItem { Label = "Act", Value = "Act", Accent = ModeBrush("#4CAF50"), ToolTip = "Act mode" });
-            _modeItems.Add(new SegmentedToggleItem { Label = "Help", Value = "Help", Accent = ModeBrush("#F44336"), ToolTip = "Help mode" });
+            _modeItems.Add(new SegmentedToggleItem { Label = "Plan", Value = "Plan", Accent = ModeBrush("#6E6E6E"), ToolTip = "Plan mode" });
+            _modeItems.Add(new SegmentedToggleItem { Label = "Act", Value = "Act", Accent = ModeBrush("#8C8C8C"), ToolTip = "Act mode" });
+            _modeItems.Add(new SegmentedToggleItem { Label = "Help", Value = "Help", Accent = ModeBrush("#A0A0A0"), ToolTip = "Help mode" });
 
             SendCommand = new AsyncRelayCommand(SendAsync, () => !IsSending);
             StopCommand = new RelayCommand(Stop, () => IsSending);
@@ -247,9 +247,9 @@ namespace RPA.Chat.ViewModels
 
         /// <summary>Accent brush of the currently selected mode (Plan/Act/Help), used to tint the focused input border.</summary>
         public Brush ModeAccentBrush =>
-            _mode == AgentMode.Act ? ModeBrush("#4CAF50")
-            : _mode == AgentMode.Help ? ModeBrush("#F44336")
-            : ModeBrush("#64B5F6");
+            _mode == AgentMode.Act ? ModeBrush("#8C8C8C")
+            : _mode == AgentMode.Help ? ModeBrush("#A0A0A0")
+            : ModeBrush("#6E6E6E");
 
         public bool CanSend => !IsSending;
 

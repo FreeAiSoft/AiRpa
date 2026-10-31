@@ -102,7 +102,7 @@ public class StudioBrushesTests
         Color after = ((SolidColorBrush)target[StudioBrushes.MenuBackgroundKey]).Color;
 
         Assert.That(after, Is.Not.EqualTo(before));
-        Assert.That(after, Is.EqualTo(Color.FromRgb(0x2D, 0x2D, 0x2D)));
+        Assert.That(after, Is.EqualTo(StudioPalette.Dark.Surface)); // значение берётся из единой палитры
     }
 
     [Test]
@@ -145,6 +145,101 @@ public class StudioBrushesTests
             "В ResourceDictionary нельзя объявлять <DynamicResource x:Key=.../>: в словарь попадает " +
             "ResourceReferenceExpression, и WPF падает с XamlParseException на Style-сеттерах.");
     }
+
+    [Test]
+    public void Apply_UsesStudioPalette_NotMaterialDesignAccent()
+    {
+        var target = new ResourceDictionary();
+
+        StudioBrushes.Apply(target, MaterialDesignSource());
+
+        StudioThemeColors palette = StudioPalette.Dark;
+
+        // Правило одного фона: окно, меню, тулбар и заголовок — один и тот же Surface.
+        Assert.That(ColorOf(target, StudioBrushes.WindowBackgroundKey), Is.EqualTo(palette.Surface));
+        Assert.That(ColorOf(target, StudioBrushes.MenuBackgroundKey), Is.EqualTo(palette.Surface));
+        Assert.That(ColorOf(target, StudioBrushes.ToolbarBackgroundKey), Is.EqualTo(palette.Surface));
+        Assert.That(ColorOf(target, StudioBrushes.TitleBarBackgroundKey), Is.EqualTo(palette.Surface));
+
+        Assert.That(ColorOf(target, StudioBrushes.ToolbarBorderKey), Is.EqualTo(palette.Separator));
+        Assert.That(ColorOf(target, StudioBrushes.ToolbarHoverBackgroundKey), Is.EqualTo(palette.Hover));
+        Assert.That(ColorOf(target, StudioBrushes.ToolbarPressedBackgroundKey), Is.EqualTo(palette.Selected));
+        Assert.That(ColorOf(target, StudioBrushes.ToolbarCheckedBackgroundKey), Is.EqualTo(palette.Selected));
+        Assert.That(ColorOf(target, StudioBrushes.MenuForegroundKey), Is.EqualTo(palette.Foreground));
+
+        // Акцент MaterialDesign (DeepPurple #673AB7) не должен просачиваться ни в один алиас.
+        Color accent = Color.FromRgb(0x67, 0x3A, 0xB7);
+        foreach (string key in StudioBrushes.AliasKeys)
+        {
+            Assert.That(ColorOf(target, key), Is.Not.EqualTo(accent), $"алиас {key} взял акцент MaterialDesign");
+        }
+
+        // Красный остаётся только у кнопки закрытия, все прочие алиасы нейтральны.
+        Assert.That(ColorOf(target, StudioBrushes.CloseHoverBackgroundKey), Is.EqualTo(palette.CloseHoverBackground));
+        foreach (string key in StudioBrushes.AliasKeys)
+        {
+            if (key == StudioBrushes.CloseHoverBackgroundKey)
+            {
+                continue;
+            }
+
+            Assert.That(StudioPalette.Chroma(ColorOf(target, key)), Is.LessThanOrEqualTo(12),
+                $"алиас {key} должен быть нейтральным");
+        }
+    }
+
+    [Test]
+    public void Apply_SystemHighlight_IsNeutral()
+    {
+        var target = new ResourceDictionary();
+
+        StudioBrushes.Apply(target, MaterialDesignSource());
+
+        Color highlight = ColorOf(target, SystemColors.HighlightBrushKey);
+
+        Assert.That(StudioPalette.Chroma(highlight), Is.LessThanOrEqualTo(6), "выделение нативных контролов должно быть серым");
+        // Холодный сдвиг допустим, но цвет обязан остаться нейтральным (см. токены палитры).
+        Assert.That(highlight, Is.EqualTo(StudioPalette.Dark.Selected));
+        Assert.That(ColorOf(target, SystemColors.HighlightTextBrushKey), Is.EqualTo(StudioPalette.Dark.Foreground));
+        Assert.That(ColorOf(target, SystemColors.InactiveSelectionHighlightBrushKey),
+            Is.EqualTo(StudioPalette.Dark.SurfaceAlt));
+    }
+
+    [Test]
+    public void Apply_LightPalette_IsUsedForLightTheme()
+    {
+        var target = new ResourceDictionary();
+
+        StudioBrushes.Apply(target, MaterialDesignSource(dark: false));
+
+        Assert.That(ColorOf(target, StudioBrushes.SurfaceKey), Is.EqualTo(StudioPalette.Light.Surface));
+        Assert.That(ColorOf(target, StudioBrushes.ForegroundKey), Is.EqualTo(StudioPalette.Light.Foreground));
+        Assert.That(ColorOf(target, StudioBrushes.SeparatorKey), Is.EqualTo(StudioPalette.Light.Separator));
+    }
+
+    [Test]
+    public void Apply_OverlayAliases_ComeFromPalette()
+    {
+        var target = new ResourceDictionary();
+
+        StudioBrushes.Apply(target, MaterialDesignSource());
+
+        Color fill = ColorOf(target, StudioBrushes.OverlayFillKey);
+        Assert.That(fill.A, Is.EqualTo(StudioPalette.OverlayFillAlpha));
+        Assert.That(fill.R, Is.EqualTo(StudioPalette.Dark.Surface.R));
+        Assert.That(ColorOf(target, StudioBrushes.OverlayStrokeKey), Is.EqualTo(StudioPalette.Dark.SeparatorStrong));
+    }
+
+    private static Color ColorOf(ResourceDictionary target, object key)
+    {
+        Assert.That(target.Contains(key), Is.True, $"не заполнена кисть {key}");
+        Assert.That(target[key], Is.InstanceOf<SolidColorBrush>(), $"{key} должен быть SolidColorBrush");
+
+        var brush = (SolidColorBrush)target[key];
+        Assert.That(brush.IsFrozen, Is.True, $"{key} должен быть заморожен");
+        return brush.Color;
+    }
+
 
     private static string FindRepositoryRoot()
     {

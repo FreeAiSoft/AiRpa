@@ -18,6 +18,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Interop;
 
 namespace AvalonDock.Controls
 {
@@ -273,6 +274,15 @@ namespace AvalonDock.Controls
 		}
 
 		/// <inheritdoc />
+		protected override void OnSourceInitialized(EventArgs e)
+		{
+			base.OnSourceInitialized(e);
+			// Скругление переключателя документов Ctrl+Tab (W-08): DWM на Windows 11. У окна системный
+			// chrome (WindowChrome в теме закомментирован), поэтому region-fallback здесь не применяется.
+			WindowCornerBridge.Apply(new WindowInteropHelper(this).Handle);
+		}
+
+		/// <inheritdoc />
 		protected override void OnKeyDown(KeyEventArgs e)
 		{
 			switch (e.Key)
@@ -439,6 +449,9 @@ namespace AvalonDock.Controls
 			}
 			else
 				Resources.MergedDictionaries.Add(_manager.Theme.GetResourceDictionary());
+			// Ресурсы окна изолированы от Application.Resources — прокидываем кисти палитры студии.
+			ThemeBrushBridge.Apply(Resources);
+
 		}
 
 		internal void SelectNextDocument()

@@ -36,7 +36,7 @@ namespace RPA.Controls
 
             // Устанавливаем шрифт через стиль для TreeView
             Style treeViewStyle = new Style(typeof(TreeView));
-            treeViewStyle.Setters.Add(new Setter(FontFamilyProperty, new FontFamily("Consolas")));
+            treeViewStyle.Setters.Add(new Setter(FontFamilyProperty, WfThemeStyles.Font));
             toolbox.Resources[typeof(TreeView)] = treeViewStyle;
 
             // Очищаем контейнер и добавляем ToolboxControl
@@ -62,17 +62,17 @@ namespace RPA.Controls
                 }
             }
 
-            WfVisualTreeThemer.Apply(toolbox);
+            WfVisualTreeThemer.ApplyWhenLoaded(toolbox);
         }
 
         /// <summary>
-        /// Повторно применяет тему MaterialDesign к нативному ToolboxControl (вызывается при смене темы).
+        /// Повторно применяет палитру студии к нативному ToolboxControl (вызывается при смене темы).
         /// </summary>
         public void ApplyTheme()
         {
             if (toolboxControl != null)
             {
-                WfVisualTreeThemer.Apply(toolboxControl);
+                WfVisualTreeThemer.ApplyWhenLoaded(toolboxControl);
             }
         }
 

@@ -214,8 +214,8 @@
       <HintPath>..\packages\System.Memory.Data.8.0.1\lib\net462\System.Memory.Data.dll</HintPath>
     </Reference>
     <Reference Include="System.Numerics" />
-    <Reference Include="System.Numerics.Vectors, Version=4.1.4.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+    <Reference Include="System.Numerics.Vectors, Version=4.1.6.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Numerics.Vectors.4.6.1\lib\net462\System.Numerics.Vectors.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System.Reactive, Version=4.3.0.0, Culture=neutral, PublicKeyToken=94bc3704cddfc263, processorArchitecture=MSIL">
@@ -344,8 +344,14 @@
     <Compile Include="Helpers\TrackHandler.cs" />
     <Compile Include="Helpers\WFToolboxHelper.cs" />
     <Compile Include="Helpers\WfVisualTreeThemer.cs" />
+    <Compile Include="Helpers\WfThemeStyles.cs" />
+    <Compile Include="Helpers\WfDesignerTheme.cs" />
+
     <Compile Include="Helpers\MaterialThemePalette.cs" />
+    <Compile Include="Helpers\StudioPalette.cs" />
+    <Compile Include="Helpers\WindowCorner.cs" />
     <Compile Include="Helpers\StudioBrushes.cs" />
+    <Compile Include="Helpers\DockingThemeBrushes.cs" />
     <Compile Include="Logging\LogItem.cs" />
     <Compile Include="Mcp\HttpMcpServerHost.cs" />
     <Compile Include="Mcp\IMcpServer.cs" />
@@ -416,18 +422,16 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Themes\StudioTheme.Light.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Themes\StudioTheme.Dark.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
+
     <Page Include="Themes\StudioTheme.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Themes\StudioScrollBar.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+
     <Page Include="Views\ActivityCreatorView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -473,6 +477,37 @@
     </EmbeddedResource>
     <None Include=".editorconfig" />
     <None Include="app.manifest" />
+    <None Include="Docs\AddActivityTool_Enhancement_Plan.md" />
+    <None Include="Docs\AddActivityTool_Usage_Guide.md" />
+    <None Include="Docs\AiAgent_DragDrop_Fix.md" />
+    <None Include="Docs\AI_Activity_Integration_Architecture.md" />
+    <None Include="Docs\AI_MCP_Integration_Guide.md" />
+    <None Include="Docs\Code_Tasks.md" />
+    <None Include="Docs\Folder_ContextMenu_Plan.md" />
+    <None Include="Docs\Implementation_Guide.md" />
+    <None Include="Docs\MCP_Architecture.md" />
+    <None Include="Docs\MCP_Command_Format_Guide.md" />
+    <None Include="Docs\MCP_Validation_Architecture.md" />
+    <None Include="Docs\MCP_Validation_Usage_Guide.md" />
+    <None Include="Docs\MCP_Workflow_Tools_Guide.md" />
+    <None Include="Docs\OpenRouter_Integration_Architecture.md" />
+    <None Include="Docs\OpenRouter_Setup_Guide.md" />
+    <None Include="Docs\ProjectManagerControl_Refactoring_Plan.md" />
+    <None Include="Docs\README.md" />
+    <None Include="Docs\Reference_Source_Storage.md" />
+    <None Include="Docs\ROADMAP.md" />
+    <None Include="Docs\RoslynExpressionEditor_ContextMenu_Solution.md" />
+    <None Include="Docs\RoslynExpressionEditor_IntelliSense_Enhancement.md" />
+    <None Include="Docs\RoslynExpressionEditor_IntelliSense_Implementation_Summary.md" />
+    <None Include="Docs\SearchableComboBox_Architecture.md" />
+    <None Include="Docs\SearchableComboBox_Implementation_Plan.md" />
+    <None Include="Docs\SearchableComboBox_Summary.md" />
+    <None Include="Docs\SendMessageAsync_Refactoring_Plan.md" />
+    <None Include="Docs\Theming_MaterialDesign_Plan.md" />
+    <None Include="Docs\User_Guide_AI_Activities.md" />
+    <None Include="Docs\Vs2026_Theme_Acceptance.md" />
+    <None Include="Docs\Vs2026_Theme_Plan.md" />
+    <None Include="Docs\WorkflowEditTracking_Architecture.md" />
     <None Include="NLog.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

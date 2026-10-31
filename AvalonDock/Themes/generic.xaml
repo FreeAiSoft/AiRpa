@@ -63,7 +63,7 @@
 										</avalonDockControls:ContextMenuEx.ItemContainerStyle>
 									</avalonDockControls:ContextMenuEx>
 								</avalonDockControls:DropDownButton.DropDownContextMenu>
-								<Border Background="White">
+								<Border Background="Transparent">
 									<Image Source="/AvalonDock;component/Themes/Generic/Images/PinDocMenu.png" />
 								</Border>
 							</avalonDockControls:DropDownButton>
@@ -422,8 +422,8 @@
 					<Canvas x:Name="PART_DropTargetsContainer" Opacity="0.9">
 						<Path
 							x:Name="PART_PreviewBox"
-							Fill="AliceBlue"
-							Stroke="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}"
+							Fill="{DynamicResource AvalonDock_OverlayFill}"
+							Stroke="{DynamicResource AvalonDock_OverlayStroke}"
 							StrokeThickness="2" />
 						<Grid x:Name="PART_DockingManagerDropTargets">
 							<Image

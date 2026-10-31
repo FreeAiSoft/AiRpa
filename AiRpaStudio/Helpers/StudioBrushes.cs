@@ -7,6 +7,13 @@ namespace RPA.Helpers
     /// <summary>
     /// Кисти-алиасы студии (<c>Studio.*</c>) и системные кисти WPF.
     /// <para>
+    /// Значения берутся только из <see cref="StudioPalette"/> — никакого акцента MaterialDesign
+    /// (<c>Primary</c>/<c>Secondary</c>) здесь не используется. Алиас <c>Studio.Surface</c> —
+    /// единственный фон окна, панелей, заголовков и вкладок; состояние передаётся яркостью
+    /// (<c>Studio.SurfaceAlt</c> → <c>Studio.Hover</c> → <c>Studio.Selected</c>) и hairline
+    /// <c>Studio.Separator</c>.
+    /// </para>
+    /// <para>
     /// ВАЖНО: алиасы нельзя объявлять в ResourceDictionary как
     /// <c>&lt;DynamicResource x:Key="Studio.MenuForeground" ResourceKey="MaterialDesign.Brush.Foreground" /&gt;</c>.
     /// В этом случае в словарь попадает объект <c>System.Windows.ResourceReferenceExpression</c>
@@ -17,11 +24,11 @@ namespace RPA.Helpers
     /// <c>XamlParseException</c> при инициализации MenuItem.
     /// </para>
     /// Поэтому алиасы создаются в рантайме — реальными (замороженными) <see cref="SolidColorBrush"/>
-    /// из активной MaterialDesign-палитры. Вызывать после каждой смены темы.
+    /// из активной палитры. Вызывать после каждой смены темы.
     /// </summary>
     public static class StudioBrushes
     {
-        // Алиасы студии.
+        // --- Алиасы-роли (обратная совместимость: на них ссылаются существующие представления). ---
         public const string WindowBackgroundKey = "Studio.WindowBackground";
         public const string MenuBackgroundKey = "Studio.MenuBackground";
         public const string MenuForegroundKey = "Studio.MenuForeground";
@@ -35,13 +42,29 @@ namespace RPA.Helpers
         public const string TitleBarForegroundKey = "Studio.TitleBarForeground";
         public const string TitleBarButtonHoverBackgroundKey = "Studio.TitleBarButtonHoverBackground";
 
-        private static readonly Color FallbackBackground = Color.FromRgb(0xFF, 0xFF, 0xFF);
-        private static readonly Color FallbackForeground = Color.FromRgb(0x1E, 0x1E, 0x1E);
-        private static readonly Color FallbackToolbarBackground = Color.FromRgb(0xF0, 0xF0, 0xF0);
-        private static readonly Color FallbackBorder = Color.FromRgb(0xDD, 0xDD, 0xDD);
-        private static readonly Color FallbackHover = Color.FromRgb(0xE0, 0xE0, 0xE0);
-        private static readonly Color FallbackSelected = Color.FromRgb(0xD6, 0xD6, 0xD6);
-        private static readonly Color FallbackHighlightText = Color.FromRgb(0xFF, 0xFF, 0xFF);
+        // --- Алиасы-токены палитры (docs\Vs2026_Theme_Plan.md, §2). ---
+        public const string SurfaceKey = "Studio.Surface";
+        public const string SurfaceAltKey = "Studio.SurfaceAlt";
+        public const string HoverKey = "Studio.Hover";
+        public const string SelectedKey = "Studio.Selected";
+        public const string SeparatorKey = "Studio.Separator";
+        public const string SeparatorStrongKey = "Studio.SeparatorStrong";
+        public const string ForegroundKey = "Studio.Foreground";
+        public const string ForegroundMutedKey = "Studio.ForegroundMuted";
+        public const string CloseHoverBackgroundKey = "Studio.CloseHoverBackground";
+        public const string CloseHoverForegroundKey = "Studio.CloseHoverForeground";
+        public const string OverlayFillKey = "Studio.OverlayFill";
+        public const string OverlayStrokeKey = "Studio.OverlayStroke";
+
+        // --- Семантические цвета (docs\Vs2026_Theme_Plan.md §1 п.2). ---
+        // Не акцент: кодируют состояние (запуск/пауза/стоп) и тип файла. Значения одинаковы в обеих
+        // темах, поэтому живут вне StudioPalette — её токены обязаны быть нейтральными (chroma <= 6).
+        public const string SemanticRunKey = "Studio.Semantic.Run";
+        public const string SemanticPauseKey = "Studio.Semantic.Pause";
+        public const string SemanticStopKey = "Studio.Semantic.Stop";
+        public const string SemanticFolderIconKey = "Studio.Semantic.FolderIcon";
+        public const string SemanticXamlFileIconKey = "Studio.Semantic.XamlFileIcon";
+        public const string SemanticJsonFileIconKey = "Studio.Semantic.JsonFileIcon";
 
         /// <summary>Все ключи-алиасы, которые обязана заполнять <see cref="Apply(ResourceDictionary, ResourceDictionary)"/>.</summary>
         public static readonly IReadOnlyList<string> AliasKeys = new[]
@@ -57,7 +80,34 @@ namespace RPA.Helpers
             ToolbarCheckedBackgroundKey,
             TitleBarBackgroundKey,
             TitleBarForegroundKey,
-            TitleBarButtonHoverBackgroundKey
+            TitleBarButtonHoverBackgroundKey,
+            SurfaceKey,
+            SurfaceAltKey,
+            HoverKey,
+            SelectedKey,
+            SeparatorKey,
+            SeparatorStrongKey,
+            ForegroundKey,
+            ForegroundMutedKey,
+            CloseHoverBackgroundKey,
+            CloseHoverForegroundKey,
+            OverlayFillKey,
+            OverlayStrokeKey
+        };
+
+        /// <summary>
+        /// Семантические кисти: кодируют состояние и тип данных, а не оформление. В отличие от
+        /// <see cref="AliasKeys"/> не зависят от темы и не входят в <see cref="StudioPalette"/>
+        /// (её токены обязаны быть нейтральными).
+        /// </summary>
+        public static readonly IReadOnlyList<string> SemanticKeys = new[]
+        {
+            SemanticRunKey,
+            SemanticPauseKey,
+            SemanticStopKey,
+            SemanticFolderIconKey,
+            SemanticXamlFileIconKey,
+            SemanticJsonFileIconKey
         };
 
         /// <summary>Системные кисти, которыми темизируются нативные WF-контролы (TreeView/Toolbox/Outline).</summary>
@@ -95,7 +145,8 @@ namespace RPA.Helpers
         }
 
         /// <summary>
-        /// Заполняет алиасы <paramref name="target"/> реальными кистями из палитры <paramref name="source"/>.
+        /// Заполняет алиасы <paramref name="target"/> кистями из палитры, определённой по
+        /// <paramref name="source"/> (обычно это <c>Application.Current.Resources</c> с кистями MaterialDesign).
         /// Существующие значения заменяются, чтобы DynamicResource-ссылки получили уведомление
         /// и перерисовались при смене темы.
         /// </summary>
@@ -106,72 +157,90 @@ namespace RPA.Helpers
                 return;
             }
 
-            Set(target, WindowBackgroundKey,
-                ResolveColor(source, FallbackBackground, "MaterialDesign.Brush.Background"));
-            Set(target, MenuBackgroundKey,
-                ResolveColor(source, FallbackBackground, "MaterialDesign.Brush.Background"));
-            Set(target, MenuForegroundKey,
-                ResolveColor(source, FallbackForeground, "MaterialDesign.Brush.Foreground"));
-            Set(target, ToolbarBackgroundKey,
-                ResolveColor(source, FallbackToolbarBackground,
-                    "MaterialDesign.Brush.ToolBar.Background", "MaterialDesign.Brush.Card.Background"));
-            Set(target, ToolbarForegroundKey,
-                ResolveColor(source, FallbackForeground,
-                    "MaterialDesign.Brush.ToolBar.Item.Foreground", "MaterialDesign.Brush.Foreground"));
-            Set(target, ToolbarBorderKey,
-                ResolveColor(source, FallbackBorder,
-                    "MaterialDesign.Brush.Card.Border", "MaterialDesignDivider"));
-            Set(target, ToolbarHoverBackgroundKey,
-                ResolveColor(source, FallbackHover,
-                    "MaterialDesign.Brush.ToolBar.Item.Background", "MaterialDesign.Brush.TextBox.HoverBackground"));
-            Set(target, ToolbarPressedBackgroundKey,
-                ResolveColor(source, FallbackHover,
-                    "MaterialDesign.Brush.ToolBar.Item.Background", "MaterialDesign.Brush.TextBox.HoverBackground"));
-            Set(target, ToolbarCheckedBackgroundKey,
-                ResolveColor(source, FallbackSelected,
-                    "MaterialDesign.Brush.ToggleButton.Background", "MaterialDesign.Brush.ListBoxItem.Selected"));
-            Set(target, TitleBarBackgroundKey,
-                ResolveColor(source, FallbackBackground, "MaterialDesign.Brush.Background"));
-            Set(target, TitleBarForegroundKey,
-                ResolveColor(source, FallbackForeground, "MaterialDesign.Brush.Foreground"));
-            Set(target, TitleBarButtonHoverBackgroundKey,
-                ResolveColor(source, FallbackHover,
-                    "MaterialDesign.Brush.ToolBar.Item.Background", "MaterialDesign.Brush.TextBox.HoverBackground"));
-
-            ApplySystemBrushes(target, source);
+            ApplyPalette(target, StudioPalette.Detect(source));
         }
 
-        private static void ApplySystemBrushes(ResourceDictionary target, ResourceDictionary source)
+        /// <summary>Заполняет алиасы и системные кисти значениями конкретной палитры.</summary>
+        public static void ApplyPalette(ResourceDictionary target, StudioThemeColors palette)
         {
-            Color background = ResolveColor(source, FallbackBackground, "MaterialDesign.Brush.Background");
-            Color foreground = ResolveColor(source, FallbackForeground, "MaterialDesign.Brush.Foreground");
-            Color accent = ResolveColor(source, FallbackBackground, "MaterialDesign.Brush.Primary");
-            Color accentForeground = ResolveColor(source, FallbackHighlightText,
-                "MaterialDesign.Brush.Primary.Foreground");
-            Color border = ResolveColor(source, FallbackBorder, "MaterialDesign.Brush.Card.Border", "MaterialDesignDivider");
+            if (target == null || palette == null)
+            {
+                return;
+            }
 
-            Set(target, SystemColors.MenuBrushKey, background);
-            Set(target, SystemColors.MenuTextBrushKey, foreground);
-            Set(target, SystemColors.WindowBrushKey, background);
-            Set(target, SystemColors.WindowTextBrushKey, foreground);
-            Set(target, SystemColors.ControlBrushKey, background);
-            Set(target, SystemColors.ControlTextBrushKey, foreground);
-            Set(target, SystemColors.HighlightBrushKey, accent);
-            Set(target, SystemColors.HighlightTextBrushKey, accentForeground);
-            Set(target, SystemColors.InactiveSelectionHighlightBrushKey, accent);
-            Set(target, SystemColors.ActiveBorderBrushKey, border);
-            Set(target, SystemColors.InactiveBorderBrushKey, border);
-            Set(target, SystemColors.GrayTextBrushKey, foreground);
+            SetAliases(target, palette);
+            SetSemanticBrushes(target);
+            ApplySystemBrushes(target, palette);
         }
 
-        private static Color ResolveColor(ResourceDictionary source, Color fallback, params string[] keys)
+        private static void SetAliases(ResourceDictionary target, StudioThemeColors palette)
         {
-            return MaterialThemePalette.TryGetBrushColor(source, out Color color, keys) ? color : fallback;
+            // Правило одного фона: все «фоны» — это Surface, различие зон передаёт только Separator.
+            Set(target, WindowBackgroundKey, palette.Surface);
+            Set(target, MenuBackgroundKey, palette.Surface);
+            Set(target, ToolbarBackgroundKey, palette.Surface);
+            Set(target, TitleBarBackgroundKey, palette.Surface);
+
+            Set(target, MenuForegroundKey, palette.Foreground);
+            Set(target, ToolbarForegroundKey, palette.Foreground);
+            Set(target, TitleBarForegroundKey, palette.Foreground);
+
+            Set(target, ToolbarBorderKey, palette.Separator);
+
+            Set(target, ToolbarHoverBackgroundKey, palette.Hover);
+            Set(target, TitleBarButtonHoverBackgroundKey, palette.Hover);
+            Set(target, ToolbarPressedBackgroundKey, palette.Selected);
+            Set(target, ToolbarCheckedBackgroundKey, palette.Selected);
+
+            Set(target, SurfaceKey, palette.Surface);
+            Set(target, SurfaceAltKey, palette.SurfaceAlt);
+            Set(target, HoverKey, palette.Hover);
+            Set(target, SelectedKey, palette.Selected);
+            Set(target, SeparatorKey, palette.Separator);
+            Set(target, SeparatorStrongKey, palette.SeparatorStrong);
+            Set(target, ForegroundKey, palette.Foreground);
+            Set(target, ForegroundMutedKey, palette.ForegroundMuted);
+            Set(target, CloseHoverBackgroundKey, palette.CloseHoverBackground);
+            Set(target, CloseHoverForegroundKey, palette.CloseHoverForeground);
+            Set(target, OverlayFillKey, palette.OverlayFill);
+            Set(target, OverlayStrokeKey, palette.OverlayStroke);
+        }
+
+        private static void SetSemanticBrushes(ResourceDictionary target)
+        {
+            // Значения фиксированы: «запуск»/«пауза»/«стоп» и типы файлов распознаются по цвету
+            // в обеих темах. Красный используется только как семантика ошибки/останова.
+            Set(target, SemanticRunKey, Color.FromRgb(0x22, 0x8B, 0x22));
+            Set(target, SemanticPauseKey, Color.FromRgb(0xFF, 0xA5, 0x00));
+            Set(target, SemanticStopKey, Color.FromRgb(0xDC, 0x14, 0x3C));
+            Set(target, SemanticFolderIconKey, Color.FromRgb(0xFF, 0x45, 0x00));
+            Set(target, SemanticXamlFileIconKey, Color.FromRgb(0x4C, 0xAF, 0x50));
+            Set(target, SemanticJsonFileIconKey, Color.FromRgb(0x21, 0x96, 0xF3));
+        }
+
+        private static void ApplySystemBrushes(ResourceDictionary target, StudioThemeColors palette)
+        {
+            Set(target, SystemColors.MenuBrushKey, palette.Surface);
+            Set(target, SystemColors.MenuTextBrushKey, palette.Foreground);
+            Set(target, SystemColors.WindowBrushKey, palette.Surface);
+            Set(target, SystemColors.WindowTextBrushKey, palette.Foreground);
+            Set(target, SystemColors.ControlBrushKey, palette.Surface);
+            Set(target, SystemColors.ControlTextBrushKey, palette.Foreground);
+
+            // Выделение нативных контролов (TreeView/Toolbox/Outline/ListView) — нейтральное:
+            // раньше здесь стоял MaterialDesign Primary, из-за чего выделение было фиолетовым.
+            Set(target, SystemColors.HighlightBrushKey, palette.Selected);
+            Set(target, SystemColors.HighlightTextBrushKey, palette.Foreground);
+            Set(target, SystemColors.InactiveSelectionHighlightBrushKey, palette.SurfaceAlt);
+
+            Set(target, SystemColors.ActiveBorderBrushKey, palette.SeparatorStrong);
+            Set(target, SystemColors.InactiveBorderBrushKey, palette.Separator);
+            Set(target, SystemColors.GrayTextBrushKey, palette.ForegroundMuted);
         }
 
         private static void Set(ResourceDictionary target, object key, Color color)
         {
-            var brush = new SolidColorBrush(color);
+            SolidColorBrush brush = new SolidColorBrush(color);
             brush.Freeze();
 
             // Remove + Add вместо простого присваивания: гарантирует уведомление

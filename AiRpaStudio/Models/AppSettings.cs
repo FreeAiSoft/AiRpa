@@ -15,6 +15,7 @@ namespace RPA.Models
     public class AppSettings : BaseModel
     {
         private DockingManager _dockManager;
+        private bool _currentDarkTheme = true;
 
         #region Singleton
 
@@ -65,9 +66,6 @@ namespace RPA.Models
             _dockManager = dockManager;
         }
 
-        private const string FallbackPrimaryHex = "#673AB7";   // DeepPurple — соответствует BundledTheme в App.xaml
-        private const string FallbackSecondaryHex = "#CDDC39";  // Lime — соответствует BundledTheme в App.xaml
-
         internal void ApplyTheme(bool dark)
         {
             ApplyMaterialDesignTheme(dark);
@@ -76,58 +74,72 @@ namespace RPA.Models
             // лежать настоящие Brush, иначе WPF падает на Style-сеттерах (см. StudioBrushes).
             StudioBrushes.ApplyToApplication();
 
+            // Ключи дизайнера WF (F-05/F-04): та же точка, что и Studio.*, — смена темы перекрашивает
+            // поверхность дизайнера, PropertyInspector и контекстные меню без пересоздания документов.
+            WfDesignerTheme.ApplyToApplication();
+
+            _currentDarkTheme = dark;
+
+            ReapplyDockManagerResources();
+        }
+
+        /// <summary>
+        /// Раскладывает кисти AvalonDock по ресурсам DockingManager и плавающих окон.
+        /// Вызывать при смене темы и при появлении новых плавающих окон: откреплённая панель получает
+        /// собственную копию темы Metro, в которой вкладки объявлены светлыми.
+        /// </summary>
+        internal void ReapplyDockManagerResources()
+        {
             if (_dockManager == null)
             {
                 return;
             }
 
-            BrushConverter converter = new BrushConverter();
+            bool dark = _currentDarkTheme;
 
-            string background = GetResourceHex("MaterialDesign.Brush.Background", dark ? "#2D2D30" : "#FFFFFF");
-            string foreground = GetResourceHex("MaterialDesign.Brush.Foreground", dark ? "#F1F1F1" : "#FF222222");
-            string accent = GetResourceHex("MaterialDesign.Brush.Primary", FallbackPrimaryHex);
-            string accent2 = GetResourceHex("MaterialDesign.Brush.Secondary", FallbackSecondaryHex);
-            string baseColor5 = GetResourceHex("MaterialDesign.Brush.ToolBar.Background", dark ? "#3E3E42" : "#EEEEEE");
-            string baseColor7 = GetResourceHex("MaterialDesign.Brush.Card.Border", dark ? "#3F3F46" : "#EEEEEE");
+            // 1) Ресурсы приложения: из них кисти копирует ThemeBrushBridge в ядре AvalonDock
+            //    (оверлей перетаскивания, Ctrl+Tab и плавающие окна получают тему в изолированные Resources).
+            DockingThemeBrushes.Apply(Application.Current?.Resources, dark);
 
-            _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor1"] = (Brush)converter.ConvertFromString(background); // background
-            _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor2"] = (Brush)converter.ConvertFromString(foreground); // foreground
-            _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor3"] = (Brush)converter.ConvertFromString(accent);
-            _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor4"] = (Brush)converter.ConvertFromString(accent2);
-            _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor5"] = (Brush)converter.ConvertFromString(baseColor5);
-            _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor6"] = (Brush)converter.ConvertFromString("#8C8E94");
-            _dockManager.Resources["AvalonDock_ThemeMetro_BaseColor7"] = (Brush)converter.ConvertFromString(baseColor7);
+            // 2) Ресурсы менеджера и уже созданных плавающих окон.
+            ApplyDockManagerResources(_dockManager.Resources);
 
-            _dockManager.FloatingWindows.ToList().ForEach(floatingWindow =>
+            // Коллекция плавающих окон может измениться прямо во время LayoutChanged.
+            try
             {
-                floatingWindow.Resources["AvalonDock_ThemeMetro_BaseColor1"] = (Brush)converter.ConvertFromString(background); // background
-                floatingWindow.Resources["AvalonDock_ThemeMetro_BaseColor2"] = (Brush)converter.ConvertFromString(foreground); // foreground
-                floatingWindow.Resources["AvalonDock_ThemeMetro_BaseColor3"] = (Brush)converter.ConvertFromString(accent);
-                floatingWindow.Resources["AvalonDock_ThemeMetro_BaseColor4"] = (Brush)converter.ConvertFromString(accent2);
-                floatingWindow.Resources["AvalonDock_ThemeMetro_BaseColor5"] = (Brush)converter.ConvertFromString(baseColor5);
-                floatingWindow.Resources["AvalonDock_ThemeMetro_BaseColor6"] = (Brush)converter.ConvertFromString("#8C8E94");
-                floatingWindow.Resources["AvalonDock_ThemeMetro_BaseColor7"] = (Brush)converter.ConvertFromString(baseColor7);
-            });
+                _dockManager.FloatingWindows
+                    .ToList()
+                    .ForEach(floatingWindow => ApplyDockManagerResources(floatingWindow.Resources));
+            }
+            catch (Exception ex)
+            {
+                Log.Write(ex);
+            }
         }
 
+        private void ApplyDockManagerResources(ResourceDictionary target)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            // Значения берутся только из палитры студии (StudioPalette): акцент MaterialDesign
+            // (Primary/Secondary) в кисти AvalonDock не попадает.
+            DockingThemeBrushes.Apply(target, _currentDarkTheme);
+        }
         private static void ApplyMaterialDesignTheme(bool dark)
         {
+            // M-04 плана: Primary/Secondary нейтральные и берутся из палитры студии — раньше здесь были
+            // фиолетовый и лаймовый акцент, из-за чего он пробивался в фокус, выделение и скроллбары контролов.
+            StudioThemeColors palette = StudioPalette.For(dark);
+
             PaletteHelper paletteHelper = new PaletteHelper();
             Theme newTheme = Theme.Create(
                 dark ? BaseTheme.Dark : BaseTheme.Light,
-                Color.FromRgb(103, 58, 183),   // DeepPurple
-                Color.FromRgb(205, 220, 57));  // Lime
+                palette.SeparatorStrong,        // Primary: нейтральный серый (было фиолетовым)
+                palette.ForegroundMuted);       // Secondary: нейтральный серый (было лаймовым)
             paletteHelper.SetTheme(newTheme);
-        }
-
-        private static string GetResourceHex(string key, string fallback)
-        {
-            if (Application.Current?.Resources[key] is SolidColorBrush brush)
-            {
-                return brush.Color.ToString();
-            }
-
-            return fallback;
         }
 
         #endregion Commands

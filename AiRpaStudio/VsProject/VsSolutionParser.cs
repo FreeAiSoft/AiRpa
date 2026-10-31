@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text.RegularExpressions;
 
@@ -14,13 +14,17 @@ namespace RPA.VsProject
         public static VsSolution Parse(string solutionPath)
         {
             if (string.IsNullOrWhiteSpace(solutionPath))
+            {
                 throw new ArgumentException("Solution path is required.", nameof(solutionPath));
+            }
 
             string fullPath = Path.GetFullPath(solutionPath);
             if (!File.Exists(fullPath))
+            {
                 throw new FileNotFoundException("Solution file not found.", fullPath);
+            }
 
-            var solution = new VsSolution
+            VsSolution solution = new VsSolution
             {
                 SolutionPath = fullPath,
                 Name = Path.GetFileNameWithoutExtension(fullPath)
@@ -30,7 +34,9 @@ namespace RPA.VsProject
             {
                 Match match = ProjectLineRegex.Match(line);
                 if (!match.Success)
+                {
                     continue;
+                }
 
                 solution.Projects.Add(new VsSolutionProject
                 {
@@ -47,10 +53,7 @@ namespace RPA.VsProject
         /// <summary>True if the project entry points to a C# project file.</summary>
         public static bool IsCsproj(VsSolutionProject project)
         {
-            if (project == null || string.IsNullOrWhiteSpace(project.RelativePath))
-                return false;
-
-            return project.RelativePath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase);
+            return project != null && !string.IsNullOrWhiteSpace(project.RelativePath) && project.RelativePath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

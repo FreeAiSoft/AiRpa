@@ -642,7 +642,7 @@ namespace RPA.Controls
                                 // Удаляем временный узел при ошибке
                                 _ = parent.Childs.Remove(fSNode);
 
-                                MessageBox.Show($"Папка '{newName}' уже существует", "Ошибка");
+                                _ = MessageBox.Show($"Папка '{newName}' уже существует", "Ошибка");
                                 return;
                             }
 
@@ -667,7 +667,7 @@ namespace RPA.Controls
                                 // Удаляем временный узел при ошибке
                                 _ = parent.Childs.Remove(fSNode);
 
-                                MessageBox.Show($"Файл '{activityName}' уже существует", "Ошибка");
+                                _ = MessageBox.Show($"Файл '{activityName}' уже существует", "Ошибка");
                                 return;
                             }
 
@@ -695,7 +695,7 @@ namespace RPA.Controls
                         // Удаляем временный узел при ошибке
                         _ = parent.Childs.Remove(fSNode);
 
-                        MessageBox.Show($"Ошибка при создании: {ex.Message}", "Ошибка");
+                        _ = MessageBox.Show($"Ошибка при создании: {ex.Message}", "Ошибка");
                     }
                 }
                 return;
@@ -729,7 +729,7 @@ namespace RPA.Controls
 
             if (renameResult.Error != null)
             {
-                MessageBox.Show(renameResult.Error.Message, "Ошибка");
+                _ = MessageBox.Show(renameResult.Error.Message, "Ошибка");
                 fSNode.Name = fSNode.OriginalName;
             }
             else
@@ -795,7 +795,7 @@ namespace RPA.Controls
                         RpaCommon.CallResult deleteResult = Services.ProjectManager.DeleteFolder(fSNode);
                         if (deleteResult.Error != null)
                         {
-                            MessageBox.Show(deleteResult.Error.Message, "Ошибка");
+                            _ = MessageBox.Show(deleteResult.Error.Message, "Ошибка");
                         }
                     }
                 }
@@ -1087,8 +1087,22 @@ namespace RPA.Controls
 
         private void TextBlock_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            TextBlock textBlock = (TextBlock)sender;
-            FSNode node = (FSNode)textBlock.Tag;
+            if (e.ChangedButton != MouseButton.Left)
+            {
+                return;
+            }
+
+            if (!(sender is TextBlock textBlock))
+            {
+                return;
+            }
+
+            // Tag задаётся привязкой Tag="{Binding Path=.}", поэтому для узлов дерева это FSNode.
+            // Проверяем и Tag, и путь: у служебных или ещё не инициализированных узлов путь может быть пустым
+            if (!(textBlock.Tag is FSNode node) || string.IsNullOrEmpty(node.RuntimeFullPath))
+            {
+                return;
+            }
             if (Path.GetFileName(node.RuntimeFullPath) == "project.json")
             {
                 return;
@@ -1098,9 +1112,18 @@ namespace RPA.Controls
                 .TrimStart('\\')
                 .Replace("\\", "\\\\");
             System.Activities.Activity activity = new RunScript { PathToXamlActivity = relativePath, DisplayName = "Run" };
-            CustomWfDesigner customWfDesigner = Services.CustomWfDesigner;
+            // Активного дизайнера может не быть: проект только загружается, все вкладки закрыты
+            // или главная активность не открыта (LoadActivityToDesigner вернул null).
+            // Без дизайнера перетаскивание невозможно - молча выходим вместо NullReferenceException.
+            WorkflowDesignerEx activeDesigner = Services.CustomWfDesigner?.ActiveWorkflowDesignerEx;
+            ModelTreeManager modelTreeManager = activeDesigner?.Context?.Services?.GetService<ModelTreeManager>();
+            if (modelTreeManager == null)
+            {
+                Debug.WriteLine($"Drag&Drop пропущен: нет активного дизайнера для '{node.RuntimeFullPath}'");
+                return;
+            }
 
-            ModelItem mi = customWfDesigner.ActiveWorkflowDesignerEx.Context.Services.GetService<ModelTreeManager>().CreateModelItem(null, activity);
+            ModelItem mi = modelTreeManager.CreateModelItem(null, activity);
             DataObject data = new DataObject(DragDropHelper.ModelItemDataFormat, mi);
             _ = DragDrop.DoDragDrop(textBlock, data, DragDropEffects.Copy);
         }

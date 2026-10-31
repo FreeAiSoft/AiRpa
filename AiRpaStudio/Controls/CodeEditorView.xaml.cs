@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -26,7 +26,7 @@ namespace RPA.Controls
         {
             InitializeComponent();
 
-            SearchPanel.Install(editor.TextArea);
+            _ = SearchPanel.Install(editor.TextArea);
             editor.Options.ConvertTabsToSpaces = true;
             editor.Options.IndentationSize = 4;
             editor.TextChanged += Editor_TextChanged;

@@ -49,6 +49,13 @@ namespace RPA
             // (см. Helpers\StudioBrushes.cs: <DynamicResource x:Key="..."/> в словаре даёт
             // ResourceReferenceExpression и валит XamlParseException на MenuItem).
             StudioBrushes.ApplyToApplication();
+            // Ключи дизайнера WF (F-05): объявляются до создания первого WorkflowDesigner, иначе
+            // RoslynExpressionEditor.xaml не находит DesignerViewBackground и поле остаётся прозрачным.
+            WfDesignerTheme.ApplyToApplication();
+
+            // Скругление окон AvalonDock (план §7 M-03, W-06…W-08): окна ядра не ссылаются на сборку
+            // студии, поэтому механизм скругления подставляется в них через мост.
+            WindowCorner.EnableAvalonDockWindows();
 
             new EntryPoint().Run();
         }

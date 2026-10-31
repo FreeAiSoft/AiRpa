@@ -77,7 +77,6 @@ namespace RPA.CSharpExpressionEditor
             get
             {
 #pragma warning disable IDE0010 // Add missing cases
-#pragma warning disable IDE0066 // Convert switch statement to expression
                 switch (iconType)
                 {
                     case IconType.Event: return EventIcon;
@@ -85,7 +84,6 @@ namespace RPA.CSharpExpressionEditor
                     case IconType.Property: return PropertyIcon;
                     default: return MethodIcon;
                 }
-#pragma warning restore IDE0066 // Convert switch statement to expression
 #pragma warning restore IDE0010 // Add missing cases
             }
         }

@@ -1,0 +1,102 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <!--
+        Плоские скроллы студии (VS2026): 10px, без стрелок, бегунок со скруглением 5.
+        Словарь подключается в App.xaml ПОСЛЕ MaterialDesign2.Defaults.xaml и Themes/StudioTheme.xaml:
+        неявный стиль ScrollBar разрешается по последнему словарю, иначе побеждает MaterialDesign.
+
+        Цвета — только кистями палитры (Studio.*, пишет Helpers\StudioBrushes.ApplyToApplication).
+        В шаблоне нет ни одной кисти MaterialDesign: акцент туда не пробивается (docs\Vs2026_Theme_Plan.md §1).
+
+        Важно: у RepeatButton и Thumb заданы явные стили с OverridesDefaultStyle=True.
+        Без этого на них ложатся неявные стили MaterialDesign (raised button: паддинги и минимальные
+        размеры; thumb переключателя), и 10-пиксельный скролл раздувается.
+    -->
+    <Style x:Key="StudioScrollBarPageButtonStyle" TargetType="RepeatButton">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Rectangle Fill="Transparent" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="StudioScrollBarThumbStyle" TargetType="Thumb">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border x:Name="ThumbBorder"
+                            Background="{DynamicResource Studio.SeparatorStrong}"
+                            CornerRadius="5" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ThumbBorder" Property="Background" Value="{DynamicResource Studio.ForegroundMuted}" />
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="ThumbBorder" Property="Background" Value="{DynamicResource Studio.Foreground}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="StudioScrollBarStyle" TargetType="ScrollBar">
+        <Setter Property="Width" Value="10" />
+        <Setter Property="MinWidth" Value="10" />
+        <Setter Property="MaxWidth" Value="10" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Grid Background="Transparent" SnapsToDevicePixels="True">
+                        <Track x:Name="PART_Track"
+                               Orientation="{TemplateBinding Orientation}"
+                               IsDirectionReversed="True"
+                               Focusable="False">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageUpCommand"
+                                              Style="{StaticResource StudioScrollBarPageButtonStyle}" />
+                            </Track.DecreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb x:Name="PART_Thumb"
+                                       MinHeight="24"
+                                       Style="{StaticResource StudioScrollBarThumbStyle}" />
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageDownCommand"
+                                              Style="{StaticResource StudioScrollBarPageButtonStyle}" />
+                            </Track.IncreaseRepeatButton>
+                        </Track>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Orientation" Value="Horizontal">
+                            <Setter Property="Width" Value="Auto" />
+                            <Setter Property="MinWidth" Value="0" />
+                            <Setter Property="MaxWidth" Value="{x:Static sys:Double.PositiveInfinity}" />
+                            <Setter Property="Height" Value="10" />
+                            <Setter Property="MinHeight" Value="10" />
+                            <Setter Property="MaxHeight" Value="10" />
+                            <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False" />
+                            <Setter TargetName="PART_Thumb" Property="MinHeight" Value="0" />
+                            <Setter TargetName="PART_Thumb" Property="MinWidth" Value="24" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="PART_Thumb" Property="Opacity" Value="0.56" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Неявный стиль: делает размеры скроллов глобальными для всего приложения. -->
+    <Style TargetType="ScrollBar" BasedOn="{StaticResource StudioScrollBarStyle}" />
+</ResourceDictionary>

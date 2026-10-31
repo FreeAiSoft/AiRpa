@@ -19,58 +19,6 @@
         <local:LineToHeightConverter x:Uid="res:LineToHeightConverter_1"
                                      x:Key="lineToHeightConverter" />
 
-        <DrawingBrush x:Uid="DrawingBrush_65"
-                      x:Key="TextBoxErrorIcon"
-                      Stretch="Uniform">
-            <!-- Viewbox="0,0,10,10" ViewboxUnits="Absolute" -->
-            <DrawingBrush.Drawing>
-                <DrawingGroup x:Uid="DrawingGroup_71">
-                    <DrawingGroup.Children>
-                        <GeometryDrawing x:Uid="GeometryDrawing_514"
-                                         Brush="#FFDADADA"
-                                         Geometry="F1 M 8.00133,0L -3.62149e-007,8.00133L -3.62149e-007,13.3333L 8,21.3333L 13.3347,21.3333L 21.3333,13.3347L 21.3333,8L 13.3333,0L 8.00133,0 Z " />
-                        <GeometryDrawing x:Uid="GeometryDrawing_515"
-                                         Brush="#FF1AA1E2"
-                                         Geometry="F1 M 11.9997,13.3336L 9.33307,13.3336L 9.33307,4.00027L 11.9997,4.00027M 11.9997,17.3336L 9.33307,17.3336L 9.33307,14.6669L 11.9997,14.6669M 12.7811,1.3336L 8.55307,1.3336L 1.33307,8.5536L 1.33307,12.7816L 8.55173,20.0003L 12.7824,20.0003L 19.9997,12.7829L 19.9997,8.55227L 12.7811,1.3336 Z " />
-                        <GeometryDrawing x:Uid="GeometryDrawing_516"
-                                         Brush="#FFFFFFFF"
-                                         Geometry="F1 M 9.33307,17.3336L 11.9997,17.3336L 11.9997,14.6669L 9.33307,14.6669M 9.33307,4.00027L 11.9997,4.00027L 11.9997,13.3336L 9.33307,13.3336L 9.33307,4.00027 Z " />
-                    </DrawingGroup.Children>
-                </DrawingGroup>
-            </DrawingBrush.Drawing>
-        </DrawingBrush>
-        <DrawingBrush x:Uid="DrawingBrush_5"
-                      x:Key="ResizeGripIcon"
-                      Stretch="Uniform">
-            <DrawingBrush.Drawing>
-                <DrawingGroup x:Uid="DrawingGroup_47">
-                    <DrawingGroup.Children>
-                        <GeometryDrawing x:Uid="GeometryDrawing_408"
-                                         Brush="#FFDADADA"
-                                         Geometry="F1 M 13.3333,0L 13.3333,6.66667L 6.668,6.66667L 6.668,13.3333L 3.97364e-007,13.3333L 3.97364e-007,20L 20,20L 20,0L 13.3333,0 Z " />
-                        <GeometryDrawing x:Uid="GeometryDrawing_409"
-                                         Brush="#FF414141"
-                                         Geometry="F1 M 14.6669,18.6671L 18.6669,18.6671L 18.6669,14.6671L 14.6669,14.6671L 14.6669,18.6671 Z " />
-                        <GeometryDrawing x:Uid="GeometryDrawing_410"
-                                         Brush="#FF414141"
-                                         Geometry="F1 M 14.6669,12.0004L 18.6669,12.0004L 18.6669,8.0004L 14.6669,8.0004L 14.6669,12.0004 Z " />
-                        <GeometryDrawing x:Uid="GeometryDrawing_411"
-                                         Brush="#FF414141"
-                                         Geometry="F1 M 8.00027,18.6671L 12.0003,18.6671L 12.0003,14.6671L 8.00027,14.6671L 8.00027,18.6671 Z " />
-                        <GeometryDrawing x:Uid="GeometryDrawing_412"
-                                         Brush="#FF414141"
-                                         Geometry="F1 M 1.3336,18.6671L 5.3336,18.6671L 5.3336,14.6671L 1.3336,14.6671L 1.3336,18.6671 Z " />
-                        <GeometryDrawing x:Uid="GeometryDrawing_413"
-                                         Brush="#FF414141"
-                                         Geometry="F1 M 8.00027,12.0004L 12.0003,12.0004L 12.0003,8.0004L 8.00027,8.0004L 8.00027,12.0004 Z " />
-                        <GeometryDrawing x:Uid="GeometryDrawing_414"
-                                         Brush="#FF414141"
-                                         Geometry="F1 M 14.6669,5.33373L 18.6669,5.33373L 18.6669,1.33373L 14.6669,1.33373L 14.6669,5.33373 Z " />
-                    </DrawingGroup.Children>
-                </DrawingGroup>
-            </DrawingBrush.Drawing>
-        </DrawingBrush>
-
         <Style TargetType="{x:Type TextBlock}"
                x:Key="textBlockStyle">
             <Setter x:Uid="Setter_3"
@@ -187,9 +135,18 @@
                             Property="ToolTip"
                             Value="{Binding Path=ValidationErrorMessage}" />
 
+                    <!-- Бейдж ошибки: hairline-рамка палитры; красный — только семантика ошибки (этап 7). -->
                     <Setter x:Uid="Setter_52"
                             Property="Fill"
-                            Value="{StaticResource TextBoxErrorIcon}" />
+                            Value="{x:Null}" />
+                    <Setter Property="Stroke"
+                            Value="{DynamicResource Studio.CloseHoverBackground}" />
+                    <Setter Property="StrokeThickness"
+                            Value="1" />
+                    <Setter Property="RadiusX"
+                            Value="2" />
+                    <Setter Property="RadiusY"
+                            Value="2" />
                     <Setter x:Uid="Setter_53"
                             Property="Width"
                             Value="12" />
@@ -289,7 +246,7 @@
                 <Border x:Uid="Border_2"
                         Style="{StaticResource borderStyle}"
                         Grid.Column="0"
-                        BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}"
+                        BorderBrush="{DynamicResource Studio.Separator}"
                         BorderThickness="1,1,1,1"
                         CornerRadius="1"
                         HorizontalAlignment="Stretch">
@@ -324,7 +281,7 @@
                 <Border x:Uid="Border_5"
                         Grid.Column="0"
                         CornerRadius="1"
-                        BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}"
+                        BorderBrush="{DynamicResource Studio.Separator}"
                         BorderThickness="1,1,1,1"
                         Loaded="OnEditorLoaded"
                         Unloaded="OnEditorUnloaded"
@@ -365,7 +322,7 @@
         </Grid.ColumnDefinitions>
         <Border BorderThickness="1"
                 Margin="2"
-                BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}"
+                BorderBrush="{DynamicResource Studio.Separator}"
                 Grid.Column="0"
                 x:Name="border"
                 HorizontalAlignment="Stretch"

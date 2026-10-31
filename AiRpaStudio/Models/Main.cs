@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Activities.Core.Presentation;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -107,13 +107,8 @@ namespace RPA.Models
         /// </summary>
         internal static bool IsVsProjectPath(string path)
         {
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                return false;
-            }
-
-            return path.EndsWith(".sln", StringComparison.OrdinalIgnoreCase)
-                || path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase);
+            return !string.IsNullOrWhiteSpace(path) && (path.EndsWith(".sln", StringComparison.OrdinalIgnoreCase)
+                || path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase));
         }
 
         private void CreateHelloWorldProject()
@@ -235,7 +230,7 @@ namespace RPA.Models
             {
                 try
                 {
-                    Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true });
+                    _ = Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true });
                 }
                 catch (Exception ex)
                 {
@@ -282,7 +277,7 @@ namespace RPA.Models
 
             if (document != null)
             {
-                OpenCodeDocuments.Remove(document);
+                _ = OpenCodeDocuments.Remove(document);
             }
         }
 
@@ -539,6 +534,14 @@ namespace RPA.Models
                     break;
                 case MessageBoxResult.No:
                     LoadVsProjectIntoStudio(creator.ProjectFilePath);
+                    break;
+                case MessageBoxResult.None:
+                    break;
+                case MessageBoxResult.OK:
+                    break;
+                case MessageBoxResult.Cancel:
+                    break;
+                default:
                     break;
             }
         }

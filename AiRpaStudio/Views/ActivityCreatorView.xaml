@@ -10,26 +10,29 @@
                  Title="Create activity"
                  WindowStartupLocation="CenterScreen"
                  WindowState="Normal"
-                 ResizeMode="NoResize">
-    <Grid Margin="5">
+                 ResizeMode="NoResize"
+                 Background="{DynamicResource Studio.Surface}"
+                 Foreground="{DynamicResource Studio.Foreground}">
+    <Grid Margin="12">
         <Grid.RowDefinitions>
-            <RowDefinition Height="40" />
-            <RowDefinition Height="40" />
-            <RowDefinition Height="40" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <TextBox Text="{Binding ActivityName, UpdateSourceTrigger=PropertyChanged}"
                  TextWrapping="NoWrap"
-                 Margin="5"
+                 Margin="0,0,0,8"
                  VerticalContentAlignment="Center"
                  ToolTip="activity name" />
         <TextBlock Text="{Binding SelectedPath}"
-                 ToolTip="location"
-                 Grid.Row="1"
-                 Margin="10"/>
+                   ToolTip="location"
+                   Grid.Row="1"
+                   Margin="0,0,0,12"
+                   TextTrimming="CharacterEllipsis" />
         <Button Content="Create"
                 Command="{Binding Cmd}"
                 CommandParameter="CreateActivity"
-                Grid.Row="3"
-                Margin="5" />
+                Grid.Row="2"
+                Height="32" />
     </Grid>
 </Window>

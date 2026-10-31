@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -87,7 +87,7 @@ namespace RPA.Models
                 string outputDirectory = Path.Combine(SelectedPath.Trim(), safeName);
 
                 VsTemplateInstantiationRequest request = BuildRequest(outputDirectory);
-                RPA.VsTemplate.VsTemplate template = VsTemplateParser.Parse(GetProjectTemplatePath());
+                VsTemplate.VsTemplate template = VsTemplateParser.Parse(GetProjectTemplatePath());
                 VsTemplateInstantiationResult result = VsTemplateInstantiator.Instantiate(template, request);
 
                 if (!result.Success)
@@ -114,16 +114,11 @@ namespace RPA.Models
         /// <summary>Validates the input; returns an error message or null when valid.</summary>
         public string Validate()
         {
-            if (string.IsNullOrWhiteSpace(SelectedPath))
-                return LocalizeHelper.Get("lang_msg_specify_project_folder");
-
-            if (!Directory.Exists(SelectedPath))
-                return LocalizeHelper.Get("lang_msg_folder_not_exists", SelectedPath);
-
-            if (string.IsNullOrWhiteSpace(ProjectName))
-                return LocalizeHelper.Get("lang_msg_enter_project_name");
-
-            return null;
+            return string.IsNullOrWhiteSpace(SelectedPath)
+                ? LocalizeHelper.Get("lang_msg_specify_project_folder")
+                : !Directory.Exists(SelectedPath)
+                ? LocalizeHelper.Get("lang_msg_folder_not_exists", SelectedPath)
+                : string.IsNullOrWhiteSpace(ProjectName) ? LocalizeHelper.Get("lang_msg_enter_project_name") : null;
         }
 
         /// <summary>Builds the instantiation request used by the .vstemplate engine.</summary>
@@ -150,11 +145,13 @@ namespace RPA.Models
         public static string CoerceProjectName(string defaultName, string selectedPath)
         {
             if (string.IsNullOrWhiteSpace(selectedPath))
+            {
                 return defaultName;
+            }
 
             try
             {
-                var dirs = new HashSet<string>(
+                HashSet<string> dirs = new HashSet<string>(
                     Directory.GetDirectories(selectedPath).Select(Path.GetFileName),
                     StringComparer.OrdinalIgnoreCase);
 
@@ -162,7 +159,9 @@ namespace RPA.Models
                 {
                     string candidate = i == 0 ? defaultName : defaultName + i;
                     if (!dirs.Contains(candidate))
+                    {
                         return candidate;
+                    }
                 }
             }
             catch

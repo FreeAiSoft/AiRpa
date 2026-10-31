@@ -10,8 +10,10 @@
                  Title="{DynamicResource lang_create_vs_template_title}"
                  WindowStartupLocation="CenterScreen"
                  WindowState="Normal"
-                 ResizeMode="NoResize">
-    <Grid Margin="5">
+                 ResizeMode="NoResize"
+                 Background="{DynamicResource Studio.Surface}"
+                 Foreground="{DynamicResource Studio.Foreground}">
+    <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="50"/>
             <RowDefinition Height="50"/>
@@ -20,11 +22,11 @@
         </Grid.RowDefinitions>
         <TextBox Text="{Binding ProjectName, UpdateSourceTrigger=PropertyChanged}"
                  TextWrapping="NoWrap"
-                 Margin="5"
+                 Margin="0,0,0,8"
                  VerticalContentAlignment="Center"
                  ToolTip="project name"/>
         <Grid Grid.Row="1"
-              Margin="5">
+              Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition />
                 <ColumnDefinition Width="auto" />
@@ -35,18 +37,20 @@
             <Button Content="..."
                     Command="{Binding Cmd}"
                     CommandParameter="SetFolder"
-                    Margin="5,0,0,0"
-                    Width="40"
+                    Margin="8,0,0,0"
+                    Width="28"
                     Grid.Column="1"/>
         </Grid>
         <ComboBox Grid.Row="2"
-                  Margin="5"
+                  Margin="0,0,0,8"
+                  VerticalContentAlignment="Center"
                   ItemsSource="{Binding TargetFrameworkVersions}"
                   SelectedItem="{Binding TargetFrameworkVersion, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         <Button Content="Create"
                 Command="{Binding Cmd}"
                 CommandParameter="CreateProject"
                 Grid.Row="3"
-                Margin="5"/>
+                Height="32"
+                VerticalAlignment="Top"/>
     </Grid>
 </Window>

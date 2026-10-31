@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace RPA.VsProject
 {
@@ -24,14 +25,18 @@ namespace RPA.VsProject
                 {
                     string candidate = output.Trim().Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)[0];
                     if (File.Exists(candidate))
+                    {
                         return candidate;
+                    }
                 }
             }
 
             // 2) Well-known install folders + .NET Framework MSBuild.
             string known = VsProjectOpener.FindFirstExisting(WellKnownMSBuildPaths());
             if (known != null)
+            {
                 return known;
+            }
 
             // 3) Fallback: rely on PATH.
             return "MSBuild.exe";
@@ -47,7 +52,7 @@ namespace RPA.VsProject
         /// <summary>Builds a project or solution and returns the result. <paramref name="log"/> receives each output line.</summary>
         public static VsBuildResult Build(string path, string configuration = "Debug", Action<string> log = null)
         {
-            var result = new VsBuildResult { ProjectPath = path };
+            VsBuildResult result = new VsBuildResult { ProjectPath = path };
 
             if (string.IsNullOrWhiteSpace(path))
             {
@@ -63,7 +68,7 @@ namespace RPA.VsProject
                 return result;
             }
 
-            var psi = new ProcessStartInfo
+            ProcessStartInfo psi = new ProcessStartInfo
             {
                 FileName = FindMSBuild(),
                 Arguments = BuildArguments(path, configuration),
@@ -75,19 +80,17 @@ namespace RPA.VsProject
 
             try
             {
-                using (var process = new Process { StartInfo = psi })
-                {
-                    process.Start();
+                using Process process = new Process { StartInfo = psi };
+                _ = process.Start();
 
-                    // Read stderr on a background task to avoid a pipe deadlock.
-                    var stderrTask = System.Threading.Tasks.Task.Run(() => process.StandardError.ReadToEnd());
-                    string stdout = process.StandardOutput.ReadToEnd();
-                    string stderr = stderrTask.Result;
-                    process.WaitForExit();
+                // Read stderr on a background task to avoid a pipe deadlock.
+                Task<string> stderrTask = Task.Run(() => process.StandardError.ReadToEnd());
+                string stdout = process.StandardOutput.ReadToEnd();
+                string stderr = stderrTask.Result;
+                process.WaitForExit();
 
-                    result.ExitCode = process.ExitCode;
-                    result.Output = stdout + stderr;
-                }
+                result.ExitCode = process.ExitCode;
+                result.Output = stdout + stderr;
             }
             catch (Exception ex)
             {
@@ -102,7 +105,9 @@ namespace RPA.VsProject
             if (log != null && !string.IsNullOrWhiteSpace(result.Output))
             {
                 foreach (string line in result.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                {
                     log(line);
+                }
             }
 
             return result;
@@ -111,12 +116,16 @@ namespace RPA.VsProject
         private static void ExtractErrors(VsBuildResult result)
         {
             if (string.IsNullOrWhiteSpace(result.Output))
+            {
                 return;
+            }
 
             foreach (string line in result.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 if (line.Contains(": error "))
+                {
                     result.Errors.Add(line);
+                }
             }
         }
 
@@ -147,7 +156,7 @@ namespace RPA.VsProject
         {
             try
             {
-                var psi = new ProcessStartInfo
+                ProcessStartInfo psi = new ProcessStartInfo
                 {
                     FileName = fileName,
                     Arguments = arguments,
@@ -156,12 +165,10 @@ namespace RPA.VsProject
                     CreateNoWindow = true
                 };
 
-                using (Process process = Process.Start(psi))
-                {
-                    string output = process.StandardOutput.ReadToEnd();
-                    process.WaitForExit();
-                    return output;
-                }
+                using Process process = Process.Start(psi);
+                string output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+                return output;
             }
             catch
             {

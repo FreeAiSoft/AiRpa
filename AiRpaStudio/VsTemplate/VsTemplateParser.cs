@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Xml.Linq;
 
@@ -12,16 +12,20 @@ namespace RPA.VsTemplate
         public static VsTemplate Parse(string templatePath)
         {
             if (string.IsNullOrWhiteSpace(templatePath))
+            {
                 throw new ArgumentException("Template path is required.", nameof(templatePath));
+            }
 
             string fullPath = Path.GetFullPath(templatePath);
             XDocument document = XDocument.Load(fullPath);
 
             XElement root = document.Root;
             if (root == null || root.Name.LocalName != "VSTemplate")
+            {
                 throw new InvalidDataException("File is not a valid .vstemplate: missing 'VSTemplate' root element.");
+            }
 
-            var template = new VsTemplate
+            VsTemplate template = new VsTemplate
             {
                 TemplatePath = fullPath,
                 TemplateDirectory = Path.GetDirectoryName(fullPath),
@@ -41,7 +45,9 @@ namespace RPA.VsTemplate
 
             XElement content = root.Element(Ns + "TemplateContent");
             if (content != null)
+            {
                 ParseContent(content, template);
+            }
 
             return template;
         }
@@ -63,7 +69,9 @@ namespace RPA.VsTemplate
                 {
                     string assembly = ReadText(reference.Element(Ns + "Assembly"));
                     if (!string.IsNullOrWhiteSpace(assembly))
+                    {
                         template.References.Add(assembly);
+                    }
                 }
             }
 
@@ -80,7 +88,9 @@ namespace RPA.VsTemplate
                 });
 
                 foreach (XElement projectItem in project.Elements(Ns + "ProjectItem"))
+                {
                     AddProjectItem(projectItem, template, null);
+                }
 
                 foreach (XElement folder in project.Elements(Ns + "Folder"))
                 {
@@ -88,20 +98,26 @@ namespace RPA.VsTemplate
                                           ?? (string)folder.Attribute("Name");
 
                     foreach (XElement projectItem in folder.Elements(Ns + "ProjectItem"))
+                    {
                         AddProjectItem(projectItem, template, targetFolder);
+                    }
                 }
             }
 
             // Direct project items (item templates).
             foreach (XElement projectItem in content.Elements(Ns + "ProjectItem"))
+            {
                 AddProjectItem(projectItem, template, null);
+            }
         }
 
         private static void AddProjectItem(XElement element, VsTemplate template, string targetFolder)
         {
             string source = ReadText(element);
             if (string.IsNullOrWhiteSpace(source))
+            {
                 return;
+            }
 
             template.Files.Add(new VsTemplateFile
             {
@@ -120,10 +136,7 @@ namespace RPA.VsTemplate
 
         private static bool ReadBool(XAttribute attribute)
         {
-            if (attribute == null)
-                return false;
-
-            return bool.TryParse(attribute.Value, out bool value) && value;
+            return attribute != null && bool.TryParse(attribute.Value, out bool value) && value;
         }
     }
 }

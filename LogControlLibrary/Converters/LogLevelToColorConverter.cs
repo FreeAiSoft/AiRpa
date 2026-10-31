@@ -7,53 +7,38 @@ using LogControlLibrary.Models;
 namespace LogControlLibrary.Converters
 {
     /// <summary>
-    /// Конвертер для преобразования уровня логирования в цвет
+    /// Уровень логирования → цвет текста колонки «Уровень».
+    /// <para>
+    /// Цвета уровней — семантика (Trace/Debug/Info/Warning/Error/Fatal), а не акцент интерфейса,
+    /// но они обязаны читаться и в тёмной, и в светлой теме студии (docs\Vs2026_Theme_Plan.md, §8 п.8, F-07).
+    /// Поэтому здесь средние тона: ни чистого белого (не виден на светлом фоне), ни чистого чёрного
+    /// (не виден на тёмном).
+    /// </para>
     /// </summary>
     public class LogLevelToColorConverter : IValueConverter
     {
-        /// <summary>
-        /// Цвет для уровня Trace (светло-серый)
-        /// </summary>
-        public Brush TraceBrush { get; set; } = new SolidColorBrush(Color.FromRgb(128, 128, 128));
+        /// <summary>Trace — нейтральный серый.</summary>
+        public Brush TraceBrush { get; set; } = Frozen(Color.FromRgb(0x8C, 0x8C, 0x8C));
 
-        /// <summary>
-        /// Цвет для уровня Debug (синий)
-        /// </summary>
-        public Brush DebugBrush { get; set; } = new SolidColorBrush(Color.FromRgb(65, 105, 225));
+        /// <summary>Debug — приглушённый синий.</summary>
+        public Brush DebugBrush { get; set; } = Frozen(Color.FromRgb(0x5B, 0x9B, 0xD5));
 
-        /// <summary>
-        /// Цвет для уровня Info (зеленый)
-        /// </summary>
-        public Brush InfoBrush { get; set; } = new SolidColorBrush(Color.FromRgb(34, 139, 34));
+        /// <summary>Info — приглушённый зелёный.</summary>
+        public Brush InfoBrush { get; set; } = Frozen(Color.FromRgb(0x4E, 0x9A, 0x45));
 
-        /// <summary>
-        /// Цвет для уровня Warning (оранжевый)
-        /// </summary>
-        public Brush WarningBrush { get; set; } = new SolidColorBrush(Color.FromRgb(255, 140, 0));
+        /// <summary>Warning — приглушённый янтарный.</summary>
+        public Brush WarningBrush { get; set; } = Frozen(Color.FromRgb(0xC0, 0x8A, 0x00));
 
-        /// <summary>
-        /// Цвет для уровня Error (красный)
-        /// </summary>
-        public Brush ErrorBrush { get; set; } = new SolidColorBrush(Color.FromRgb(220, 20, 60));
+        /// <summary>Error — приглушённый красный.</summary>
+        public Brush ErrorBrush { get; set; } = Frozen(Color.FromRgb(0xD1, 0x4B, 0x4B));
 
-        /// <summary>
-        /// Цвет для уровня Fatal (темно-красный)
-        /// </summary>
-        public Brush FatalBrush { get; set; } = new SolidColorBrush(Color.FromRgb(139, 0, 0));
+        /// <summary>Fatal — тёмный красный, но не чёрный.</summary>
+        public Brush FatalBrush { get; set; } = Frozen(Color.FromRgb(0xA6, 0x3A, 0x3A));
 
-        /// <summary>
-        /// Цвет по умолчанию (черный)
-        /// </summary>
-        public Brush DefaultBrush { get; set; } = new SolidColorBrush(Colors.Black);
+        /// <summary>Значение по умолчанию — приглушённый серый.</summary>
+        public Brush DefaultBrush { get; set; } = Frozen(Color.FromRgb(0x9D, 0xA0, 0xA6));
 
-        /// <summary>
-        /// Преобразование уровня логирования в цветовую кисть
-        /// </summary>
-        /// <param name="value">Значение для преобразования (LogLevel)</param>
-        /// <param name="targetType">Целевой тип</param>
-        /// <param name="parameter">Параметр преобразования</param>
-        /// <param name="culture">Культура</param>
-        /// <returns>Цветовая кисть</returns>
+        /// <summary>Преобразование уровня логирования в цветовую кисть.</summary>
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is LogLevel logLevel)
@@ -80,17 +65,17 @@ namespace LogControlLibrary.Converters
             return DefaultBrush;
         }
 
-        /// <summary>
-        /// Обратное преобразование (не поддерживается)
-        /// </summary>
-        /// <param name="value">Значение для обратного преобразования</param>
-        /// <param name="targetType">Целевой тип</param>
-        /// <param name="parameter">Параметр преобразования</param>
-        /// <param name="culture">Культура</param>
-        /// <returns>Исключение</returns>
+        /// <summary>Обратное преобразование (не поддерживается).</summary>
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotSupportedException("Обратное преобразование не поддерживается для LogLevelToColorConverter");
+        }
+
+        private static Brush Frozen(Color color)
+        {
+            SolidColorBrush brush = new SolidColorBrush(color);
+            brush.Freeze();
+            return brush;
         }
     }
 }

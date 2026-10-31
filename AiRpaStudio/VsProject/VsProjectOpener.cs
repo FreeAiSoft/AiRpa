@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -33,19 +33,25 @@ namespace RPA.VsProject
                 {
                     string candidate = Path.Combine(installPath.Trim(), "Common7", "IDE", "devenv.exe");
                     if (File.Exists(candidate))
+                    {
                         return candidate;
+                    }
                 }
             }
 
             // 2) Registry.
             string fromRegistry = FindDevenvFromRegistry();
             if (fromRegistry != null)
+            {
                 return fromRegistry;
+            }
 
             // 3) Well-known installation folders.
             string known = FindFirstExisting(WellKnownDevenvPaths());
             if (known != null)
+            {
                 return known;
+            }
 
             // 4) Fallback: rely on PATH.
             return "devenv.exe";
@@ -64,21 +70,27 @@ namespace RPA.VsProject
         public static void OpenInVisualStudio(string path)
         {
             if (string.IsNullOrWhiteSpace(path))
+            {
                 throw new ArgumentException("Path is required.", nameof(path));
+            }
 
-            Process.Start(CreateProcessStartInfo(path));
+            _ = Process.Start(CreateProcessStartInfo(path));
         }
 
         /// <summary>Returns the first path from <paramref name="candidates"/> that points to an existing file.</summary>
         public static string FindFirstExisting(IEnumerable<string> candidates)
         {
             if (candidates == null)
+            {
                 return null;
+            }
 
             foreach (string candidate in candidates)
             {
                 if (!string.IsNullOrWhiteSpace(candidate) && File.Exists(candidate))
+                {
                     return candidate;
+                }
             }
 
             return null;
@@ -114,20 +126,24 @@ namespace RPA.VsProject
 
                 foreach (string hivePath in hivePaths)
                 {
-                    using (Microsoft.Win32.RegistryKey key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(hivePath))
+                    using Microsoft.Win32.RegistryKey key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(hivePath);
+                    if (key == null)
                     {
-                        if (key == null)
-                            continue;
+                        continue;
+                    }
 
-                        foreach (string valueName in key.GetValueNames())
+                    foreach (string valueName in key.GetValueNames())
+                    {
+                        string installDir = key.GetValue(valueName) as string;
+                        if (string.IsNullOrWhiteSpace(installDir))
                         {
-                            string installDir = key.GetValue(valueName) as string;
-                            if (string.IsNullOrWhiteSpace(installDir))
-                                continue;
+                            continue;
+                        }
 
-                            string candidate = Path.Combine(installDir.Trim(), "Common7", "IDE", "devenv.exe");
-                            if (File.Exists(candidate))
-                                return candidate;
+                        string candidate = Path.Combine(installDir.Trim(), "Common7", "IDE", "devenv.exe");
+                        if (File.Exists(candidate))
+                        {
+                            return candidate;
                         }
                     }
                 }
@@ -144,7 +160,7 @@ namespace RPA.VsProject
         {
             try
             {
-                var psi = new ProcessStartInfo
+                ProcessStartInfo psi = new ProcessStartInfo
                 {
                     FileName = fileName,
                     Arguments = arguments,
@@ -153,12 +169,10 @@ namespace RPA.VsProject
                     CreateNoWindow = true
                 };
 
-                using (Process process = Process.Start(psi))
-                {
-                    string output = process.StandardOutput.ReadToEnd();
-                    process.WaitForExit();
-                    return output;
-                }
+                using Process process = Process.Start(psi);
+                string output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+                return output;
             }
             catch
             {

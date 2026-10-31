@@ -5,8 +5,8 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Linq;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -39,6 +39,8 @@ namespace RPA.Views
         private Border WfToolboxBorder;
         private Border WfOutlineViewBorder;
         private Border WfPropertyBorder;
+        private readonly PropertyWindowStyleHelper _propertyStyleHelper = new PropertyWindowStyleHelper();
+
         private LayoutDocumentPane docGroup;
         public LogControlLibrary.Controls.LogViewerControl LogViewerControl { get; private set; }
         private ProjectManagerControl projectManagerControl;
@@ -115,12 +117,27 @@ namespace RPA.Views
         private void ReapplyWorkflowControlThemes()
         {
             _wfToolbox?.ApplyTheme();
-            WfVisualTreeThemer.Apply(WfOutlineViewBorder?.Child);
+
+            // Поверхность каждого открытого дизайнера (F-04): ключи палитры + дефолтные цвета WF,
+            // пришедшие через StaticResource, заменяются по значению.
+            foreach (var designer in WorkflowDesigners)
+            {
+                WfDesignerTheme.Apply(designer.View as FrameworkElement);
+            }
+            WfVisualTreeThemer.ApplyWhenLoaded(WfOutlineViewBorder?.Child as FrameworkElement);
 
             if (WfPropertyBorder?.Child is UIElement propertyInspector)
             {
-                new PropertyWindowStyleHelper().SetPropertyStyles(propertyInspector);
+                _propertyStyleHelper.SetPropertyStyles(propertyInspector);
             }
+        }
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            // Скругление главного окна (W-01): DWM на Windows 11; на Windows 10 углы режет region
+            // из WindowChrome.CornerRadius, заданного в XAML радиусом палитры.
+            WindowCorner.Enable(this);
         }
 
         private void MainView_StateChanged(object sender, EventArgs e)
@@ -567,6 +584,10 @@ namespace RPA.Views
 
         private void DockManager_LayoutChanged(object sender, EventArgs e)
         {
+            // Откреплённая панель получает собственную копию темы Metro, где вкладки объявлены
+            // светлыми — переносим на неё (и на сам DockingManager) текущую палитру.
+            Services.AppSettings.ReapplyDockManagerResources();
+
             // Reset and restart timer on each layout change (debounce pattern)
             _layoutSaveTimer.Stop();
             _layoutSaveTimer.Start();
@@ -607,7 +628,12 @@ namespace RPA.Views
         {
             WfPropertyBorder.Child = workflowDesigner?.PropertyInspectorView;
             WfOutlineViewBorder.Child = workflowDesigner?.OutlineView;
-            WfVisualTreeThemer.Apply(workflowDesigner?.OutlineView);
+            WfVisualTreeThemer.ApplyWhenLoaded(workflowDesigner?.OutlineView as FrameworkElement);
+
+            if (WfPropertyBorder.Child is UIElement propertyInspector)
+            {
+                _propertyStyleHelper.SetPropertyStyles(propertyInspector);
+            }
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)

@@ -49,7 +49,7 @@
             <Setter Property="Background"
                     Value="Transparent" />
             <Setter Property="BorderBrush"
-                    Value="#DDDDDD" />
+                    Value="{DynamicResource Studio.Separator}" />
             <Setter Property="VerticalAlignment"
                     Value="Center" />
             <Setter Property="Template">
@@ -68,12 +68,12 @@
                 <Trigger Property="IsChecked"
                          Value="True">
                     <Setter Property="Background"
-                            Value="#E0E0E0" />
+                            Value="{DynamicResource Studio.Selected}" />
                 </Trigger>
                 <Trigger Property="IsMouseOver"
                          Value="True">
                     <Setter Property="Background"
-                            Value="#F5F5F5" />
+                            Value="{DynamicResource Studio.Hover}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -112,7 +112,7 @@
             <Setter Property="Background"
                     Value="Transparent" />
             <Setter Property="BorderBrush"
-                    Value="#DDDDDD" />
+                    Value="{DynamicResource Studio.Separator}" />
             <Setter Property="VerticalAlignment"
                     Value="Center" />
             <Setter Property="Template">
@@ -131,12 +131,12 @@
                 <Trigger Property="IsMouseOver"
                          Value="True">
                     <Setter Property="Background"
-                            Value="#F5F5F5" />
+                            Value="{DynamicResource Studio.Hover}" />
                 </Trigger>
                 <Trigger Property="IsPressed"
                          Value="True">
                     <Setter Property="Background"
-                            Value="#E0E0E0" />
+                            Value="{DynamicResource Studio.Selected}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -180,20 +180,20 @@
                     <Setter Property="Background" Value="{Binding Level, Converter={StaticResource LogLevelToHoverConverter}}"/>
                 </Trigger>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#E8E8E8"/>
+                    <Setter Property="Background" Value="{DynamicResource Studio.Selected}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
         
         <!-- Стиль для заголовков GridView -->
         <Style TargetType="GridViewColumnHeader" x:Key="CustomGridViewColumnHeaderStyle">
-            <Setter Property="Background" Value="#FAFAFA"/>
+            <Setter Property="Background" Value="{DynamicResource Studio.Surface}"/>
             <Setter Property="BorderThickness" Value="0,0,1,1"/>
-            <Setter Property="BorderBrush" Value="#CCCCCC"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Studio.Separator}"/>
             <Setter Property="Padding" Value="5,3"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="FontSize" Value="11"/>
-            <Setter Property="Foreground" Value="#333333"/>
+            <Setter Property="Foreground" Value="{DynamicResource Studio.Foreground}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="GridViewColumnHeader">
@@ -209,8 +209,8 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E8E8E8"/>
-                    <Setter Property="Foreground" Value="#222222"/>
+                    <Setter Property="Background" Value="{DynamicResource Studio.Hover}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource Studio.Foreground}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -224,48 +224,48 @@
         </Grid.RowDefinitions>
         
         <!-- Объединенная панель управления -->
-        <Border Grid.Row="0" Background="#FAFAFA" BorderBrush="#CCCCCC" BorderThickness="0,0,0,1">
+        <Border Grid.Row="0" Background="{DynamicResource Studio.Surface}" BorderBrush="{DynamicResource Studio.Separator}" BorderThickness="0,0,0,1">
             <WrapPanel Orientation="Horizontal" Margin="5" VerticalAlignment="Center">
                 <!-- Первая группа: Фильтры по уровням логирования -->
                 <StackPanel Orientation="Horizontal" Margin="0,2">
                     <ToggleButton IsChecked="{Binding IsTraceVisible}"
                                  Style="{StaticResource LogLevelToggleButtonFirstStyle}"
-                                 Foreground="#808080"
+                                 Foreground="{DynamicResource Studio.Foreground}"
                                  ToolTip="Trace">
                         <materialIcons:MaterialIcon Kind="TimelineTextOutline" Width="16" Height="16"/>
                     </ToggleButton>
                     
                     <ToggleButton IsChecked="{Binding IsDebugVisible}"
                                   Style="{StaticResource LogLevelToggleButtonStyle}"
-                                 Foreground="#4169E1"
+                                 Foreground="{DynamicResource Studio.Foreground}"
                                  ToolTip="Debug">
                         <materialIcons:MaterialIcon Kind="Bug" Width="16" Height="16"/>
                     </ToggleButton>
                     
                     <ToggleButton IsChecked="{Binding IsInfoVisible}"
                                  Style="{StaticResource LogLevelToggleButtonStyle}"
-                                 Foreground="#228B22"
+                                 Foreground="{DynamicResource Studio.Foreground}"
                                  ToolTip="Info">
                         <materialIcons:MaterialIcon Kind="Information" Width="16" Height="16"/>
                     </ToggleButton>
                     
                     <ToggleButton IsChecked="{Binding IsWarningVisible}"
                                  Style="{StaticResource LogLevelToggleButtonStyle}"
-                                 Foreground="#FF8C00"
+                                 Foreground="{DynamicResource Studio.Foreground}"
                                  ToolTip="Warning">
                         <materialIcons:MaterialIcon Kind="Warning" Width="16" Height="16"/>
                     </ToggleButton>
                     
                     <ToggleButton IsChecked="{Binding IsErrorVisible}"
                                  Style="{StaticResource LogLevelToggleButtonStyle}"
-                                 Foreground="#DC143C"
+                                 Foreground="{DynamicResource Studio.Foreground}"
                                  ToolTip="Error">
                         <materialIcons:MaterialIcon Kind="Error" Width="16" Height="16"/>
                     </ToggleButton>
                     
                     <ToggleButton IsChecked="{Binding IsFatalVisible}"
                                  Style="{StaticResource LogLevelToggleButtonStyle}"
-                                 Foreground="#8B0000"
+                                 Foreground="{DynamicResource Studio.Foreground}"
                                  ToolTip="Fatal">
                         <materialIcons:MaterialIcon Kind="Skull" Width="16" Height="16"/>
                     </ToggleButton>
@@ -318,24 +318,18 @@
                            Placement="Bottom"
                            StaysOpen="False"
                            AllowsTransparency="True">
-                        <Border Background="White"
-                                BorderBrush="#CCCCCC"
+                        <Border Background="{DynamicResource Studio.Surface}"
+                                BorderBrush="{DynamicResource Studio.Separator}"
                                 BorderThickness="1"
                                 CornerRadius="3">
-                            <Border.Effect>
-                                <DropShadowEffect Color="Gray"
-                                                  Direction="270"
-                                                  ShadowDepth="2"
-                                                  BlurRadius="5"
-                                                  Opacity="0.3"/>
-                            </Border.Effect>
+
                             <StackPanel Orientation="Vertical" Margin="10">
                                 <!-- Группа основных настроек -->
-                                <TextBlock Text="Основные настройки" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <TextBlock Text="Основные настройки" Foreground="{DynamicResource Studio.Foreground}" FontWeight="Bold" Margin="0,0,0,5"/>
                                 
                                 <!-- Настройка максимального количества записей -->
                                 <StackPanel Orientation="Horizontal" Margin="0,5">
-                                    <TextBlock Text="Макс. записей:"
+                                    <TextBlock Text="Макс. записей:" Foreground="{DynamicResource Studio.Foreground}"
                                                VerticalAlignment="Center"
                                                Margin="0,0,10,0"
                                                MinWidth="80"/>
@@ -355,42 +349,42 @@
                                 <Separator Margin="0,10"/>
                                 
                                 <!-- Группа информации -->
-                                <TextBlock Text="Информация" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <TextBlock Text="Информация" Foreground="{DynamicResource Studio.Foreground}" FontWeight="Bold" Margin="0,0,0,5"/>
                                 
                                 <!-- Оптимизации -->
                                 <StackPanel Orientation="Horizontal" Margin="0,2">
-                                    <TextBlock Text="WPF виртуализация:"
+                                    <TextBlock Text="WPF виртуализация:" Foreground="{DynamicResource Studio.Foreground}"
                                                VerticalAlignment="Center"
                                                Margin="0,0,10,0"
                                                MinWidth="100"/>
                                     <TextBlock Text="Включена"
                                                VerticalAlignment="Center"
                                                FontWeight="Bold"
-                                               Foreground="Green"/>
+                                               Foreground="{DynamicResource Studio.Foreground}"/>
                                 </StackPanel>
                                 
                                 <!-- Режим переработки -->
                                 <StackPanel Orientation="Horizontal" Margin="0,2">
-                                    <TextBlock Text="Режим переработки:"
+                                    <TextBlock Text="Режим переработки:" Foreground="{DynamicResource Studio.Foreground}"
                                                VerticalAlignment="Center"
                                                Margin="0,0,10,0"
                                                MinWidth="100"/>
                                     <TextBlock Text="Активен"
                                                VerticalAlignment="Center"
                                                FontWeight="Bold"
-                                               Foreground="Green"/>
+                                               Foreground="{DynamicResource Studio.Foreground}"/>
                                 </StackPanel>
                                 
                                 <!-- Батчевые обновления -->
                                 <StackPanel Orientation="Horizontal" Margin="0,2">
-                                    <TextBlock Text="Батчевые обновления:"
+                                    <TextBlock Text="Батчевые обновления:" Foreground="{DynamicResource Studio.Foreground}"
                                                VerticalAlignment="Center"
                                                Margin="0,0,10,0"
                                                MinWidth="100"/>
                                     <TextBlock Text="100ms"
                                                VerticalAlignment="Center"
                                                FontWeight="Bold"
-                                               Foreground="Blue"/>
+                                               Foreground="{DynamicResource Studio.ForegroundMuted}"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -399,7 +393,7 @@
                     <Separator Margin="10,0"/>
                     
                     <!-- Поиск -->
-                    <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Foreground="{DynamicResource Studio.Foreground}" Background="{DynamicResource Studio.SurfaceAlt}" CaretBrush="{DynamicResource Studio.Foreground}"
                              Width="150" Height="25" VerticalAlignment="Center"
                              ToolTip="Поиск по тексту сообщений"
                              FontFamily="Consolas"/>
@@ -408,7 +402,7 @@
         </Border>
         
         <!-- Список логов с виртуализацией -->
-        <ListView Grid.Row="1"
+        <ListView Grid.Row="1" Foreground="{DynamicResource Studio.Foreground}"
                   ItemsSource="{Binding FilteredLogs}"
                   ItemContainerStyle="{StaticResource LogEntryItemStyle}"
                   VirtualizingPanel.IsVirtualizing="True"
@@ -425,7 +419,7 @@
                     <!-- Колонка времени -->
                     <GridViewColumn Width="100">
                         <GridViewColumn.Header>
-                            <TextBlock Text="Время" FontFamily="Consolas"/>
+                            <TextBlock Text="Время" Foreground="{DynamicResource Studio.Foreground}" FontFamily="Consolas"/>
                         </GridViewColumn.Header>
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
@@ -443,7 +437,7 @@
                     <!-- Колонка уровня -->
                     <GridViewColumn Width="60">
                         <GridViewColumn.Header>
-                            <TextBlock Text="Уровень"
+                            <TextBlock Text="Уровень" Foreground="{DynamicResource Studio.Foreground}"
                                        FontFamily="Consolas" />
                         </GridViewColumn.Header>
                         <GridViewColumn.CellTemplate>
@@ -463,7 +457,7 @@
                     <!-- Колонка сообщения -->
                     <GridViewColumn>
                         <GridViewColumn.Header>
-                            <TextBlock Text="Сообщение"
+                            <TextBlock Text="Сообщение" Foreground="{DynamicResource Studio.Foreground}"
                                        FontFamily="Consolas" />
                         </GridViewColumn.Header>
                         <GridViewColumn.Width>
@@ -490,7 +484,7 @@
         </ListView>
         
         <!-- Статусная строка -->
-        <Border Grid.Row="2" Background="#F0F0F0" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0">
+        <Border Grid.Row="2" Background="{DynamicResource Studio.Surface}" BorderBrush="{DynamicResource Studio.Separator}" BorderThickness="0,1,0,0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -499,13 +493,13 @@
                 </Grid.ColumnDefinitions>
                 
                 <TextBlock Grid.Column="1" 
-                           Text="{Binding FilteredLogsCount, StringFormat='Отображено: {0}'}" 
+                           Text="{Binding FilteredLogsCount, StringFormat='Отображено: {0}'}" Foreground="{DynamicResource Studio.ForegroundMuted}" 
                            Margin="5,3"
                            FontSize="11"
                            FontFamily="Consolas"/>
                 
                 <TextBlock Grid.Column="2" 
-                           Text="{Binding TotalLogsCount, StringFormat='Всего: {0}'}" 
+                           Text="{Binding TotalLogsCount, StringFormat='Всего: {0}'}" Foreground="{DynamicResource Studio.ForegroundMuted}" 
                            Margin="15,3,5,3"
                            FontSize="11"
                            FontFamily="Consolas"/>

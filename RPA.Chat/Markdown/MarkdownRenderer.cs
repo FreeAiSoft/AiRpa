@@ -48,15 +48,15 @@ namespace RPA.Chat.Markdown
         private static readonly SolidColorBrush TextBrush = Freeze("#F1F1F1");
         private static readonly SolidColorBrush MutedBrush = Freeze("#9A9A9A");
         private static readonly SolidColorBrush LinkBrush = Freeze("#569CD6");
-        private static readonly SolidColorBrush CodeBackground = Freeze("#1E1E1E");
+        private static readonly SolidColorBrush CodeBackground = Freeze("#272727");
         private static readonly SolidColorBrush CodeInlineBackground = Freeze("#333337");
         private static readonly SolidColorBrush CodeInlineForeground = Freeze("#DCDCDC");
-        private static readonly SolidColorBrush BorderBrush = Freeze("#3F3F46");
+        private static readonly SolidColorBrush BorderBrush = Freeze("#48484F");
         private static readonly SolidColorBrush QuoteBorderBrush = Freeze("#4A6B9A");
-        private static readonly SolidColorBrush QuoteBackground = Freeze("#1E2733");
-        private static readonly SolidColorBrush TableHeaderBackground = Freeze("#333337");
-        private static readonly SolidColorBrush TableEvenBackground = Freeze("#2A2A2E");
-        private static readonly SolidColorBrush TableOddBackground = Freeze("#252526");
+        private static readonly SolidColorBrush QuoteBackground = Freeze("#27303C");
+        private static readonly SolidColorBrush TableHeaderBackground = Freeze("#3C3C40");
+        private static readonly SolidColorBrush TableEvenBackground = Freeze("#333337");
+        private static readonly SolidColorBrush TableOddBackground = Freeze("#2E2E2F");
         private static readonly SolidColorBrush CheckedBrush = Freeze("#4CAF50");
 
         /// <summary>

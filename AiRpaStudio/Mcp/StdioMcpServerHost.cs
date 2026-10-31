@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -53,72 +53,70 @@ namespace RPA.Mcp
         {
             try
             {
-                using (StreamReader reader = new StreamReader(Console.OpenStandardInput(), Encoding.UTF8))
-                using (StreamWriter writer = new StreamWriter(Console.OpenStandardOutput(), Encoding.UTF8))
+                using StreamReader reader = new StreamReader(Console.OpenStandardInput(), Encoding.UTF8);
+                using StreamWriter writer = new StreamWriter(Console.OpenStandardOutput(), Encoding.UTF8);
+                writer.AutoFlush = true;
+
+                while (!cancellationToken.IsCancellationRequested)
                 {
-                    writer.AutoFlush = true;
+                    // Read JSON-RPC request from stdin
+                    string line = await reader.ReadLineAsync();
 
-                    while (!cancellationToken.IsCancellationRequested)
+                    if (string.IsNullOrEmpty(line))
                     {
-                        // Read JSON-RPC request from stdin
-                        string line = await reader.ReadLineAsync();
+                        continue;
+                    }
 
-                        if (string.IsNullOrEmpty(line))
+                    try
+                    {
+                        // Parse request
+                        McpRequest request = JsonConvert.DeserializeObject<McpRequest>(line);
+
+                        if (request == null)
                         {
                             continue;
                         }
 
-                        try
+                        // Handle request
+                        McpResponse response = await _server.HandleRequest(request);
+
+                        // Write response to stdout
+                        string responseJson = JsonConvert.SerializeObject(response);
+                        await writer.WriteLineAsync(responseJson);
+                    }
+                    catch (JsonException ex)
+                    {
+                        // Invalid JSON - send error response
+                        McpResponse errorResponse = new McpResponse
                         {
-                            // Parse request
-                            McpRequest request = JsonConvert.DeserializeObject<McpRequest>(line);
-
-                            if (request == null)
+                            Error = new McpError
                             {
-                                continue;
-                            }
+                                Code = -32700,
+                                Message = "Parse error",
+                                Data = ex.Message
+                            },
+                            Id = null
+                        };
 
-                            // Handle request
-                            McpResponse response = await _server.HandleRequest(request);
-
-                            // Write response to stdout
-                            string responseJson = JsonConvert.SerializeObject(response);
-                            await writer.WriteLineAsync(responseJson);
-                        }
-                        catch (JsonException ex)
+                        string errorJson = JsonConvert.SerializeObject(errorResponse);
+                        await writer.WriteLineAsync(errorJson);
+                    }
+                    catch (Exception ex)
+                    {
+                        // General error - send error response
+                        McpResponse errorResponse = new McpResponse
                         {
-                            // Invalid JSON - send error response
-                            McpResponse errorResponse = new McpResponse
+                            Error = new McpError
                             {
-                                Error = new McpError
-                                {
-                                    Code = -32700,
-                                    Message = "Parse error",
-                                    Data = ex.Message
-                                },
-                                Id = null
-                            };
+                                Code = -32603,
+                                Message = "Internal error",
+                                Data = ex.Message
+                            },
+                            Id = null
+                        };
 
-                            string errorJson = JsonConvert.SerializeObject(errorResponse);
-                            await writer.WriteLineAsync(errorJson);
-                        }
-                        catch (Exception ex)
-                        {
-                            // General error - send error response
-                            McpResponse errorResponse = new McpResponse
-                            {
-                                Error = new McpError
-                                {
-                                    Code = -32603,
-                                    Message = "Internal error",
-                                    Data = ex.Message
-                                },
-                                Id = null
-                            };
-
-                            string errorJson = JsonConvert.SerializeObject(errorResponse);
-                            await writer.WriteLineAsync(errorJson);
-                        }
+                        string errorJson = JsonConvert.SerializeObject(errorResponse);
+                        await writer.WriteLineAsync(errorJson);
                     }
                 }
             }

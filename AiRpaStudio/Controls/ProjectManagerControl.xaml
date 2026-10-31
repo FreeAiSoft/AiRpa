@@ -268,7 +268,7 @@
                             <materialIcons:MaterialIcon Kind="FolderOpenOutline"
                                                         Width="12"
                                                         Height="12"
-                                                        Foreground="OrangeRed"
+                                                        Foreground="{DynamicResource Studio.Semantic.FolderIcon}"
                                                         Margin="0,0,4,0"
                                                         VerticalAlignment="Center">
                                 <materialIcons:MaterialIcon.Style>
@@ -290,7 +290,7 @@
                             <materialIcons:MaterialIcon Kind="Xml"
                                                         Width="12"
                                                         Height="12"
-                                                        Foreground="#4CAF50"
+                                                        Foreground="{DynamicResource Studio.Semantic.XamlFileIcon}"
                                                         Margin="0,0,4,0"
                                                         VerticalAlignment="Center">
                                 <materialIcons:MaterialIcon.Style>
@@ -317,7 +317,7 @@
                             <materialIcons:MaterialIcon Kind="CodeJson"
                                                         Width="12"
                                                         Height="12"
-                                                        Foreground="#2196F3"
+                                                        Foreground="{DynamicResource Studio.Semantic.JsonFileIcon}"
                                                         Margin="0,0,4,0"
                                                         VerticalAlignment="Center">
                                 <materialIcons:MaterialIcon.Style>

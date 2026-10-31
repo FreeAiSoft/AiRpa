@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows.Forms;
 using FW.EasyMvvm.Core;
 using RPA.Helpers;
@@ -38,11 +38,13 @@ namespace RPA.Models
         public void OpenInVisualStudio()
         {
             if (!ValidatePath())
+            {
                 return;
+            }
 
             try
             {
-                RPA.VsProject.VsProjectOpener.OpenInVisualStudio(FilePath);
+                VsProject.VsProjectOpener.OpenInVisualStudio(FilePath);
                 IsOpenInVisualStudio = true;
             }
             catch (Exception ex)
@@ -57,7 +59,9 @@ namespace RPA.Models
         public void LoadIntoStudio()
         {
             if (!ValidatePath())
+            {
                 return;
+            }
 
             IsLoadIntoStudio = true;
             Close();

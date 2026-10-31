@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -29,28 +29,16 @@ namespace RPA.Helpers
             }
 
             string extension = Path.GetExtension(filePath);
-            if (string.Equals(extension, ".xaml", StringComparison.OrdinalIgnoreCase))
-            {
-                return XamlLanguage;
-            }
-
-            if (string.Equals(extension, ".cs", StringComparison.OrdinalIgnoreCase))
-            {
-                return "C#";
-            }
-
-            if (string.Equals(extension, ".json", StringComparison.OrdinalIgnoreCase))
-            {
-                return "Json";
-            }
-
-            if (string.Equals(extension, ".xml", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(extension, ".xshd", StringComparison.OrdinalIgnoreCase))
-            {
-                return "XML";
-            }
-
-            return null;
+            return string.Equals(extension, ".xaml", StringComparison.OrdinalIgnoreCase)
+                ? XamlLanguage
+                : string.Equals(extension, ".cs", StringComparison.OrdinalIgnoreCase)
+                ? "C#"
+                : string.Equals(extension, ".json", StringComparison.OrdinalIgnoreCase)
+                ? "Json"
+                : string.Equals(extension, ".xml", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(extension, ".xshd", StringComparison.OrdinalIgnoreCase)
+                ? "XML"
+                : null;
         }
 
         /// <summary>Returns the highlighting definition for a file path, or null.</summary>
@@ -62,17 +50,9 @@ namespace RPA.Helpers
         /// <summary>Returns the highlighting definition for a language key, or null.</summary>
         public static IHighlightingDefinition GetHighlightingDefinition(string language)
         {
-            if (language == null)
-            {
-                return null;
-            }
-
-            if (language == XamlLanguage)
-            {
-                return GetXamlDefinition();
-            }
-
-            return HighlightingManager.Instance.GetDefinition(language);
+            return language == null
+                ? null
+                : language == XamlLanguage ? GetXamlDefinition() : HighlightingManager.Instance.GetDefinition(language);
         }
 
         /// <summary>Loads and registers the custom XAML highlighting definition from the embedded resource.</summary>
@@ -86,13 +66,11 @@ namespace RPA.Helpers
                     return existing;
                 }
 
-                using (Stream stream = OpenEmbeddedResource("Xaml.xshd"))
-                using (XmlReader reader = XmlReader.Create(stream))
-                {
-                    IHighlightingDefinition definition = HighlightingLoader.Load(reader, HighlightingManager.Instance);
-                    HighlightingManager.Instance.RegisterHighlighting(XamlLanguage, new[] { ".xaml" }, definition);
-                    return definition;
-                }
+                using Stream stream = OpenEmbeddedResource("Xaml.xshd");
+                using XmlReader reader = XmlReader.Create(stream);
+                IHighlightingDefinition definition = HighlightingLoader.Load(reader, HighlightingManager.Instance);
+                HighlightingManager.Instance.RegisterHighlighting(XamlLanguage, new[] { ".xaml" }, definition);
+                return definition;
             }
         }
 
@@ -119,12 +97,9 @@ namespace RPA.Helpers
             string resourceName = assembly.GetManifestResourceNames()
                 .FirstOrDefault(name => name.EndsWith(fileName, StringComparison.OrdinalIgnoreCase));
 
-            if (resourceName == null)
-            {
-                throw new FileNotFoundException("Embedded resource not found: " + fileName);
-            }
-
-            return assembly.GetManifestResourceStream(resourceName);
+            return resourceName == null
+                ? throw new FileNotFoundException("Embedded resource not found: " + fileName)
+                : assembly.GetManifestResourceStream(resourceName);
         }
     }
 }

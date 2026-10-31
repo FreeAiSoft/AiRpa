@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using RPA.Chat.Themes;
+
 using RPA.Chat.ViewModels;
 using VibeCoder.Core.Models;
 
@@ -63,6 +65,12 @@ namespace RPA.Chat.Views
         private void ApplyTheme(bool dark)
         {
             var dictionary = new ResourceDictionary { Source = dark ? DarkThemeUri : LightThemeUri };
+
+            // Кисти палитры студии перекрывают словарь чата (F-08, этап 8): RPA.Chat — отдельная сборка и не
+            // ссылается на RPA.Helpers, поэтому ключи Studio.* читаются по строкам во время применения
+            // темы. Без ресурсов студии (автономный контрол) мост ничего не меняет.
+            ChatStudioBridge.Apply(dictionary, Application.Current?.Resources);
+
             if (Resources.MergedDictionaries.Count > 0)
                 Resources.MergedDictionaries[0] = dictionary;
             else

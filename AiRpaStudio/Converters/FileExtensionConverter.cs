@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.Windows.Data;
 
@@ -8,11 +8,7 @@ namespace RPA.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is string fileName && parameter is string extension)
-            {
-                return fileName.EndsWith(extension, StringComparison.OrdinalIgnoreCase);
-            }
-            return false;
+            return value is string fileName && parameter is string extension && fileName.EndsWith(extension, StringComparison.OrdinalIgnoreCase);
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

@@ -7,53 +7,39 @@ using LogControlLibrary.Models;
 namespace LogControlLibrary.Converters
 {
     /// <summary>
-    /// Конвертер для преобразования уровня логирования в фоновый цвет
+    /// Уровень логирования → фон строки.
+    /// <para>
+    /// Фон — всегда полупрозрачная накладка на фон панели (<c>Studio.Surface</c>), а не сплошной светлый
+    /// цвет: иначе в тёмной теме строки становятся светлыми островами
+    /// (docs\Vs2026_Theme_Plan.md, §8 п.8, F-07).
+    /// </para>
     /// </summary>
     public class LogLevelToBackgroundConverter : IValueConverter
     {
-        /// <summary>
-        /// Фоновый цвет для уровня Trace (прозрачный - без фона)
-        /// </summary>
-        public Brush TraceBrush { get; set; } = Brushes.Transparent;
+        private const byte BackgroundAlpha = 0x18;
 
-        /// <summary>
-        /// Фоновый цвет для уровня Debug (очень тусклый синий)
-        /// </summary>
-        public Brush DebugBrush { get; set; } = new SolidColorBrush(Color.FromArgb(20, 65, 105, 225));
+        /// <summary>Trace — без фона.</summary>
+        public Brush TraceBrush { get; set; } = Frozen(Colors.Transparent);
 
-        /// <summary>
-        /// Фоновый цвет для уровня Info (очень тусклый зеленый)
-        /// </summary>
-        public Brush InfoBrush { get; set; } = new SolidColorBrush(Color.FromArgb(20, 34, 139, 34));
+        /// <summary>Debug — едва заметный синий.</summary>
+        public Brush DebugBrush { get; set; } = Frozen(Overlay(0x5B, 0x9B, 0xD5));
 
-        /// <summary>
-        /// Фоновый цвет для уровня Warning (очень тусклый оранжевый)
-        /// </summary>
-        public Brush WarningBrush { get; set; } = new SolidColorBrush(Color.FromArgb(20, 255, 140, 0));
+        /// <summary>Info — едва заметный зелёный.</summary>
+        public Brush InfoBrush { get; set; } = Frozen(Overlay(0x4E, 0x9A, 0x45));
 
-        /// <summary>
-        /// Фоновый цвет для уровня Error (очень тусклый красный)
-        /// </summary>
-        public Brush ErrorBrush { get; set; } = new SolidColorBrush(Color.FromArgb(20, 220, 20, 60));
+        /// <summary>Warning — едва заметный янтарный.</summary>
+        public Brush WarningBrush { get; set; } = Frozen(Overlay(0xC0, 0x8A, 0x00));
 
-        /// <summary>
-        /// Фоновый цвет для уровня Fatal (очень тусклый темно-красный)
-        /// </summary>
-        public Brush FatalBrush { get; set; } = new SolidColorBrush(Color.FromArgb(20, 139, 0, 0));
+        /// <summary>Error — едва заметный красный.</summary>
+        public Brush ErrorBrush { get; set; } = Frozen(Overlay(0xD1, 0x4B, 0x4B));
 
-        /// <summary>
-        /// Фоновый цвет по умолчанию (прозрачный)
-        /// </summary>
-        public Brush DefaultBrush { get; set; } = Brushes.Transparent;
+        /// <summary>Fatal — едва заметный тёмно-красный.</summary>
+        public Brush FatalBrush { get; set; } = Frozen(Overlay(0xA6, 0x3A, 0x3A));
 
-        /// <summary>
-        /// Преобразование уровня логирования в фоновую кисть
-        /// </summary>
-        /// <param name="value">Значение для преобразования (LogLevel)</param>
-        /// <param name="targetType">Целевой тип</param>
-        /// <param name="parameter">Параметр преобразования</param>
-        /// <param name="culture">Культура</param>
-        /// <returns>Фоновая кисть</returns>
+        /// <summary>Значение по умолчанию — без фона.</summary>
+        public Brush DefaultBrush { get; set; } = Frozen(Colors.Transparent);
+
+        /// <summary>Преобразование уровня логирования в фоновую кисть.</summary>
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is LogLevel logLevel)
@@ -80,17 +66,22 @@ namespace LogControlLibrary.Converters
             return DefaultBrush;
         }
 
-        /// <summary>
-        /// Обратное преобразование (не поддерживается)
-        /// </summary>
-        /// <param name="value">Значение для обратного преобразования</param>
-        /// <param name="targetType">Целевой тип</param>
-        /// <param name="parameter">Параметр преобразования</param>
-        /// <param name="culture">Культура</param>
-        /// <returns>Исключение</returns>
+        /// <summary>Обратное преобразование (не поддерживается).</summary>
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotSupportedException("Обратное преобразование не поддерживается для LogLevelToBackgroundConverter");
+        }
+
+        private static Color Overlay(byte r, byte g, byte b)
+        {
+            return Color.FromArgb(BackgroundAlpha, r, g, b);
+        }
+
+        private static Brush Frozen(Color color)
+        {
+            SolidColorBrush brush = new SolidColorBrush(color);
+            brush.Freeze();
+            return brush;
         }
     }
 }

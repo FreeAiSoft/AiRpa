@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="clr-namespace:RPA.Chat.Converters"
              xmlns:materialIcons="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib"
              x:Name="Root">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
@@ -94,13 +95,13 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Thumb">
-                        <Border x:Name="ThumbBorder" Background="#666666" CornerRadius="2.5" />
+                        <Border x:Name="ThumbBorder" Background="{DynamicResource Chat.ScrollThumb}" CornerRadius="5" />
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ThumbBorder" Property="Background" Value="#999999" />
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="{DynamicResource Chat.ScrollThumbHover}" />
                             </Trigger>
                             <Trigger Property="IsDragging" Value="True">
-                                <Setter TargetName="ThumbBorder" Property="Background" Value="#BBBBBB" />
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="{DynamicResource Chat.ScrollThumbDragging}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -109,8 +110,9 @@
         </Style>
 
         <Style TargetType="ScrollBar">
-            <Setter Property="Width" Value="5" />
-            <Setter Property="MinWidth" Value="5" />
+            <Setter Property="Width" Value="10" />
+            <Setter Property="MinWidth" Value="10" />
+            <Setter Property="MaxWidth" Value="10" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -132,8 +134,10 @@
                             <Trigger Property="Orientation" Value="Horizontal">
                                 <Setter Property="Width" Value="Auto" />
                                 <Setter Property="MinWidth" Value="0" />
-                                <Setter Property="Height" Value="5" />
-                                <Setter Property="MinHeight" Value="5" />
+                                <Setter Property="Height" Value="10" />
+                                <Setter Property="MinHeight" Value="10" />
+                                <Setter Property="MaxWidth" Value="{x:Static sys:Double.PositiveInfinity}" />
+
                                 <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False" />
                             </Trigger>
                         </ControlTemplate.Triggers>

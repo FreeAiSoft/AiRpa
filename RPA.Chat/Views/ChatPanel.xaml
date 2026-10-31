@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:RPA.Chat.Controls"
              xmlns:conv="clr-namespace:RPA.Chat.Converters"
-             xmlns:materialIcons="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF">
+             xmlns:materialIcons="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib">
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -78,7 +79,7 @@
             <!-- Filled accent button -->
             <Style x:Key="PrimaryButtonStyle" TargetType="Button">
                 <Setter Property="Background" Value="{DynamicResource Dark.Accent}" />
-                <Setter Property="Foreground" Value="White" />
+                <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="Padding" Value="10,4" />
                 <Setter Property="Cursor" Value="Hand" />
@@ -107,22 +108,39 @@
 
             <!-- Material-style switch -->
             <Style x:Key="SwitchToggleButtonStyle" TargetType="ToggleButton">
-                <Setter Property="Width" Value="27" />
-                <Setter Property="Height" Value="13" />
+                <Setter Property="Width" Value="28" />
+                <Setter Property="Height" Value="14" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ToggleButton">
                             <Grid>
-                                <Border x:Name="Track" Background="{DynamicResource Dark.ControlHover}" CornerRadius="6.5" />
-                                <Ellipse x:Name="Thumb" Width="11" Height="11" Fill="White" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="1,0,0,0" />
+                                <Border x:Name="Track"
+                                        Background="{DynamicResource Dark.ControlHover}"
+                                        BorderBrush="{DynamicResource Dark.Border}"
+                                        BorderThickness="1"
+                                        CornerRadius="7" />
+                                <Ellipse x:Name="Thumb" Width="10" Height="10"
+                                         Fill="{DynamicResource Dark.MutedText}"
+                                         HorizontalAlignment="Left" VerticalAlignment="Center" Margin="2,0,0,0" />
                             </Grid>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsChecked" Value="True">
-                                    <Setter TargetName="Track" Property="Background" Value="{DynamicResource Dark.Primary}" />
+                                    <Setter TargetName="Track" Property="Background" Value="{DynamicResource Dark.ControlPressed}" />
+                                    <Setter TargetName="Thumb" Property="Fill" Value="{DynamicResource Dark.Text}" />
                                     <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right" />
-                                    <Setter TargetName="Thumb" Property="Margin" Value="0,0,1,0" />
+                                    <Setter TargetName="Thumb" Property="Margin" Value="0,0,2,0" />
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Dark.MutedText}" />
+                                </Trigger>
+                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                    <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Dark.MutedText}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Track" Property="Opacity" Value="0.5" />
+                                    <Setter TargetName="Thumb" Property="Opacity" Value="0.5" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -213,6 +231,51 @@
                     </Setter.Value>
                 </Setter>
             </Style>
+            <!--
+                Явный стиль внутреннего ToggleButton «коробки» списка (рамка + стрелка).
+                Без собственного Style на ToggleButton ложится неявный стиль MaterialDesign — это
+                переключатель 34x18, из-за него рамка ComboBox сжималась по горизонтали, хотя сам
+                ComboBox растянут по столбцу (окно настроек агента, вкладки API/General/Sound).
+            -->
+            <Style x:Key="ComboBoxToggleButtonStyle" TargetType="ToggleButton">
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+                <Setter Property="Width" Value="Auto" />
+                <!-- MinWidth="Auto" недопустим: LengthConverter возвращает double.NaN, а MinWidth не принимает NaN (падает Style.Seal). -->
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="ClickMode" Value="Press" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="2">
+                                <Path x:Name="Arrow" Data="M 0 0 L 3 3 L 6 0"
+                                      Stroke="{DynamicResource Dark.Text}"
+                                      StrokeThickness="1.5"
+                                      Fill="Transparent"
+                                      Width="8" Height="5"
+                                      HorizontalAlignment="Right"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,8,0" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Dark.ControlHover}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.4" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <Style x:Key="OutlinedComboBoxStyle" TargetType="ComboBox">
                 <Setter Property="Background" Value="{DynamicResource Dark.Control}" />
                 <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
@@ -226,38 +289,13 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="ComboBox">
                             <Grid SnapsToDevicePixels="True">
-                                <ToggleButton x:Name="ToggleButton"
+                                <ToggleButton x:Name="ToggleButton" Style="{StaticResource ComboBoxToggleButtonStyle}"
                                               Background="{TemplateBinding Background}"
                                               BorderBrush="{TemplateBinding BorderBrush}"
                                               BorderThickness="{TemplateBinding BorderThickness}"
                                               Focusable="False"
                                               ClickMode="Press"
                                               IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
-                                    <ToggleButton.Template>
-                                        <ControlTemplate TargetType="ToggleButton">
-                                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                                    CornerRadius="2">
-                                                <Path x:Name="Arrow" Data="M 0 0 L 3 3 L 6 0"
-                                                      Stroke="{DynamicResource Dark.Text}"
-                                                      StrokeThickness="1.5"
-                                                      Fill="Transparent"
-                                                      Width="8" Height="5"
-                                                      HorizontalAlignment="Right"
-                                                      VerticalAlignment="Center"
-                                                      Margin="0,0,8,0" />
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Dark.ControlHover}" />
-                                                </Trigger>
-                                                <Trigger Property="IsEnabled" Value="False">
-                                                    <Setter TargetName="Bd" Property="Opacity" Value="0.4" />
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </ToggleButton.Template>
                                 </ToggleButton>
                                 <ContentPresenter x:Name="ContentSite"
                                                   IsHitTestVisible="False"
@@ -357,17 +395,17 @@
                 </Setter>
             </Style>
 
-            <!-- Thin (5px) dark scrollbar -->
+            <!-- Плоский скролл 10px: та же ширина, что у глобального стиля студии (Themes\StudioScrollBar.xaml). -->
             <Style x:Key="ThinScrollBarStyle" TargetType="ScrollBar">
-                <Setter Property="Width" Value="5" />
-                <Setter Property="MinWidth" Value="5" />
-                <Setter Property="MaxWidth" Value="5" />
+                <Setter Property="Width" Value="10" />
+                <Setter Property="MinWidth" Value="10" />
+                <Setter Property="MaxWidth" Value="10" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ScrollBar">
                             <Grid Background="{TemplateBinding Background}">
-                                <Track x:Name="PART_Track" Orientation="Vertical" IsDirectionReversed="True" Focusable="False">
+                                <Track x:Name="PART_Track" Orientation="{TemplateBinding Orientation}" IsDirectionReversed="True" Focusable="False">
                                     <Track.DecreaseRepeatButton>
                                         <RepeatButton Command="ScrollBar.PageUpCommand" Focusable="False">
                                             <RepeatButton.Template>
@@ -390,13 +428,13 @@
                                         <Thumb Focusable="False">
                                             <Thumb.Template>
                                                 <ControlTemplate TargetType="Thumb">
-                                                    <Border x:Name="Bd" Background="{DynamicResource Dark.Border}" CornerRadius="2.5" />
+                                                    <Border x:Name="Bd" Background="{DynamicResource Dark.Border}" CornerRadius="5" />
                                                     <ControlTemplate.Triggers>
                                                         <Trigger Property="IsMouseOver" Value="True">
-                                                            <Setter TargetName="Bd" Property="Background" Value="#55555C" />
+                                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Chat.ScrollThumbHover}" />
                                                         </Trigger>
                                                         <Trigger Property="IsDragging" Value="True">
-                                                            <Setter TargetName="Bd" Property="Background" Value="#6A6A71" />
+                                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Chat.ScrollThumbDragging}" />
                                                         </Trigger>
                                                     </ControlTemplate.Triggers>
                                                 </ControlTemplate>
@@ -405,6 +443,17 @@
                                     </Track.Thumb>
                                 </Track>
                             </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="Orientation" Value="Horizontal">
+                                    <Setter Property="Width" Value="Auto" />
+                                    <Setter Property="MinWidth" Value="0" />
+                                    <Setter Property="MaxWidth" Value="{x:Static sys:Double.PositiveInfinity}" />
+                                    <Setter Property="Height" Value="10" />
+                                    <Setter Property="MinHeight" Value="10" />
+                                    <Setter Property="MaxHeight" Value="10" />
+                                    <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>

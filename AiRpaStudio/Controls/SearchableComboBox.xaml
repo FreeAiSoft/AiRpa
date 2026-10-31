@@ -30,7 +30,7 @@
                                 <Setter Property="Background" Value="{DynamicResource Studio.ToolbarHoverBackground}"/>
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.ListBoxItem.Selected}"/>
+                                <Setter Property="Background" Value="{DynamicResource Studio.Selected}"/>
                                 <Setter Property="FontWeight" Value="SemiBold"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -39,18 +39,12 @@
             </Setter>
         </Style>
         
-        <!-- DropShadow эффект для Popup -->
-        <DropShadowEffect x:Key="DropShadowEffect" 
-                         BlurRadius="10" 
-                         ShadowDepth="2" 
-                         Opacity="0.3" 
-                         Color="Black"/>
     </UserControl.Resources>
     
     <Grid>
         <!-- Кнопка выбора с выбранным значением -->
         <Border x:Name="SelectionButton"
-                Background="{DynamicResource MaterialDesign.Brush.Background}"
+                Background="{DynamicResource Studio.Surface}"
                 BorderBrush="{DynamicResource Studio.ToolbarBorder}"
                 BorderThickness="1"
                 Cursor="Hand"
@@ -74,11 +68,11 @@
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding SelectedItem, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="{x:Null}">
                                     <Setter Property="Text" Value="{Binding Placeholder, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-                                    <Setter Property="Foreground" Value="#999999"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource Studio.ForegroundMuted}"/>
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding SelectedItem, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="">
                                     <Setter Property="Text" Value="{Binding Placeholder, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-                                    <Setter Property="Foreground" Value="#999999"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource Studio.ForegroundMuted}"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -106,11 +100,10 @@
                StaysOpen="True"
                Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=UserControl}}"
                MaxHeight="350">
-            <Border Background="{DynamicResource MaterialDesign.Brush.Background}"
+            <Border Background="{DynamicResource Studio.Surface}"
                     BorderBrush="{DynamicResource Studio.ToolbarBorder}"
                     BorderThickness="1"
-                    CornerRadius="4"
-                    Effect="{StaticResource DropShadowEffect}">
+                    CornerRadius="6">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -154,7 +147,7 @@
                                                     <ScrollViewer x:Name="PART_ContentHost"
                                                                  VerticalAlignment="Center"/>
                                                     <TextBlock Text="{Binding Placeholder, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                              Foreground="#999999"
+                                                              Foreground="{DynamicResource Studio.ForegroundMuted}"
                                                               Padding="4,8,8,8"
                                                               FontSize="13"
                                                               VerticalAlignment="Center"
@@ -210,7 +203,7 @@
                         <!-- Сообщение "Ничего не найдено" -->
                         <TextBlock Text="Ничего не найдено"
                                   FontSize="13"
-                                  Foreground="#999999"
+                                  Foreground="{DynamicResource Studio.ForegroundMuted}"
                                   Padding="12"
                                   HorizontalAlignment="Center"
                                   VerticalAlignment="Center">

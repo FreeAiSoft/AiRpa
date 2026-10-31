@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -19,56 +19,49 @@ namespace RPA.VsTemplate
         public string Resolve(string parameterName)
         {
             if (string.IsNullOrEmpty(parameterName))
+            {
                 return string.Empty;
+            }
 
             string name = parameterName.Trim();
 
-            if (name.StartsWith("guid", StringComparison.OrdinalIgnoreCase))
-                return ResolveGuid(name);
-
-            switch (name.ToLowerInvariant())
-            {
-                case "safeprojectname":
-                    return _request.SafeProjectName ?? string.Empty;
-                case "projectname":
-                    return _request.ProjectName ?? string.Empty;
-                case "rootnamespace":
-                    return string.IsNullOrWhiteSpace(_request.RootNamespace)
-                        ? _request.SafeProjectName ?? string.Empty
-                        : _request.RootNamespace;
-                case "targetframeworkversion":
-                    return _request.TargetFrameworkVersion ?? string.Empty;
-                case "registeredorganization":
-                    return _request.RegisteredOrganization ?? string.Empty;
-                case "username":
-                    return _request.UserName ?? string.Empty;
-                case "machinename":
-                    return _request.MachineName ?? string.Empty;
-                case "year":
-                    return string.IsNullOrWhiteSpace(_request.Year) ? DateTime.Now.Year.ToString() : _request.Year;
-                case "time":
-                    return string.IsNullOrWhiteSpace(_request.Time) ? DateTime.Now.ToString("HH:mm:ss") : _request.Time;
-                case "safeitemname":
-                    return _request.SafeItemName ?? string.Empty;
-                case "fileinputname":
-                    return _request.FileInputName ?? string.Empty;
-                default:
-                    return "$" + parameterName + "$";
-            }
+            return name.StartsWith("guid", StringComparison.OrdinalIgnoreCase)
+                ? ResolveGuid(name)
+                : name.ToLowerInvariant() switch
+                {
+                    "safeprojectname" => _request.SafeProjectName ?? string.Empty,
+                    "projectname" => _request.ProjectName ?? string.Empty,
+                    "rootnamespace" => string.IsNullOrWhiteSpace(_request.RootNamespace)
+                                            ? _request.SafeProjectName ?? string.Empty
+                                            : _request.RootNamespace,
+                    "targetframeworkversion" => _request.TargetFrameworkVersion ?? string.Empty,
+                    "registeredorganization" => _request.RegisteredOrganization ?? string.Empty,
+                    "username" => _request.UserName ?? string.Empty,
+                    "machinename" => _request.MachineName ?? string.Empty,
+                    "year" => string.IsNullOrWhiteSpace(_request.Year) ? DateTime.Now.Year.ToString() : _request.Year,
+                    "time" => string.IsNullOrWhiteSpace(_request.Time) ? DateTime.Now.ToString("HH:mm:ss") : _request.Time,
+                    "safeitemname" => _request.SafeItemName ?? string.Empty,
+                    "fileinputname" => _request.FileInputName ?? string.Empty,
+                    _ => "$" + parameterName + "$",
+                };
         }
 
         /// <summary>Produces a safe project name by removing characters invalid in file names.</summary>
         public static string MakeSafeProjectName(string projectName)
         {
             if (string.IsNullOrWhiteSpace(projectName))
+            {
                 return "Project";
+            }
 
-            var invalid = new HashSet<char>(Path.GetInvalidFileNameChars());
-            var builder = new StringBuilder();
+            HashSet<char> invalid = new HashSet<char>(Path.GetInvalidFileNameChars());
+            StringBuilder builder = new StringBuilder();
             foreach (char character in projectName.Trim())
             {
                 if (!invalid.Contains(character))
-                    builder.Append(character);
+                {
+                    _ = builder.Append(character);
+                }
             }
 
             string result = builder.ToString().Trim().TrimEnd('.', ' ');
