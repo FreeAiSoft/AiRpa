@@ -107,7 +107,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                OnSendMessage(ex.Message);
+                OnSendMessage(ErrorText.Of(ex));
             }
         }
 

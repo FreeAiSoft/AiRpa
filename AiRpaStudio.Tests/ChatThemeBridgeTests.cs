@@ -2,7 +2,9 @@ using System.IO;
 using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Media;
+using RPA.Chat.Services;
 using RPA.Chat.Themes;
+using RPA.Chat.ViewModels;
 using RPA.Helpers;
 
 namespace AiRpaStudio.Tests;
@@ -122,6 +124,60 @@ public class ChatThemeBridgeTests
         Brush brush = ChatStudioBridge.Resolve(studio, StudioBrushes.SelectedKey, Brushes.Gray);
 
         Assert.That(ColorOf(brush), Is.EqualTo(StudioPalette.Dark.Selected));
+    }
+
+    [Test]
+    public void ThemeApplying_RunsBeforeThemeChanged_SoThePaletteIsFresh()
+    {
+        // Изоляция JSON-настроек чата от реального профиля (как в ChatViewModelTests).
+        string temp = Path.Combine(Path.GetTempPath(), "AiRpaStudio.Tests." + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(temp);
+        ChatPaths.OverrideDataDirectory(temp);
+
+        try
+        {
+            ChatViewModel viewModel = new();
+            var order = new List<string>();
+
+            // Хост делает то же, что MainView: пересобирает палитру Studio.* из новой темы.
+            ResourceDictionary studio = StudioResources(dark: true);
+            Color seenByChat = default;
+            viewModel.ThemeApplying = dark =>
+            {
+                StudioBrushes.ApplyPalette(studio, StudioPalette.For(dark));
+                order.Add("applying:" + dark);
+            };
+            viewModel.ThemeChanged += () =>
+            {
+                // ChatStudioBridge.Apply читает ресурсы студии именно в этот момент.
+                seenByChat = ColorOf(studio[StudioBrushes.SurfaceKey]);
+                order.Add("changed");
+            };
+
+            bool target = !viewModel.IsDarkTheme;
+            viewModel.IsDarkTheme = target;
+
+            Assert.That(order, Is.EqualTo(new[] { "applying:" + target, "changed" }),
+                "палитра Studio.* должна пересобираться до свапа словаря чата: иначе ChatStudioBridge " +
+                "скопирует кисти предыдущей темы и чат отстанет на один переключатель");
+
+            Assert.That(seenByChat, Is.EqualTo(StudioPalette.For(target).Surface),
+                "в момент перекрытия словаря чат должен читать палитру новой темы, а не предыдущей");
+        }
+        finally
+        {
+            ChatPaths.OverrideDataDirectory(null);
+            try
+            {
+                Directory.Delete(temp, true);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
     }
 
     private static ResourceDictionary StudioResources(bool dark)

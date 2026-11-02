@@ -9,10 +9,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using ICSharpCode.AvalonEdit.Highlighting;
 using Microsoft.CodeAnalysis;
 using RoslynPad.Editor;
 using RoslynPad.Roslyn;
+using RPA.Helpers;
 
 namespace RPA.CSharpExpressionEditor
 {
@@ -59,8 +59,8 @@ namespace RPA.CSharpExpressionEditor
 
         private void SetSettings()
         {
-            SyntaxHighlighting = HighlightingManager.Instance.GetDefinition("C#");
-            FontFamily = new FontFamily("Consolas");
+            SyntaxHighlighting = StudioEditorTheme.GetDefinition("C#");
+            FontFamily = StudioFonts.CodeFont;
             FontSize = 12;
 
             _roslynHost = new RoslynHost(additionalAssemblies: new[]

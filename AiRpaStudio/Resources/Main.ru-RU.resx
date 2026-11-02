@@ -249,4 +249,19 @@
   <data name="lang_msg_xaml_load_failed" xml:space="preserve">
     <value>Не удалось загрузить в дизайнер: {0}</value>
   </data>
+  <data name="lang_error_title" xml:space="preserve">
+    <value>Ошибка</value>
+  </data>
+  <data name="lang_error_crash_title" xml:space="preserve">
+    <value>Критическая ошибка</value>
+  </data>
+  <data name="lang_error_hint" xml:space="preserve">
+    <value>Текст ниже можно выделить и скопировать (Ctrl+C) или нажать «Копировать».</value>
+  </data>
+  <data name="lang_error_copy" xml:space="preserve">
+    <value>Копировать</value>
+  </data>
+  <data name="lang_error_copied" xml:space="preserve">
+    <value>Скопировано в буфер обмена</value>
+  </data>
 </root>

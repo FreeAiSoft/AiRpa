@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.Windows;
-using RPA.Helpers;
 using FW.EasyMvvm.Core;
+using RPA.Helpers;
 
 namespace RPA.Views
 {
@@ -20,12 +20,12 @@ namespace RPA.Views
             base.OnSourceInitialized(e);
             // Скругление окна (W-04): DWM на Windows 11. На Windows 10 диалог с системным заголовком
             // остаётся прямоугольным — WindowChrome такому окну навязывать нельзя (слетит caption).
-            WindowCorner.Enable(this);
+            _ = WindowCorner.Enable(this);
         }
 
         void IView.OnSendMessage(string message)
         {
-            _ = MessageBox.Show(message);
+            ErrorDialog.Show(message, this);
         }
     }
 }

@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using RPA.Helpers;
 
 namespace RPA.Mcp
 {
@@ -86,7 +87,7 @@ namespace RPA.Mcp
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"MCP HTTP Server error: {ex.Message}");
+                Console.Error.WriteLine($"MCP HTTP Server error: {ex}");
             }
         }
 
@@ -153,11 +154,11 @@ namespace RPA.Mcp
             }
             catch (JsonException ex)
             {
-                SendErrorResponse(context.Response, -32700, "Parse error", ex.Message);
+                SendErrorResponse(context.Response, -32700, "Parse error", ErrorText.Of(ex));
             }
             catch (Exception ex)
             {
-                SendErrorResponse(context.Response, -32603, "Internal error", ex.Message);
+                SendErrorResponse(context.Response, -32603, "Internal error", ErrorText.Of(ex));
             }
         }
 

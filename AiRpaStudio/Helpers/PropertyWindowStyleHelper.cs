@@ -8,6 +8,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using Material.Icons;
 
 namespace RPA.Helpers
@@ -72,6 +73,15 @@ namespace RPA.Helpers
 
             Palette = palette;
 
+            if (propertyInspector is FrameworkElement inspectorElement)
+            {
+                // Ключи палитры кладутся в ресурсы самого инспектора: его шаблоны читают собственные
+                // TextBrushKey/BackgroundBrushKey/FontFamilyKey и перекрывают словарь приложения,
+                // поэтому без этого шага окно «Свойства» оставалось частично светлым.
+                WfDesignerTheme.ApplyToApplication(inspectorElement.Resources, palette);
+                Attach(inspectorElement);
+            }
+
             if (propertyInspector == null)
             {
                 return;
@@ -83,6 +93,7 @@ namespace RPA.Helpers
             ApplyIconButton(propertyInspector, AlphaViewButtonName, MaterialIconKind.OrderAlphabeticalAscending, ToolButtonSize);
             ApplyIconButton(propertyInspector, SearchClearButtonName, MaterialIconKind.Close, ClearButtonSize);
             ApplySearchTextBox(propertyInspector);
+            ApplyValueEditors(propertyInspector);
             ApplySeparators(propertyInspector);
             ApplyFont(propertyInspector);
         }
@@ -323,7 +334,7 @@ namespace RPA.Helpers
 
             if (!WfThemeStyles.IsThemed(current))
             {
-                OriginalTextBoxStyles.Remove(textBox);
+                _ = OriginalTextBoxStyles.Remove(textBox);
                 OriginalTextBoxStyles.Add(textBox, current);
                 return current;
             }
@@ -355,14 +366,9 @@ namespace RPA.Helpers
 
         private static bool IsSeparator(string name, double width)
         {
-            if (width > 0 && width <= 2)
-            {
-                return true;
-            }
-
-            return name != null
+            return (width > 0 && width <= 2) || (name != null
                 && (name.IndexOf("Separator", StringComparison.OrdinalIgnoreCase) >= 0
-                    || name.IndexOf("Divider", StringComparison.OrdinalIgnoreCase) >= 0);
+                    || name.IndexOf("Divider", StringComparison.OrdinalIgnoreCase) >= 0));
         }
 
         private void ApplyFont(DependencyObject propertyInspector)
@@ -377,6 +383,194 @@ namespace RPA.Helpers
                 textBlock.FontFamily = WfThemeStyles.Font;
             }
         }
+
+        // --- Повторное применение после пересоздания содержимого (этап 12). ---
+
+        /// <summary>
+        /// Подписка на пересоздание содержимого инспектора. WF строит строки свойств заново при выборе
+        /// активности, развороте категории и скролле (виртуализация), и новые строки приходят без кистей —
+        /// поэтому на каждом <see cref="FrameworkElement.LayoutUpdated"/> сверяется дешёвый отпечаток дерева,
+        /// и при изменении тема применяется повторно. Подписка ставится один раз на элемент.
+        /// </summary>
+        public void Attach(FrameworkElement propertyInspector)
+        {
+            if (propertyInspector == null)
+            {
+                return;
+            }
+
+            if (Attachments.TryGetValue(propertyInspector, out Attachment attachment))
+            {
+                // Тот же инспектор темизирует другой помощник (MainView / DocGroupHelper) — берём его палитру.
+                attachment.Owner = this;
+                return;
+            }
+
+            Attachments.Add(propertyInspector, new Attachment
+            {
+                Owner = this,
+                Signature = ComputeSignature(propertyInspector)
+            });
+
+            propertyInspector.LayoutUpdated += OnInspectorLayoutUpdated;
+            propertyInspector.Unloaded += OnInspectorUnloaded;
+        }
+
+        /// <summary>Сколько инспекторов сейчас под наблюдением (для тестов идемпотентности).</summary>
+        public static bool IsAttached(FrameworkElement propertyInspector)
+        {
+            return propertyInspector != null && Attachments.TryGetValue(propertyInspector, out _);
+        }
+
+        private static void OnInspectorLayoutUpdated(object sender, EventArgs e)
+        {
+            if (!(sender is FrameworkElement inspector)
+                || !Attachments.TryGetValue(inspector, out Attachment attachment))
+            {
+                return;
+            }
+
+            PropertyWindowStyleHelper owner = attachment.Owner;
+            if (owner == null || attachment.Pending)
+            {
+                return;
+            }
+
+            if (ComputeSignature(inspector) == attachment.Signature)
+            {
+                return;
+            }
+
+            attachment.Pending = true;
+            Dispatcher dispatcher = inspector.Dispatcher;
+            _ = dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                attachment.Pending = false;
+                if (!Attachments.TryGetValue(inspector, out Attachment current))
+                {
+                    return;
+                }
+
+                // Отпечаток снимается до применения: применение само меняет свойства и не должно
+                // запускать бесконечную цепочку LayoutUpdated → повторная темизация.
+                current.Signature = ComputeSignature(inspector);
+                current.Owner?.SetPropertyStyles(inspector, current.Owner.Palette);
+            }));
+        }
+
+        private static void OnInspectorUnloaded(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is FrameworkElement inspector))
+            {
+                return;
+            }
+
+            inspector.LayoutUpdated -= OnInspectorLayoutUpdated;
+            inspector.Unloaded -= OnInspectorUnloaded;
+            _ = Attachments.Remove(inspector);
+        }
+
+        /// <summary>
+        /// Дешёвый отпечаток дерева инспектора: количество контейнеров и текстовых узлов.
+        /// Меняется, когда WF пересоздаёт строку свойств или подменяет редактор значения.
+        /// </summary>
+        internal static int ComputeSignature(DependencyObject propertyInspector)
+        {
+            if (propertyInspector == null)
+            {
+                return 0;
+            }
+
+            int controls = 0;
+            foreach (Control control in FindVisualChildren<Control>(propertyInspector))
+            {
+                controls++;
+            }
+
+            int textBlocks = 0;
+            foreach (TextBlock textBlock in FindVisualChildren<TextBlock>(propertyInspector))
+            {
+                textBlocks++;
+            }
+
+            return (controls * 397) ^ textBlocks;
+        }
+
+        // --- Редакторы значений строк свойств. ---
+
+        /// <summary>
+        /// Поля и списки строк «Свойства»: WF рисует редакторы значения своим шаблоном, поэтому цвета
+        /// приходят из системных кистей (светлый фон/тёмный текст). Красим их палитрой студии.
+        /// </summary>
+        private void ApplyValueEditors(DependencyObject propertyInspector)
+        {
+            SolidColorBrush surface = WfThemeStyles.Brush(Palette.Surface);
+            SolidColorBrush foreground = WfThemeStyles.Brush(Palette.Foreground);
+            SolidColorBrush separator = WfThemeStyles.Brush(Palette.Separator);
+
+            foreach (TextBox textBox in FindVisualChildren<TextBox>(propertyInspector))
+            {
+                textBox.Background = surface;
+                textBox.Foreground = foreground;
+                textBox.BorderBrush = separator;
+                textBox.CaretBrush = foreground;
+                textBox.FontFamily = WfThemeStyles.Font;
+            }
+
+            foreach (ComboBox comboBox in FindVisualChildren<ComboBox>(propertyInspector))
+            {
+                comboBox.Background = surface;
+                comboBox.Foreground = foreground;
+                comboBox.BorderBrush = separator;
+                comboBox.FontFamily = WfThemeStyles.Font;
+            }
+
+            foreach (ComboBoxItem item in FindVisualChildren<ComboBoxItem>(propertyInspector))
+            {
+                item.Background = surface;
+                item.Foreground = foreground;
+                item.FontFamily = WfThemeStyles.Font;
+            }
+
+            foreach (ListBox listBox in FindVisualChildren<ListBox>(propertyInspector))
+            {
+                listBox.Background = surface;
+                listBox.Foreground = foreground;
+            }
+
+            foreach (ListBoxItem item in FindVisualChildren<ListBoxItem>(propertyInspector))
+            {
+                item.Foreground = foreground;
+                item.FontFamily = WfThemeStyles.Font;
+            }
+
+            foreach (CheckBox checkBox in FindVisualChildren<CheckBox>(propertyInspector))
+            {
+                checkBox.Foreground = foreground;
+                checkBox.Background = Brushes.Transparent;
+                checkBox.FontFamily = WfThemeStyles.Font;
+            }
+
+            foreach (Expander expander in FindVisualChildren<Expander>(propertyInspector))
+            {
+                expander.Foreground = foreground;
+                expander.Background = surface;
+                expander.FontFamily = WfThemeStyles.Font;
+            }
+        }
+
+        /// <summary>Состояние наблюдения за одним инспектором (палитра-владелец и отпечаток дерева).</summary>
+        private sealed class Attachment
+        {
+            public PropertyWindowStyleHelper Owner { get; set; }
+
+            public int Signature { get; set; }
+
+            public bool Pending { get; set; }
+        }
+
+        private static readonly ConditionalWeakTable<FrameworkElement, Attachment> Attachments =
+            new ConditionalWeakTable<FrameworkElement, Attachment>();
 
         private static void SetBackground(DependencyObject element, Brush brush)
         {
@@ -432,25 +626,9 @@ namespace RPA.Helpers
 
         private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
         {
-            if (parent == null)
-            {
-                yield break;
-            }
-
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
-            {
-                DependencyObject child = VisualTreeHelper.GetChild(parent, i);
-
-                if (child is T typedChild)
-                {
-                    yield return typedChild;
-                }
-
-                foreach (T descendant in FindVisualChildren<T>(child))
-                {
-                    yield return descendant;
-                }
-            }
+            // Обход через XamlHelper: он пропускает не-визуальные узлы (RowDefinition/ColumnDefinition,
+            // которые LogicalTreeHelper отдаёт как детей Grid) вместо ArgumentException.
+            return XamlHelper.FindVisualChildren<T>(parent);
         }
     }
 }

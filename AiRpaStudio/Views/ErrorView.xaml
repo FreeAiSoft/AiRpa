@@ -1,0 +1,130 @@
+<Window x:Class="RPA.Views.ErrorView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:materialIcons="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
+        xmlns:controls="clr-namespace:RPA.Controls"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        mc:Ignorable="d"
+        Height="412"
+        Width="660"
+        MinHeight="292"
+        MinWidth="460"
+        FontFamily="{DynamicResource Studio.FontFamily}"
+        Title="{DynamicResource lang_error_title}"
+        WindowStartupLocation="CenterOwner"
+        WindowState="Normal"
+        ResizeMode="CanResize"
+        ShowInTaskbar="False"
+        Background="{DynamicResource Studio.Surface}"
+        Foreground="{DynamicResource Studio.Foreground}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            ResizeBorderThickness="6"
+                            GlassFrameThickness="0"
+                            CornerRadius="8"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+    <!--
+        Единственное окно студии для ошибок (замена MessageBox.Show). Требования:
+        текст ошибки — в readonly TextBox (выделяется и копируется штатно, Ctrl+C),
+        цвета только из палитры (Studio.*), красный — только семантика ошибки.
+
+        Заголовок окна рисует студия (Controls\StudioTitleBar.xaml), как у главного окна: системный
+        caption белый в любой теме. Кнопка «свернуть» скрыта — окно не в панели задач
+        (ShowInTaskbar=False), свернутое окно было бы недоступно. Изменение размера — за кромку окна
+        (WindowChrome.ResizeBorderThickness): системный grip исчез вместе с caption.
+    -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <controls:StudioTitleBar Grid.Row="0"
+                                 ShowMinimize="False" />
+
+        <Grid Grid.Row="1"
+              Margin="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0"
+                        Orientation="Horizontal"
+                        Margin="0,0,0,8">
+                <materialIcons:MaterialIcon Kind="AlertCircleOutline"
+                                            Width="20"
+                                            Height="20"
+                                            VerticalAlignment="Center"
+                                            Foreground="{DynamicResource Studio.Semantic.Stop}" />
+                <TextBlock x:Name="HeaderLabel"
+                           Margin="8,0,0,0"
+                           FontSize="15"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           Text="{DynamicResource lang_error_title}" />
+            </StackPanel>
+
+            <TextBlock Grid.Row="1"
+                       Text="{DynamicResource lang_error_hint}"
+                       Foreground="{DynamicResource Studio.ForegroundMuted}"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,8" />
+
+            <TextBox x:Name="MessageTextBox"
+                     Grid.Row="2"
+                     IsReadOnly="True"
+                     IsReadOnlyCaretVisible="True"
+                     IsUndoEnabled="False"
+                     TextWrapping="Wrap"
+                     AcceptsReturn="True"
+                     VerticalContentAlignment="Top"
+                     HorizontalScrollBarVisibility="Disabled"
+                     VerticalScrollBarVisibility="Auto"
+                     Padding="8"
+                     Background="{DynamicResource Studio.SurfaceAlt}"
+                     Foreground="{DynamicResource Studio.Foreground}"
+                     BorderBrush="{DynamicResource Studio.SeparatorStrong}" />
+
+            <Grid Grid.Row="3"
+                  Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock x:Name="CopiedLabel"
+                           Grid.Column="0"
+                           Text="{DynamicResource lang_error_copied}"
+                           Foreground="{DynamicResource Studio.ForegroundMuted}"
+                           VerticalAlignment="Center"
+                           Visibility="Collapsed" />
+
+                <Button x:Name="CopyButton"
+                        Grid.Column="1"
+                        Content="{DynamicResource lang_error_copy}"
+                        Height="32"
+                        MinWidth="120"
+                        Margin="0,0,8,0"
+                        Click="CopyButton_Click" />
+
+                <Button x:Name="CloseButton"
+                        Grid.Column="2"
+                        Content="{DynamicResource lang_close}"
+                        Height="32"
+                        MinWidth="120"
+                        IsDefault="True"
+                        IsCancel="True"
+                        Click="CloseButton_Click" />
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

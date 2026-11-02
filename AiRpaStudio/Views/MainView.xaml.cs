@@ -54,6 +54,7 @@ namespace RPA.Views
         public MainView()
         {
             StudioBrushes.ApplyToApplication();
+            StudioFonts.ApplyToApplication();
             InitializeComponent();
             Services.AppSettings.SetDockingManager(dockManager);// DockingManager можно отловить только здесь, такие дела
 
@@ -85,8 +86,17 @@ namespace RPA.Views
             Chat.Services.ChatEnvironment.SolutionPathProvider = () => ProjectManager.GetInstance().ProjectFolder;
 
             // Theme: the studio window follows the chat theme (single source of truth).
+            // Порядок смены темы задан явно: студия пересобирает палитру Studio.* (ThemeApplying)
+            // ДО того, как ChatPanel применит свой словарь и перекроет кисти мостом (ThemeChanged).
+            // Иначе ChatStudioBridge копирует кисти предыдущей темы и чат отстаёт на один переключатель.
+            chatPanel.ViewModel.ThemeApplying = Services.AppSettings.ApplyTheme;
+
             chatPanel.ViewModel.ThemeChanged += OnChatThemeChanged;
             Services.AppSettings.ApplyTheme(chatPanel.ViewModel.IsDarkTheme);
+            // Словарь чата собран в конструкторе из палитры по умолчанию, а сохранённая тема могла быть
+            // светлой — перекрываем словарь актуальной палитрой студии до первого переключения.
+            chatPanel.ReapplyTheme();
+
             _ = ThemeToggleButton.SetBinding(ToggleButton.IsCheckedProperty,
                 new Binding(nameof(Chat.ViewModels.ChatViewModel.IsDarkTheme))
                 {
@@ -110,7 +120,9 @@ namespace RPA.Views
 
         private void OnChatThemeChanged()
         {
-            Services.AppSettings.ApplyTheme(chatPanel.ViewModel.IsDarkTheme);
+            // Палитра Studio.* пересобрана в ChatViewModel.ThemeApplying — до того, как контрол сменил
+            // свой словарь. Здесь остаётся перекраска открытых документов и панелей; повторный
+            // ApplyTheme дал бы второй полный прогон темы на каждый клик.
             ReapplyWorkflowControlThemes();
         }
 
@@ -120,7 +132,7 @@ namespace RPA.Views
 
             // Поверхность каждого открытого дизайнера (F-04): ключи палитры + дефолтные цвета WF,
             // пришедшие через StaticResource, заменяются по значению.
-            foreach (var designer in WorkflowDesigners)
+            foreach (WorkflowDesignerEx designer in WorkflowDesigners)
             {
                 WfDesignerTheme.Apply(designer.View as FrameworkElement);
             }
@@ -130,6 +142,15 @@ namespace RPA.Views
             {
                 _propertyStyleHelper.SetPropertyStyles(propertyInspector);
             }
+
+            // Редакторы кода и XAML (этап 12): фон, текст и подсветка по схеме Visual Studio.
+            foreach (CodeEditorView codeEditor in docGroup.Children
+                .OfType<LayoutDocument>()
+                .Select(document => document.Content)
+                .OfType<CodeEditorView>())
+            {
+                codeEditor.ApplyTheme();
+            }
         }
 
         protected override void OnSourceInitialized(EventArgs e)
@@ -137,7 +158,7 @@ namespace RPA.Views
             base.OnSourceInitialized(e);
             // Скругление главного окна (W-01): DWM на Windows 11; на Windows 10 углы режет region
             // из WindowChrome.CornerRadius, заданного в XAML радиусом палитры.
-            WindowCorner.Enable(this);
+            _ = WindowCorner.Enable(this);
         }
 
         private void MainView_StateChanged(object sender, EventArgs e)
@@ -282,7 +303,7 @@ namespace RPA.Views
                 catch (Exception ex)
                 {
                     // If deserialization fails, fall back to default layout
-                    Log.Write($"Failed to load saved layout: {ex.Message}. Stack trace: {ex.StackTrace}. Using default layout.");
+                    Log.Write($"Failed to load saved layout: {ex}. Using default layout.");
                 }
             }
             else
@@ -459,7 +480,7 @@ namespace RPA.Views
 
         public void OnSendMessage(string message)
         {
-            _ = MessageBox.Show(message);
+            ErrorDialog.Show(message, this);
         }
 
         private void NuGetPanelMenuItem_Click(object sender, RoutedEventArgs e)
@@ -684,7 +705,7 @@ namespace RPA.Views
             }
             catch (Exception ex)
             {
-                _ = MessageBox.Show($"Failed to save workspace layout: {ex.Message}", "Error");
+                ErrorDialog.ShowException(ex, "Failed to save workspace layout", this);
             }
         }
 

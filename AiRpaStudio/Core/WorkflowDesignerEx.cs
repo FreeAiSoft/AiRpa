@@ -60,7 +60,7 @@ namespace RPA.Core
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine(ex.Message);
+                System.Diagnostics.Debug.WriteLine(ErrorText.Of(ex));
             }
         }
     }

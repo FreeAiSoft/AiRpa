@@ -332,6 +332,10 @@ namespace RPA.Chat.ViewModels
                 if (_settings.UseDarkTheme != value)
                 {
                     _settings.UseDarkTheme = value;
+                    // Порядок обязателен: сначала хост пересобирает палитру Studio.*, и только потом
+                    // контрол перекрывает свой словарь мостом (ChatStudioBridge.Apply). Иначе мост
+                    // прочитает кисти предыдущей темы, и чат отстанет на один переключатель.
+                    ThemeApplying?.Invoke(value);
                     OnPropertyChanged();
                     SettingsStore.Save(_settings);
                     ThemeChanged?.Invoke();
@@ -426,6 +430,14 @@ namespace RPA.Chat.ViewModels
 
         /// <summary>Raised when settings are saved and the provider/tools were rebuilt.</summary>
         public event Action SettingsSaved;
+
+        /// <summary>
+        /// Вызывается перед <see cref="ThemeChanged"/> с новым значением темы, пока контрол ещё не
+        /// объявил смену. Хост (студия) использует хук, чтобы пересобрать палитру <c>Studio.*</c> до
+        /// того, как представление перекроет свой словарь через <c>ChatStudioBridge</c>: иначе мост
+        /// скопирует кисти предыдущей темы и чат отстанет на один переключатель.
+        /// </summary>
+        public Action<bool> ThemeApplying { get; set; }
 
         /// <summary>Raised when the chat-control theme (dark/light) changes, so the view can swap its palette.</summary>
         public event Action ThemeChanged;

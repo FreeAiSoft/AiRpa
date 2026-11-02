@@ -455,7 +455,7 @@ namespace RPA.CSharpExpressionEditor
                                 }
                                 catch (Exception ex)
                                 {
-                                    error = $"Не удалось определить тип выражения: {ex.Message}";
+                                    error = $"Не удалось определить тип выражения: {ex}";
                                 }
                             }
                         }
@@ -559,7 +559,7 @@ namespace RPA.CSharpExpressionEditor
                 }
                 catch (Exception ex)
                 {
-                    rightTypeError = $"Не удалось определить тип выражения: {ex.Message}";
+                    rightTypeError = $"Не удалось определить тип выражения: {ex}";
                 }
             }
 
@@ -865,7 +865,7 @@ namespace RPA.CSharpExpressionEditor
             }
             catch (Exception ex)
             {
-                _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoaded: ERROR creating editor instance in {sw.ElapsedMilliseconds}ms: {ex.Message}");
+                _perfLogger.Info($"[RoslynExpressionEditor] OnEditorLoaded: ERROR creating editor instance in {sw.ElapsedMilliseconds}ms: {ex}");
                 Console.WriteLine(ex.ToString());
                 //if exception is thrown, it will fault the wf execution
                 // throw ex;

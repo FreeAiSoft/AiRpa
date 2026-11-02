@@ -1,5 +1,7 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 using RPA.Helpers;
 
 namespace AiRpaStudio.Tests;
@@ -253,6 +255,181 @@ public class ThemeXamlTests
         {
             Assert.That(dictionary.Contains(key), Is.True, $"в теме нет ресурса {key}");
         }
+    }
+
+    // --- Пункт «тема не применена к переключателю вкладок в докпанели документов» (P-08). ---
+
+    [Test]
+    public void ThemeXaml_DocumentTabTemplateDrawsStates()
+    {
+        string text = ReadTheme();
+
+        string style = Segment(text,
+            "<Style x:Key=\"AvalonDock_ThemeMetro_DocumentPaneControlStyle\"",
+            "<Setter Property=\"ItemTemplate\">");
+
+        Assert.Multiple(() =>
+        {
+            // В исходном шаблоне вкладки был только Grid: BorderBrush менялся у самого TabItem,
+            // который рамку не рисует, — hover и выделение не были видны вообще.
+            Assert.That(style, Does.Contain("<Border x:Name=\"TabBorder\""),
+                "шаблон вкладки документа должен рисовать Border (иначе состояния не видны)");
+            Assert.That(style, Does.Contain("BorderThickness=\"1,1,1,0\""),
+                "у вкладки документа должна быть hairline-рамка");
+            Assert.That(style, Does.Contain("{DynamicResource AvalonDock_Base}"),
+                "фон неактивной вкладки — AvalonDock_Base");
+            Assert.That(style, Does.Contain("{DynamicResource AvalonDock_Hover}"),
+                "hover вкладки должен брать AvalonDock_Hover");
+            Assert.That(style, Does.Contain("{DynamicResource AvalonDock_Active}"),
+                "выбранная вкладка — AvalonDock_Active");
+            Assert.That(style, Does.Contain("{DynamicResource AvalonDock_Separator}"),
+                "рамка вкладки — hairline AvalonDock_Separator");
+            Assert.That(style, Does.Not.Contain("TabBackground"),
+                "мёртвый Grid TabBackground вернулся: BorderBrush у него не рисуется");
+        });
+
+        // Все сеттеры рамки внутри шаблона обязаны быть адресованы Border шаблона (TargetName),
+        // иначе они меняют свойство, которое ничем не отрисовывается.
+        string template = Segment(style,
+            "<ControlTemplate TargetType=\"{x:Type TabItem}\">",
+            "</ControlTemplate>");
+
+        List<string> untargeted = Regex.Matches(template,
+                "<Setter\\b[^>]*/>",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(2))
+            .Cast<Match>()
+            .Select(match => match.Value.Replace("\n", " ").Replace("\r", " "))
+            .Where(value => value.Contains("Property=\"BorderBrush\"") && !value.Contains("TargetName="))
+            .ToList();
+
+        Assert.That(untargeted, Is.Empty,
+            "BorderBrush задаётся у TabItem, а не у Border шаблона — рамка не появится: " +
+            string.Join(" | ", untargeted));
+    }
+
+    [Test]
+    public void ThemeXaml_DocumentTabCloseButtonUsesCloseHoverColors()
+    {
+        string text = ReadTheme();
+
+        Match closeStyle = Regex.Match(text,
+            "<Style x:Key=\"AvalonDock_ThemeMetro_DocumentCloseButtonStyle\".*?</Style>",
+            RegexOptions.Singleline,
+            TimeSpan.FromSeconds(2));
+
+        Assert.That(closeStyle.Success, Is.True, "нет стиля кнопки закрытия вкладки документа");
+        Assert.That(closeStyle.Value, Does.Contain("IsMouseOver"), "крестик вкладки должен реагировать на hover");
+        Assert.That(closeStyle.Value, Does.Contain("{DynamicResource AvalonDock_CloseHoverBackground}"),
+            "hover крестика — AvalonDock_CloseHoverBackground (семантика закрытия из палитры)");
+        Assert.That(closeStyle.Value, Does.Contain("AvalonDock_ThemeMetro_ButtonStyle"),
+            "стиль кнопки закрытия наследует общий стиль кнопок темы");
+
+        string tabItem = Segment(text,
+            "<!--#region LayoutDocumentTabItem  -->",
+            "<!--#endregion LayoutDocumentTabItem  -->");
+
+        Assert.That(tabItem, Does.Contain("AvalonDock_ThemeMetro_DocumentCloseButtonStyle"),
+            "кнопка закрытия вкладки документа должна использовать стиль с hover");
+        Assert.That(tabItem, Does.Contain("{DynamicResource AvalonDock_CloseHoverForeground}"),
+            "глиф крестика при hover — AvalonDock_CloseHoverForeground");
+    }
+
+    [Test]
+    public void DocumentTabStyle_RendersPaletteBrushes()
+    {
+        ResourceDictionary dictionary = LoadThemeDictionary();
+
+        Style tabStyle = DocumentTabContainerStyle(dictionary);
+        Color baseColor = Color.FromRgb(0x10, 0x10, 0x10);
+        Color activeColor = Color.FromRgb(0x20, 0x20, 0x20);
+        Color hoverColor = Color.FromRgb(0x30, 0x30, 0x30);
+        Color separatorColor = Color.FromRgb(0x40, 0x40, 0x40);
+
+        Border selected = BuildTabBorder(tabStyle, baseColor, hoverColor, activeColor, separatorColor, isSelected: true);
+        Border regular = BuildTabBorder(tabStyle, baseColor, hoverColor, activeColor, separatorColor, isSelected: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(regular.Background), Is.EqualTo(baseColor),
+                "неактивная вкладка документа должна брать фон AvalonDock_Base");
+            Assert.That(ColorOf(selected.Background), Is.EqualTo(activeColor),
+                "выбранная вкладка документа должна сливаться с контентом (AvalonDock_Active)");
+            Assert.That(ColorOf(selected.BorderBrush), Is.EqualTo(separatorColor),
+                "у выбранной вкладки — hairline AvalonDock_Separator");
+        });
+    }
+
+    /// <summary>Загружает словарь темы (тот же разбор, что и при старте студии).</summary>
+    private static ResourceDictionary LoadThemeDictionary()
+    {
+        return (ResourceDictionary)System.Windows.Markup.XamlReader.Parse(ReadTheme());
+    }
+
+    /// <summary>Достаёт стиль контейнера вкладки из стиля панели документов.</summary>
+    private static Style DocumentTabContainerStyle(ResourceDictionary dictionary)
+    {
+        var paneStyle = dictionary["AvalonDock_ThemeMetro_DocumentPaneControlStyle"] as Style;
+        Assert.That(paneStyle, Is.Not.Null, "в теме нет стиля панели документов");
+
+        Style tabStyle = paneStyle.Setters
+            .OfType<Setter>()
+            .Where(setter => setter.Property == ItemsControl.ItemContainerStyleProperty)
+            .Select(setter => setter.Value)
+            .OfType<Style>()
+            .FirstOrDefault();
+
+        Assert.That(tabStyle, Is.Not.Null, "у панели документов нет ItemContainerStyle — вкладки не темизируются");
+        return tabStyle;
+    }
+
+    /// <summary>
+    /// Материализует вкладку документа и возвращает Border шаблона: так проверяется, что состояния
+    /// действительно рисуются кистями палитры, а не просто объявлены в XAML.
+    /// </summary>
+    private static Border BuildTabBorder(
+        Style tabStyle,
+        Color baseColor,
+        Color hoverColor,
+        Color activeColor,
+        Color separatorColor,
+        bool isSelected)
+    {
+        var tab = new TabItem
+        {
+            Style = tabStyle,
+            Header = "document",
+            IsSelected = isSelected
+        };
+
+        // Кисти, которые в студии пишет AppSettings.ReapplyDockManagerResources.
+        tab.Resources["AvalonDock_Base"] = FrozenBrush(baseColor);
+        tab.Resources["AvalonDock_Hover"] = FrozenBrush(hoverColor);
+        tab.Resources["AvalonDock_Active"] = FrozenBrush(activeColor);
+        tab.Resources["AvalonDock_Separator"] = FrozenBrush(separatorColor);
+
+        tab.ApplyTemplate();
+        tab.Measure(new Size(200, 30));
+        tab.Arrange(new Rect(0, 0, 200, 30));
+
+        Border border = XamlHelper.FindVisualChildren<Border>(tab)
+            .FirstOrDefault(candidate => candidate.Name == "TabBorder");
+
+        Assert.That(border, Is.Not.Null, "в шаблоне вкладки документа нет Border с именем TabBorder");
+        return border;
+    }
+
+    private static SolidColorBrush FrozenBrush(Color color)
+    {
+        SolidColorBrush brush = new SolidColorBrush(color);
+        brush.Freeze();
+        return brush;
+    }
+
+    private static Color ColorOf(Brush brush)
+    {
+        Assert.That(brush, Is.Not.Null, "кисть не задана — состояние вкладки не применилось");
+        return ((SolidColorBrush)brush).Color;
     }
 
     /// <summary>

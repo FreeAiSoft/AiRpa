@@ -91,6 +91,37 @@ public class StudioBrushesTests
     }
 
     [Test]
+    public void Apply_SystemBrushGradationsFollowPalette()
+    {
+        // Шаблоны Aero2 рисуют chrome системными градациями (ControlLight/ControlDark/ScrollBar/…):
+        // раньше в тёмной теме из-за них появлялись светлые плашки (заголовок категории панели «Активности»).
+        var target = new ResourceDictionary();
+
+        StudioBrushes.Apply(target, MaterialDesignSource(dark: true));
+
+        foreach (object key in StudioBrushes.SystemBrushKeys)
+        {
+            Color colour = ((SolidColorBrush)target[key]).Color;
+
+            if (key == SystemColors.InfoBrushKey)
+            {
+                Assert.That(colour, Is.EqualTo(StudioPalette.Dark.SurfaceAlt), "фон подсказки — поверхность палитры");
+                continue;
+            }
+
+            Assert.That(colour, Is.AnyOf(
+                    StudioPalette.Dark.Surface,
+                    StudioPalette.Dark.SurfaceAlt,
+                    StudioPalette.Dark.Separator,
+                    StudioPalette.Dark.SeparatorStrong,
+                    StudioPalette.Dark.Foreground,
+                    StudioPalette.Dark.ForegroundMuted,
+                    StudioPalette.Dark.Selected),
+                $"системная кисть {key} взяла цвет вне палитры ({colour}) — в тёмной теме это светлая плашка");
+        }
+    }
+
+    [Test]
     public void Apply_ReplacesExistingBrushes_SoThemeSwitchTakesEffect()
     {
         var target = new ResourceDictionary();

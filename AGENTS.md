@@ -30,6 +30,43 @@
 - Логирование: `RPA.Logging.Log` (запись в `log.txt`) + просмотр через `LogControlLibrary`.
 - AI-интеграция: MCP-сервер (`RPA.Mcp`, stdio/http).
 
+## Ошибки и падения приложения
+- Любая ошибка в студии показывается окном `AiRpaStudio\Views\ErrorView.xaml` через
+  `AiRpaStudio\Helpers\ErrorDialog.cs` (`Show` / `ShowException` / `ShowCrash`). `MessageBox` для ошибок
+  и сообщений модели (`IView.OnSendMessage`) запрещён: он не следует теме и не даёт скопировать текст.
+  `MessageBox` остаётся только для вопросов-подтверждений (например, «удалить папку?»).
+- Окно ошибки: readonly `TextBox` (`IsReadOnly=True` + `IsReadOnlyCaretVisible=True`) — текст выделяется
+  и копируется по Ctrl+C; кнопка «Копировать» кладёт текст в буфер (`Clipboard.SetText`), при недоступном
+  буфере текст остаётся выделенным; цвета только из палитры (`Studio.Surface`/`SurfaceAlt`/`SeparatorStrong`,
+  красный — только семантика `Studio.Semantic.Stop`); `WindowCorner.Enable(this)` из `OnSourceInitialized`.
+- Падения: подписки живут в конструкторе `App` (`AppDomain.UnhandledException` +
+  `DispatcherUnhandledException`) — они работают ещё до разбора `App.xaml`. Обработчик
+  `Log.ReportExceptionAndShowMessage` пишет `log.txt` и открывает то же окно с заголовком «Критическая
+  ошибка» (версия + время + стек). WinForms-событие `Application.ThreadException` для WPF не используется.
+- `ErrorDialog` не бросает исключений и сам выбирает путь показа: UI-поток → модальное окно поверх владельца;
+  фоновый поток → `Dispatcher.Invoke` с таймаутом; диспетчера нет (падение на старте/после `Shutdown`) →
+  отдельный STA-поток со своей копией палитры (`StudioBrushes.ApplyPalette`), последняя страховка —
+  системный `MessageBox`. Окно не создаётся через `MvvmFactory` намеренно: во время падения ни модели,
+  ни `DataContext` уже нет.
+- Локализация подписей — ключи `lang_error_title`, `lang_error_crash_title`, `lang_error_hint`,
+  `lang_error_copy`, `lang_error_copied` (+ существующий `lang_close`) в `Main.resx` и `Main.ru-RU.resx`;
+  в XAML — `{DynamicResource lang_*}`, в code-behind — fallback через `LocalizeHelper` (старт приложения,
+  когда словарь ресурсов ещё не создан).
+- Тесты: `AiRpaStudio.Tests\ErrorWindowTests.cs` — поведение окна (readonly, выделение, копирование, тема)
+  и стражи по точкам показа ошибок (ни один файл студии не должен вернуться к `MessageBox.Show` для ошибок).
+- В тексте ошибки обязателен стек вызовов. Формат один на всю студию — `AiRpaStudio\Helpers\ErrorText.cs`
+  (`Of(ex)` — полный `Exception.ToString()`; `Describe(context, ex)` — «контекст: сообщение» + стек);
+  им же пользуется `ErrorDialog.BuildExceptionMessage`. В местах показа/логирования (`OnSendMessage`,
+  `ErrorDialog`, лог дизайнера, `Debug`/`Console`, ответы MCP, `result.Errors`) пишется полное исключение,
+  а не `ex.Message`: интерполяция — `$"...: {ex}"`, аргумент — `ErrorText.Of(ex)`. Причина — инцидент
+  «Не удалось загрузить в дизайнер: «…RowDefinition» не является Visual или Visual3D»: по тексту без стека
+  невозможно найти место падения. Страж — `AiRpaStudio.Tests\ErrorStackTraceTests.cs`.
+- Обход визуального дерева — только через `Helpers\XamlHelper.cs` (`IsVisual`, `FindVisualChildren<T>`,
+  `FindVisualParent<T>`). `LogicalTreeHelper.GetChildren` отдаёт для `Grid`/`Panel` не только элементы,
+  но и `RowDefinition`/`ColumnDefinition`, а `VisualTreeHelper` на них бросает `ArgumentException`
+  («…не является Visual или Visual3D»). Страж — `AiRpaStudio.Tests\VisualTreeWalkTests.cs`.
+
+
 ## Сборка и тесты
 - Решение: `AiRpa.sln` (корень репозитория).
 - Проект приложения: `AiRpaStudio\AiRpaStudio.csproj`.
@@ -53,6 +90,23 @@
   ровно две темы, ноль акцента, скругления 8/4/6). `StudioBrushes` и `DockingThemeBrushes` берут значения
   только оттуда: `MaterialDesign.Brush.Primary`/`Secondary` больше не источник цветов.
   Тесты: `AiRpaStudio.Tests\StudioPaletteTests.cs`.
+- Шрифты: **Roboto для всего проекта**. Единственный источник — `AiRpaStudio\Helpers\StudioFonts.cs`
+  (`FamilyName = "Roboto"`, `UiFont`, `CodeFont`, ключи `Studio.FontFamily`, `Studio.CodeFontFamily`,
+  `Studio.FontFamilyName`). Начертания встроены в сборку (`Resources\Roboto\*.ttf`), поэтому установленный
+  Roboto не требуется. В XAML — только `FontFamily="{DynamicResource Studio.FontFamily}"`
+  (`Studio.CodeFontFamily` для редакторов кода), в C# — только `StudioFonts.UiFont`/`CodeFont`.
+  Строки `Consolas`/`Segoe UI` в XAML и `new FontFamily("Consolas")` в коде запрещены;
+  WF-контролы получают шрифт ключами `FontFamilyKey`/`FontSizeKey`/`FontWeightKey`
+  (`WfDesignerTheme.CreateResourceValues`). Стражи: `AiRpaStudio.Tests\StudioFontTests.cs`.
+- Редакторы кода и XAML: цвета — только из `AiRpaStudio\Helpers\StudioEditorPalette.cs` (схема
+  Visual Studio 2022, dark/light), оформление и подсветка — через `AiRpaStudio\Helpers\StudioEditorTheme.cs`
+  (XSHD перекрашивается по именам цветов `<Color name="…">`, поэтому один файл подсветки работает в обеих
+  темах). В `Resources\Highlighting\Xaml.xshd` зашитых цветов быть не должно.
+  Стражи: `AiRpaStudio.Tests\StudioEditorThemeTests.cs`.
+- Инспектор свойств WF: `PropertyWindowStyleHelper.SetPropertyStyles` сливает словарь палитры в ресурсы
+  самого инспектора (его шаблоны читают собственные `TextBrushKey`/`BackgroundBrushKey`/`FontFamilyKey`)
+  и подписывается на `LayoutUpdated` (`Attach` + отпечаток дерева): WF пересоздаёт строки свойств, и новые
+  элементы обязаны перекрашиваться повторно. Стражи: `AiRpaStudio.Tests\WfThemeTests.cs`.
 - Кисти AvalonDock: студия пишет нейтральные ключи `AvalonDock_*` кодом
   (`Helpers\DockingThemeBrushes.cs`, единственная точка — `AppSettings.ReapplyDockManagerResources`),
   а в изолированные ресурсы плавающих окон / Ctrl+Tab / оверлея их прокидывает
@@ -60,6 +114,14 @@
   `AvalonDock_ThemeMetro_BaseColor1..7` — только legacy-алиасы, в шаблонах темы не используются.
   Тесты: `AiRpaStudio.Tests\DockingThemeBrushesTests.cs`, `AvalonDockThemeBridgeTests.cs`,
   `ThemeXamlTests.cs` (регекс-стражи по `AvalonDock.Themes.Metro\Theme.xaml` + полный разбор XAML).
+  Полоса вкладок документов (P-08): состояния рисует `Border x:Name="TabBorder"` в шаблоне контейнера
+  вкладки (`AvalonDock_Base` → hover `AvalonDock_Hover` → выбранная `AvalonDock_Active` + hairline
+  `AvalonDock_Separator`). Сеттеры `Background`/`BorderBrush` в триггерах обязаны быть адресованы
+  `TargetName` элемента шаблона: `BorderBrush` у самого `TabItem` ничем не отрисовывается — из-за
+  этого вкладки выглядели «без темы». Кнопка закрытия вкладки —
+  `AvalonDock_ThemeMetro_DocumentCloseButtonStyle` (hover `AvalonDock_CloseHoverBackground`/
+  `AvalonDock_CloseHoverForeground`). Стражи: `ThemeXamlTests.ThemeXaml_DocumentTabTemplateDrawsStates`,
+  `ThemeXaml_DocumentTabCloseButtonUsesCloseHoverColors`, `DocumentTabStyle_RendersPaletteBrushes`.
 - Скругления окон: `AiRpaStudio\Helpers\WindowCorner.cs` — DWM
   (`DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2)`, Windows 11) с
   fallback на region через `WindowChrome.CornerRadius` (радиус — `StudioPalette.WindowCornerRadius`,
@@ -74,8 +136,26 @@
   замороженные кисти палитры, маркер «стиль уже наш» + `Wrap()` для сохранения шаблонов Toolbox через
   `BasedOn`). `Helpers\WfVisualTreeThemer.cs` берёт цвета только из `StudioPalette` (акцент
   `MaterialThemePalette` в WF больше не используется), ставит `ItemContainerStyle` с триггерами
-  `IsMouseOver` → `Hover` и `IsSelected` → `Selected` и умеет `ApplyWhenLoaded()` (дерево `OutlineView`
-  строится шаблоном при загрузке). `Helpers\PropertyWindowStyleHelper.cs` ищет элементы по именам
+  `IsMouseOver` → `Hover` и `IsSelected` → `Selected` — **только если стили элементов не выбирает
+  `ItemContainerStyleSelector`**, — и умеет `ApplyWhenLoaded()` (дерево `OutlineView` строится
+  шаблоном при загрузке). Выставлять `ItemContainerStyle` поверх селектора запрещено: в стиле
+  активности `ToolboxControl` лежит `EventSetter MouseMove → OnToolMouseMove` (вызов
+  `DragDrop.DoDragDrop`), и подмена стиля молча отключала перетаскивание активностей в дизайнер
+  (категория оставалась видимой, поэтому баг выглядел как «перестало перетаскиваться»).
+  Страж — `AiRpaStudio.Tests\ToolboxDragContractTests.cs` (стили WF не подменяются, `EventSetter`
+  `MouseMove`/`MouseDoubleClick` на месте, `SelectedTool` появляется при выделении).
+  Светлые плашки шаблонов WF (регресс «белый фон под названием категории в панели Активности») гасятся
+  не кистями системных цветов, а проходом по эффективным значениям — `WfThemeStyles.NeutralizeLightBrushes`
+  (площади → `Surface`, линии → `Transparent`, тёмный текст → `Foreground`, стрелка экспандера →
+  `ForegroundMuted`; кисти предыдущей темы пересчитываются по токену палитры: цвет зашит в WF-стиль,
+  и `SystemColors.*BrushKey` на него не влияют). Состояния элементов с WF-стилем ведёт
+  `WfVisualTreeThemer.HookItemStates` (Hover/Selected палитры вместо системных `#FFE8A6`/`#E5C365`),
+  плашка шаблона перепривязывается к `Background` элемента, а контейнеры, созданные после темизации
+  (разворачивание категории, «Развернуть всё»), достраивает `ToolboxPanel.HookContainers` по
+  `ItemContainerGenerator.StatusChanged` и `TreeViewItem.ExpandedEvent`. Стражи —
+  `AiRpaStudio.Tests\ToolboxThemeTests.cs`. Обход дерева — только через `XamlHelper`
+  (`Children`/`FindVisualChildren`): в `WfVisualTreeThemer` `VisualTreeHelper.GetChildrenCount` запрещён.
+  `Helpers\PropertyWindowStyleHelper.cs` ищет элементы по именам
   (`_propertyToolBar`, `PART_ByCategoryViewButton`, `PART_AlphaViewButton`, `PART_SearchClearButton`),
   состояния кнопок — триггеры стиля (не обработчики), повторное применение перекрашивает контрол без
   пересоздания. Тесты: `AiRpaStudio.Tests\WfThemeTests.cs`.
@@ -89,9 +169,81 @@
   значению дефолта WF; пользовательские кисти не трогаются. Адаптер ошибки — `Validation.ErrorTemplate`
   с hairline `CloseHoverBackground` (красный только для ошибок). Контекстное меню дизайнера —
   `WfDesignerTheme.CreateEditingContextMenu` (им пользуется `DesignerVariableContextMenuService`).
+  Механизм этого меню зафиксирован документально (`docs\Designer_Variable_ContextMenu_Principles.md`):
+  правый клик в ячейке `variableDataGrid`/`argumentsDataGrid` открывает меню программно (штатное меню
+  завершает правку и закрывает панель), а завершение правки отменяется флагом, взведённым на
+  `DataGrid.PreviewMouseRightButtonDown`. Инварианты — порядок туннелирования, отмена consume-once,
+  `RecolorEditingContextMenu` на каждое открытие, снятие глобальных хуков в `Closed`, все обработчики
+  на `DataGrid` (в `CellEditingTemplate` и его `Resources` писать нельзя — шаблоны запечатаны,
+  дефект 1.0.0.0 «ResourceDictionary доступен только для чтения»; палитра ставится полю ввода
+  локальными значениями в `PreparingCellForEdit`); решения вынесены в
+  `Core\Services\DesignerVariableContextMenuPolicy.cs` и
+  `DesignerContextMenuState.cs`. Стражи — `AiRpaStudio.Tests\DesignerVariableContextMenuTests.cs` и
+  `DesignerVariableContextMenuPolicyTests.cs`.
+  Ручной чеклист приёмки и карта тестов — разделы «Ручной чеклист приёмки» и «Тесты» этого документа.
   Вызовы: `DocGroupHelper.DesignerView_Loaded`, `MainView.ReapplyWorkflowControlThemes`,
   `App.Application_Startup`, `AppSettings.ApplyTheme`.
+  Хлебные крошки (`breadCrumbListBox` — имена активностей `Main › Sequence › Assign`) темизируются
+  отдельным проходом `ThemeBreadCrumb`: контейнеры получают `ItemContainerStyle` палитры, содержимое
+  уже созданных крошек перекрашивается, а новые (появляются при «провале» в активность) достраиваются
+  по `ItemContainerGenerator.StatusChanged`. Светлые кисти внутри крошки гасятся по яркости: цвет
+  детей `DataTemplate` (кнопка Aero2, `TextBlock`) приходит из шаблона, а не локально, поэтому прежний
+  проход по локальным значениям оставлял белые плашки в тёмной теме. Страж —
+  `WfDesignerThemeTests.Apply_BreadCrumbHasNoLightBackgrounds`. «Один белый пиксель» на стыке «крошки/дизайнер» — угловой `Rectangle` **1×1** из шаблона `ScrollViewer` Aero2
+  (светло-серый фон темы): при скрытых полосах прокрутки он вырождается в точку в правом нижнем углу
+  `ListBox`, а ширина списка равна ширине крошек — поэтому точка «сдвигалась» вместе с последней крошкой.
+  Он не разделитель и не шеврон: `WfDesignerTheme.IsTemplateCorner` сливает его с `Surface`
+  (`PaintBreadCrumbBand` и проход по содержимому). Стражи —
+  `WfDesignerThemeTests.Apply_BreadCrumbJunctionHasNoLightPixel` (полоса рендерится в битмап: в нижних
+  строках, где лежит hairline, не должно быть пикселей светлее поверхности) и
+  `.Apply_BreadCrumbTemplateCornerDotMergesWithSurface`. Сохраняются и вспомогательные правила: гасятся
+  **все** свойства типа `Brush` (`WfDesignerTheme.BrushPropertiesOf`, кисти палитры неприкосновенны),
+  полоса обрезает содержимое (`ClipToBounds` + `UseLayoutRounding`), светлая площадь гасится в цвет
+  поверхности, а не в `Transparent`, подложка полосы красится `Surface` (`PaintBreadCrumbBand`), элементы,
+  созданные после применения темы, достраиваются по `ItemContainerGenerator.StatusChanged` и
+  `LayoutUpdated`. Стражи — `WfDesignerThemeTests.Apply_BreadCrumbHasNoLightBrushAnywhere`,
+  `.Apply_BreadCrumbClipsArtifactsOverflowingOnTheDivider`,
+  `.Apply_BreadCrumbArtifactsCreatedAfterApplyAreNeutralized`,
+  `.Apply_BreadCrumbBandStaysOpaqueSurfaceUnderWhiteHost`,
+  `.Apply_BreadCrumbBackdropBehindNamesIsSurface`.
   Тесты: `AiRpaStudio.Tests\WfDesignerThemeTests.cs`.
+  Комбобоксы WF-поверхностей (в дизайнере — масштаб в shell bar, `zoomPicker`) темизируются
+  `WfVisualTreeThemer.ThemeComboBoxes` (вызывается из `WfVisualTreeThemer.Apply` и из
+  `WfDesignerTheme.ThemeShellBar` — путь `TryApplyShellBarStyle` полного обхода не делает): кисти,
+  шрифт и `ItemContainerStyle` палитры, гашение белых плашек шаблона Aero2, `ForegroundMuted` для
+  стрелки раскрытия. Причина: WF-стиль `statusBarComboBoxStyle` задаёт только шрифт/`Foreground`/
+  прозрачный фон, а шаблон Aero2 рисует под текстом опаковую белую плашку
+  (`Border#templateRoot` кнопки раскрытия и `Border#Border` редактируемой части), пока `Foreground`
+  наследуется от shell bar — в тёмной теме это белые буквы на белом фоне. Элементы списка получают
+  собственный шаблон (в Aero2 подсветку рисует `Border#Bd` светлыми плашками триггерами шаблона),
+  а список раскрывается в popup вне визуального дерева комбобокса — он темизируется по
+  `DropDownOpened` с отложенным повтором (шаблон popup и полосы прокрутки применяются при раскладке).
+  Белые плашки гасит `PaintTemplatePlates`, а не общий `NeutralizeLightBrushes`: чистый белый —
+  токен палитры (`CloseHoverForeground`), поэтому здесь цвет сопоставляется с токенами прежней темы.
+  Стили, созданные темизатором, помнят палитру (`WfThemeStyles.MarkThemed(style, palette)`): при смене
+  темы обёртка пересоздаётся от исходного стиля WF, а не от стиля прежней темы. Стражи —
+  `WfThemeTests.Apply_ThemesComboBoxes`, `.Apply_ThemesComboBoxItems`, `.Apply_MakesComboBoxGlyphVisible`,
+  `.Apply_ComboBoxThemeIsIdempotent`, `.Apply_SwitchesComboBoxPalette`,
+  `WfDesignerThemeTests.Apply_ThemesShellBarZoomCombo`, `.Apply_ShellBarZoomComboIsReadableInBothThemes`,
+  `.Apply_ThemesShellBarZoomComboList`.
+
+  Панели «Переменные», «Аргументы», «Пространства имён» (вкладки shell bar, таблицы и их контекстное
+  меню) темизирует `Helpers\WfDataGridTheme.cs` (F-04). Причина отдельного прохода: WF объявляет таблицы
+  стилем `defaultDataGridStyle`, который берёт `{StaticResource}` на дефолтные цвета WF
+  (`GridViewRowUnderlineColor`, `GridViewRowSelectedColor`, `GridViewRowHoverColor`) — `StaticResource`
+  не пересчитывается, поэтому шапка, сетка и выделение оставались светлыми; плашки шапки, угла
+  «выделить всё» и строк рисует шаблон Aero2, а триггер шаблона сильнее сеттера и триггера стиля.
+  Отсюда: стили шапки/строки/ячейки — обёртки стилей WF (`WfThemeStyles.Wrap`, шаблон WF сохраняется в
+  `BasedOn`), цвет материализованных контейнеров ставится локально через `WfThemeStyles.WatchState`,
+  светлые кисти гасит `NeutralizeLightBrushes`, проход повторяется по
+  `ItemContainerGenerator.StatusChanged` и отпечатку `LayoutUpdated` (строки виртуализованы), а
+  панель-контейнер получает непрозрачный `Surface`. Вкладки shell bar — `ThemeShellBarItems` (активная —
+  `Selected`, hover — `Hover`, неактивная подпись — `ForegroundMuted`). Контекстное меню обслуживает
+  **все** таблицы дизайнера: `DesignerVariableContextMenuService.RefreshTables` ищет их по типу
+  (`WfDataGridTheme.FindTables`), а не по именам панелей, поэтому «Пространства имён»
+  (`importedNamespacesDataGrid`) больше не остаются без меню. Стражи —
+  `AiRpaStudio.Tests\WfDesignerTableThemeTests.cs`, `DesignerVariableContextMenuTests.RefreshTables_*`,
+  `Sources_TableTheme*`.
 
 - Сторонние визуальные сборки (этап 8): `LogControlLibrary` и `RPA.Chat` не ссылаются на `RPA.Helpers`,
   поэтому палитра приходит в них строковыми ключами.
@@ -107,6 +259,24 @@
     `Dark.Accent`/`Dark.Primary`/`Dark.ControlPressed` — нейтральные `Selected`/`Foreground`,
     режимы Plan/Act/Help различаются яркостью серого в `ChatViewModel`.
     Тесты: `AiRpaStudio.Tests\ChatThemeBridgeTests.cs`, `LogAndChatThemeTests.cs`.
+  * Порядок смены темы (обязателен, иначе чат отстаёт на один переключатель): `ChatViewModel.IsDarkTheme`
+    сначала вызывает хук `ThemeApplying` (на него подписана студия в `MainView.InitializeControls`:
+    `Services.AppSettings.ApplyTheme`), который пересобирает палитру `Studio.*`, и только затем событие
+    `ThemeChanged` → `ChatPanel.ApplyTheme` перекрывает словарь чата мостом. Повторный `ApplyTheme` в
+    `MainView.OnChatThemeChanged` не нужен — он красил бы студию дважды за клик. Если палитра `Studio.*`
+    изменилась уже после создания контрола (сохранённая светлая тема на старте), вызывается
+    `ChatPanel.ReapplyTheme()`. Стражи: `ThemeAcceptanceTests.MainView_AppliesPaletteBeforeTheChatSwapsItsDictionary`,
+    `ChatThemeBridgeTests.ThemeApplying_RunsBeforeThemeChanged_SoThePaletteIsFresh`.
+
+- Заголовок окон: все окна студии рисуют его сами — `Controls\StudioTitleBar.xaml` (высота 32,
+  `Studio.TitleBarBackground`/`TitleBarForeground`, кнопки «свернуть»/«закрыть» 46×32 на `MaterialIcon`
+  16×16, hover закрытия `Studio.CloseHoverBackground`, перетаскивание `DragMove()`, DP `ShowMinimize`/
+  `ShowClose`). Системный caption Windows не используется: он белый в любой теме и не скругляется.
+  Окно с `StudioTitleBar` обязано иметь `WindowChrome` (`CaptionHeight="0"`, `GlassFrameThickness="0"`,
+  `CornerRadius="8"`) — иначе `WindowCorner.ApplyCornerRadiusFallback` не скруглит его на Windows 10.
+  Заголовок полосы берётся из `Title` окна (`RelativeSource AncestorType=Window`), поэтому `ErrorDialog`
+  может менять его без DataContext. Тесты: `AiRpaStudio.Tests\StudioTitleBarTests.cs`.
+
 - Диалоги студии («Создать активность», «Создать проект», «Открыть VS-проект», «Из VS-шаблона») задают
   `Background="{DynamicResource Studio.Surface}"` + `Foreground="{DynamicResource Studio.Foreground}"`,
   внешний отступ 12, кнопку обзора 28px; `Grid.Row` обязан существовать среди `RowDefinition`.

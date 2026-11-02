@@ -99,7 +99,7 @@ namespace RPA.Core
             }
             catch (Exception ex)
             {
-                _log.Invoke($"{ex.Message}{Environment.NewLine}{ex.StackTrace}", (int)RpaCommon.Enums.LogLevel.Error);
+                _log.Invoke($"{ex}", (int)RpaCommon.Enums.LogLevel.Error);
                 WorkflowState = WorkflowState.StartingError;
                 SetDesignerIsReadonly(false);
             }
@@ -211,7 +211,7 @@ namespace RPA.Core
                         }
                         catch (Exception ex)
                         {
-                            _log.Invoke($"{ex.Message}{Environment.NewLine}{ex.StackTrace}", (int)RpaCommon.Enums.LogLevel.Error);
+                            _log.Invoke($"{ex}", (int)RpaCommon.Enums.LogLevel.Error);
                             WorkflowState = WorkflowState.StartingError;
                         }
                     }

@@ -8,10 +8,10 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.CodeCompletion;
-using ICSharpCode.AvalonEdit.Highlighting;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.VisualBasic;
 using RPA.CSharpExpressionEditor;
+using RPA.Helpers;
 
 namespace RehostedWorkflowDesigner.VbExpressionEditor
 {
@@ -27,8 +27,8 @@ namespace RehostedWorkflowDesigner.VbExpressionEditor
             TextArea.TextEntered += TextArea_TextEntered;
             TextArea.LostKeyboardFocus += TextArea_LostFocus;
 
-            SyntaxHighlighting = HighlightingManager.Instance.GetDefinition("VB");
-            FontFamily = new System.Windows.Media.FontFamily("Consolas");
+            SyntaxHighlighting = StudioEditorTheme.GetDefinition("VB");
+            FontFamily = StudioFonts.CodeFont;
             FontSize = 12;
         }
 

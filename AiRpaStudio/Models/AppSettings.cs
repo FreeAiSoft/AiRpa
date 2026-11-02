@@ -1,9 +1,8 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows;
-using System.Windows.Media;
 using AvalonDock;
 using FW.EasyMvvm.Core;
 using MaterialDesignThemes.Wpf;
@@ -73,6 +72,7 @@ namespace RPA.Models
             // Алиасы Studio.* и системные кисти пересобираются из новой палитры: в словаре должны
             // лежать настоящие Brush, иначе WPF падает на Style-сеттерах (см. StudioBrushes).
             StudioBrushes.ApplyToApplication();
+            StudioFonts.ApplyToApplication();
 
             // Ключи дизайнера WF (F-05/F-04): та же точка, что и Studio.*, — смена темы перекрашивает
             // поверхность дизайнера, PropertyInspector и контекстные меню без пересоздания документов.

@@ -131,7 +131,7 @@ namespace RPA.Helpers
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"  ✗ Failed to load {refAssembly.Name}: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"  ✗ Failed to load {refAssembly.Name}: {ex}");
                 }
             }
             System.Diagnostics.Debug.WriteLine("============================");
@@ -184,14 +184,14 @@ namespace RPA.Helpers
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"  ✗ Failed to load {refAssembly.Name}: {ex.Message}");
+                        System.Diagnostics.Debug.WriteLine($"  ✗ Failed to load {refAssembly.Name}: {ex}");
                     }
                 }
                 System.Diagnostics.Debug.WriteLine("=========================================");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to load netstandard assembly: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Failed to load netstandard assembly: {ex}");
             }
         }
 

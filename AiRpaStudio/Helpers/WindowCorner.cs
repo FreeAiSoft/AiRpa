@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -70,12 +70,7 @@ namespace RPA.Helpers
         /// <summary>Скругляет окно по его HWND. Для окна без хэндла возвращает <c>false</c>.</summary>
         public static bool Apply(Window window)
         {
-            if (window == null)
-            {
-                return false;
-            }
-
-            return Apply(new WindowInteropHelper(window).Handle);
+            return window != null && Apply(new WindowInteropHelper(window).Handle);
         }
 
         /// <summary>

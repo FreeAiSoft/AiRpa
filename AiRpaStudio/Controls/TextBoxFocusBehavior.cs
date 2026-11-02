@@ -2,9 +2,9 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media;
 using Microsoft.Xaml.Behaviors;
 using RPA.Entities;
+using RPA.Helpers;
 
 namespace RPA.Controls
 {
@@ -128,19 +128,7 @@ namespace RPA.Controls
 
         private T FindVisualParent<T>(DependencyObject child) where T : DependencyObject
         {
-            DependencyObject parentObject = VisualTreeHelper.GetParent(child);
-            if (parentObject == null)
-            {
-                return null;
-            }
-
-            if (parentObject is T parent)
-            {
-                //
-                return parent;
-            }
-
-            return FindVisualParent<T>(parentObject);
+            return XamlHelper.FindVisualParent<T>(child);
         }
     }
 }

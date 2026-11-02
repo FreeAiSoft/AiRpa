@@ -1,5 +1,6 @@
 <UserControl x:Class="RPA.NuGet.Views.NuGetPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             FontFamily="{DynamicResource Studio.FontFamily}"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid Margin="8">
         <Grid.RowDefinitions>

@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using RPA.Helpers;
 
 namespace RPA.Mcp
 {
@@ -93,7 +94,7 @@ namespace RPA.Mcp
                             {
                                 Code = -32700,
                                 Message = "Parse error",
-                                Data = ex.Message
+                                Data = ErrorText.Of(ex)
                             },
                             Id = null
                         };
@@ -110,7 +111,7 @@ namespace RPA.Mcp
                             {
                                 Code = -32603,
                                 Message = "Internal error",
-                                Data = ex.Message
+                                Data = ErrorText.Of(ex)
                             },
                             Id = null
                         };
@@ -122,7 +123,7 @@ namespace RPA.Mcp
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"MCP Server error: {ex.Message}");
+                Console.Error.WriteLine($"MCP Server error: {ex}");
             }
         }
     }

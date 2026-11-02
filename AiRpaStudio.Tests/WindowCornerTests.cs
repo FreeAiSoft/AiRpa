@@ -248,7 +248,8 @@ public class WindowCornerTests
                      "ActivityCreatorView.xaml.cs",
                      "ProjectCreatorView.xaml.cs",
                      "VsProjectOpenView.xaml.cs",
-                     "VsTemplateProjectCreatorView.xaml.cs"
+                     "VsTemplateProjectCreatorView.xaml.cs",
+                     "ErrorView.xaml.cs"
                  })
         {
             string source = ReadSource(Path.Combine("AiRpaStudio", "Views", name));

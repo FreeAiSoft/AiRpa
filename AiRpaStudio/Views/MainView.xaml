@@ -1,4 +1,4 @@
-﻿<Window x:Class="RPA.Views.MainView"
+<Window x:Class="RPA.Views.MainView"
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -14,6 +14,7 @@
                  xmlns:converters="clr-namespace:RPA.Converters"
                  xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
                  mc:Ignorable="d"
+                 FontFamily="{DynamicResource Studio.FontFamily}"
                  Title="RPA"
                  Background="{DynamicResource Studio.Surface}"
                  Height="650"
@@ -543,7 +544,7 @@
 
         <Menu Grid.Row="1"
               Margin="5,0,0,0"
-              FontFamily="Consolas"
+              FontFamily="{DynamicResource Studio.FontFamily}"
               Background="{DynamicResource Studio.MenuBackground}">
             <MenuItem Header="{DynamicResource lang_main_file}"
                       Foreground="{DynamicResource Studio.MenuForeground}">

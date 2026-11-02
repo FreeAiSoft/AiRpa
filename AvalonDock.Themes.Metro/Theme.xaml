@@ -22,7 +22,7 @@
     <Style x:Key="TitleTextBlockStyle"
            TargetType="TextBlock">
         <Setter Property="FontFamily"
-                Value="Roboto" />
+                Value="{DynamicResource Studio.FontFamily}" />
         <Setter Property="FontSize"
                 Value="14" />
         <Setter Property="Margin"
@@ -124,6 +124,10 @@
     <!--  AnchorablePaneControlStyle: тонкая рамка 1px вокруг панели (правило 6 плана)  -->
     <Style x:Key="AvalonDock_ThemeMetro_AnchorablePaneControlStyle"
            TargetType="{x:Type avalonDockControls:LayoutAnchorablePaneControl}">
+        <Setter Property="Foreground"
+                Value="{DynamicResource AvalonDock_Foreground}" />
+        <Setter Property="FontFamily"
+                Value="{DynamicResource Studio.FontFamily}" />
         <Setter Property="TabStripPlacement"
                 Value="Bottom" />
         <Setter Property="Padding"
@@ -433,7 +437,7 @@
                    Text="{Binding Title}"
                    Style="{StaticResource TitleTextBlockStyle}"
                    Foreground="{DynamicResource AvalonDock_Foreground}"
-                   FontFamily="Segoe UI"
+                   FontFamily="{DynamicResource Studio.FontFamily}"
                    TextTrimming="CharacterEllipsis" />
     </DataTemplate>
 
@@ -450,7 +454,8 @@
                        Grid.Column="1"
                        Margin="4,0,0,0"
                        Text="{Binding Title}"
-                       FontFamily="Segoe UI"
+                       Foreground="{DynamicResource AvalonDock_Foreground}"
+                       FontFamily="{DynamicResource Studio.FontFamily}"
                        TextTrimming="CharacterEllipsis" />
         </Grid>
         <DataTemplate.Triggers>
@@ -796,18 +801,44 @@
 
     <DataTemplate x:Key="AvalonDock_ThemeMetro_DocumentHeaderTemplate">
         <TextBlock Text="{Binding Title}"
+                   Foreground="{DynamicResource AvalonDock_Foreground}"
+                   FontFamily="{DynamicResource Studio.FontFamily}"
                    TextTrimming="CharacterEllipsis" />
     </DataTemplate>
 
     <DataTemplate x:Key="AvalonDock_ThemeMetro_DocumentTitleTemplate">
         <TextBlock VerticalAlignment="Center"
+                   Foreground="{DynamicResource AvalonDock_Foreground}"
+                   FontFamily="{DynamicResource Studio.FontFamily}"
                    Text="{Binding Title}"
                    TextTrimming="CharacterEllipsis" />
     </DataTemplate>
 
     <!--  DocumentPaneControlStyle  -->
+    <!--  Кнопка закрытия вкладки документа: hover — семантика закрытия (CloseHover* палитры).  -->
+    <Style x:Key="AvalonDock_ThemeMetro_DocumentCloseButtonStyle"
+           TargetType="Button"
+           BasedOn="{StaticResource AvalonDock_ThemeMetro_ButtonStyle}">
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver"
+                     Value="True">
+                <Setter Property="Background"
+                        Value="{DynamicResource AvalonDock_CloseHoverBackground}" />
+            </Trigger>
+            <Trigger Property="IsPressed"
+                     Value="True">
+                <Setter Property="Background"
+                        Value="{DynamicResource AvalonDock_CloseHoverBackground}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <Style x:Key="AvalonDock_ThemeMetro_DocumentPaneControlStyle"
            TargetType="{x:Type avalonDockControls:LayoutDocumentPaneControl}">
+        <Setter Property="Foreground"
+                Value="{DynamicResource AvalonDock_Foreground}" />
+        <Setter Property="FontFamily"
+                Value="{DynamicResource Studio.FontFamily}" />
         <Setter Property="BorderBrush"
                 Value="{DynamicResource AvalonDock_Separator}" />
         <Setter Property="Template">
@@ -845,7 +876,11 @@
                                                                    Focusable="False"
                                                                    Style="{StaticResource AvalonDock_ThemeMetro_ToolButtonStyle}">
                                     <avalonDockControls:DropDownButton.DropDownContextMenu>
-                                        <avalonDockControls:ContextMenuEx ItemsSource="{Binding Model.ChildrenSorted, RelativeSource={RelativeSource TemplatedParent}}">
+                                        <avalonDockControls:ContextMenuEx ItemsSource="{Binding Model.ChildrenSorted, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                          Background="{DynamicResource AvalonDock_Surface}"
+                                                                          Foreground="{DynamicResource AvalonDock_Foreground}"
+                                                                          BorderBrush="{DynamicResource AvalonDock_SeparatorStrong}"
+                                                                          BorderThickness="1">
                                             <avalonDockControls:ContextMenuEx.ItemContainerStyle>
                                                 <Style BasedOn="{StaticResource {x:Type MenuItem}}"
                                                        TargetType="{x:Type avalonDockControls:MenuItemEx}">
@@ -950,46 +985,36 @@
                             Value="{DynamicResource AvalonDock_Foreground}" />
                     <Setter Property="ToolTip"
                             Value="{Binding ToolTip}" />
+                    <!--  Отступ вкладки даёт LayoutDocumentTabItem (Padding=3), иначе текст уезжает вдвое.  -->
                     <Setter Property="Padding"
-                            Value="4" />
+                            Value="0" />
                     <Setter Property="Margin"
                             Value="0" />
                     <Setter Property="Template">
                         <Setter.Value>
+                            <!--
+                                Вкладка документа (P-08). Состояния рисует Border: раньше в шаблоне был
+                                только Grid, а триггеры меняли BorderBrush самого TabItem, который ничем
+                                не отрисовывался, — вкладки выглядели «без темы» (ни hover, ни выделения).
+                                Кисти — AvalonDock_*: их пишет AppSettings.ReapplyDockManagerResources
+                                (Helpers\DockingThemeBrushes.cs).
+                            -->
                             <ControlTemplate TargetType="{x:Type TabItem}">
-                                <Grid x:Name="TabBackground"
-                                      SnapsToDevicePixels="true"
-                                      Background="{DynamicResource AvalonDock_Base}">
+                                <Border x:Name="TabBorder"
+                                        Padding="{TemplateBinding Padding}"
+                                        Background="{DynamicResource AvalonDock_Base}"
+                                        BorderBrush="Transparent"
+                                        BorderThickness="1,1,1,0"
+                                        SnapsToDevicePixels="true">
                                     <ContentPresenter x:Name="Content"
                                                       HorizontalAlignment="{Binding HorizontalContentAlignment, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
                                                       VerticalAlignment="{Binding VerticalContentAlignment, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
                                                       ContentSource="Header"
                                                       RecognizesAccessKey="True"
                                                       SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
-                                </Grid>
+                                </Border>
                                 <ControlTemplate.Triggers>
-                                    <Trigger Property="Selector.IsSelected"
-                                             Value="true">
-                                        <Setter TargetName="TabBackground"
-                                                Property="Background"
-                                                Value="{DynamicResource AvalonDock_Active}" />
-                                        <Setter Property="BorderBrush"
-                                                Value="{DynamicResource AvalonDock_Active}" />
-                                        <Setter Property="Panel.ZIndex"
-                                                Value="1" />
-                                    </Trigger>
-
-                                    <DataTrigger Binding="{Binding IsActive}"
-                                                 Value="True">
-                                        <Setter TargetName="TabBackground"
-                                                Property="Background"
-                                                Value="{DynamicResource AvalonDock_Active}" />
-                                        <Setter Property="BorderBrush"
-                                                Value="{DynamicResource AvalonDock_Active}" />
-                                        <Setter Property="Panel.ZIndex"
-                                                Value="1" />
-                                    </DataTrigger>
-
+                                    <!--  Hover невыделенной вкладки: заливка Hover + hairline (как в VS).  -->
                                     <MultiTrigger>
                                         <MultiTrigger.Conditions>
                                             <Condition Property="IsMouseOver"
@@ -997,13 +1022,38 @@
                                             <Condition Property="Selector.IsSelected"
                                                        Value="false" />
                                         </MultiTrigger.Conditions>
-                                        <Setter Property="BorderBrush"
-                                                Value="{DynamicResource AvalonDock_SelectionHover}" />
-                                        <Setter Property="Foreground"
-                                                Value="{DynamicResource AvalonDock_Foreground}" />
+                                        <Setter TargetName="TabBorder"
+                                                Property="Background"
+                                                Value="{DynamicResource AvalonDock_Hover}" />
+                                        <Setter TargetName="TabBorder"
+                                                Property="BorderBrush"
+                                                Value="{DynamicResource AvalonDock_Separator}" />
                                         <Setter Property="Panel.ZIndex"
                                                 Value="0" />
                                     </MultiTrigger>
+                                    <!--  Выбранная вкладка сливается с контентом (Surface) и обведена hairline.  -->
+                                    <Trigger Property="Selector.IsSelected"
+                                             Value="true">
+                                        <Setter TargetName="TabBorder"
+                                                Property="Background"
+                                                Value="{DynamicResource AvalonDock_Active}" />
+                                        <Setter TargetName="TabBorder"
+                                                Property="BorderBrush"
+                                                Value="{DynamicResource AvalonDock_Separator}" />
+                                        <Setter Property="Panel.ZIndex"
+                                                Value="1" />
+                                    </Trigger>
+                                    <DataTrigger Binding="{Binding IsActive}"
+                                                 Value="True">
+                                        <Setter TargetName="TabBorder"
+                                                Property="Background"
+                                                Value="{DynamicResource AvalonDock_Active}" />
+                                        <Setter TargetName="TabBorder"
+                                                Property="BorderBrush"
+                                                Value="{DynamicResource AvalonDock_Separator}" />
+                                        <Setter Property="Panel.ZIndex"
+                                                Value="1" />
+                                    </DataTrigger>
                                     <Trigger Property="IsEnabled"
                                              Value="false">
                                         <Setter Property="Foreground"
@@ -1235,6 +1285,12 @@
 
     <!--#region LayoutDocumentTabItem  -->
     <Style TargetType="{x:Type avalonDockControls:LayoutDocumentTabItem}">
+        <!-- Текст вкладки документа: без явных Foreground/FontFamily он приходил из системных кистей
+             и в тёмной теме становился чёрным на тёмном фоне. -->
+        <Setter Property="Foreground"
+                Value="{DynamicResource AvalonDock_Foreground}" />
+        <Setter Property="FontFamily"
+                Value="{DynamicResource Studio.FontFamily}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type avalonDockControls:LayoutDocumentTabItem}">
@@ -1261,7 +1317,7 @@
                                         HorizontalAlignment="Center"
                                         VerticalAlignment="Center"
                                         Command="{Binding Path=LayoutItem.CloseCommand, RelativeSource={RelativeSource TemplatedParent}}"
-                                        Style="{StaticResource AvalonDock_ThemeMetro_ButtonStyle}"
+                                        Style="{StaticResource AvalonDock_ThemeMetro_DocumentCloseButtonStyle}"
                                         ToolTip="{x:Static avalonDockProperties:Resources.Document_Close}"
                                         Visibility="Visible">
                                     <Path x:Name="PART_ImgPinClose" Width="10" Height="10" Stretch="Uniform" Fill="{DynamicResource AvalonDock_Foreground}" Data="{StaticResource AvalonDock_GlyphClose}" />
@@ -1333,6 +1389,14 @@
                                     Value="Collapsed" />
                         </MultiDataTrigger>
 
+                        <!--  Крестик закрытия: hover — глиф из семантики закрытия (единственный не-нейтральный цвет).  -->
+                        <Trigger SourceName="DocumentCloseButton"
+                                 Property="IsMouseOver"
+                                 Value="True">
+                            <Setter TargetName="PART_ImgPinClose"
+                                    Property="Fill"
+                                    Value="{DynamicResource AvalonDock_CloseHoverForeground}" />
+                        </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
@@ -1342,6 +1406,11 @@
 
     <!--#region LayoutAnchorableTabItem -->
     <Style TargetType="{x:Type avalonDockControls:LayoutAnchorableTabItem}">
+        <!-- Заголовок панели: тот же текст из системных кистей, что и у вкладки документа. -->
+        <Setter Property="Foreground"
+                Value="{DynamicResource AvalonDock_Foreground}" />
+        <Setter Property="FontFamily"
+                Value="{DynamicResource Studio.FontFamily}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type avalonDockControls:LayoutAnchorableTabItem}">
@@ -1794,6 +1863,11 @@
            TargetType="ListBoxItem">
         <Setter Property="FocusVisualStyle"
                 Value="{StaticResource AvalonDock_ThemeMetro_NavigatorWindowListBoxItemFocusVisual}" />
+        <!-- Ctrl+Tab: текст элементов переключателя документов тоже брался из системных кистей. -->
+        <Setter Property="Foreground"
+                Value="{DynamicResource AvalonDock_Foreground}" />
+        <Setter Property="FontFamily"
+                Value="{DynamicResource Studio.FontFamily}" />
         <Setter Property="Background"
                 Value="Transparent" />
         <Setter Property="BorderBrush"

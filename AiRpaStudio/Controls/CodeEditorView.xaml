@@ -8,7 +8,7 @@
              d:DesignHeight="450"
              d:DesignWidth="800">
     <avalonEdit:TextEditor x:Name="editor"
-                           FontFamily="Consolas"
+                           FontFamily="{DynamicResource Studio.CodeFontFamily}"
                            FontSize="13"
                            ShowLineNumbers="True"
                            WordWrap="False"

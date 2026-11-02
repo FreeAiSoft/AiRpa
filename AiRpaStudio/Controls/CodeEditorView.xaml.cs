@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -19,6 +19,7 @@ namespace RPA.Controls
         private XmlFoldingStrategy foldingStrategy;
         private readonly DispatcherTimer foldingTimer;
         private bool isLoading;
+        private string currentLanguage;
 
         public CodeDocument Document { get; private set; }
 
@@ -68,9 +69,16 @@ namespace RPA.Controls
             Document.Save();
         }
 
+        /// <summary>Перекрашивает редактор после смены темы (фон, текст, подсветка).</summary>
+        public void ApplyTheme()
+        {
+            StudioEditorTheme.Apply(editor, currentLanguage);
+        }
+
         private void ApplyLanguage(string language)
         {
-            editor.SyntaxHighlighting = CodeLanguageProvider.GetHighlightingDefinition(language);
+            currentLanguage = language;
+            StudioEditorTheme.Apply(editor, language);
             foldingStrategy = CodeLanguageProvider.CreateFoldingStrategy(language);
 
             if (foldingStrategy != null && foldingManager == null)

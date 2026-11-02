@@ -1,9 +1,12 @@
-﻿using System.Activities.Presentation.Toolbox;
+﻿using System;
+using System.Activities.Presentation.Toolbox;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
+using System.Windows.Controls.Primitives;
+using System.Windows.Threading;
 using RPA.Helpers;
 
 namespace RPA.Controls
@@ -14,6 +17,15 @@ namespace RPA.Controls
     public partial class ToolboxPanel : UserControl
     {
         private ToolboxControl toolboxControl;
+
+        /// <summary>
+        /// Подписки на появление новых контейнеров: категории и активности материализует генератор
+        /// элементов при разворачивании (и при прокрутке виртуализованного списка), то есть уже после
+        /// применения темы. Без повторного прохода заголовок новой категории снова приходит со светлой
+        /// плашкой WF-стиля. Подписка ставится один раз на контрол.
+        /// </summary>
+        private static readonly ConditionalWeakTable<ToolboxControl, ToolboxHook> ContainerHooks =
+            new ConditionalWeakTable<ToolboxControl, ToolboxHook>();
 
         public ToolboxPanel()
         {
@@ -63,6 +75,8 @@ namespace RPA.Controls
             }
 
             WfVisualTreeThemer.ApplyWhenLoaded(toolbox);
+
+            HookContainers(toolbox);
         }
 
         /// <summary>
@@ -76,6 +90,80 @@ namespace RPA.Controls
             }
         }
 
+        /// <summary>
+        /// Повторная темизация при появлении новых элементов: контейнеры создаются после применения темы.
+        /// </summary>
+        private static void HookContainers(ToolboxControl toolbox)
+        {
+            ToolboxHook hook = ContainerHooks.GetValue(toolbox, key => new ToolboxHook());
+
+            if (hook.Subscribed)
+            {
+                return;
+            }
+
+            hook.Subscribed = true;
+
+            // Разворачивание категории — единственное действие пользователя, создающее новые элементы.
+            toolbox.AddHandler(
+                TreeViewItem.ExpandedEvent,
+                new RoutedEventHandler((sender, args) => ScheduleApply(toolbox)),
+                handledEventsToo: true);
+
+            // Дерево приходит из шаблона (PART_Tools): до загрузки контрола генератора ещё нет.
+            // Повторная загрузка панели (переключение раскладки) пересоздаёт элементы — темизируем заново.
+            toolbox.Loaded += (sender, args) =>
+            {
+                HookGenerator(toolbox, hook);
+                ScheduleApply(toolbox);
+            };
+            HookGenerator(toolbox, hook);
+        }
+
+        private static void HookGenerator(ToolboxControl toolbox, ToolboxHook hook)
+        {
+            if (hook.GeneratorSubscribed || !(toolbox.Template?.FindName("PART_Tools", toolbox) is TreeView treeView))
+            {
+                return;
+            }
+
+            hook.GeneratorSubscribed = true;
+
+            treeView.ItemContainerGenerator.StatusChanged += (sender, args) =>
+            {
+                if (sender is ItemContainerGenerator generator && generator.Status == GeneratorStatus.ContainersGenerated)
+                {
+                    ScheduleApply(toolbox);
+                }
+            };
+        }
+
+        /// <summary>
+        /// Отложенный проход: контейнеры создаются в процессе раскладки, поэтому темизация выполняется на
+        /// следующем цикле диспетчера и не чаще одного раза за цикл.
+        /// </summary>
+        private static void ScheduleApply(ToolboxControl toolbox)
+        {
+            if (!ContainerHooks.TryGetValue(toolbox, out ToolboxHook hook) || hook.Pending)
+            {
+                return;
+            }
+
+            hook.Pending = true;
+
+            _ = toolbox.Dispatcher.BeginInvoke(
+                new Action(() =>
+                {
+                    hook.Pending = false;
+
+                    if (ContainerHooks.TryGetValue(toolbox, out ToolboxHook current) && current.Subscribed)
+                    {
+                        WfVisualTreeThemer.Apply(toolbox);
+                    }
+                }),
+                DispatcherPriority.Background);
+        }
+
         private static Border GetFirstChildBorder(TreeView treeView)
         {
             // Сначала пробуем через логическое дерево
@@ -87,14 +175,8 @@ namespace RPA.Controls
                 return border;
             }
 
-            // Если не нашли в логическом, ищем в визуальном
-            if (VisualTreeHelper.GetChildrenCount(treeView) > 0)
-            {
-                DependencyObject child = VisualTreeHelper.GetChild(treeView, 0);
-                return child as Border;
-            }
-
-            return null;
+            // Если не нашли в логическом, ищем в визуальном (обход через XamlHelper — без исключений).
+            return XamlHelper.FindVisualChildren<Border>(treeView).FirstOrDefault();
         }
 
         private void CollapseAllButton_Click(object sender, RoutedEventArgs e)
@@ -132,53 +214,26 @@ namespace RPA.Controls
 
         private static T FindVisualChildByName<T>(DependencyObject parent, string name) where T : FrameworkElement
         {
-            if (parent == null)
-            {
-                return null;
-            }
-
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
-            {
-                DependencyObject child = VisualTreeHelper.GetChild(parent, i);
-
-                if (child is T element && element.Name == name)
-                {
-                    return element;
-                }
-
-                T result = FindVisualChildByName<T>(child, name);
-                if (result != null)
-                {
-                    return result;
-                }
-            }
-
-            return null;
+            return FindVisualChildren<T>(parent).FirstOrDefault(element => element.Name == name);
         }
 
         private static IEnumerable<T> FindVisualChildren<T>(DependencyObject depObj) where T : DependencyObject
         {
-            if (depObj == null)
-            {
-                yield break;
-            }
+            // Обход через XamlHelper: он пропускает не-визуальные узлы (RowDefinition/ColumnDefinition)
+            // вместо ArgumentException.
+            return XamlHelper.FindVisualChildren<T>(depObj);
+        }
 
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(depObj); i++)
-            {
-                DependencyObject child = VisualTreeHelper.GetChild(depObj, i);
+        /// <summary>Состояние подписок панели на контейнеры тулбокса.</summary>
+        private sealed class ToolboxHook
+        {
+            public bool Subscribed { get; set; }
 
-#pragma warning disable IDE0038 // Use pattern matching
-                if (child != null && child is T)
-                {
-                    yield return (T)child;
-                }
-#pragma warning restore IDE0038 // Use pattern matching
+            /// <summary>Подписка на <see cref="ItemContainerGenerator.StatusChanged"/> поставлена.</summary>
+            public bool GeneratorSubscribed { get; set; }
 
-                foreach (T childOfChild in FindVisualChildren<T>(child))
-                {
-                    yield return childOfChild;
-                }
-            }
+            /// <summary>Отложенный проход уже запланирован — защита от повторной постановки.</summary>
+            public bool Pending { get; set; }
         }
     }
 }

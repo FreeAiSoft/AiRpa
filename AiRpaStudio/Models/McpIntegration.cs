@@ -22,7 +22,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                return new CallResult { Error = new Error(ex.Message) };
+                return new CallResult { Error = new Error(ErrorText.Of(ex)) };
             }
         }
     }

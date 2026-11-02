@@ -28,10 +28,12 @@ public class WfThemeTests
     // --- Общие примитивы темизации. ---
 
     [Test]
-    public void Font_IsSegoeUi()
+    public void Font_IsRobotoForWholeProject()
     {
-        Assert.That(WfThemeStyles.FontFamilyName, Is.EqualTo("Segoe UI"));
-        Assert.That(WfThemeStyles.Font.Source, Is.EqualTo("Segoe UI"));
+        Assert.That(WfThemeStyles.FontFamilyName, Is.EqualTo("Roboto"), "этап 12: шрифт всего проекта — Roboto");
+        Assert.That(WfThemeStyles.FontFamilyName, Is.EqualTo(StudioFonts.FamilyName));
+        Assert.That(WfThemeStyles.Font.Source, Does.Contain("Roboto"));
+        // Font.Source — «./#Roboto» для встроенного шрифта или «Roboto» для установленного.
     }
 
     [Test]
@@ -89,7 +91,7 @@ public class WfThemeTests
             Assert.That(ColorOf(tree.Background), Is.EqualTo(StudioPalette.Dark.Surface));
             Assert.That(ColorOf(tree.Foreground), Is.EqualTo(StudioPalette.Dark.Foreground));
             Assert.That(ColorOf(tree.BorderBrush), Is.EqualTo(StudioPalette.Dark.Separator));
-            Assert.That(tree.FontFamily.Source, Is.EqualTo(WfThemeStyles.FontFamilyName));
+            Assert.That(tree.FontFamily.Source, Does.Contain("Roboto"));
         });
     }
 
@@ -213,6 +215,168 @@ public class WfThemeTests
         Assert.That(ColorOf(tree.Background), Is.EqualTo(StudioPalette.Dark.Surface), "кисти самого дерева при этом применяются");
     }
 
+    // --- Комбобоксы (регресс F-04: свёрнутый масштаб в shell bar — белые буквы на белом фоне). ---
+    // Шаблон Aero2 рисует под текстом опаковую белую плашку, а Foreground комбобокс наследует от
+    // поверхности, поэтому темизатор обязан задать кисти сам и погасить светлые плашки шаблона.
+
+    [Test]
+    public void Apply_ThemesComboBoxes()
+    {
+        var panel = new StackPanel();
+        var comboBox = new ComboBox();
+        _ = panel.Children.Add(comboBox);
+
+        WfVisualTreeThemer.Apply(panel, StudioPalette.Dark);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(comboBox.Background), Is.EqualTo(StudioPalette.Dark.Surface),
+                "белая плашка шаблона Aero2 осталась: текст на ней не читается");
+            Assert.That(ColorOf(comboBox.Foreground), Is.EqualTo(StudioPalette.Dark.Foreground));
+            Assert.That(ColorOf(comboBox.BorderBrush), Is.EqualTo(StudioPalette.Dark.Separator));
+            Assert.That(comboBox.FontFamily.Source, Does.Contain("Roboto"));
+            Assert.That(comboBox.FontSize, Is.EqualTo(WfThemeStyles.FontSize));
+        });
+    }
+
+    [Test]
+    public void Apply_ComboBoxTextHasContrastInBothThemes()
+    {
+        var comboBox = new ComboBox();
+
+        foreach (StudioThemeColors palette in new[] { StudioPalette.Dark, StudioPalette.Light })
+        {
+            WfVisualTreeThemer.Apply(comboBox, palette);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ColorOf(comboBox.Background), Is.EqualTo(palette.Surface));
+                Assert.That(
+                    Math.Abs(Luminance(ColorOf(comboBox.Foreground)) - Luminance(ColorOf(comboBox.Background))),
+                    Is.GreaterThanOrEqualTo(0.3),
+                    $"контраст текста комбобокса ниже порога (dark={palette.IsDark})");
+            });
+        }
+    }
+
+    [Test]
+    public void Apply_ThemesComboBoxItems()
+    {
+        var comboBox = new ComboBox();
+
+        WfVisualTreeThemer.Apply(comboBox, StudioPalette.Dark);
+
+        Style style = comboBox.ItemContainerStyle;
+
+        Assert.That(style, Is.Not.Null, "элементы списка остались на системном стиле Aero2 (светлая плашка наведения)");
+        Assert.That(style.TargetType, Is.EqualTo(typeof(ComboBoxItem)));
+        Assert.That(SetterColor(style, Control.BackgroundProperty), Is.EqualTo(Colors.Transparent));
+        Assert.That(SetterColor(style, Control.ForegroundProperty), Is.EqualTo(StudioPalette.Dark.Foreground));
+        Assert.That(((Setter)style.Setters.OfType<Setter>().First(s => s.Property == Control.TemplateProperty)).Value,
+            Is.InstanceOf<ControlTemplate>(), "без своего шаблона подсветку строки рисует Aero2 светлой плашкой");
+
+        Trigger hover = TriggersOf(style).OfType<Trigger>().FirstOrDefault(t => t.Property == UIElement.IsMouseOverProperty);
+        Trigger selected = TriggersOf(style).OfType<Trigger>().FirstOrDefault(t => t.Property == ListBoxItem.IsSelectedProperty);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hover, Is.Not.Null, "нет триггера IsMouseOver");
+            Assert.That(selected, Is.Not.Null, "нет триггера IsSelected — выделение останется системным");
+            Assert.That(SetterColor(hover, Control.BackgroundProperty), Is.EqualTo(StudioPalette.Dark.Hover));
+            Assert.That(SetterColor(selected, Control.BackgroundProperty), Is.EqualTo(StudioPalette.Dark.Selected));
+        });
+    }
+
+    [Test]
+    public void Apply_DoesNotOverrideComboBoxItemContainerStyleSelector()
+    {
+        // Селектор стилей (как у ToolboxControl) сильнее ItemContainerStyle: подменять стиль нельзя,
+        // иначе вместе со стилем WF теряются шаблон элемента и его обработчики.
+        var comboBox = new ComboBox { ItemContainerStyleSelector = new NoopStyleSelector() };
+
+        WfVisualTreeThemer.Apply(comboBox, StudioPalette.Dark);
+
+        Assert.That(comboBox.ItemContainerStyle, Is.Null, "стиль, выбранный селектором, подменять запрещено");
+        Assert.That(ColorOf(comboBox.Background), Is.EqualTo(StudioPalette.Dark.Surface), "кисти самого комбобокса при этом применяются");
+    }
+
+    [Test]
+    public void Apply_MakesComboBoxGlyphVisible()
+    {
+        var panel = new StackPanel();
+        var comboBox = new ComboBox { Template = BuildComboBoxTemplate() };
+        _ = panel.Children.Add(comboBox);
+        Assert.That(comboBox.ApplyTemplate(), Is.True, "шаблон комбобокса не применён");
+        // Шаблон вложенной кнопки раскрытия применяется при раскладке, а не в ApplyTemplate самого ComboBox.
+        panel.Measure(new Size(200, 100));
+        panel.Arrange(new Rect(0, 0, 200, 100));
+        panel.UpdateLayout();
+
+
+        WfVisualTreeThemer.Apply(panel, StudioPalette.Dark);
+
+        System.Windows.Shapes.Path glyph = FindVisual<System.Windows.Shapes.Path>(comboBox);
+        Assert.That(glyph, Is.Not.Null);
+        Assert.That(ColorOf(glyph.Fill), Is.EqualTo(StudioPalette.Dark.ForegroundMuted),
+            "системно-серую стрелку раскрытия не видно на тёмной поверхности");
+    }
+
+    [Test]
+    public void Apply_SwitchesComboBoxPalette()
+    {
+        var comboBox = new ComboBox();
+
+        WfVisualTreeThemer.Apply(comboBox, StudioPalette.Dark);
+        Assert.That(ColorOf(comboBox.Background), Is.EqualTo(StudioPalette.Dark.Surface));
+
+        WfVisualTreeThemer.Apply(comboBox, StudioPalette.Light);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(comboBox.Background), Is.EqualTo(StudioPalette.Light.Surface));
+            Assert.That(ColorOf(comboBox.Foreground), Is.EqualTo(StudioPalette.Light.Foreground));
+            Assert.That(SetterColor(comboBox.ItemContainerStyle, Control.ForegroundProperty), Is.EqualTo(StudioPalette.Light.Foreground));
+        });
+    }
+
+    [Test]
+    public void Apply_ComboBoxThemeIsIdempotent()
+    {
+        var comboBox = new ComboBox();
+
+        WfVisualTreeThemer.Apply(comboBox, StudioPalette.Dark);
+        Style first = comboBox.ItemContainerStyle;
+        int triggers = TriggersOf(first).Count;
+
+        WfVisualTreeThemer.Apply(comboBox, StudioPalette.Dark);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(comboBox.ItemContainerStyle, Is.SameAs(first), "повторная темизация не должна наращивать цепочку BasedOn");
+            Assert.That(TriggersOf(comboBox.ItemContainerStyle), Has.Count.EqualTo(triggers), "триггеры задублировались");
+            Assert.That(WfThemeStyles.IsThemed(first), Is.True);
+        });
+    }
+
+    [Test]
+    public void ThemeComboBoxes_SweepsRootAndDescendants()
+    {
+        var panel = new StackPanel();
+        var root = new ComboBox();
+        var nested = new ComboBox();
+        var host = new Border { Child = nested };
+        _ = panel.Children.Add(root);
+        _ = panel.Children.Add(host);
+
+        WfVisualTreeThemer.ThemeComboBoxes(panel, StudioPalette.Light);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(root.Background), Is.EqualTo(StudioPalette.Light.Surface));
+            Assert.That(ColorOf(nested.Background), Is.EqualTo(StudioPalette.Light.Surface));
+        });
+    }
+
+
 
     // --- F-03: PropertyInspectorView. ---
 
@@ -312,10 +476,87 @@ public class WfThemeTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(byCategory.FontFamily.Source, Is.EqualTo(WfThemeStyles.FontFamilyName));
-            Assert.That(caption.FontFamily.Source, Is.EqualTo(WfThemeStyles.FontFamilyName));
+            Assert.That(byCategory.FontFamily.Source, Does.Contain("Roboto"));
+            Assert.That(caption.FontFamily.Source, Does.Contain("Roboto"));
         });
     }
+
+    // --- Этап 12: пересоздание содержимого инспектора и ключи WF внутри него. ---
+
+    [Test]
+    public void NewInspectorContent_IsThemedAfterRecreation()
+    {
+        // WF пересоздаёт строки свойств при выборе активности/развороте категории: новые элементы
+        // приходят без кистей, поэтому помощник обязан перекрашивать их повторно (Attach + LayoutUpdated).
+        (Panel root, _, _, _, _, _, TextBox search, _, _) = BuildInspectorTree();
+        var helper = new PropertyWindowStyleHelper();
+
+        helper.SetPropertyStyles(root, StudioPalette.Dark);
+        Assert.That(PropertyWindowStyleHelper.IsAttached(root), Is.True, "инспектор должен быть под наблюдением");
+
+        int before = PropertyWindowStyleHelper.ComputeSignature(root);
+
+        // Эмуляция пересоздания строки значения: новый TextBox внутри того же дерева.
+        var created = new TextBox();
+        root.Children.Add(created);
+
+        Assert.That(PropertyWindowStyleHelper.ComputeSignature(root), Is.Not.EqualTo(before),
+            "отпечаток дерева должен меняться при появлении новых элементов");
+
+        // Повторное применение (то, что делает обработчик LayoutUpdated) обязано покрасить новый элемент.
+        helper.SetPropertyStyles(root, StudioPalette.Dark);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(created.Background), Is.EqualTo(StudioPalette.Dark.Surface));
+            Assert.That(ColorOf(created.Foreground), Is.EqualTo(StudioPalette.Dark.Foreground));
+            Assert.That(ColorOf(created.CaretBrush), Is.EqualTo(StudioPalette.Dark.Foreground));
+            Assert.That(created.FontFamily.Source, Does.Contain("Roboto"));
+            Assert.That(ColorOf(search.Foreground), Is.EqualTo(StudioPalette.Dark.Foreground), "поле поиска не должно терять стиль");
+        });
+    }
+
+    [Test]
+    public void PropertyHelper_PutsPaletteKeysIntoInspectorResources()
+    {
+        // Окно «Свойства» рисует шаблоны из своих ресурсов (TextBrushKey/BackgroundBrushKey/FontFamilyKey),
+        // которые перекрывают словарь приложения — без слияния палитры внутрь инспектора тема не доходила.
+        (Panel root, _, _, _, _, _, _, _, _) = BuildInspectorTree();
+
+        new PropertyWindowStyleHelper().SetPropertyStyles(root, StudioPalette.Light);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(BrushColorOfResource(root.Resources, "BackgroundBrushKey"), Is.EqualTo(StudioPalette.Light.Surface),
+                "фон строк свойств должен приходить из палитры студии");
+            Assert.That(BrushColorOfResource(root.Resources, "TextBrushKey"), Is.EqualTo(StudioPalette.Light.Foreground));
+            Assert.That(root.Resources.Contains("FontFamilyKey"), Is.True, "WF-шрифт задаётся ключом FontFamilyKey");
+            Assert.That(root.Resources.Contains("FontSizeKey"), Is.True);
+            Assert.That(root.Resources.Contains("FontWeightKey"), Is.True);
+        });
+    }
+
+    [Test]
+    public void PropertyHelper_AttachIsIdempotent()
+    {
+        (Panel root, _, _, _, _, _, _, _, _) = BuildInspectorTree();
+        var helper = new PropertyWindowStyleHelper();
+
+        helper.Attach(root);
+        helper.Attach(root);
+        helper.SetPropertyStyles(root, StudioPalette.Dark);
+
+        Assert.That(PropertyWindowStyleHelper.IsAttached(root), Is.True);
+        Assert.DoesNotThrow(() => helper.Attach(new Border()));
+    }
+
+    /// <summary>Цвет кисти, положенной в словарь (палитра WF кладётся как <see cref="SolidColorBrush"/>).</summary>
+    private static Color BrushColorOfResource(ResourceDictionary resources, string key)
+    {
+        Assert.That(resources.Contains(key), Is.True, $"в ресурсах инспектора нет ключа {key}");
+        return ColorOf(resources[key] as Brush);
+    }
+
 
     [Test]
     public void PropertyHelper_ExtractsPathDataFromSvg()
@@ -414,6 +655,77 @@ public class WfThemeTests
         return (root, byCategory, decoy, toolBar, alpha, clear, search, separator, caption);
     }
 
+    /// <summary>Шаблон, повторяющий ключевую часть шаблона Aero2: кнопка раскрытия со стрелкой (Path).</summary>
+    private static ControlTemplate BuildComboBoxTemplate()
+    {
+        var glyph = new FrameworkElementFactory(typeof(System.Windows.Shapes.Path));
+        glyph.Name = "Arrow";
+        glyph.SetValue(System.Windows.Shapes.Shape.FillProperty, Brushes.SlateGray);
+        glyph.SetValue(FrameworkElement.WidthProperty, 4d);
+        glyph.SetValue(FrameworkElement.HeightProperty, 4d);
+
+        var glyphHost = new FrameworkElementFactory(typeof(Grid));
+        glyphHost.AppendChild(glyph);
+
+        // Кнопка раскрытия — со своим шаблоном: стрелка обязана быть её визуальным потомком
+        // (именно так её находит темизатор: Shape внутри шаблона ToggleButton).
+        var toggle = new FrameworkElementFactory(typeof(ToggleButton));
+        toggle.Name = "toggleButton";
+        toggle.SetValue(Control.TemplateProperty, new ControlTemplate(typeof(ToggleButton)) { VisualTree = glyphHost });
+
+        var root = new FrameworkElementFactory(typeof(Grid));
+        root.AppendChild(toggle);
+
+        return new ControlTemplate(typeof(ComboBox)) { VisualTree = root };
+    }
+
+    private static T FindVisual<T>(DependencyObject root) where T : DependencyObject
+    {
+        if (root == null)
+        {
+            return null;
+        }
+
+        int count = VisualTreeHelper.GetChildrenCount(root);
+        for (int index = 0; index < count; index++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, index);
+            if (child is T match)
+            {
+                return match;
+            }
+
+            T nested = FindVisual<T>(child);
+            if (nested != null)
+            {
+                return nested;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Относительная яркость цвета (WCAG): 0 — чёрный, 1 — белый.</summary>
+    private static double Luminance(Color color)
+    {
+        return (0.2126 * LinearChannel(color.R)) + (0.7152 * LinearChannel(color.G)) + (0.0722 * LinearChannel(color.B));
+    }
+
+    private static double LinearChannel(byte value)
+    {
+        double channel = value / 255d;
+        return channel <= 0.03928 ? channel / 12.92 : Math.Pow((channel + 0.055) / 1.055, 2.4);
+    }
+
+    /// <summary>Селектор стилей элементов: эмулирует WF-контрол, у которого стиль выбирает StyleSelector.</summary>
+    private sealed class NoopStyleSelector : StyleSelector
+    {
+        public override Style SelectStyle(object item, DependencyObject container)
+        {
+            return null;
+        }
+    }
+
     private static Color ColorOf(Brush brush)
     {
         Assert.That(brush, Is.InstanceOf<SolidColorBrush>());
@@ -435,6 +747,14 @@ public class WfThemeTests
         }
 
         return copy;
+    }
+
+    private static Color SetterColor(Style style, DependencyProperty property)
+    {
+        Assert.That(style, Is.Not.Null);
+        Setter setter = style.Setters.OfType<Setter>().FirstOrDefault(s => s.Property == property);
+        Assert.That(setter, Is.Not.Null, $"в стиле нет сеттера {property.Name}");
+        return ColorOf((Brush)setter.Value);
     }
 
     private static Color SetterColor(Trigger trigger, DependencyProperty property)

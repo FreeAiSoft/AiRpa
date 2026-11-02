@@ -280,8 +280,40 @@ namespace RPA.Core
 
             if (dialogOpen.ShowDialog() == true)
             {
-                using StreamReader file = new StreamReader(dialogOpen.FileName, true);
-                ActiveWorkflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(dialogOpen.FileName);
+                // Файл нельзя держать открытым на чтение во время LoadActivityToDesigner: он в конце
+                // вызывает WorkflowDesigner.Save(sourceFile), а StreamReader(path, true) открывает
+                // FileStream с FileShare.Read — запись запрещена, и Save падал с IOException
+                // «файл используется другим процессом». Поток чтения открывался в using и освобождался
+                // только после возврата из LoadActivityToDesigner, то есть уже после Save.
+                try
+                {
+                    ActiveWorkflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(dialogOpen.FileName);
+                }
+                catch (Exception ex)
+                {
+                    // Открытие воркфлоу не должно ронять приложение: файл может быть занят другим
+                    // процессом, недоступен на запись и т.п. — сообщаем пользователю в лог/консоль.
+                    Log($"Не удалось открыть {dialogOpen.FileName}: {ErrorText.Of(ex)}", (int)RpaCommon.Enums.LogLevel.Error);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Сохраняет воркфлоу в файл и не даёт исключению записи выйти наружу: занятый другим
+        /// процессом файл или файл только для чтения — это ошибка пользователя, а не падение студии.
+        /// Возвращает <c>true</c>, если файл успешно записан.
+        /// </summary>
+        private bool TrySaveDesigner(WorkflowDesignerEx designer, string filePath)
+        {
+            try
+            {
+                designer.Save(filePath);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Log($"Не удалось сохранить {filePath}: файл занят другим процессом или доступен только для чтения — {ErrorText.Of(ex)}", (int)RpaCommon.Enums.LogLevel.Error);
+                return false;
             }
         }
 
@@ -301,7 +333,10 @@ namespace RPA.Core
 
                 if (dialogSave.ShowDialog() == true)
                 {
-                    ActiveWorkflowDesignerEx.Save(dialogSave.FileName);
+                    if (!TrySaveDesigner(ActiveWorkflowDesignerEx, dialogSave.FileName))
+                    {
+                        return;
+                    }
                     // Сохраняем точки останова
                     string breakPointsFile = $"{dialogSave.FileName}.breakpoints";
                     SaveBreakpoints(ActiveWorkflowDesignerEx, breakPointsFile);
@@ -312,7 +347,10 @@ namespace RPA.Core
             {
                 string loadedFile = ActiveWorkflowDesignerEx.Context.Items.GetValue<WorkflowFileItem>().LoadedFile;
                 string breakPointsFile = $"{loadedFile}.breakpoints";
-                ActiveWorkflowDesignerEx.Save(loadedFile);
+                if (!TrySaveDesigner(ActiveWorkflowDesignerEx, loadedFile))
+                {
+                    return;
+                }
 
                 // Сохраняем точки останова
                 SaveBreakpoints(ActiveWorkflowDesignerEx, breakPointsFile);
@@ -330,7 +368,10 @@ namespace RPA.Core
                 string loadedFile = designer.CurrentWorkflowFile;
                 if (!string.IsNullOrEmpty(loadedFile))
                 {
-                    designer.Save(loadedFile);
+                    if (!TrySaveDesigner(designer, loadedFile))
+                    {
+                        continue;
+                    }
                     string breakPointsFile = $"{loadedFile}.breakpoints";
                     SaveBreakpoints(designer, breakPointsFile);
                     designer.IsEdited = false;
@@ -375,7 +416,7 @@ namespace RPA.Core
             }
             catch (Exception ex)
             {
-                Log($"Ошибка при сохранении точек останова: {ex.Message}", (int)RpaCommon.Enums.LogLevel.Error);
+                Log($"Ошибка при сохранении точек останова: {ex}", (int)RpaCommon.Enums.LogLevel.Error);
             }
         }
 
@@ -393,7 +434,7 @@ namespace RPA.Core
 
             if (dialogSave.ShowDialog() == true)
             {
-                ActiveWorkflowDesignerEx.Save(dialogSave.FileName);
+                _ = TrySaveDesigner(ActiveWorkflowDesignerEx, dialogSave.FileName);
             }
         }
 
@@ -461,7 +502,7 @@ namespace RPA.Core
             }
             catch (Exception ex)
             {
-                Log(ex.Message, (int)RpaCommon.Enums.LogLevel.Error);
+                Log(ErrorText.Of(ex), (int)RpaCommon.Enums.LogLevel.Error);
             }
         }
 

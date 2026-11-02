@@ -4,53 +4,74 @@
                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                  xmlns:local="clr-namespace:RPA.Views"
+                 xmlns:controls="clr-namespace:RPA.Controls"
+                 xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
                  mc:Ignorable="d"
-                 Height="245"
+                 Height="277"
                  Width="450"
+                 FontFamily="{DynamicResource Studio.FontFamily}"
                  Title="{DynamicResource lang_create_vs_template_title}"
                  WindowStartupLocation="CenterScreen"
                  WindowState="Normal"
                  ResizeMode="NoResize"
                  Background="{DynamicResource Studio.Surface}"
                  Foreground="{DynamicResource Studio.Foreground}">
-    <Grid Margin="12">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            ResizeBorderThickness="0"
+                            GlassFrameThickness="0"
+                            CornerRadius="8"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+    <!-- Заголовок окна рисует студия (Controls\StudioTitleBar.xaml): системный caption белый в любой теме. -->
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="50"/>
-            <RowDefinition Height="50"/>
-            <RowDefinition Height="50"/>
-            <RowDefinition />
+            <RowDefinition Height="32" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <TextBox Text="{Binding ProjectName, UpdateSourceTrigger=PropertyChanged}"
-                 TextWrapping="NoWrap"
-                 Margin="0,0,0,8"
-                 VerticalContentAlignment="Center"
-                 ToolTip="project name"/>
+
+        <controls:StudioTitleBar Grid.Row="0" />
+
         <Grid Grid.Row="1"
-              Margin="0,0,0,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition />
-                <ColumnDefinition Width="auto" />
-            </Grid.ColumnDefinitions>
-            <TextBox Text="{Binding SelectedPath}"
-                     ToolTip="root path"
-                     VerticalContentAlignment="Center" />
-            <Button Content="..."
+              Margin="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="50"/>
+                <RowDefinition Height="50"/>
+                <RowDefinition Height="50"/>
+                <RowDefinition />
+            </Grid.RowDefinitions>
+            <TextBox Text="{Binding ProjectName, UpdateSourceTrigger=PropertyChanged}"
+                     TextWrapping="NoWrap"
+                     Margin="0,0,0,8"
+                     VerticalContentAlignment="Center"
+                     ToolTip="project name"/>
+            <Grid Grid.Row="1"
+                  Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition />
+                    <ColumnDefinition Width="auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox Text="{Binding SelectedPath}"
+                         ToolTip="root path"
+                         VerticalContentAlignment="Center" />
+                <Button Content="..."
+                        Command="{Binding Cmd}"
+                        CommandParameter="SetFolder"
+                        Margin="8,0,0,0"
+                        Width="28"
+                        Grid.Column="1"/>
+            </Grid>
+            <ComboBox Grid.Row="2"
+                      Margin="0,0,0,8"
+                      VerticalContentAlignment="Center"
+                      ItemsSource="{Binding TargetFrameworkVersions}"
+                      SelectedItem="{Binding TargetFrameworkVersion, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            <Button Content="Create"
                     Command="{Binding Cmd}"
-                    CommandParameter="SetFolder"
-                    Margin="8,0,0,0"
-                    Width="28"
-                    Grid.Column="1"/>
+                    CommandParameter="CreateProject"
+                    Grid.Row="3"
+                    Height="32"
+                    VerticalAlignment="Top"/>
         </Grid>
-        <ComboBox Grid.Row="2"
-                  Margin="0,0,0,8"
-                  VerticalContentAlignment="Center"
-                  ItemsSource="{Binding TargetFrameworkVersions}"
-                  SelectedItem="{Binding TargetFrameworkVersion, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-        <Button Content="Create"
-                Command="{Binding Cmd}"
-                CommandParameter="CreateProject"
-                Grid.Row="3"
-                Height="32"
-                VerticalAlignment="Top"/>
     </Grid>
 </Window>

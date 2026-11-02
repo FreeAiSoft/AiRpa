@@ -43,7 +43,7 @@ namespace RPA.Chat.Markdown
         private static readonly HashSet<string> CSharpLanguages =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "csharp", "cs", "c#" };
 
-        private static readonly FontFamily CodeFont = new FontFamily("Consolas");
+        private static readonly FontFamily CodeFont = RPA.Chat.Themes.ChatFonts.Code;
 
         private static readonly SolidColorBrush TextBrush = Freeze("#F1F1F1");
         private static readonly SolidColorBrush MutedBrush = Freeze("#9A9A9A");

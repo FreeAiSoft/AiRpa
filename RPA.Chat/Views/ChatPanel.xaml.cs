@@ -46,6 +46,16 @@ namespace RPA.Chat.Views
 
         public ChatViewModel ViewModel => _viewModel;
 
+        /// <summary>
+        /// Повторно применяет текущую тему контрола. Нужен хосту, когда палитра студии (<c>Studio.*</c>)
+        /// изменилась уже после создания контрола: словарь чата перекрывается мостом только в момент
+        /// применения темы, поэтому без повторного вызова чат остаётся в палитре на момент создания.
+        /// </summary>
+        public void ReapplyTheme()
+        {
+            ApplyTheme(_viewModel.IsDarkTheme);
+        }
+
         private void OnMessageAppended()
         {
             if (_chatAutoScroll)

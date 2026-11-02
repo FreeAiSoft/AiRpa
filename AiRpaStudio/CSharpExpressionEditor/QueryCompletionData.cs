@@ -37,7 +37,7 @@ namespace RPA.CSharpExpressionEditor
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to load resource {resourceName}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Failed to load resource {resourceName}: {ex}");
             }
             return null;
         }

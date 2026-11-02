@@ -29,7 +29,9 @@ public class ThemeAcceptanceTests
         @"AiRpaStudio\Views\ProjectCreatorView.xaml",
         @"AiRpaStudio\Views\VsProjectOpenView.xaml",
         @"AiRpaStudio\Views\VsTemplateProjectCreatorView.xaml",
+        @"AiRpaStudio\Views\ErrorView.xaml",
         @"AiRpaStudio\Controls\SearchableComboBox.xaml",
+        @"AiRpaStudio\Controls\StudioTitleBar.xaml",
         @"AiRpaStudio\Controls\ProjectManagerControl.xaml",
         @"AiRpaStudio\Controls\ToolboxPanel.xaml",
         @"AiRpaStudio\CSharpExpressionEditor\RoslynExpressionEditor.xaml",
@@ -293,7 +295,8 @@ public class ThemeAcceptanceTests
             @"AiRpaStudio\Views\ActivityCreatorView.xaml",
             @"AiRpaStudio\Views\ProjectCreatorView.xaml",
             @"AiRpaStudio\Views\VsProjectOpenView.xaml",
-            @"AiRpaStudio\Views\VsTemplateProjectCreatorView.xaml"
+            @"AiRpaStudio\Views\VsTemplateProjectCreatorView.xaml",
+            @"AiRpaStudio\Views\ErrorView.xaml"
         };
 
         foreach (string window in windows)
@@ -326,17 +329,28 @@ public class ThemeAcceptanceTests
     }
 
     [Test]
-    public void MainView_ReappliesOpenDocumentsOnThemeChange()
+    public void MainView_AppliesPaletteBeforeTheChatSwapsItsDictionary()
     {
         string code = Read(@"AiRpaStudio\Views\MainView.xaml.cs");
 
         Assert.That(code, Does.Contain("ReapplyWorkflowControlThemes"), "должен существовать повторный прогон WF-хелперов");
 
-        int theme = code.LastIndexOf("AppSettings.ApplyTheme(", StringComparison.Ordinal);
-        Assert.That(theme, Is.GreaterThanOrEqualTo(0), "MainView не реагирует на смену темы");
+        // Порядок задан явно: студия пересобирает Studio.* в ThemeApplying раньше, чем ChatPanel
+        // применит свой словарь и перекроет кисти мостом, иначе чат отстаёт на один переключатель.
+        Assert.That(code, Does.Contain("chatPanel.ViewModel.ThemeApplying = Services.AppSettings.ApplyTheme"),
+            "MainView должен подписать ThemeApplying на AppSettings.ApplyTheme");
 
-        string after = code.Substring(theme, Math.Min(400, code.Length - theme));
-        Assert.That(after, Does.Contain("ReapplyWorkflowControlThemes"),
+        int start = code.IndexOf("private void OnChatThemeChanged()", StringComparison.Ordinal);
+        Assert.That(start, Is.GreaterThanOrEqualTo(0), "не найден OnChatThemeChanged");
+
+        int end = code.IndexOf("private void ", start + 10, StringComparison.Ordinal);
+        Assert.That(end, Is.GreaterThan(start), "не найден конец OnChatThemeChanged");
+
+        string body = code.Substring(start, end - start);
+
+        Assert.That(body, Does.Not.Contain("AppSettings.ApplyTheme("),
+            "повторный AppSettings.ApplyTheme в OnChatThemeChanged красил бы студию дважды за клик");
+        Assert.That(body, Does.Contain("ReapplyWorkflowControlThemes()"),
             "после смены темы открытые документы и панели должны перекрашиваться (§9 п.5)");
     }
 

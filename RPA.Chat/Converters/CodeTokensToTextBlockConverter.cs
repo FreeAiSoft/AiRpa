@@ -22,7 +22,7 @@ namespace RPA.Chat.Converters
         private static readonly SolidColorBrush NumberBrush = Freeze("#B5CEA8");
         private static readonly SolidColorBrush PlainBrush = Freeze("#DCDCDC");
 
-        private static readonly FontFamily CodeFont = new FontFamily("Consolas");
+        private static readonly FontFamily CodeFont = RPA.Chat.Themes.ChatFonts.Code;
 
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {

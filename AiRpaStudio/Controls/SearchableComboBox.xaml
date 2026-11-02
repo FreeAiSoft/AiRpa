@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:RPA.Controls"
              xmlns:materialIcons="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
+             FontFamily="{DynamicResource Studio.FontFamily}"
              mc:Ignorable="d" 
              x:Name="Root"
              d:DesignHeight="40" d:DesignWidth="300">

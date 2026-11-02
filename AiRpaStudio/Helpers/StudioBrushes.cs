@@ -124,7 +124,20 @@ namespace RPA.Helpers
             SystemColors.InactiveSelectionHighlightBrushKey,
             SystemColors.ActiveBorderBrushKey,
             SystemColors.InactiveBorderBrushKey,
-            SystemColors.GrayTextBrushKey
+            SystemColors.GrayTextBrushKey,
+
+            // Градации системного chrome (3D-рамки, полосы прокрутки, фон рабочей области). Шаблоны
+            // Aero2 читают их вместо Control/Window — именно из-за них в тёмной теме появлялись светлые
+            // плашки (заголовок категории в панели «Активности», углы ScrollViewer).
+            SystemColors.ControlLightBrushKey,
+            SystemColors.ControlLightLightBrushKey,
+            SystemColors.ControlDarkBrushKey,
+            SystemColors.ControlDarkDarkBrushKey,
+            SystemColors.ScrollBarBrushKey,
+            SystemColors.AppWorkspaceBrushKey,
+            SystemColors.WindowFrameBrushKey,
+            SystemColors.InfoBrushKey,
+            SystemColors.InfoTextBrushKey
         };
 
         /// <summary>Заполняет алиасы в ресурсах приложения (безопасно вызывать многократно).</summary>
@@ -236,6 +249,18 @@ namespace RPA.Helpers
             Set(target, SystemColors.ActiveBorderBrushKey, palette.SeparatorStrong);
             Set(target, SystemColors.InactiveBorderBrushKey, palette.Separator);
             Set(target, SystemColors.GrayTextBrushKey, palette.ForegroundMuted);
+
+            // Градации chrome: светлые варианты — на поверхность, тёмные — в линии палитры. Кисти,
+            // которые шаблон Aero2 рисует плашкой, обязаны быть нейтральными (см. SystemBrushKeys).
+            Set(target, SystemColors.ControlLightBrushKey, palette.Surface);
+            Set(target, SystemColors.ControlLightLightBrushKey, palette.Surface);
+            Set(target, SystemColors.ControlDarkBrushKey, palette.Separator);
+            Set(target, SystemColors.ControlDarkDarkBrushKey, palette.SeparatorStrong);
+            Set(target, SystemColors.ScrollBarBrushKey, palette.Surface);
+            Set(target, SystemColors.AppWorkspaceBrushKey, palette.Surface);
+            Set(target, SystemColors.WindowFrameBrushKey, palette.SeparatorStrong);
+            Set(target, SystemColors.InfoBrushKey, palette.SurfaceAlt);
+            Set(target, SystemColors.InfoTextBrushKey, palette.Foreground);
         }
 
         private static void Set(ResourceDictionary target, object key, Color color)

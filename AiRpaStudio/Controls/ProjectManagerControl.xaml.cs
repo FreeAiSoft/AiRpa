@@ -11,7 +11,6 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media;
 using Activities.Flow;
 using RPA.Core;
 using RPA.Entities;
@@ -566,27 +565,11 @@ namespace RPA.Controls
                 return null;
             }
 
-            // First check if the target itself is of the desired type
-            if (target is T typedTarget)
-            {
-                return typedTarget;
-            }
-
-            // Then check all children recursively
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(target); i++)
-            {
-                DependencyObject child = VisualTreeHelper.GetChild(target, i);
-                if (child is FrameworkElement frameworkElement)
-                {
-                    T result = FindVisualChild<T>(frameworkElement);
-                    if (result != null)
-                    {
-                        return result;
-                    }
-                }
-            }
-
-            return null;
+            // Сам элемент, затем все визуальные потомки (обход через XamlHelper: он пропускает
+            // не-визуальные узлы, например RowDefinition из логического дерева Grid).
+            return target is T typedTarget
+                ? typedTarget
+                : XamlHelper.FindVisualChildren<T>(target).FirstOrDefault();
         }
 
         private void EditTextBox_KeyDown(object sender, KeyEventArgs e)
@@ -642,7 +625,7 @@ namespace RPA.Controls
                                 // Удаляем временный узел при ошибке
                                 _ = parent.Childs.Remove(fSNode);
 
-                                _ = MessageBox.Show($"Папка '{newName}' уже существует", "Ошибка");
+                                ErrorDialog.Show($"Папка '{newName}' уже существует", Window.GetWindow(this));
                                 return;
                             }
 
@@ -667,7 +650,7 @@ namespace RPA.Controls
                                 // Удаляем временный узел при ошибке
                                 _ = parent.Childs.Remove(fSNode);
 
-                                _ = MessageBox.Show($"Файл '{activityName}' уже существует", "Ошибка");
+                                ErrorDialog.Show($"Файл '{activityName}' уже существует", Window.GetWindow(this));
                                 return;
                             }
 
@@ -695,7 +678,7 @@ namespace RPA.Controls
                         // Удаляем временный узел при ошибке
                         _ = parent.Childs.Remove(fSNode);
 
-                        _ = MessageBox.Show($"Ошибка при создании: {ex.Message}", "Ошибка");
+                        ErrorDialog.ShowException(ex, "Ошибка при создании", Window.GetWindow(this));
                     }
                 }
                 return;
@@ -729,7 +712,7 @@ namespace RPA.Controls
 
             if (renameResult.Error != null)
             {
-                _ = MessageBox.Show(renameResult.Error.Message, "Ошибка");
+                ErrorDialog.Show(renameResult.Error.Message, Window.GetWindow(this));
                 fSNode.Name = fSNode.OriginalName;
             }
             else
@@ -795,7 +778,7 @@ namespace RPA.Controls
                         RpaCommon.CallResult deleteResult = Services.ProjectManager.DeleteFolder(fSNode);
                         if (deleteResult.Error != null)
                         {
-                            _ = MessageBox.Show(deleteResult.Error.Message, "Ошибка");
+                            ErrorDialog.Show(deleteResult.Error.Message, Window.GetWindow(this));
                         }
                     }
                 }
@@ -833,9 +816,7 @@ namespace RPA.Controls
         /// </summary>
         private T FindVisualParent<T>(DependencyObject child) where T : DependencyObject
         {
-            DependencyObject parentObject = VisualTreeHelper.GetParent(child);
-
-            return parentObject == null ? null : parentObject is T parent ? parent : FindVisualParent<T>(parentObject);
+            return XamlHelper.FindVisualParent<T>(child);
         }
 
         private void OpenProjectFolderButton_Click(object sender, RoutedEventArgs e)

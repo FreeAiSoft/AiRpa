@@ -285,6 +285,9 @@
     <Compile Include="Controls\SearchableComboBox.xaml.cs">
       <DependentUpon>SearchableComboBox.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Controls\StudioTitleBar.xaml.cs">
+      <DependentUpon>StudioTitleBar.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Controls\CodeEditorView.xaml.cs">
       <DependentUpon>CodeEditorView.xaml</DependentUpon>
     </Compile>
@@ -299,6 +302,8 @@
     <Compile Include="Core\ActivityRunner.cs" />
     <Compile Include="Core\DebugValidationErrorService.cs" />
     <Compile Include="CSharpExpressionEditor\DesignerValidator.cs" />
+    <Compile Include="Core\Services\DesignerContextMenuState.cs" />
+    <Compile Include="Core\Services\DesignerVariableContextMenuPolicy.cs" />
     <Compile Include="Core\Services\DesignerVariableContextMenuService.cs" />
     <Compile Include="CSharpExpressionEditor\CSharpExpressionHelper.cs" />
     <Compile Include="CSharpExpressionEditor\DocumentViewModel.cs" />
@@ -339,6 +344,8 @@
     <Compile Include="Helpers\IOHelper.cs" />
     <Compile Include="Helpers\LoadActivityToDesignerHelper.cs" />
     <Compile Include="Helpers\LocalizeHelper.cs" />
+    <Compile Include="Helpers\ErrorDialog.cs" />
+    <Compile Include="Helpers\ErrorText.cs" />
     <Compile Include="Helpers\ObjectHelper.cs" />
     <Compile Include="Helpers\PropertyWindowStyleHelper.cs" />
     <Compile Include="Helpers\TrackHandler.cs" />
@@ -346,11 +353,15 @@
     <Compile Include="Helpers\WfVisualTreeThemer.cs" />
     <Compile Include="Helpers\WfThemeStyles.cs" />
     <Compile Include="Helpers\WfDesignerTheme.cs" />
+    <Compile Include="Helpers\WfDataGridTheme.cs" />
 
     <Compile Include="Helpers\MaterialThemePalette.cs" />
     <Compile Include="Helpers\StudioPalette.cs" />
     <Compile Include="Helpers\WindowCorner.cs" />
     <Compile Include="Helpers\StudioBrushes.cs" />
+    <Compile Include="Helpers\StudioFonts.cs" />
+    <Compile Include="Helpers\StudioEditorPalette.cs" />
+    <Compile Include="Helpers\StudioEditorTheme.cs" />
     <Compile Include="Helpers\DockingThemeBrushes.cs" />
     <Compile Include="Logging\LogItem.cs" />
     <Compile Include="Mcp\HttpMcpServerHost.cs" />
@@ -383,6 +394,9 @@
     <Compile Include="Views\ActivityCreatorView.xaml.cs">
       <DependentUpon>ActivityCreatorView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\ErrorView.xaml.cs">
+      <DependentUpon>ErrorView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\MainView.xaml.cs">
       <DependentUpon>MainView.xaml</DependentUpon>
     </Compile>
@@ -414,6 +428,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Controls\StudioTitleBar.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="CSharpExpressionEditor\RoslynExpressionEditor.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -433,6 +451,10 @@
     </Page>
 
     <Page Include="Views\ActivityCreatorView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\ErrorView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -483,6 +505,7 @@
     <None Include="Docs\AI_Activity_Integration_Architecture.md" />
     <None Include="Docs\AI_MCP_Integration_Guide.md" />
     <None Include="Docs\Code_Tasks.md" />
+    <None Include="Docs\Designer_Variable_ContextMenu_Principles.md" />
     <None Include="Docs\Folder_ContextMenu_Plan.md" />
     <None Include="Docs\Implementation_Guide.md" />
     <None Include="Docs\MCP_Architecture.md" />

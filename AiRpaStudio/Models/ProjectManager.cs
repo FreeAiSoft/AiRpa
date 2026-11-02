@@ -239,15 +239,15 @@ namespace RPA.Models
             }
             catch (IOException ex)
             {
-                OnSendMessage($"Ошибка ввода-вывода при удалении файла: {ex.Message}");
+                OnSendMessage($"Ошибка ввода-вывода при удалении файла: {ex}");
             }
             catch (UnauthorizedAccessException ex)
             {
-                OnSendMessage($"Нет доступа для удаления файла: {ex.Message}");
+                OnSendMessage($"Нет доступа для удаления файла: {ex}");
             }
             catch (Exception ex)
             {
-                OnSendMessage($"Ошибка при удалении файла: {ex.Message}");
+                OnSendMessage($"Ошибка при удалении файла: {ex}");
             }
         }
 
@@ -308,7 +308,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                return new CallResult { Error = new Error($"Ошибка при переименовании файла: {ex.Message}") };
+                return new CallResult { Error = new Error($"Ошибка при переименовании файла: {ex}") };
             }
         }
 
@@ -341,7 +341,7 @@ namespace RPA.Models
                     }
                     catch (Exception ex)
                     {
-                        return new CallResult { Error = new Error($"Ошибка при обновлении файла проекта: {ex.Message}") };
+                        return new CallResult { Error = new Error($"Ошибка при обновлении файла проекта: {ex}") };
                     }
                 }
                 else
@@ -356,7 +356,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                return new CallResult { Error = new Error($"Ошибка при переименовании проекта: {ex.Message}") };
+                return new CallResult { Error = new Error($"Ошибка при переименовании проекта: {ex}") };
             }
         }
 
@@ -394,7 +394,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                return new CallResult { Error = new Error($"Ошибка при переименовании папки: {ex.Message}") };
+                return new CallResult { Error = new Error($"Ошибка при переименовании папки: {ex}") };
             }
         }
 
@@ -426,7 +426,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                return new CallResult { Error = new Error($"Ошибка при удалении папки: {ex.Message}") };
+                return new CallResult { Error = new Error($"Ошибка при удалении папки: {ex}") };
             }
         }
 
@@ -488,7 +488,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                return new CallResult { Error = new Error($"Ошибка при создании папки: {ex.Message}") };
+                return new CallResult { Error = new Error($"Ошибка при создании папки: {ex}") };
             }
         }
 

@@ -109,26 +109,49 @@ namespace RPA.Helpers
             if (sender is FrameworkElement designerView)
             {
                 WfDesignerTheme.Apply(designerView);
+                // Диагностика (временно): контрольная точка «дерево построено, тема применена».
+                LoadActivityToDesignerHelper.LogDesignerViewState(designerView, "4/designerViewLoaded");
+                // Диагностика (временно): кто рисует пиксель на hairline «крошки/дизайнер».
+                LoadActivityToDesignerHelper.LogBreadCrumbArtifacts(designerView, "px/afterApply");
             }
         }
 
         private void DocDocument_IsSelectedChanged(object sender, EventArgs e)
         {
-            if (docGroup.Children.FirstOrDefault(c => c.IsSelected) is LayoutDocument activeDoc)
+            // Событие приходит и при снятии выбора (IsSelected = false), а в панели лежат не только
+            // вкладки дизайнера, но и редакторы кода/XAML (MainView.AddCodeDocumentTab) — у них Tag == null.
+            if (!(sender is LayoutDocument document) || !document.IsSelected)
             {
-                FrameworkElement view = (FrameworkElement)activeDoc.Content;
-                string tag = view.Tag.ToString();
-                if (((FrameworkElement)_mainViewModel.ActiveWorkflowDesigner.View).Tag.ToString() != tag)
-                {
-                    setActiveDesignerDelegate(view.Tag.ToString());
-                }
+                return;
             }
+
+            // Признак вкладки дизайнера — путь к файлу активности в Tag (проставляется в AddDocument).
+            if (!(document.Content is FrameworkElement view) || !(view.Tag is string loadedFile) || loadedFile.Length == 0)
+            {
+                return;
+            }
+
+            // Активного дизайнера может ещё/уже не быть (CustomWfDesigner.LoadProject, закрытие
+            // последней вкладки), поэтому обращаемся к нему только через null-условный доступ.
+            FrameworkElement activeView = _mainViewModel.ActiveWorkflowDesigner?.View as FrameworkElement;
+            if (ReferenceEquals(activeView, view) || (activeView?.Tag is string activeFile && activeFile == loadedFile))
+            {
+                return;
+            }
+
+            setActiveDesignerDelegate(loadedFile);
         }
 
         private void DocClosed(object sender, EventArgs e)
         {
-            FrameworkElement view = (FrameworkElement)((LayoutDocument)sender).Content;
-            removeDesignerDelegate(view.Tag.ToString());
+            // Закрываться может и вкладка редактора кода (Content без Tag) — такие пропускаем.
+            if (sender is LayoutDocument document
+                && document.Content is FrameworkElement view
+                && view.Tag is string loadedFile)
+            {
+                removeDesignerDelegate(loadedFile);
+            }
+
             GC.Collect();
         }
 

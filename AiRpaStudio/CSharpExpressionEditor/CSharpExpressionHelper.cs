@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using Microsoft.CSharp.Activities;
+using RPA.Helpers;
 using RpaCommon;
 
 namespace RPA.CSharpExpressionEditor
@@ -168,7 +169,7 @@ namespace RPA.CSharpExpressionEditor
                 catch (Exception ex)
                 {
                     // conversion failed - do nothing, let it continue to generate C# expression instead
-                    return new CallResult { Error = new Error(ex.Message) };
+                    return new CallResult { Error = new Error(ErrorText.Of(ex)) };
                 }
             }
             return literalExpression != null
@@ -209,7 +210,7 @@ namespace RPA.CSharpExpressionEditor
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Failed to add argument {argItem.Name}: {ex.Message}");
+                        Debug.WriteLine($"Failed to add argument {argItem.Name}: {ex}");
                     }
                 }
             }

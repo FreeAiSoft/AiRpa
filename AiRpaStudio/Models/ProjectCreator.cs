@@ -49,7 +49,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                OnSendMessage(ex.Message);
+                OnSendMessage(ErrorText.Of(ex));
                 return;
             }
 
@@ -83,7 +83,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                OnSendMessage(ex.Message);
+                OnSendMessage(ErrorText.Of(ex));
             }
 
             return defaultProjectName;
@@ -142,7 +142,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                OnSendMessage(ex.Message);
+                OnSendMessage(ErrorText.Of(ex));
                 return;
             }
         }

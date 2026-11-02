@@ -1,11 +1,7 @@
 ﻿using System;
 using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Xml;
 using ICSharpCode.AvalonEdit.Folding;
 using ICSharpCode.AvalonEdit.Highlighting;
-using ICSharpCode.AvalonEdit.Highlighting.Xshd;
 
 namespace RPA.Helpers
 {
@@ -17,8 +13,6 @@ namespace RPA.Helpers
     {
         /// <summary>Language key used for XAML documents.</summary>
         public const string XamlLanguage = "XAML";
-
-        private static readonly object RegisterGate = new object();
 
         /// <summary>Returns a language key for the file path, or null when the language is unsupported.</summary>
         public static string GetLanguageForExtension(string filePath)
@@ -50,28 +44,13 @@ namespace RPA.Helpers
         /// <summary>Returns the highlighting definition for a language key, or null.</summary>
         public static IHighlightingDefinition GetHighlightingDefinition(string language)
         {
-            return language == null
-                ? null
-                : language == XamlLanguage ? GetXamlDefinition() : HighlightingManager.Instance.GetDefinition(language);
+            return StudioEditorTheme.GetDefinition(language);
         }
 
-        /// <summary>Loads and registers the custom XAML highlighting definition from the embedded resource.</summary>
+        /// <summary>Возвращает определение подсветки XAML (цвета — из StudioEditorTheme).</summary>
         public static IHighlightingDefinition GetXamlDefinition()
         {
-            lock (RegisterGate)
-            {
-                IHighlightingDefinition existing = HighlightingManager.Instance.GetDefinition(XamlLanguage);
-                if (existing != null)
-                {
-                    return existing;
-                }
-
-                using Stream stream = OpenEmbeddedResource("Xaml.xshd");
-                using XmlReader reader = XmlReader.Create(stream);
-                IHighlightingDefinition definition = HighlightingLoader.Load(reader, HighlightingManager.Instance);
-                HighlightingManager.Instance.RegisterHighlighting(XamlLanguage, new[] { ".xaml" }, definition);
-                return definition;
-            }
+            return StudioEditorTheme.GetDefinition(XamlLanguage);
         }
 
         /// <summary>Creates a folding strategy for a language key, or null when not supported.</summary>
@@ -89,17 +68,6 @@ namespace RPA.Helpers
 
             // C# folding will be added together with the full C# editor (Roslyn).
             return null;
-        }
-
-        private static Stream OpenEmbeddedResource(string fileName)
-        {
-            Assembly assembly = typeof(CodeLanguageProvider).Assembly;
-            string resourceName = assembly.GetManifestResourceNames()
-                .FirstOrDefault(name => name.EndsWith(fileName, StringComparison.OrdinalIgnoreCase));
-
-            return resourceName == null
-                ? throw new FileNotFoundException("Embedded resource not found: " + fileName)
-                : assembly.GetManifestResourceStream(resourceName);
         }
     }
 }

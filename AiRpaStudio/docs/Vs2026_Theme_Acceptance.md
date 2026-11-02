@@ -4,7 +4,7 @@
 всё, что можно проверить без запуска, автоматизировано в `AiRpaStudio.Tests\ThemeAcceptanceTests.cs`
 (сквозные стражи) и в тестах этапов 1-8 (`StudioPaletteTests`, `ThemeXamlTests`, `WindowCornerTests`,
 `WfThemeTests`, `WfDesignerThemeTests`, `LogAndChatThemeTests`, `ChatThemeBridgeTests`,
-`StudioDialogWindowTests`, `DockingThemeBrushesTests`, `AvalonDockThemeBridgeTests`).
+`StudioDialogWindowTests`, `DockingThemeBrushesTests`, `AvalonDockThemeBridgeTests`, `StudioTitleBarTests`).
 
 ## Как прогнать автоматическую часть
 
@@ -47,15 +47,57 @@ $vstest = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\
 breadcrumb, MiniMap и панели докинга должны быть одного цвета, различие — только hairline.
 Проверить также пустой проект (без открытых документов) и панель «Свойства».
 
+Отдельно — хлебные крошки: провалиться в `Sequence`, затем в `Assign` (крошки пересоздаются) — имена
+активностей на поверхности палитры, белых плашек и системного выделения нет, hover — `Hover`, выделение —
+`Selected`. То же после переключения темы (п.5).
+
+Автоматически: `WfDesignerThemeTests.Apply_BreadCrumbHasNoLightBackgrounds`,
+`.Apply_ThemesBreadCrumbItems`, `.Apply_BreadCrumbItemContainersUseThemedStyle`,
+`.Apply_ThemesBreadCrumbItemsCreatedAfterApply`, `.Apply_BreadCrumbFollowsThemeSwitch`,
+`.Apply_BreadCrumbHasNoLightBrushAnywhere` (белого пикселя на hairline «крошки/дизайнер» нет),
+`.Apply_BreadCrumbClipsArtifactsOverflowingOnTheDivider` (содержимое не рисует вне полосы крошек),
+`.Apply_BreadCrumbArtifactsCreatedAfterApplyAreNeutralized` (крошки и шаблон, созданные после темизации),
+`.Apply_BreadCrumbJunctionHasNoLightPixel` (рендер полосы: на стыке с дизайнером нет светлого пикселя),
+`.Apply_BreadCrumbTemplateCornerDotMergesWithSurface` (угловой `Rectangle` 1×1 шаблона цвета `Surface`),
+`.Apply_BreadCrumbBandStaysOpaqueSurfaceUnderWhiteHost` (подложка полосы непрозрачна: белого хоста
+`BreadCrumbBarLayout` за крошками не видно), `.Apply_BreadCrumbBackdropBehindNamesIsSurface`.
+
+Масштаб в shell bar (`zoomPicker`, editable ComboBox): в свёрнутом виде текст читается на поверхности
+палитры (белых плашек и белых букв нет), стрелка раскрытия видна, в раскрытом списке элементы на
+поверхности палитры, hover — `Hover`, выделение — `Selected`. Проверить в тёмной и светлой теме и после
+переключения темы без перезапуска.
+
+Автоматически: `WfDesignerThemeTests.Apply_ThemesShellBarZoomCombo`,
+`.Apply_ShellBarZoomComboIsReadableInBothThemes`, `.Apply_ThemesShellBarZoomComboList`,
+`WfThemeTests.Apply_ThemesComboBoxes`, `.Apply_ThemesComboBoxItems`, `.Apply_MakesComboBoxGlyphVisible`,
+`.Apply_ComboBoxTextHasContrastInBothThemes`, `.Apply_SwitchesComboBoxPalette`,
+`.Apply_ComboBoxThemeIsIdempotent`.
+
 Автоматически: `ThemeAcceptanceTests.DialogsAndMainWindow_UseSingleSurfaceBackground`,
 `WfDesignerThemeTests` (ключи поверхности, отсутствие акцента в словаре).
+
+Панели «Переменные», «Аргументы», «Пространства имён»: нажать по очереди три вкладки в shell bar — панель
+и её таблица (`DataGrid`) на одном фоне с дизайнером (`Surface`), шапка колонок чуть светлее
+(`SurfaceAlt`), сверху hairline. В таблице: hover строки — `Hover`, выделение — `Selected` (не системное
+синее), фокус ячейки — hairline `SeparatorStrong`, глиф сортировки виден, белых плашек Aero2 (шапка, угол
+«выделить всё», пустая область, «новая строка») нет. Вкладки: активная — `Selected`, неактивная подпись —
+`ForegroundMuted`. Двойной клик в ячейку → правый клик: меню открывается во всех трёх таблицах, включая
+«Пространства имён» (раньше эта таблица не обслуживалась вовсе), правка не завершается. То же после
+переключения темы (п.5).
+
+Автоматически: `WfDesignerTableThemeTests.Apply_ThemesAllDesignerTables`,
+`.Apply_TableHeaderUsesSurfaceAltAndHairline`, `.Apply_TableRowStatesUsePalette`,
+`.Apply_TableCellFocusUsesSeparatorStrongHairline`, `.Apply_TablePanelBackdropBehindWhiteHostIsSurface`,
+`.Apply_LateCreatedRowsAreThemed`, `.Apply_LiveTableHasNoLightPlates`,
+`.Apply_LiveTableHeaderAndCellsUsePalette`, `.Apply_ThemesShellBarItems`,
+`.Apply_ShellBarItemsFollowThemeSwitch`, `DesignerVariableContextMenuTests.RefreshTables_*`.
 
 ### 4. Скруглённые углы: главное окно, четыре диалога, откреплённый документ и панель, Ctrl+Tab
 
 Windows 11 — DWM (`DwmSetWindowAttribute`, 8px); Windows 10 — region через
 `WindowChrome.CornerRadius` для окон со своим chrome. Диалоги «Создать активность», «Создать проект»,
-«Открыть VS-проект», «Из VS-шаблона» и Ctrl+Tab на Windows 10 остаются прямоугольными — осознанное
-ограничение (системный chrome не переопределяется), см. отклонения этапа 5.
+«Открыть VS-проект», «Из VS-шаблона» и окно ошибки рисуют заголовок сами (`Controls\StudioTitleBar.xaml`),
+поэтому скругляются в обеих ОС; Ctrl+Tab (W-08) на Windows 10 остаётся прямоугольным — см. отклонения этапа 5.
 
 Автоматически: `ThemeXamlTests.ThemeXaml_WindowsAreRounded`, `WindowCornerTests.*`.
 
@@ -104,6 +146,17 @@ popup и полос прокрутки.
 Автоматически: `ThemeXamlTests.ThemeXaml_PaneFramesAreOnePixel`,
 `.ThemeXaml_PanesAndDocumentsUseHairlines`.
 
+### 9. Заголовок окон: единый стиль во всех окнах студии
+
+Открыть по очереди «Создать активность», «Создать проект», «Открыть VS-проект», «Из VS-шаблона»
+и окно ошибки (например, через ошибку модели). Полоса заголовка у всех — как у главного окна:
+высота 32, фон `Studio.Surface`, текст — `Title` окна, кнопки «свернуть»/«закрыть» 46×32 на
+`MaterialIcon`, hover закрытия красный (`Studio.CloseHoverBackground`), окно тянется за полосу,
+системного белого caption нет; в тёмной теме полоса тёмная, в светлой — светлая. У окна ошибки
+кнопки «свернуть» нет (окно не в панели задач), размер меняется за кромку окна.
+
+Автоматически: `StudioTitleBarTests.*`.
+
 ## Отметка о результате
 
 | Пункт | Windows 11 | Windows 10 | Дата | Кто |
@@ -116,3 +169,50 @@ popup и полос прокрутки.
 | 6 |  |  |  |  |
 | 7 |  |  |  |  |
 | 8 |  |  |  |  |
+| 9 |  |  |  |  |
+
+### 10. Шрифт Roboto, вкладки документов, дерево проекта, цвета редакторов
+
+Доработка по замечаниям приёмки (этап 12 плана, §12). Проверять в тёмной и светлой теме.
+
+1. **Шрифт.** Ни в одном окне, панели, меню, диалоге, логе и чате нет Consolas/Segoe UI:
+   весь интерфейс — Roboto (шрифт встроен в сборку, установленный Roboto не требуется).
+   Проверить: меню, заголовок окна, «Проект», «Свойства», «Структура», «Log», чат, окно ошибки,
+   диалоги создания проекта/активности.
+2. **Вкладки документов.** Заголовок активной и неактивной вкладки читается в обеих темах;
+   при наведении текст не темнеет; стрелка-переключатель открывает меню документов с фоном
+   `Studio.Surface` и волосяной рамкой; `Ctrl+Tab` показывает список документов с читаемым текстом.
+3. **Откреплённое окно документа/панели** — заголовок тоже читаемый (та же тема Metro, 
+   ключи `AvalonDock_*` прокинуты мостом).
+4. **Дерево проекта.** Клик по активности: файл открывается, название остаётся светлым (в светлой
+   теме — тёмным) и на выбранном, и на элементе под курсором; переименование (F2/двойной клик)
+   показывает поле с фоном `Studio.Surface`.
+5. **Окно WF «Свойства».** После выбора другой активности (и после разворота категории, прокрутки)
+   фон, заголовки категорий, строки, редакторы значений и кнопки тулбара — в теме; светлых
+   прямоугольников и чёрного текста нет; шрифт — Roboto (WF берёт его из `FontFamilyKey`).
+6. **Редакторы кода и XAML.** Открыть `.cs` и `.xaml` из проекта: фон `#1E1E1E`, текст `#D4D4D4`,
+   номера строк и текущая строка из палитры, подсветка как в Visual Studio (ключевые слова синие,
+   строки оранжевые, комментарии зелёные, XML-теги/атрибуты в схеме VS). Переключить тему —
+   редактор и подсветка меняются на лету, без переоткрытия документа.
+
+Автоматически: `StudioFontTests.*`, `ProjectManagerThemeTests.*`, `StudioEditorThemeTests.*`,
+`WfThemeTests.NewInspectorContent_IsThemedAfterRecreation`,
+`WfDesignerThemeTests.Resources_DeclareWorkflowFont`, `ThemeXamlTests.*`.
+
+### 11. Панель «Активности» (WF `ToolboxControl`) в тёмной теме
+
+Доработка по замечанию приёмки: под названиями категорий была светлая плашка. Проверять в обеих темах.
+
+1. **Заголовки категорий.** Фон заголовка — `Studio.Surface` (никаких белых/серых полос), название
+   читается (`Studio.Foreground`), стрелка раскрытия видна (`Studio.ForegroundMuted`).
+2. **Разворачивание категории** (и кнопки «Развернуть всё»/«Свернуть всё»): строки активностей и
+   вновь созданные категории тоже в теме; светлых прямоугольников нет.
+3. **Наведение и выделение.** Hover — `Studio.Hover`, выделение — `Studio.Selected`, без системной
+   светло-жёлтой плашки (`#FFE8A6`) и оранжевой рамки (`#E5C365`).
+4. **Перетаскивание активности в дизайнер** работает как раньше (стиль WF не подменяется), двойной
+   клик вставляет активность.
+5. **Смена темы Light↔Dark на лету** (в том числе с развёрнутыми категориями) не оставляет плашек
+   предыдущей темы.
+
+Автоматически: `ToolboxThemeTests.*`, `ToolboxDragContractTests.*`,
+`StudioBrushesTests.Apply_SystemBrushGradationsFollowPalette`.

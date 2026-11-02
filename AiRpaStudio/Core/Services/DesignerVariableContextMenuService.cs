@@ -1,10 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using RPA.Helpers;
 
 namespace RPA.Core.Services
@@ -13,25 +15,85 @@ namespace RPA.Core.Services
     /// Обслуживание таблиц переменных/аргументов в дизайнере: открытие контекстного меню
     /// редактирования без выхода из режима редактирования ячейки.
     /// <para>
-    /// Меню и поле ввода строятся на палитре студии (<see cref="WfDesignerTheme.CreateEditingContextMenu"/>),
-    /// поэтому в тёмной теме нет белого выпадающего прямоугольника и «чёрный фон с зелёными буквами»,
-    /// оставшихся от отладочного варианта (F-06 плана docs\Vs2026_Theme_Plan.md).
+    /// Принципы, инварианты и карта тестов зафиксированы в
+    /// <c>docs\Designer_Variable_ContextMenu_Principles.md</c>. Коротко: штатный
+    /// <see cref="ContextMenu"/> на ячейке <see cref="DataGrid"/> в WF-дизайнере не работает (правый клик
+    /// завершает правку и закрывает панель), поэтому меню открывается программно из
+    /// <see cref="UIElement.PreviewMouseRightButtonDownEvent"/> самой таблицы — она выше ячейки в туннеле,
+    /// и только так событие можно пометить обработанным до ячейки, а завершение правки отменить флагом
+    /// в <c>CellEditEnding</c>.
+    /// </para>
+    /// <para>
+    /// Все обработчики живут на <see cref="DataGrid"/>: в шаблоны правки (и в их
+    /// <see cref="FrameworkTemplate.Resources"/>) ничего не пишется — шаблоны WF-дизайнера запечатаны,
+    /// их словарь только для чтения (дефект 1.0.0.0: <c>InvalidOperationException: ResourceDictionary
+    /// доступен только для чтения</c>).
+    /// </para>
+    /// <para>
+    /// Меню и поле ввода строятся на палитре студии (<see cref="WfDesignerTheme.CreateEditingContextMenu"/>,
+    /// <see cref="ApplyCellPalette"/>), поэтому в тёмной теме нет белого выпадающего прямоугольника и
+    /// «чёрный фон с зелёными буквами», оставшихся от отладочного варианта (F-06 плана docs\Vs2026_Theme_Plan.md).
+    /// </para>
+    /// <para>
+    /// Решения вынесены в <see cref="DesignerVariableContextMenuPolicy"/> (чистые функции) и
+    /// <see cref="DesignerContextMenuState"/> (автомат флагов): их покрывают
+    /// <c>DesignerVariableContextMenuPolicyTests</c> и <c>DesignerVariableContextMenuTests</c>.
     /// </para>
     /// </summary>
     internal class DesignerVariableContextMenuService
     {
+        /// <summary>Имена панелей и таблиц <c>DesignerView</c> (строятся шаблоном, поиск по имени).</summary>
+        internal const string VariableDesignerElementName = "VariableDesigner";
+
+        internal const string ArgumentDesignerElementName = "ArgumentDesigner";
+        internal const string VariableDataGridElementName = "variableDataGrid";
+        internal const string ArgumentsDataGridElementName = "argumentsDataGrid";
+
+        /// <summary>Таблица «Пространства имён» (ImportDesigner.xaml): подключается общим проходом по типу.</summary>
+        internal const string ImportedNamespacesDataGridElementName = "importedNamespacesDataGrid";
+
+        /// <summary>Докуда поднимаемся по цепочке видимости таблицы (панель → bottom panel → дизайнер).</summary>
+        private const int VisibilityChainDepth = 4;
+
         private readonly UIElement _view;
-        private bool _isContextMenuOpen = false;
-        private bool _isSetArgumentsDataGrid = false;
-        private bool _isSetVariableDataGrid = false;
+        private readonly DesignerContextMenuState _state = new DesignerContextMenuState();
+        private readonly KeyboardFocusChangedEventHandler _lostFocusGuard;
+        private readonly HashSet<DataGrid> _prepared = new HashSet<DataGrid>();
+
+        /// <summary>Таблицы, у которых обработчики ещё не подключены: столбцы появляются после шаблона.</summary>
+        private readonly HashSet<DataGrid> _pending = new HashSet<DataGrid>();
+
+        /// <summary>Элементы цепочки видимости таблицы, на которые уже подписаны (идемпотентность).</summary>
+        private readonly HashSet<UIElement> _visibilityHooked = new HashSet<UIElement>();
+
+        private bool _isSetArgumentsDataGrid;
+
+        private bool _isSetVariableDataGrid;
 
         public DesignerVariableContextMenuService(WorkflowDesignerEx workflowDesignerEx)
+            : this(workflowDesignerEx?.View)
         {
-            _view = workflowDesignerEx.View;
         }
 
+        /// <summary>Конструктор для тестов: достаточно любого <see cref="UIElement"/> (HWND не нужен).</summary>
+        internal DesignerVariableContextMenuService(UIElement view)
+        {
+            _view = view;
+            _lostFocusGuard = VariableDataGrid_PreviewLostKeyboardFocus;
+        }
+
+        /// <summary>Состояние меню (для тестов и диагностики).</summary>
+        internal bool IsMenuOpen => _state.IsMenuOpen;
+
+        /// <summary>Подключены ли обработчики к таблице (для тестов и диагностики).</summary>
+        internal bool IsAttached(DataGrid dataGrid) => dataGrid != null && _prepared.Contains(dataGrid);
+
+        /// <summary>Сколько таблиц дизайнера обслуживается (для тестов и диагностики).</summary>
+        internal int AttachedTableCount => _prepared.Count;
+
+
         /// <summary>
-        /// Инициализировать отслеживание VariableDesigner.
+        /// Инициализировать отслеживание панелей переменных и аргументов.
         /// Вызывать после загрузки XAML в дизайнер.
         /// </summary>
         public void InitializeVariableDesignerTracking()
@@ -44,213 +106,371 @@ namespace RPA.Core.Services
 
         private void DesignerView_Loaded(object sender, RoutedEventArgs e)
         {
-            // Поиск VariableDesigner после загрузки контрола
-            Control variableDesigner = XamlHelper.FindVisualChild<Control>(_view, "VariableDesigner");
-            if (variableDesigner != null)
+            // Панели строятся шаблоном DesignerView, поэтому ищем их после Loaded по визуальному дереву.
+            if (XamlHelper.FindVisualChild<Control>(_view, VariableDesignerElementName) is Control variableDesigner)
             {
                 variableDesigner.IsVisibleChanged += VariableDesigner_IsVisibleChanged;
             }
 
-            Control argumentDesigner = XamlHelper.FindVisualChild<Control>(_view, "ArgumentDesigner");
-            if (argumentDesigner != null)
+            if (XamlHelper.FindVisualChild<Control>(_view, ArgumentDesignerElementName) is Control argumentDesigner)
             {
                 argumentDesigner.IsVisibleChanged += ArgumentDesigner_IsVisibleChanged;
             }
+            // Таблицы, которые не находятся по именам панелей: «Пространства имён» (importedNamespacesDataGrid)
+            // и любые таблицы, которые WF переименует в следующей версии. Поиск идёт по типу.
+            _ = RefreshTables(_view);
+
         }
 
         private void ArgumentDesigner_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
-            if (sender is UIElement argumentDesigner && argumentDesigner.IsVisible && !_isSetArgumentsDataGrid)
+            if (sender is UIElement argumentDesigner
+                && DesignerVariableContextMenuPolicy.ShouldInitializeOnVisibilityChanged(argumentDesigner.IsVisible, _isSetArgumentsDataGrid))
             {
-                // ArgumentDesigner стал видимым
                 _isSetArgumentsDataGrid = true;
-                OnVariableDesignerVisible(argumentDesigner, "argumentsDataGrid");
+                OnVariableDesignerVisible(argumentDesigner, ArgumentsDataGridElementName);
             }
         }
 
-        private void VariableDesigner_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs _)
+        private void VariableDesigner_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
-            if (sender is UIElement variableDesigner && variableDesigner.IsVisible && !_isSetVariableDataGrid)
+            if (sender is UIElement variableDesigner
+                && DesignerVariableContextMenuPolicy.ShouldInitializeOnVisibilityChanged(variableDesigner.IsVisible, _isSetVariableDataGrid))
             {
-                // VariableDesigner стал видимым
                 _isSetVariableDataGrid = true;
-                OnVariableDesignerVisible(variableDesigner, "variableDataGrid");
+                OnVariableDesignerVisible(variableDesigner, VariableDataGridElementName);
             }
         }
 
         /// <summary>
-        /// Вызывается когда VariableDesigner становится видимым
+        /// Вызывается, когда панель переменных или аргументов становится видимой: подключает обработчики
+        /// таблицы ровно один раз на таблицу (правый клик, начало и завершение правки, удержание фокуса).
+        /// <para>
+        /// В шаблоны правки ничего не пишется: у запечатанных шаблонов WF-дизайнера
+        /// <see cref="FrameworkTemplate.Resources"/> только для чтения — это и роняло панель в 1.0.0.0.
+        /// </para>
         /// </summary>
         protected virtual void OnVariableDesignerVisible(UIElement designer, string nameDataGrid)
         {
-            // Найдем variableDataGrid внутри variableDesigner через логическое дерево (т.к. может быть невидимым)
-            DataGrid dataGrid = XamlHelper.FindLogicalChild<DataGrid>(designer, nameDataGrid);
-            if (dataGrid == null || dataGrid.Columns.Count == 0)
+            // Таблица ищется по логическому дереву: панель может быть ещё не отрисована.
+            Attach(XamlHelper.FindLogicalChild<DataGrid>(designer, nameDataGrid));
+        }
+
+        /// <summary>
+        /// Подключает обработчики к таблице ровно один раз (правый клик, начало и завершение правки,
+        /// удержание фокуса). В шаблоны правки ничего не пишется: у запечатанных шаблонов WF-дизайнера
+        /// <see cref="FrameworkTemplate.Resources"/> только для чтения — это и роняло панель в 1.0.0.0.
+        /// </summary>
+        private void Attach(DataGrid dataGrid)
+        {
+            if (!DesignerVariableContextMenuPolicy.CanAttach(dataGrid) || !_prepared.Add(dataGrid))
             {
                 return;
             }
 
-            // Добавляем обработчик для предотвращения выхода из режима редактирования при открытии контекстного меню
+            // Взвод отмены — на самой таблице: PreviewMouseRightButtonDown туннелирует сверху вниз,
+            // поэтому обработчик таблицы срабатывает раньше обработчиков ячейки и поля ввода.
             dataGrid.PreviewMouseRightButtonDown += VariableDataGrid_PreviewMouseRightButtonDown;
             dataGrid.CellEditEnding += VariableDataGrid_CellEditEnding;
 
-            DataGridColumn firstColumn = dataGrid.Columns[0];
+            // Палитра поля ввода ставится при входе в правку — полю, а не стилю в шаблоне ячейки.
+            dataGrid.PreparingCellForEdit += VariableDataGrid_PreparingCellForEdit;
 
-            // Получаем DataTemplate в зависимости от типа столбца
-            DataTemplate columnTemplate = firstColumn is DataGridTemplateColumn templateColumn
-                ? templateColumn.CellEditingTemplate
-                : null;
+            // Меню забирает клавиатурный фокус: без удержания фокуса DataGrid завершает правку и роняет панель.
+            dataGrid.AddHandler(UIElement.PreviewLostKeyboardFocusEvent, _lostFocusGuard, true);
 
-            if (columnTemplate == null)
+            HookTableVisibility(dataGrid);
+        }
+
+        /// <summary>
+        /// Подключает обработчики ко всем таблицам дизайнера — «Переменные», «Аргументы» и «Пространства
+        /// имён», — не опираясь на имена элементов: имена объявляет шаблон WF (<c>variableDataGrid</c>,
+        /// <c>argumentsDataGrid</c>, <c>importedNamespacesDataGrid</c>), а до появления панели таблиц в
+        /// дереве нет вовсе. Возвращает число подключённых таблиц.
+        /// </summary>
+        internal int RefreshTables(UIElement root)
+        {
+            if (root == null)
+            {
+                return _prepared.Count;
+            }
+
+            foreach (DataGrid dataGrid in WfDataGridTheme.FindTables(root))
+            {
+                if (DesignerVariableContextMenuPolicy.CanAttach(dataGrid))
+                {
+                    Attach(dataGrid);
+                    continue;
+                }
+
+                // Таблица уже есть, но столбцы объявляет шаблон панели: повторная попытка на Loaded.
+                if (!_pending.Add(dataGrid))
+                {
+                    continue;
+                }
+
+                void onLoaded(object sender, RoutedEventArgs args)
+                {
+                    dataGrid.Loaded -= onLoaded;
+                    _ = _pending.Remove(dataGrid);
+
+                    if (DesignerVariableContextMenuPolicy.CanAttach(dataGrid))
+                    {
+                        Attach(dataGrid);
+                    }
+                }
+
+                dataGrid.Loaded += onLoaded;
+            }
+
+            return _prepared.Count;
+        }
+
+        /// <summary>
+        /// Подписка на цепочку видимости таблицы: панель «Пространства имён» открывается по вкладке shell bar,
+        /// и столбцы таблица получает только к этому моменту. Проход идемпотентный, поэтому повторная
+        /// подписка на уже известные элементы не ставится.
+        /// </summary>
+        private void HookTableVisibility(DataGrid dataGrid)
+        {
+            DependencyObject element = dataGrid;
+
+            for (int depth = 0; element != null && depth < VisibilityChainDepth; depth++)
+            {
+                if (element is UIElement visual && _visibilityHooked.Add(visual))
+                {
+                    visual.IsVisibleChanged += TableVisibility_IsVisibleChanged;
+                }
+
+                element = ParentOf(element);
+            }
+        }
+
+        private void TableVisibility_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (!(e.NewValue is bool isVisible) || !isVisible || _view == null)
             {
                 return;
             }
 
-            Style textBoxStyle = CreateTextBoxStyle();
-            columnTemplate.Resources ??= new ResourceDictionary();
-
-            // Устанавливаем стиль как ресурс по умолчанию для TextBox
-            columnTemplate.Resources[typeof(TextBox)] = textBoxStyle;
+            // Отложенно: к этому моменту панель уже применила шаблон и таблица получила столбцы.
+            _ = _view.Dispatcher.BeginInvoke(
+                new Action(() => RefreshTables(_view)),
+                DispatcherPriority.Loaded);
         }
 
-        /// <summary>
-        /// Стиль поля ввода в ячейке: обработчики контекстного меню + кисти палитры
-        /// (раньше здесь оставались закомментированные чёрный фон и зелёные буквы).
-        /// </summary>
-        private Style CreateTextBoxStyle()
+        private static DependencyObject ParentOf(DependencyObject element)
         {
-            StudioThemeColors palette = StudioPalette.Detect(Application.Current?.Resources);
+            if (element == null)
+            {
+                return null;
+            }
 
-            var textBoxStyle = new Style(typeof(TextBox));
-            textBoxStyle.Setters.Add(new Setter(Control.BackgroundProperty, WfThemeStyles.Brush(palette.Surface)));
-            textBoxStyle.Setters.Add(new Setter(Control.ForegroundProperty, WfThemeStyles.Brush(palette.Foreground)));
-            textBoxStyle.Setters.Add(new Setter(Control.BorderBrushProperty, WfThemeStyles.Brush(palette.SeparatorStrong)));
-            textBoxStyle.Setters.Add(new Setter(TextBoxBase.CaretBrushProperty, WfThemeStyles.Brush(palette.Foreground)));
-            textBoxStyle.Setters.Add(new Setter(Control.FontFamilyProperty, WfThemeStyles.Font));
+            DependencyObject parent = LogicalTreeHelper.GetParent(element);
+            if (parent == null && XamlHelper.IsVisual(element))
+            {
+                parent = VisualTreeHelper.GetParent(element);
+            }
 
-            // Добавляем обработчики для правильной работы контекстного меню
-            // Используем PreviewMouseRightButtonDown, чтобы захватить событие раньше
-            textBoxStyle.Setters.Add(new EventSetter(UIElement.PreviewMouseRightButtonDownEvent,
-                new MouseButtonEventHandler(TextBox_PreviewMouseRightButtonDown)));
-            // Предотвращаем потерю фокуса при открытом меню
-            textBoxStyle.Setters.Add(new EventSetter(UIElement.PreviewLostKeyboardFocusEvent,
-                new KeyboardFocusChangedEventHandler(TextBox_PreviewLostKeyboardFocus)));
-
-            return textBoxStyle;
+            return parent;
         }
 
         /// <summary>
-        /// Обработчик правой кнопки мыши на DataGrid для отслеживания открытия контекстного меню
+        /// Правая кнопка мыши в таблице. Если клик пришёл в поле ввода правки — взводит одноразовую отмену
+        /// завершения правки и открывает меню программно; клик мимо поля (заголовок, скроллбар, пустая
+        /// область) не взводит ничего, иначе флаг «залипал» и глушил следующую правку.
         /// </summary>
         private void VariableDataGrid_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
-            _isContextMenuOpen = true;
+            TextBox textBox = DesignerVariableContextMenuPolicy.FindEditingField(e.OriginalSource as DependencyObject);
+            if (textBox == null)
+            {
+                return;
+            }
+
+            _state.NotifyRightButtonDown();
+            OpenEditingContextMenu(textBox);
+
+            // Событие помечается обработанным целиком: парное MouseRightButtonDown (на нём висит
+            // ContextMenuService) не поднимается, ячейка не завершает правку, меню открываем мы сами.
+            e.Handled = true;
+        }
+
+        /// <summary>
+        /// Показ меню у поля ввода. Фокус ставится до открытия: иначе <c>ApplicationCommands.Cut/Copy/Paste</c>
+        /// уходят дизайнеру (у него есть свой обработчик) и работают с чужой целью. Само открытие
+        /// откладывается до <see cref="DispatcherPriority.Input"/>, чтобы фокус успел встать.
+        /// </summary>
+        private void OpenEditingContextMenu(TextBox textBox)
+        {
+            ContextMenu contextMenu = textBox.ContextMenu ?? CreateContextMenu(textBox);
+
+            // Палитра ставится перед показом меню: путь через PreparingCellForEdit не гарантирован
+            // (шаблон правки может перекрыть кисти своими), а поле уже существует.
+            ApplyCellPalette(textBox, StudioPalette.Detect(Application.Current?.Resources));
+            _ = textBox.Focus();
+
+            _ = textBox.Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+            {
+                DesignerVariableContextMenuPolicy.ConfigureMenuPlacement(contextMenu, textBox);
+                contextMenu.IsOpen = true;
+            }));
+        }
+
+        /// <summary>
+        /// Начало правки ячейки: палитра студии ставится полю ввода локальными значениями.
+        /// Стиль в ресурсы шаблона писать нельзя (шаблоны правки запечатаны), а неявный ресурс выше по
+        /// дереву перекрывался бы собственным стилем поля в шаблоне WF.
+        /// </summary>
+        private void VariableDataGrid_PreparingCellForEdit(object sender, DataGridPreparingCellForEditEventArgs e)
+        {
+            StudioThemeColors palette = StudioPalette.Detect(Application.Current?.Resources);
+
+            // DataGridTextColumn отдаёт готовый TextBox, у DataGridTemplateColumn в EditingElement лежит
+            // ContentPresenter: поле ввода появляется только после применения шаблона правки.
+            if (e.EditingElement is TextBox textBox)
+            {
+                ApplyCellPalette(textBox, palette);
+                return;
+            }
+
+            if (e.EditingElement is DependencyObject editingRoot)
+            {
+                _ = editingRoot.Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+                {
+                    if (XamlHelper.FindVisualChild<TextBox>(editingRoot) is TextBox field)
+                    {
+                        ApplyCellPalette(field, StudioPalette.Detect(Application.Current?.Resources));
+                    }
+                }));
+            }
+        }
+
+        /// <summary>
+        /// Кисти поля ввода в ячейке из палитры студии (раньше здесь оставались закомментированные
+        /// чёрный фон и зелёные буквы). Применяются на каждую правку, поэтому смена темы подхватывается
+        /// без пересоздания шаблонов.
+        /// </summary>
+        internal static void ApplyCellPalette(TextBox textBox, StudioThemeColors palette)
+        {
+            if (textBox == null)
+            {
+                return;
+            }
+
+            StudioThemeColors colors = palette ?? StudioPalette.Dark;
+
+            textBox.Background = WfThemeStyles.Brush(colors.Surface);
+            textBox.Foreground = WfThemeStyles.Brush(colors.Foreground);
+            textBox.BorderBrush = WfThemeStyles.Brush(colors.SeparatorStrong);
+            textBox.CaretBrush = WfThemeStyles.Brush(colors.Foreground);
+            textBox.FontFamily = WfThemeStyles.Font;
         }
 
         /// <summary>
         /// Обработчик завершения редактирования ячейки DataGrid.
         /// Предотвращает выход из режима редактирования при открытии контекстного меню.
+        /// Отмена одноразовая: второй <c>CellEditEnding</c> уже не отменяется.
         /// </summary>
         private void VariableDataGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
-            if (_isContextMenuOpen)
-            {
-                // Отменяем завершение редактирования, если открывается контекстное меню
-                e.Cancel = true;
-                _isContextMenuOpen = false;
-            }
+            e.Cancel = _state.NotifyCellEditEnding();
         }
 
         /// <summary>
-        /// Обработчик нажатия правой кнопки мыши для TextBox в DataGrid.
-        /// Показывает контекстное меню программно, обходя блокировку NoContextMenuGrid.
+        /// Потеря клавиатурного фокуса: пока меню открыто, поле ввода фокус не отдаёт — иначе DataGrid
+        /// завершает правку и панель закрывается.
         /// </summary>
-        private void TextBox_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        private void VariableDataGrid_PreviewLostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
         {
-            if (!(sender is TextBox textBox))
+            if (e.OriginalSource is TextBox textBox && textBox.ContextMenu != null && textBox.ContextMenu.IsOpen)
             {
-                return;
-            }
-
-            // Создаем контекстное меню, если его еще нет
-            if (textBox.ContextMenu == null)
-            {
-                StudioThemeColors palette = StudioPalette.Detect(Application.Current?.Resources);
-                ContextMenu contextMenu = WfDesignerTheme.CreateEditingContextMenu(palette);
-
-                // Закрываем меню после выбора команды
-                void CloseMenu()
-                {
-                    contextMenu.IsOpen = false;
-                    _isContextMenuOpen = false;
-                    _ = textBox.Focus();
-                }
-
-                foreach (MenuItem item in contextMenu.Items)
-                {
-                    if (item != null)
-                    {
-                        item.Click += (s, args) => CloseMenu();
-                    }
-                }
-
-                textBox.ContextMenu = contextMenu;
-
-                // Обработчик для закрытия меню при клике вне его
-                void mouseHandler(object s, MouseButtonEventArgs args)
-                {
-                    if (!contextMenu.IsMouseOver && !textBox.IsMouseOver)
-                    {
-                        CloseMenu();
-                        Mouse.RemovePreviewMouseDownHandler(Application.Current.MainWindow, mouseHandler);
-                    }
-                }
-
-                // Обработчик для закрытия меню по Escape
-                void keyHandler(object s, KeyEventArgs args)
-                {
-                    if (args.Key == Key.Escape)
-                    {
-                        CloseMenu();
-                        Keyboard.RemovePreviewKeyDownHandler(Application.Current.MainWindow, keyHandler);
-                    }
-                }
-
-                contextMenu.Opened += (s, args) =>
-                {
-                    Mouse.AddPreviewMouseDownHandler(Application.Current.MainWindow, mouseHandler);
-                    Keyboard.AddPreviewKeyDownHandler(Application.Current.MainWindow, keyHandler);
-                };
-            }
-
-            // Фокусируемся на TextBox и показываем меню с небольшой задержкой
-            _ = textBox.Focus();
-
-            // Открываем меню через Dispatcher, чтобы фокус успел установиться
-            _ = System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(
-                System.Windows.Threading.DispatcherPriority.Input,
-                new Action(() =>
-                {
-                    textBox.ContextMenu.PlacementTarget = textBox;
-                    textBox.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
-                    textBox.ContextMenu.IsOpen = true;
-                }));
-
-            // Помечаем событие как обработанное полностью
-            e.Handled = true;
-        }
-
-        /// <summary>
-        /// Обработчик потери фокуса клавиатуры для TextBox.
-        /// Предотвращает потерю фокуса при открытом контекстном меню.
-        /// </summary>
-        private void TextBox_PreviewLostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
-        {
-            if (sender is TextBox textBox && textBox.ContextMenu != null && textBox.ContextMenu.IsOpen)
-            {
-                // Если контекстное меню открыто, отменяем потерю фокуса
                 e.Handled = true;
             }
+        }
+
+        /// <summary>
+        /// Меню создаётся один раз на поле ввода. Цвета применяются на каждое открытие
+        /// (<see cref="WfDesignerTheme.RecolorEditingContextMenu"/>), иначе после смены темы меню
+        /// оставалось в палитре, в которой было создано. Глобальные обработчики закрытия живут
+        /// только на время показа меню и снимаются в <see cref="ContextMenu.Closed"/>.
+        /// </summary>
+        private ContextMenu CreateContextMenu(TextBox textBox)
+        {
+            ContextMenu contextMenu = WfDesignerTheme.CreateEditingContextMenu(StudioPalette.Detect(Application.Current?.Resources));
+
+            foreach (MenuItem item in contextMenu.Items.OfType<MenuItem>())
+            {
+                item.Click += (s, args) => CloseMenu(textBox, contextMenu);
+            }
+
+            UIElement interactionRoot = TryGetInteractiveRoot();
+
+            void mouseHandler(object s, MouseButtonEventArgs args)
+            {
+                if (DesignerVariableContextMenuPolicy.ShouldCloseOnMouseDown(contextMenu.IsMouseOver, textBox.IsMouseOver))
+                {
+                    CloseMenu(textBox, contextMenu);
+                }
+            }
+
+            void keyHandler(object s, KeyEventArgs args)
+            {
+                if (DesignerVariableContextMenuPolicy.ShouldCloseOnKey(args.Key))
+                {
+                    args.Handled = true;
+                    CloseMenu(textBox, contextMenu);
+                }
+            }
+
+            contextMenu.Opened += (s, args) =>
+            {
+                WfDesignerTheme.RecolorEditingContextMenu(contextMenu, StudioPalette.Detect(Application.Current?.Resources));
+                _state.NotifyMenuOpened();
+
+                if (interactionRoot != null)
+                {
+                    Mouse.AddPreviewMouseDownHandler(interactionRoot, mouseHandler);
+                    Keyboard.AddPreviewKeyDownHandler(interactionRoot, keyHandler);
+                }
+            };
+
+            // Снятие глобальных обработчиков — только здесь: раньше они снимались в самом обработчике
+            // и оставались на окне при закрытии меню пунктом/кликом вне/Escape (утечка на каждый показ).
+            contextMenu.Closed += (s, args) =>
+            {
+                if (interactionRoot != null)
+                {
+                    Mouse.RemovePreviewMouseDownHandler(interactionRoot, mouseHandler);
+                    Keyboard.RemovePreviewKeyDownHandler(interactionRoot, keyHandler);
+                }
+
+                _state.NotifyMenuClosed();
+            };
+
+            textBox.ContextMenu = contextMenu;
+            return contextMenu;
+        }
+
+        private void CloseMenu(TextBox textBox, ContextMenu contextMenu)
+        {
+            if (contextMenu != null)
+            {
+                contextMenu.IsOpen = false;
+            }
+
+            _state.NotifyMenuClosed();
+            _ = textBox?.Focus();
+        }
+
+        /// <summary>
+        /// Корневое окно для глобальных обработчиков закрытия. <see cref="Application.Current"/> и
+        /// <see cref="Application.MainWindow"/> могут отсутствовать (тесты, дизайн-тайм) — тогда меню
+        /// открывается без глобальных хуков, а не падает с <c>ArgumentNullException</c>.
+        /// </summary>
+        private static UIElement TryGetInteractiveRoot()
+        {
+            return Application.Current?.MainWindow;
         }
     }
 }

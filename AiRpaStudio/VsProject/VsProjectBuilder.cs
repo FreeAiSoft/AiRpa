@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
+using RPA.Helpers;
 
 namespace RPA.VsProject
 {
@@ -95,7 +96,7 @@ namespace RPA.VsProject
             catch (Exception ex)
             {
                 result.ExitCode = -1;
-                result.Errors.Add("Failed to start MSBuild: " + ex.Message);
+                result.Errors.Add("Failed to start MSBuild: " + ErrorText.Of(ex));
                 return result;
             }
 

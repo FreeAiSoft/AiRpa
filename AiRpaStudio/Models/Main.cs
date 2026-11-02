@@ -153,7 +153,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                CustomWfDesigner.GetInstance().Log($"Ошибка загрузки проекта: {ex.Message}", (int)RpaCommon.Enums.LogLevel.Error);
+                CustomWfDesigner.GetInstance().Log($"Ошибка загрузки проекта: {ex}", (int)RpaCommon.Enums.LogLevel.Error);
             }
         }
 
@@ -213,8 +213,8 @@ namespace RPA.Models
                 }
                 catch (Exception ex)
                 {
-                    CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_xaml_load_failed", ex.Message), (int)RpaCommon.Enums.LogLevel.Error);
-                    OnSendMessage(LocalizeHelper.Get("lang_msg_xaml_load_failed", ex.Message));
+                    CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_xaml_load_failed", ErrorText.Of(ex)), (int)RpaCommon.Enums.LogLevel.Error);
+                    OnSendMessage(LocalizeHelper.Get("lang_msg_xaml_load_failed", ErrorText.Of(ex)));
                 }
             }
             else if (filePath.EndsWith(".sln", StringComparison.OrdinalIgnoreCase)
@@ -234,7 +234,7 @@ namespace RPA.Models
                 }
                 catch (Exception ex)
                 {
-                    OnSendMessage(LocalizeHelper.Get("lang_msg_open_file_error", ex.Message));
+                    OnSendMessage(LocalizeHelper.Get("lang_msg_open_file_error", ErrorText.Of(ex)));
                 }
             }
         }
@@ -424,8 +424,8 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                CustomWfDesigner.Log("Ошибка открытия в Visual Studio: " + ex.Message, (int)RpaCommon.Enums.LogLevel.Error);
-                OnSendMessage(LocalizeHelper.Get("lang_msg_open_vs_error", ex.Message));
+                CustomWfDesigner.Log("Ошибка открытия в Visual Studio: " + ErrorText.Of(ex), (int)RpaCommon.Enums.LogLevel.Error);
+                OnSendMessage(LocalizeHelper.Get("lang_msg_open_vs_error", ErrorText.Of(ex)));
             }
         }
 
@@ -499,8 +499,8 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_vs_project_load_error", ex.Message), (int)RpaCommon.Enums.LogLevel.Error);
-                OnSendMessage(LocalizeHelper.Get("lang_msg_vs_project_load_error", ex.Message));
+                CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_vs_project_load_error", ErrorText.Of(ex)), (int)RpaCommon.Enums.LogLevel.Error);
+                OnSendMessage(LocalizeHelper.Get("lang_msg_vs_project_load_error", ErrorText.Of(ex)));
             }
         }
 

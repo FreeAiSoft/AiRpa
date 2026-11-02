@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using RPA.Core;
+using RPA.Helpers;
 
 namespace RPA.Mcp
 {
@@ -70,7 +71,7 @@ namespace RPA.Mcp
                 return new McpToolResult
                 {
                     Success = false,
-                    Error = $"Error executing tool '{name}': {ex.Message}"
+                    Error = $"Error executing tool '{name}': {ex}"
                 };
             }
         }
@@ -145,7 +146,7 @@ namespace RPA.Mcp
                     {
                         Code = -32603,
                         Message = "Internal error",
-                        Data = ex.Message
+                        Data = ErrorText.Of(ex)
                     },
                     Id = request.Id
                 };

@@ -123,7 +123,7 @@ namespace RPA.Helpers
             catch (Exception ex)
             {
                 // Логирование ошибки без прерывания работы
-                Console.WriteLine($"Error auto-saving breakpoints: {ex.Message}");
+                Console.WriteLine($"Error auto-saving breakpoints: {ex}");
             }
         }
 

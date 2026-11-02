@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
@@ -87,7 +87,8 @@ namespace RPA.Helpers
         /// <summary>Прозрачность заливки оверлея перетаскивания: Surface @15%.</summary>
         public const byte OverlayFillAlpha = 0x26;
 
-        private static readonly StudioThemeColors DarkPalette = new StudioThemeColors(
+        /// <summary>Тёмная палитра (тема по умолчанию).</summary>
+        public static StudioThemeColors Dark { get; } = new StudioThemeColors(
             isDark: true,
             surface: Rgb(0x27, 0x27, 0x27),
             surfaceAlt: Rgb(0x2E, 0x2E, 0x2F),
@@ -100,7 +101,8 @@ namespace RPA.Helpers
             closeHoverBackground: Rgb(0xE8, 0x11, 0x23),
             closeHoverForeground: Rgb(0xFF, 0xFF, 0xFF));
 
-        private static readonly StudioThemeColors LightPalette = new StudioThemeColors(
+        /// <summary>Светлая палитра.</summary>
+        public static StudioThemeColors Light { get; } = new StudioThemeColors(
             isDark: false,
             surface: Rgb(0xFF, 0xFF, 0xFF),
             surfaceAlt: Rgb(0xF3, 0xF3, 0xF3),
@@ -113,16 +115,10 @@ namespace RPA.Helpers
             closeHoverBackground: Rgb(0xE8, 0x11, 0x23),
             closeHoverForeground: Rgb(0xFF, 0xFF, 0xFF));
 
-        /// <summary>Тёмная палитра (тема по умолчанию).</summary>
-        public static StudioThemeColors Dark => DarkPalette;
-
-        /// <summary>Светлая палитра.</summary>
-        public static StudioThemeColors Light => LightPalette;
-
         /// <summary>Палитра по признаку темы.</summary>
         public static StudioThemeColors For(bool dark)
         {
-            return dark ? DarkPalette : LightPalette;
+            return dark ? Dark : Light;
         }
 
         /// <summary>Палитра по словарю ресурсов (тема определяется по яркости фона MaterialDesign).</summary>
@@ -161,7 +157,7 @@ namespace RPA.Helpers
         /// <summary>Воспринимаемая яркость 0..1.</summary>
         public static double Luminance(Color color)
         {
-            return (0.299 * color.R + 0.587 * color.G + 0.114 * color.B) / 255d;
+            return ((0.299 * color.R) + (0.587 * color.G) + (0.114 * color.B)) / 255d;
         }
 
         /// <summary>Монохромность: разница между максимальным и минимальным каналом.</summary>
@@ -284,12 +280,9 @@ namespace RPA.Helpers
         /// <summary>Цвет токена по имени.</summary>
         public Color Get(string tokenName)
         {
-            if (tokenName == null || !_tokens.TryGetValue(tokenName, out Color color))
-            {
-                throw new ArgumentOutOfRangeException(nameof(tokenName), tokenName, "неизвестный токен палитры студии");
-            }
-
-            return color;
+            return tokenName == null || !_tokens.TryGetValue(tokenName, out Color color)
+                ? throw new ArgumentOutOfRangeException(nameof(tokenName), tokenName, "неизвестный токен палитры студии")
+                : color;
         }
 
         /// <summary>Пробует получить цвет токена по имени.</summary>

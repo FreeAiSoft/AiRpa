@@ -206,22 +206,54 @@
                 </Button>
             </StackPanel>
             <TextBox Grid.Column="1"
+                     Background="{DynamicResource Studio.Surface}"
+                     Foreground="{DynamicResource Studio.Foreground}"
+                     BorderBrush="{DynamicResource Studio.Separator}"
+                     CaretBrush="{DynamicResource Studio.Foreground}"
+                     FontFamily="{DynamicResource Studio.FontFamily}"
                      Margin="5" />
         </Grid>
 
         <TreeView x:Name="projectTree"
                   Margin="5"
-                  FontFamily="Consolas"
+                  Background="{DynamicResource Studio.Surface}"
+                  Foreground="{DynamicResource Studio.Foreground}"
+                  BorderBrush="{DynamicResource Studio.Separator}"
+                  FontFamily="{DynamicResource Studio.FontFamily}"
                   Grid.Row="1"
                   ItemsSource="{Binding ItemsSource, RelativeSource={RelativeSource AncestorType=UserControl}}">
             <TreeView.ItemContainerStyle>
                 <Style TargetType="{x:Type TreeViewItem}">
+                    <!-- Текст названия файла: без явных кистей он приходил из системных (чёрный на тёмном
+                         фоне после выбора элемента). Состояния — яркостью палитры студии. -->
+                    <Setter Property="Foreground"
+                            Value="{DynamicResource Studio.Foreground}" />
+                    <Setter Property="Background"
+                            Value="Transparent" />
+                    <Setter Property="FontFamily"
+                            Value="{DynamicResource Studio.FontFamily}" />
                     <Setter Property="IsExpanded"
                             Value="{Binding IsExpanded, Mode=TwoWay}" />
                     <EventSetter Event="PreviewMouseRightButtonDown"
                                  Handler="TreeViewItem_PreviewMouseRightButtonDown" />
                     <EventSetter Event="MouseDoubleClick"
                                  Handler="TreeViewItem_MouseDoubleClick" />
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver"
+                                 Value="True">
+                            <Setter Property="Background"
+                                    Value="{DynamicResource Studio.Hover}" />
+                            <Setter Property="Foreground"
+                                    Value="{DynamicResource Studio.Foreground}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected"
+                                 Value="True">
+                            <Setter Property="Background"
+                                    Value="{DynamicResource Studio.Selected}" />
+                            <Setter Property="Foreground"
+                                    Value="{DynamicResource Studio.Foreground}" />
+                        </Trigger>
+                    </Style.Triggers>
                 </Style>
             </TreeView.ItemContainerStyle>
             <TreeView.ItemTemplate>
@@ -342,6 +374,8 @@
 
                             <!-- TextBlock -->
                             <TextBlock Text="{Binding Name}"
+                                       Foreground="{DynamicResource Studio.Foreground}"
+                                       FontFamily="{DynamicResource Studio.FontFamily}"
                                        ToolTip="{Binding RuntimeFullPath}"
                                        VerticalAlignment="Center"
                                        Tag="{Binding Path=.}"
@@ -350,6 +384,11 @@
 
                         <!-- TextBox для режима редактирования -->
                         <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="{DynamicResource Studio.Surface}"
+                                 Foreground="{DynamicResource Studio.Foreground}"
+                                 BorderBrush="{DynamicResource Studio.SeparatorStrong}"
+                                 CaretBrush="{DynamicResource Studio.Foreground}"
+                                 FontFamily="{DynamicResource Studio.FontFamily}"
                                  Visibility="{Binding IsEditing, Converter={StaticResource BooleanToVisibilityConverter}}"
                                  Tag="{Binding Path=.}"
                                  KeyDown="EditTextBox_KeyDown"

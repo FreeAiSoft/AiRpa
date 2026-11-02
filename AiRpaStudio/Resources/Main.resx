@@ -249,4 +249,19 @@
   <data name="lang_msg_xaml_load_failed" xml:space="preserve">
     <value>Failed to load in the designer: {0}</value>
   </data>
+  <data name="lang_error_title" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="lang_error_crash_title" xml:space="preserve">
+    <value>Critical error</value>
+  </data>
+  <data name="lang_error_hint" xml:space="preserve">
+    <value>The text below can be selected and copied (Ctrl+C) or copied with the button.</value>
+  </data>
+  <data name="lang_error_copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="lang_error_copied" xml:space="preserve">
+    <value>Copied to clipboard</value>
+  </data>
 </root>

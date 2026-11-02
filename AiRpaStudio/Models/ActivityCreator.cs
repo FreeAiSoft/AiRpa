@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using FW.EasyMvvm.Core;
+using RPA.Helpers;
 
 namespace RPA.Models
 {
@@ -67,7 +68,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                OnSendMessage(ex.Message);
+                OnSendMessage(ErrorText.Of(ex));
             }
 
             return $"{defaultActivityName}.xaml";
@@ -115,7 +116,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                OnSendMessage(ex.Message);
+                OnSendMessage(ErrorText.Of(ex));
                 return;
             }
 

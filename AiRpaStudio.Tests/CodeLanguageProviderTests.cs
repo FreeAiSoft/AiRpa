@@ -1,4 +1,4 @@
-using System.Threading;
+﻿using System.Threading;
 using ICSharpCode.AvalonEdit.Folding;
 using ICSharpCode.AvalonEdit.Highlighting;
 using RPA.Helpers;
@@ -33,13 +33,13 @@ public class CodeLanguageProviderTests
     }
 
     [Test]
-    public void GetXamlDefinition_LoadsAndRegisters()
+    public void GetXamlDefinition_LoadsThemedAndCached()
     {
         IHighlightingDefinition definition = CodeLanguageProvider.GetXamlDefinition();
 
         Assert.That(definition, Is.Not.Null);
         Assert.That(definition.Name, Is.EqualTo("XAML"));
-        Assert.That(HighlightingManager.Instance.GetDefinition("XAML"), Is.SameAs(definition));
+        Assert.That(CodeLanguageProvider.GetXamlDefinition(), Is.SameAs(definition), "определение кэшируется на язык и тему");
     }
 
     [Test]

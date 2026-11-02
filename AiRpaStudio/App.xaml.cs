@@ -6,6 +6,7 @@ using System.Linq;
 using System.Resources;
 using System.Windows;
 using RPA.Helpers;
+using RPA.Logging;
 using RPA.Mcp;
 //#pragma warning disable
 namespace RPA
@@ -21,7 +22,32 @@ namespace RPA
         private StdioMcpServerHost _mcpStdioHost;
         private HttpMcpServerHost _mcpHttpHost;
 
+        public App()
+        {
+            // Обработчики падений подключаются ДО InitializeComponent/Startup: ошибка в App.xaml,
+            // в ресурсах темы или при создании главного окна не должна приводить к молчаливому
+            // закрытию (раньше подписка жила в EntryPoint, т.е. уже после разбора App.xaml).
+            // Падения UI-потока WPF ловит DispatcherUnhandledException — WinForms-событие
+            // Application.ThreadException для WPF-приложения не срабатывает.
+            AppDomain.CurrentDomain.UnhandledException += Log.AppDomain_CurrentDomain_UnhandledException;
+            DispatcherUnhandledException += Log.Application_DispatcherUnhandledException;
+        }
+
         private void Application_Startup(object sender, StartupEventArgs e)
+        {
+            try
+            {
+                StartupCore(e);
+            }
+            catch (Exception ex)
+            {
+                // Ошибка инициализации (тема, WF-дизайнер, главное окно): окно ошибки и выход.
+                Log.ReportExceptionAndShowMessage(ex);
+                Shutdown();
+            }
+        }
+
+        private void StartupCore(StartupEventArgs e)
         {
             Languages.Add(new CultureInfo("en-US")); //Нейтральная культура для этого проекта
             Languages.Add(new CultureInfo("ru-RU"));
@@ -49,6 +75,9 @@ namespace RPA
             // (см. Helpers\StudioBrushes.cs: <DynamicResource x:Key="..."/> в словаре даёт
             // ResourceReferenceExpression и валит XamlParseException на MenuItem).
             StudioBrushes.ApplyToApplication();
+            // Шрифт Roboto для всего проекта (этап 12): ключи Studio.FontFamily* читают XAML,
+            // тема AvalonDock и сторонние сборки (лог, чат).
+            StudioFonts.ApplyToApplication();
             // Ключи дизайнера WF (F-05): объявляются до создания первого WorkflowDesigner, иначе
             // RoslynExpressionEditor.xaml не находит DesignerViewBackground и поле остаётся прозрачным.
             WfDesignerTheme.ApplyToApplication();
@@ -98,7 +127,7 @@ namespace RPA
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Failed to start MCP Server: {ex.Message}");
+                Console.Error.WriteLine($"Failed to start MCP Server: {ex}");
             }
         }
 

@@ -1,13 +1,13 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <SyntaxDefinition name="XAML" extensions=".xaml" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
-	<Color foreground="#2E8B57" name="Comment" exampleText="&lt;!-- comment --&gt;" />
-	<Color foreground="#1E90FF" name="CData" exampleText="&lt;![CDATA[data]]&gt;" />
-	<Color foreground="#1E90FF" name="XmlDeclaration" exampleText='&lt;?xml version="1.0"?&gt;' />
-	<Color foreground="#8B008B" name="XmlTag" exampleText='&lt;Button Content="OK" /&gt;' />
-	<Color foreground="#B22222" name="AttributeName" exampleText='&lt;Button Background="Red" /&gt;' />
-	<Color foreground="#0000FF" name="AttributeValue" exampleText='&lt;Button Background="Red" /&gt;' />
-	<Color foreground="#008080" name="Entity" exampleText="&amp;amp;" />
-	<Color foreground="#B8860B" name="MarkupExtension" exampleText="{Binding Path=Name}" />
+	<Color name="Comment" exampleText="&lt;!-- comment --&gt;" />
+	<Color name="CData" exampleText="&lt;![CDATA[data]]&gt;" />
+	<Color name="XmlDeclaration" exampleText='&lt;?xml version="1.0"?&gt;' />
+	<Color name="XmlTag" exampleText='&lt;Button Content="OK" /&gt;' />
+	<Color name="AttributeName" exampleText='&lt;Button Background="Red" /&gt;' />
+	<Color name="AttributeValue" exampleText='&lt;Button Background="Red" /&gt;' />
+	<Color name="Entity" exampleText="&amp;amp;" />
+	<Color name="MarkupExtension" exampleText="{Binding Path=Name}" />
 
 	<RuleSet>
 		<Span color="Comment" multiline="true">

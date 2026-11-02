@@ -171,7 +171,7 @@ namespace RPA.Core.Services
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"SetValidationIconDirectly ERROR: {ex.Message}");
+                Debug.WriteLine($"SetValidationIconDirectly ERROR: {ex}");
                 Debug.WriteLine($"StackTrace: {ex.StackTrace}");
             }
         }
@@ -547,7 +547,7 @@ namespace RPA.Core.Services
             }
             catch (Exception ex)
             {
-                CustomWfDesigner.GetInstance().Log(ex.Message, 3);
+                CustomWfDesigner.GetInstance().Log(ErrorText.Of(ex), 3);
             }
             return null;
         }

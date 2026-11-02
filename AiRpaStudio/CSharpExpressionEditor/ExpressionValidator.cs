@@ -99,7 +99,7 @@ namespace RPA.CSharpExpressionEditor
                             }
                             catch (Exception ex)
                             {
-                                error = $"Не удалось определить тип выражения: {ex.Message}";
+                                error = $"Не удалось определить тип выражения: {ex}";
                             }
                         }
                     }
@@ -191,7 +191,7 @@ namespace RPA.CSharpExpressionEditor
                 }
                 catch (Exception ex)
                 {
-                    rightTypeError = $"Не удалось определить тип выражения: {ex.Message}";
+                    rightTypeError = $"Не удалось определить тип выражения: {ex}";
                 }
             }
 

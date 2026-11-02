@@ -1,5 +1,6 @@
 <UserControl x:Class="RPA.Chat.Views.ChatPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             FontFamily="{DynamicResource Studio.FontFamily}"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:RPA.Chat.Controls"
              xmlns:conv="clr-namespace:RPA.Chat.Converters"

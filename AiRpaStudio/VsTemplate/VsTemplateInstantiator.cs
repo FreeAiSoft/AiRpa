@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using RPA.Helpers;
 
 namespace RPA.VsTemplate
 {
@@ -41,7 +42,7 @@ namespace RPA.VsTemplate
             catch (Exception ex)
             {
                 result.Success = false;
-                result.Errors.Add("Failed to create output directory: " + ex.Message);
+                result.Errors.Add("Failed to create output directory: " + ErrorText.Of(ex));
                 return result;
             }
 
@@ -80,7 +81,7 @@ namespace RPA.VsTemplate
                 }
                 catch (Exception ex)
                 {
-                    result.Errors.Add("Failed to instantiate '" + file.SourceFile + "': " + ex.Message);
+                    result.Errors.Add("Failed to instantiate '" + file.SourceFile + "': " + ErrorText.Of(ex));
                 }
             }
 

@@ -1,0 +1,787 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
+using System.Windows.Media;
+using System.Windows.Threading;
+
+using NUnit.Framework;
+using RPA.Helpers;
+
+namespace AiRpaStudio.Tests;
+
+/// <summary>
+/// Панели «Переменные», «Аргументы», «Пространства имён» дизайнера WF: вкладки shell bar, таблицы
+/// (<see cref="DataGrid"/>) и их контекстное меню — F-04 плана docs\Vs2026_Theme_Plan.md.
+/// <para>
+/// Регресс, который держат эти тесты: к таблицам тема не применялась вообще. WF объявляет их стилем
+/// <c>defaultDataGridStyle</c> с <c>{StaticResource}</c> на дефолтные цвета WF
+/// (<c>GridViewRowUnderlineColor</c>, <c>GridViewRowSelectedColor</c>, <c>GridViewRowHoverColor</c>),
+/// а <c>StaticResource</c> не пересчитывается, поэтому в тёмной теме шапка, сетка и выделение оставались
+/// светлыми; вкладки shell bar рисовал шаблон системной темы Aero2 (его триггеры сильнее стиля WF).
+/// </para>
+/// <para>
+/// Проверки идут на синтетическом дереве, повторяющем структуру <c>DesignerView</c>
+/// (<c>xnDesignerView</c> → <c>bottomPanel</c> → панели → таблицы), и на живой таблице в окне: только там
+/// материализуются контейнеры строк, шапки и ячеек. Требования и карта тестов —
+/// docs\Vs2026_Theme_Plan.md (F-04), docs\Designer_Variable_ContextMenu_Principles.md.
+/// </para>
+/// </summary>
+[Apartment(ApartmentState.STA)]
+public class WfDesignerTableThemeTests
+{
+    // --- Таблицы: кисти, шрифт, разделители. ---
+
+    [Test]
+    public void Apply_ThemesAllDesignerTables()
+    {
+        DesignerTree tree = BuildDesignerTree();
+        StudioThemeColors palette = StudioPalette.Dark;
+
+        WfDesignerTheme.Apply(tree.Root, palette);
+
+        foreach (DataGrid grid in new[] { tree.Variables, tree.Arguments, tree.Namespaces })
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(ColorOf(grid.Background), Is.EqualTo(palette.Surface), $"{grid.Name}: фон таблицы");
+                Assert.That(ColorOf(grid.RowBackground), Is.EqualTo(palette.Surface), $"{grid.Name}: фон строки");
+                Assert.That(ColorOf(grid.AlternatingRowBackground), Is.EqualTo(palette.Surface),
+                    $"{grid.Name}: чередование строк выключено — один фон");
+                Assert.That(ColorOf(grid.HorizontalGridLinesBrush), Is.EqualTo(palette.Separator), $"{grid.Name}: линии по горизонтали");
+                Assert.That(ColorOf(grid.VerticalGridLinesBrush), Is.EqualTo(palette.Separator), $"{grid.Name}: линии по вертикали");
+                Assert.That(ColorOf(grid.BorderBrush), Is.EqualTo(palette.Separator), $"{grid.Name}: hairline таблицы");
+                Assert.That(grid.BorderThickness.Top, Is.EqualTo(1d), $"{grid.Name}: hairline только сверху");
+                Assert.That(ColorOf(grid.Foreground), Is.EqualTo(palette.Foreground), $"{grid.Name}: текст");
+                Assert.That(grid.FontFamily, Is.EqualTo(StudioFonts.UiFont), $"{grid.Name}: шрифт Roboto");
+            });
+        }
+    }
+
+    [Test]
+    public void Apply_TableHeaderUsesSurfaceAltAndHairline()
+    {
+        DesignerTree tree = BuildDesignerTree();
+        StudioThemeColors palette = StudioPalette.Dark;
+
+        WfDesignerTheme.Apply(tree.Root, palette);
+
+        Style header = tree.Variables.ColumnHeaderStyle;
+        Assert.Multiple(() =>
+        {
+            Assert.That(WfThemeStyles.IsThemed(header), Is.True, "шапка обязана получить стиль палитры");
+            Assert.That(SetterColourOf(header, Control.BackgroundProperty), Is.EqualTo(palette.SurfaceAlt));
+            Assert.That(SetterColourOf(header, Control.ForegroundProperty), Is.EqualTo(palette.Foreground));
+            Assert.That(SetterColourOf(header, Control.BorderBrushProperty), Is.EqualTo(palette.Separator));
+            Assert.That(SetterColourOf(header, DataGridColumnHeader.SeparatorBrushProperty), Is.EqualTo(palette.Separator),
+                "разделитель шапки WF берёт из GridViewRowUnderlineColor (StaticResource) — его надо перекрыть");
+            Assert.That(TriggerColourOf(header, UIElement.IsMouseOverProperty, Control.BackgroundProperty),
+                Is.EqualTo(palette.Hover), "наведение на шапку — Hover");
+        });
+    }
+
+    [Test]
+    public void Apply_TableRowStatesUsePalette()
+    {
+        DesignerTree tree = BuildDesignerTree();
+        StudioThemeColors palette = StudioPalette.Dark;
+
+        WfDesignerTheme.Apply(tree.Root, palette);
+
+        Style row = tree.Variables.RowStyle;
+        Assert.Multiple(() =>
+        {
+            Assert.That(WfThemeStyles.IsThemed(row), Is.True);
+            Assert.That(SetterColourOf(row, Control.BackgroundProperty), Is.EqualTo(palette.Surface));
+            Assert.That(TriggerColourOf(row, UIElement.IsMouseOverProperty, Control.BackgroundProperty),
+                Is.EqualTo(palette.Hover), "наведение на строку — Hover");
+            Assert.That(TriggerColourOf(row, DataGridRow.IsSelectedProperty, Control.BackgroundProperty),
+                Is.EqualTo(palette.Selected), "выделение строки — Selected, а не системное синее");
+        });
+    }
+
+    [Test]
+    public void Apply_TableCellFocusUsesSeparatorStrongHairline()
+    {
+        DesignerTree tree = BuildDesignerTree();
+        StudioThemeColors palette = StudioPalette.Dark;
+
+        WfDesignerTheme.Apply(tree.Root, palette);
+
+        Style cell = tree.Variables.CellStyle;
+        Assert.Multiple(() =>
+        {
+            Assert.That(WfThemeStyles.IsThemed(cell), Is.True);
+            Assert.That(SetterColourOf(cell, Control.BackgroundProperty), Is.EqualTo(Colors.Transparent),
+                "фон ячейки отдаётся строке: иначе выделение ячейки перекрывает выделение строки");
+            Assert.That(TriggerColourOf(cell, UIElement.IsKeyboardFocusWithinProperty, Control.BorderBrushProperty),
+                Is.EqualTo(palette.SeparatorStrong), "фокус ячейки — hairline SeparatorStrong");
+        });
+    }
+
+    [Test]
+    public void Apply_KeepsWorkflowTableStylesAsBasedOn()
+    {
+        DesignerTree tree = BuildDesignerTree();
+        Style header = tree.Variables.ColumnHeaderStyle;
+        Style cell = tree.Variables.CellStyle;
+        Style row = tree.Variables.RowStyle;
+
+        WfDesignerTheme.Apply(tree.Root, StudioPalette.Dark);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tree.Variables.ColumnHeaderStyle.BasedOn, Is.SameAs(header),
+                "шаблон и поведение шапки WF живут в его стиле: он обязан остаться в цепочке BasedOn");
+            Assert.That(tree.Variables.CellStyle.BasedOn, Is.SameAs(cell));
+            Assert.That(tree.Variables.RowStyle.BasedOn, Is.SameAs(row));
+        });
+    }
+
+    [Test]
+    public void Apply_TableStylesFollowThemeSwitch()
+    {
+        DesignerTree tree = BuildDesignerTree();
+        Style headerBase = tree.Variables.ColumnHeaderStyle;
+
+        WfDesignerTheme.Apply(tree.Root, StudioPalette.Dark);
+        WfDesignerTheme.Apply(tree.Root, StudioPalette.Light);
+
+        Style header = tree.Variables.ColumnHeaderStyle;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(WfThemeStyles.PaletteOf(header), Is.SameAs(StudioPalette.Light),
+                "стиль обязан помнить палитру: иначе после смены темы останутся кисти прежней");
+            Assert.That(SetterColourOf(header, Control.BackgroundProperty), Is.EqualTo(StudioPalette.Light.SurfaceAlt));
+            Assert.That(header.BasedOn, Is.SameAs(headerBase), "обёртка пересоздаётся от исходного стиля WF, а не от прежней темы");
+            Assert.That(ColorOf(tree.Variables.Background), Is.EqualTo(StudioPalette.Light.Surface));
+        });
+    }
+
+    [Test]
+    public void Apply_TableThemeIsIdempotent()
+    {
+        DesignerTree tree = BuildDesignerTree();
+
+        WfDesignerTheme.Apply(tree.Root, StudioPalette.Dark);
+        Style header = tree.Variables.ColumnHeaderStyle;
+
+        WfDesignerTheme.Apply(tree.Root, StudioPalette.Dark);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tree.Variables.ColumnHeaderStyle, Is.SameAs(header),
+                "повторное применение той же палитры не должно наращивать цепочку стилей");
+            Assert.That(WfDataGridTheme.HookCount(tree.Variables), Is.EqualTo(1), "подписка на таблицу ставится один раз");
+        });
+    }
+
+    [Test]
+    public void Apply_TablePanelBackdropBehindWhiteHostIsSurface()
+    {
+        DesignerTree tree = BuildDesignerTree();
+        StudioThemeColors palette = StudioPalette.Dark;
+
+        // Хост шаблона WF белый: вокруг таблицы просвечивал белый прямоугольник.
+        tree.BottomPanel.Background = Brushes.White;
+        tree.VariablesPanel.Background = null;
+
+        WfDesignerTheme.Apply(tree.Root, palette);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(tree.VariablesPanel.Background), Is.EqualTo(palette.Surface),
+                "панель переменных — на поверхности палитры");
+            Assert.That(ColorOf(tree.BottomPanel.Background), Is.EqualTo(palette.Surface),
+                "предок панели не должен оставаться белым");
+        });
+    }
+
+    [Test]
+    public void Apply_NullArguments_DoNotThrow()
+    {
+        Assert.DoesNotThrow(() =>
+        {
+            WfDataGridTheme.Apply(null, StudioPalette.Dark);
+            WfDataGridTheme.Apply(new Grid(), null);
+            WfDataGridTheme.Theme(null, StudioPalette.Dark);
+        });
+    }
+
+    // --- Живые контейнеры: строки, шапки, отсутствие светлых плашек. ---
+
+    [Test]
+    public void Apply_LateCreatedRowsAreThemed()
+    {
+        (Window window, Grid root, DataGrid grid, ObservableCollection<string> items) = CreateLiveTable();
+        StudioThemeColors palette = StudioPalette.Dark;
+
+        try
+        {
+            window.Show();
+            WfDesignerTheme.Apply(root, palette);
+
+            // Строки создаются после применения темы — проход обязан их догнать.
+            items.Add("first");
+            items.Add("second");
+            Pump(window);
+
+            List<DataGridRow> rows = Walk(grid).OfType<DataGridRow>().ToList();
+
+            Assert.That(rows, Is.Not.Empty, "предпосылка: строки материализованы");
+            foreach (DataGridRow row in rows)
+            {
+                Assert.That(ColorOf(row.Background), Is.EqualTo(palette.Surface),
+                    "поздно созданная строка обязана быть на поверхности палитры, а не на системной плашке");
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [Test]
+    public void Apply_LiveTableHasNoLightPlates()
+    {
+        (Window window, Grid root, DataGrid grid, ObservableCollection<string> items) = CreateLiveTable();
+        StudioThemeColors palette = StudioPalette.Dark;
+
+        try
+        {
+            items.Add("first");
+            items.Add("second");
+            window.Show();
+            window.UpdateLayout();
+
+            WfDesignerTheme.Apply(root, palette);
+            Pump(window);
+
+            List<string> light = LightBrushesIn(grid, palette);
+            Assert.That(light, Is.Empty,
+                "в тёмной теме внутри таблицы не должно остаться светлых плашек Aero2: " + string.Join(", ", light));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [Test]
+    public void Apply_LiveTableHeaderAndCellsUsePalette()
+    {
+        (Window window, Grid root, DataGrid grid, ObservableCollection<string> items) = CreateLiveTable();
+        StudioThemeColors palette = StudioPalette.Dark;
+
+        try
+        {
+            items.Add("first");
+            window.Show();
+            WfDesignerTheme.Apply(root, palette);
+            Pump(window);
+
+            DataGridColumnHeader header = Walk(grid).OfType<DataGridColumnHeader>().FirstOrDefault();
+            DataGridCell cell = Walk(grid).OfType<DataGridCell>().FirstOrDefault();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(header, Is.Not.Null, "предпосылка: шапка материализована");
+                Assert.That(ColorOf(header.Background), Is.EqualTo(palette.SurfaceAlt), "шапка — SurfaceAlt");
+                Assert.That(cell, Is.Not.Null, "предпосылка: ячейка материализована");
+                Assert.That(ColorOf(cell.Background), Is.EqualTo(Colors.Transparent), "фон ячейки отдаётся строке");
+                Assert.That(ColorOf(cell.Foreground), Is.EqualTo(palette.Foreground), "текст ячейки — палитра");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // --- Вкладки shell bar: «Переменные / Аргументы / Пространства имён», PanMode. ---
+
+    [Test]
+    public void Apply_ThemesShellBarItems()
+    {
+        (StatusBar shellBar, ToggleButton[] tabs, Button button, TextBlock[] captions) = BuildShellBar();
+        StudioThemeColors palette = StudioPalette.Dark;
+
+        WfDesignerTheme.ThemeShellBar(shellBar, palette);
+
+        Assert.Multiple(() =>
+        {
+            foreach (ToggleButton tab in tabs)
+            {
+                bool active = tab.IsChecked == true;
+
+                Assert.That(ColorOf(tab.Background), Is.EqualTo(active ? palette.Selected : Colors.Transparent),
+                    $"{tab.Name}: активная вкладка — Selected, неактивная — без плашки");
+                Assert.That(ColorOf(tab.Foreground), Is.EqualTo(active ? palette.Foreground : palette.ForegroundMuted),
+                    $"{tab.Name}: неактивная подпись — ForegroundMuted");
+                Assert.That(tab.BorderThickness, Is.EqualTo(new Thickness(0)), $"{tab.Name}: рамка системной темы погашена");
+            }
+
+            Assert.That(ColorOf(button.Foreground), Is.EqualTo(palette.ForegroundMuted), "кнопка без состояния — приглушённая подпись");
+            Assert.That(ColorOf(button.Background), Is.EqualTo(Colors.Transparent));
+
+            foreach (TextBlock caption in captions)
+            {
+                Assert.That(ColorOf(caption.Foreground), Is.Not.EqualTo(default(Color)),
+                    "подпись вкладки обязана получить цвет из палитры");
+            }
+        });
+    }
+
+    [Test]
+    public void Apply_ShellBarItemsFollowThemeSwitch()
+    {
+        (StatusBar shellBar, ToggleButton[] tabs, _, _) = BuildShellBar();
+
+        WfDesignerTheme.ThemeShellBar(shellBar, StudioPalette.Dark);
+        WfDesignerTheme.ThemeShellBar(shellBar, StudioPalette.Light);
+
+        ToggleButton active = tabs.First(tab => tab.IsChecked == true);
+        ToggleButton inactive = tabs.First(tab => tab.IsChecked != true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(active.Background), Is.EqualTo(StudioPalette.Light.Selected));
+            Assert.That(ColorOf(active.Foreground), Is.EqualTo(StudioPalette.Light.Foreground));
+            Assert.That(ColorOf(inactive.Foreground), Is.EqualTo(StudioPalette.Light.ForegroundMuted));
+        });
+    }
+    [Test]
+    public void Apply_ShellBarCaptionKeepsActiveStateAfterFullApply()
+    {
+        // Общий проход по тексту в Apply ставит Foreground каждому TextBlock локальным значением,
+        // поэтому состояние вкладки обязано переписываться после него: иначе все подписи становились
+        // основным цветом и активную вкладку было не отличить от неактивной.
+        (Grid root, ToggleButton[] tabs, TextBlock[] captions) = BuildDesignerTreeWithShellBar();
+        StudioThemeColors palette = StudioPalette.Dark;
+
+        WfDesignerTheme.Apply(root, palette);
+
+        Assert.Multiple(() =>
+        {
+            for (int index = 0; index < tabs.Length; index++)
+            {
+                Color expected = tabs[index].IsChecked == true ? palette.Foreground : palette.ForegroundMuted;
+                Assert.That(ColorOf(captions[index].Foreground), Is.EqualTo(expected),
+                    $"подпись вкладки #{index}: цвет обязан следовать состоянию и после общего прохода по тексту");
+            }
+        });
+    }
+
+
+
+    // --- Стражи по исходникам и проекту. ---
+
+    [Test]
+    public void Sources_TableThemeIsWiredIntoDesignerTheme()
+    {
+        string theme = ReadSource(Path.Combine("AiRpaStudio", "Helpers", "WfDesignerTheme.cs"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(theme, Does.Contain("WfDataGridTheme.Apply(root, palette);"),
+                "таблицы обязаны темизироваться из единственного входа WfDesignerTheme.Apply");
+            Assert.That(theme.IndexOf("WfDataGridTheme.Apply(root, palette);", StringComparison.Ordinal),
+                Is.GreaterThan(theme.IndexOf("WfVisualTreeThemer.Apply(root, palette);", StringComparison.Ordinal)),
+                "проход по таблицам идёт после общего темизатора WF: иначе он вернул бы светлые кисти");
+            Assert.That(theme, Does.Contain("ThemeShellBarItems(shellBar, palette);"),
+                "вкладки shell bar темизируются вместе с полосой");
+        });
+    }
+
+    [Test]
+    public void Sources_TableThemeUsesPaletteOnly()
+    {
+        string source = ReadSource(Path.Combine("AiRpaStudio", "Helpers", "WfDataGridTheme.cs"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(source, Does.Contain("StudioThemeColors"), "тематизация берёт цвета только из палитры");
+            Assert.That(source, Does.Contain("WfThemeStyles.NeutralizeLightBrushes"),
+                "светлые плашки шаблона гасятся общим правилом WF-контролов");
+            Assert.That(source, Does.Contain("WfThemeStyles.MarkThemed"),
+                "стили помечаются: смена темы пересоздаёт обёртку, а не оставляет кисти прежней");
+            Assert.That(source, Does.Not.Contain("CellEditingTemplate"),
+                "шаблоны правки запечатаны: обращаться к ним нельзя (дефект 1.0.0.0)");
+            Assert.That(Regex.IsMatch(source, @"#[0-9A-Fa-f]{6}", RegexOptions.None, TimeSpan.FromSeconds(2)), Is.False,
+                "зашитые hex-цвета запрещены");
+            Assert.That(Regex.IsMatch(source, @"\bColors\.", RegexOptions.None, TimeSpan.FromSeconds(2)), Is.False,
+                "зашитые системные цвета запрещены");
+        });
+    }
+
+    [Test]
+    public void ProjectFile_CompilesTableTheme()
+    {
+        string project = ReadSource(Path.Combine("AiRpaStudio", "AiRpaStudio.csproj"));
+
+        Assert.That(project, Does.Contain("Helpers\\WfDataGridTheme.cs"),
+            "файл темизатора таблиц обязан быть в проекте: csproj перечисляет файлы явно");
+    }
+
+    // --- Вспомогательное: синтетический дизайнер и живая таблица. ---
+
+    private sealed class DesignerTree
+    {
+        public Grid Root { get; set; }
+
+        public Grid BottomPanel { get; set; }
+
+        public Grid VariablesPanel { get; set; }
+
+        public DataGrid Variables { get; set; }
+
+        public DataGrid Arguments { get; set; }
+
+        public DataGrid Namespaces { get; set; }
+    }
+
+    /// <summary>
+    /// Дерево, повторяющее структуру <c>DesignerView</c>: поверхность → <c>bottomPanel</c> → панели
+    /// переменных/аргументов/пространств имён. Имена таблиц взяты из Reference Source
+    /// (<c>variableDataGrid</c>, <c>argumentsDataGrid</c>, <c>importedNamespacesDataGrid</c>).
+    /// </summary>
+    private static DesignerTree BuildDesignerTree()
+    {
+        var designerView = new UserControl { Name = WfDesignerTheme.DesignerViewElementName };
+        var bottomPanel = new Grid { Name = "bottomPanel" };
+        var variablesPanel = new Grid { Name = "variables1", Background = Brushes.White };
+        var argumentsPanel = new Grid { Name = "arguments1", Background = Brushes.White };
+        var namespacesPanel = new Grid { Name = "imports1", Background = Brushes.White };
+
+        DataGrid variables = CreateTable("variableDataGrid");
+        DataGrid arguments = CreateTable("argumentsDataGrid");
+        DataGrid namespaces = CreateTable("importedNamespacesDataGrid");
+
+        variablesPanel.Children.Add(variables);
+        argumentsPanel.Children.Add(arguments);
+        namespacesPanel.Children.Add(namespaces);
+
+        bottomPanel.Children.Add(variablesPanel);
+        bottomPanel.Children.Add(argumentsPanel);
+        bottomPanel.Children.Add(namespacesPanel);
+        designerView.Content = bottomPanel;
+
+        var root = new Grid { Name = "root" };
+        root.Children.Add(designerView);
+
+        return new DesignerTree
+        {
+            Root = root,
+            BottomPanel = bottomPanel,
+            VariablesPanel = variablesPanel,
+            Variables = variables,
+            Arguments = arguments,
+            Namespaces = namespaces
+        };
+    }
+
+    /// <summary>Таблица в том виде, в каком её объявляет WF: стили приходят из <c>defaultDataGridStyle</c>.</summary>
+    private static DataGrid CreateTable(string name)
+    {
+        var grid = new DataGrid
+        {
+            Name = name,
+            AutoGenerateColumns = false,
+            ColumnHeaderStyle = new Style(typeof(DataGridColumnHeader)),
+            CellStyle = new Style(typeof(DataGridCell)),
+            RowStyle = new Style(typeof(DataGridRow))
+        };
+
+        grid.Columns.Add(new DataGridTextColumn { Header = "Имя" });
+        grid.Columns.Add(new DataGridTextColumn { Header = "Тип" });
+        return grid;
+    }
+
+    /// <summary>Живая таблица в окне: только там материализуются шапка, строки и ячейки.</summary>
+    private static (Window Window, Grid Root, DataGrid Grid, ObservableCollection<string> Items) CreateLiveTable()
+    {
+        var items = new ObservableCollection<string>();
+        var grid = new DataGrid
+        {
+            Name = DesignerVariableContextMenuTableName,
+            AutoGenerateColumns = false,
+            ItemsSource = items
+        };
+
+        grid.Columns.Add(new DataGridTextColumn { Header = "Имя", Binding = new Binding(".") });
+
+        var panel = new Grid { Name = "variables1" };
+        panel.Children.Add(grid);
+
+        var bottomPanel = new Grid();
+        bottomPanel.Children.Add(panel);
+
+        var designerView = new UserControl { Name = WfDesignerTheme.DesignerViewElementName, Content = bottomPanel };
+        var root = new Grid();
+        root.Children.Add(designerView);
+
+        var window = new Window
+        {
+            Width = 360,
+            Height = 240,
+            ShowInTaskbar = false,
+            Content = root
+        };
+
+        return (window, root, grid, items);
+    }
+
+    private const string DesignerVariableContextMenuTableName = "variableDataGrid";
+
+    /// <summary>Shell bar как у WF: вкладки — <see cref="ToggleButton"/> с подписью-<see cref="TextBlock"/>.</summary>
+    private static (StatusBar ShellBar, ToggleButton[] Tabs, Button Button, TextBlock[] Captions) BuildShellBar()
+    {
+        var shellBar = new StatusBar { Name = WfDesignerTheme.ShellBarElementName };
+
+        string[] titles = { "Переменные", "Аргументы", "Пространства имён" };
+        var tabs = new List<ToggleButton>();
+        var captions = new List<TextBlock>();
+
+        for (int index = 0; index < titles.Length; index++)
+        {
+            var caption = new TextBlock { Text = titles[index] };
+            var tab = new ToggleButton { Name = "tab" + index, Content = caption, IsChecked = index == 0 };
+            var item = new StatusBarItem { Content = tab };
+
+            _ = shellBar.Items.Add(item);
+            tabs.Add(tab);
+            captions.Add(caption);
+        }
+
+        var button = new Button { Name = "buttonResetZoom", Content = "100%" };
+        _ = shellBar.Items.Add(new StatusBarItem { Content = button });
+
+        return (shellBar, tabs.ToArray(), button, captions.ToArray());
+    }
+    /// <summary>Дерево дизайнера с shell bar и одной таблицей: проверяется полный проход <c>Apply</c>.</summary>
+    private static (Grid Root, ToggleButton[] Tabs, TextBlock[] Captions) BuildDesignerTreeWithShellBar()
+    {
+        (StatusBar shellBar, ToggleButton[] tabs, _, TextBlock[] captions) = BuildShellBar();
+
+        var panel = new Grid { Name = "variables1" };
+        panel.Children.Add(CreateTable("variableDataGrid"));
+
+        var bottomPanel = new Grid();
+        bottomPanel.Children.Add(panel);
+
+        var layout = new Grid();
+        layout.Children.Add(bottomPanel);
+        layout.Children.Add(shellBar);
+
+        var designerView = new UserControl { Name = WfDesignerTheme.DesignerViewElementName, Content = layout };
+        var root = new Grid();
+        root.Children.Add(designerView);
+
+        return (root, tabs, captions);
+    }
+
+
+
+    private static Color SetterColourOf(Style style, DependencyProperty property)
+    {
+        for (Style current = style; current != null; current = current.BasedOn)
+        {
+            foreach (Setter setter in current.Setters.OfType<Setter>())
+            {
+                if (setter.Property == property && setter.Value is Brush brush)
+                {
+                    return ColorOf(brush);
+                }
+            }
+        }
+
+        Assert.Fail($"в стиле нет сеттера {property.Name}");
+        return default;
+    }
+
+    private static Color TriggerColourOf(Style style, DependencyProperty triggerProperty, DependencyProperty setterProperty)
+    {
+        for (Style current = style; current != null; current = current.BasedOn)
+        {
+            foreach (Trigger trigger in current.Triggers.OfType<Trigger>())
+            {
+                if (trigger.Property != triggerProperty)
+                {
+                    continue;
+                }
+
+                foreach (Setter setter in trigger.Setters.OfType<Setter>())
+                {
+                    if (setter.Property == setterProperty && setter.Value is Brush brush)
+                    {
+                        return ColorOf(brush);
+                    }
+                }
+            }
+        }
+
+        Assert.Fail($"в стиле нет триггера {triggerProperty.Name} → {setterProperty.Name}");
+        return default;
+    }
+
+    private static Color ColorOf(Brush brush)
+    {
+        Assert.That(brush, Is.InstanceOf<SolidColorBrush>(), "ожидалась однотонная кисть палитры");
+        return ((SolidColorBrush)brush).Color;
+    }
+
+    private static void Pump(Window window)
+    {
+        window.UpdateLayout();
+        window.Dispatcher.Invoke(() => { }, DispatcherPriority.Loaded);
+        window.UpdateLayout();
+        window.Dispatcher.Invoke(() => { }, DispatcherPriority.Background);
+        window.UpdateLayout();
+    }
+
+    /// <summary>Обход поддерева: логические дети (до применения шаблона) + визуальные (после).</summary>
+    private static IEnumerable<DependencyObject> Walk(DependencyObject root)
+    {
+        if (root == null)
+        {
+            yield break;
+        }
+
+        var seen = new HashSet<DependencyObject>();
+        var pending = new Stack<DependencyObject>();
+        pending.Push(root);
+
+        while (pending.Count > 0)
+        {
+            DependencyObject element = pending.Pop();
+            if (!seen.Add(element))
+            {
+                continue;
+            }
+
+            yield return element;
+
+            foreach (object child in LogicalTreeHelper.GetChildren(element))
+            {
+                if (child is DependencyObject logicalChild)
+                {
+                    pending.Push(logicalChild);
+                }
+            }
+
+            if (element is Visual)
+            {
+                int count = VisualTreeHelper.GetChildrenCount(element);
+                for (int index = 0; index < count; index++)
+                {
+                    pending.Push(VisualTreeHelper.GetChild(element, index));
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Светлые кисти внутри поддерева: остатки шаблонов системной темы (Aero2). Кисти палитры и текст
+    /// разрешены — они и есть результат темизации.
+    /// </summary>
+    private static List<string> LightBrushesIn(DependencyObject root, StudioThemeColors palette)
+    {
+        var violations = new List<string>();
+        double surface = Luminance(palette.Surface);
+        var paletteColors = new HashSet<Color>(palette.Tokens.Values);
+
+        foreach (DependencyObject element in Walk(root))
+        {
+            foreach (DependencyProperty property in BrushDpsOf(element.GetType()))
+            {
+                if (property.Name == "Foreground" || !(element.GetValue(property) is Brush brush)
+                    || ReferenceEquals(brush, Brushes.Transparent))
+                {
+                    continue;
+                }
+
+                if (brush is SolidColorBrush solid)
+                {
+                    if (IsLightArtifact(solid.Color, surface, paletteColors))
+                    {
+                        violations.Add($"{element.GetType().Name}.{property.Name} = {solid.Color}");
+                    }
+
+                    continue;
+                }
+
+                if (brush is GradientBrush gradient
+                    && gradient.GradientStops.Any(stop => IsLightArtifact(stop.Color, surface, paletteColors)))
+                {
+                    violations.Add($"{element.GetType().Name}.{property.Name} = gradient");
+                }
+            }
+        }
+
+        return violations;
+    }
+
+    private static bool IsLightArtifact(Color color, double surfaceLuminance, HashSet<Color> paletteColors)
+    {
+        return color.A != 0
+            && !paletteColors.Contains(color)
+            && Luminance(color) > surfaceLuminance + WfThemeStyles.LightPlateThreshold;
+    }
+
+    private static double Luminance(Color color)
+    {
+        return (0.2126 * LinearChannel(color.R)) + (0.7152 * LinearChannel(color.G)) + (0.0722 * LinearChannel(color.B));
+    }
+
+    private static double LinearChannel(byte value)
+    {
+        double channel = value / 255d;
+        return channel <= 0.03928 ? channel / 12.92 : Math.Pow((channel + 0.055) / 1.055, 2.4);
+    }
+
+    /// <summary>Свойства типа Brush, объявленные в типе и его базовых типах.</summary>
+    private static IEnumerable<DependencyProperty> BrushDpsOf(Type type)
+    {
+        for (Type current = type; current != null && current != typeof(object); current = current.BaseType)
+        {
+            foreach (System.Reflection.FieldInfo field in current.GetFields(
+                System.Reflection.BindingFlags.Public
+                | System.Reflection.BindingFlags.Static
+                | System.Reflection.BindingFlags.DeclaredOnly))
+            {
+                if (field.FieldType == typeof(DependencyProperty)
+                    && field.GetValue(null) is DependencyProperty property
+                    && typeof(Brush).IsAssignableFrom(property.PropertyType))
+                {
+                    yield return property;
+                }
+            }
+        }
+    }
+
+    private static string ReadSource(string relativePath)
+    {
+        string path = Path.Combine(FindRepositoryRoot(), relativePath);
+        Assert.That(File.Exists(path), Is.True, $"не найден файл {relativePath}");
+        return File.ReadAllText(path);
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        DirectoryInfo directory = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
+        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "AiRpa.sln")))
+        {
+            directory = directory.Parent;
+        }
+
+        Assert.That(directory, Is.Not.Null, "не найден корень репозитория (AiRpa.sln)");
+        return directory.FullName;
+    }
+}

@@ -27,7 +27,8 @@ public class StudioDialogWindowTests
         @"AiRpaStudio\Views\ActivityCreatorView.xaml",
         @"AiRpaStudio\Views\ProjectCreatorView.xaml",
         @"AiRpaStudio\Views\VsProjectOpenView.xaml",
-        @"AiRpaStudio\Views\VsTemplateProjectCreatorView.xaml"
+        @"AiRpaStudio\Views\VsTemplateProjectCreatorView.xaml",
+        @"AiRpaStudio\Views\ErrorView.xaml"
     };
 
     [Test]
