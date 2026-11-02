@@ -318,31 +318,32 @@ namespace RPA.Core.Services
         }
 
         /// <summary>
-        /// Начало правки ячейки: палитра студии ставится полю ввода локальными значениями.
+        /// Начало правки ячейки: палитра студии ставится редактору значения локальными значениями.
         /// Стиль в ресурсы шаблона писать нельзя (шаблоны правки запечатаны), а неявный ресурс выше по
-        /// дереву перекрывался бы собственным стилем поля в шаблоне WF.
+        /// дереву перекрывался бы собственным стилем редактора в шаблоне WF.
+        /// <para>
+        /// Редактор — не только поле ввода: у <c>DataGridComboBoxColumn</c> (столбцы Scope и Modifiers)
+        /// в <see cref="DataGridPreparingCellForEditEventArgs.EditingElement"/> лежит сам <see cref="ComboBox"/>,
+        /// и без палитры он остаётся с белой плашкой шаблона Aero2, а его список — с чёрными буквами на
+        /// тёмном фоне. Поэтому палитра ставится поддереву целиком, а для
+        /// <c>DataGridTemplateColumn</c> (в EditingElement — <see cref="ContentPresenter"/>) ещё раз —
+        /// после применения шаблона правки.
+        /// </para>
         /// </summary>
         private void VariableDataGrid_PreparingCellForEdit(object sender, DataGridPreparingCellForEditEventArgs e)
         {
-            StudioThemeColors palette = StudioPalette.Detect(Application.Current?.Resources);
-
-            // DataGridTextColumn отдаёт готовый TextBox, у DataGridTemplateColumn в EditingElement лежит
-            // ContentPresenter: поле ввода появляется только после применения шаблона правки.
-            if (e.EditingElement is TextBox textBox)
+            if (!(e.EditingElement is DependencyObject editingElement))
             {
-                ApplyCellPalette(textBox, palette);
                 return;
             }
 
-            if (e.EditingElement is DependencyObject editingRoot)
+            ApplyEditorPalette(editingElement, StudioPalette.Detect(Application.Current?.Resources));
+
+            if (editingElement is FrameworkElement host && host.Dispatcher != null)
             {
-                _ = editingRoot.Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
-                {
-                    if (XamlHelper.FindVisualChild<TextBox>(editingRoot) is TextBox field)
-                    {
-                        ApplyCellPalette(field, StudioPalette.Detect(Application.Current?.Resources));
-                    }
-                }));
+                // Отложенный проход: содержимое шаблона правки появляется после раскладки.
+                _ = host.Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+                    ApplyEditorPalette(editingElement, StudioPalette.Detect(Application.Current?.Resources))));
             }
         }
 
@@ -350,21 +351,23 @@ namespace RPA.Core.Services
         /// Кисти поля ввода в ячейке из палитры студии (раньше здесь оставались закомментированные
         /// чёрный фон и зелёные буквы). Применяются на каждую правку, поэтому смена темы подхватывается
         /// без пересоздания шаблонов.
+        /// <para>
+        /// Реализация — в <see cref="WfVisualTreeThemer.ApplyTextEditor"/>: тем же набором кистей красятся
+        /// поля ввода строк панели «Свойства» и редакторы ячеек таблиц (один источник цвета на всю студию).
+        /// </para>
         /// </summary>
         internal static void ApplyCellPalette(TextBox textBox, StudioThemeColors palette)
         {
-            if (textBox == null)
-            {
-                return;
-            }
+            WfVisualTreeThemer.ApplyTextEditor(textBox, palette, strongBorder: true);
+        }
 
-            StudioThemeColors colors = palette ?? StudioPalette.Dark;
-
-            textBox.Background = WfThemeStyles.Brush(colors.Surface);
-            textBox.Foreground = WfThemeStyles.Brush(colors.Foreground);
-            textBox.BorderBrush = WfThemeStyles.Brush(colors.SeparatorStrong);
-            textBox.CaretBrush = WfThemeStyles.Brush(colors.Foreground);
-            textBox.FontFamily = WfThemeStyles.Font;
+        /// <summary>
+        /// Палитра редактора ячейки целиком: поля ввода и комбобоксы (Scope, Modifiers). Один вход и для
+        /// сервиса контекстного меню, и для таблицы (<see cref="WfDataGridTheme"/>).
+        /// </summary>
+        internal static void ApplyEditorPalette(DependencyObject editingElement, StudioThemeColors palette)
+        {
+            WfVisualTreeThemer.ApplyEditorPalette(editingElement, palette);
         }
 
         /// <summary>

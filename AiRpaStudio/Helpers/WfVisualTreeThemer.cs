@@ -1,5 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
@@ -51,15 +55,49 @@ namespace RPA.Helpers
         private static ControlTemplate ComboBoxItemTemplate;
 
         /// <summary>
-        /// Корни, у которых комбобоксов ещё нет (shell bar дизайнера строится шаблоном после
-        /// <see cref="FrameworkElement.Loaded"/>): повторный проход по загрузке ставится один раз.
+        /// Корни, за которыми наблюдает <see cref="ThemeComboBoxes"/>: повторный проход по
+        /// <see cref="FrameworkElement.Loaded"/> ставится один раз на корень, палитра — последняя активная.
+        /// Подписка не зависит от того, были ли комбобоксы в момент вызова (в shell bar дизайнера
+        /// <c>zoomPicker</c> уже есть), иначе позже созданные комбобоксы не темизировались бы никогда.
         /// </summary>
-        private static readonly ConditionalWeakTable<FrameworkElement, object> ComboBoxSweepHooks =
-            new ConditionalWeakTable<FrameworkElement, object>();
+        private static readonly ConditionalWeakTable<FrameworkElement, ComboBoxSweepHook> ComboBoxSweepHooks =
+            new ConditionalWeakTable<FrameworkElement, ComboBoxSweepHook>();
 
         /// <summary>Подписки на раскрытие списка комбобокса: элементы и popup создаются только к этому моменту.</summary>
         private static readonly ConditionalWeakTable<ComboBox, DropDownHook> DropDownHooks =
             new ConditionalWeakTable<ComboBox, DropDownHook>();
+
+        // --- Комбобоксы, которые WF создаёт уже после прохода темы. ---
+        // Редактор значения WF материализуется позже общего обхода: FlagEditor (flags-enum Modifiers) —
+        // редактируемый ComboBox, ChoiceEditor подменяет шаблон на ComboBox по наведению и при выделении
+        // строки. Такой комбобокс оставался системным (белая плашка Aero2 и белое поле правки) до первого
+        // клика по нему: проход темы его уже не видел, а отпечаток дерева инспектора к этому моменту не
+        // менялся. Поэтому корень, за которым наблюдает темизатор, повторно проверяется по раскладке, а
+        // комбобокс, найденный до материализации шаблона, доводится одним отложенным проходом.
+
+        /// <summary>Палитра, которой комбобокс уже темизирован (или на которую назначен отложенный проход).</summary>
+        private sealed class ComboBoxPalette
+        {
+            public StudioThemeColors Palette { get; set; }
+        }
+
+        /// <summary>
+        /// Отметки темизации комбобоксов: проход по раскладке перекрашивает только новые (или пересозданные
+        /// WF) комбобоксы, а не всё дерево на каждом цикле раскладки.
+        /// </summary>
+        private static readonly ConditionalWeakTable<ComboBox, ComboBoxPalette> ComboBoxMarks =
+            new ConditionalWeakTable<ComboBox, ComboBoxPalette>();
+
+        /// <summary>
+        /// Отложенные проходы по комбобоксам: пометка на палитру не даёт назначить второй проход, иначе
+        /// комбобокс, у которого поле правки так и не появилось, крутил бы бесконечную цепочку.
+        /// </summary>
+        private static readonly ConditionalWeakTable<ComboBox, ComboBoxPalette> RetryMarks =
+            new ConditionalWeakTable<ComboBox, ComboBoxPalette>();
+
+        /// <summary>Подписки на раскладку корня: ловят комбобоксы, созданные WF после прохода темы.</summary>
+        private static readonly ConditionalWeakTable<FrameworkElement, ComboBoxSweepHook> LayoutSweepHooks =
+            new ConditionalWeakTable<FrameworkElement, ComboBoxSweepHook>();
 
         /// <summary>Применяет палитру, определённую по ресурсам приложения (тёмная, если определить не удалось).</summary>
         public static void Apply(DependencyObject root)
@@ -199,18 +237,21 @@ namespace RPA.Helpers
         }
 
         /// <summary>
-        /// Темизирует комбобоксы поддерева (в дизайнере — масштаб в shell bar, <c>zoomPicker</c>).
+        /// Темизирует комбобоксы поддерева: масштаб в shell bar дизайнера (<c>zoomPicker</c>), редакторы
+        /// ячеек таблиц «Переменные»/«Аргументы» (столбцы Scope и Modifiers) и enum-свойства панели
+        /// «Свойства».
         /// <para>
-        /// Регресс F-04: свёрнутый комбобокс масштаба показывал белые буквы на белом фоне. WF-стиль
+        /// Регресс F-04: свёрнутый комбобокс показывал белые буквы на белом фоне. WF-стиль
         /// <c>statusBarComboBoxStyle</c> задаёт только шрифт, <c>Foreground</c> и прозрачный фон, а шаблон
         /// Aero2 рисует под текстом опаковую белую плашку (<c>Border#templateRoot</c> кнопки раскрытия и
-        /// <c>Border#Border</c> редактируемой части). Текст наследует <c>Foreground</c> shell bar, то есть
+        /// <c>Border#Border</c> редактируемой части). Текст наследует <c>Foreground</c> поверхности, то есть
         /// в тёмной теме он светлый — на белой плашке его не видно.
         /// </para>
         /// <para>
-        /// Корень, у которого комбобоксов ещё нет, получает повторный проход по
-        /// <see cref="FrameworkElement.Loaded"/>: содержимое shell bar дизайнера материализуется генератором
-        /// только после применения шаблона.
+        /// Повторный проход по <see cref="FrameworkElement.Loaded"/> ставится <b>всегда</b> (один раз на
+        /// корень), а не только когда комбобоксов ещё нет: в дизайнере к моменту применения темы shell bar
+        /// уже содержит <c>zoomPicker</c>, поэтому прежнее условие «комбобоксов нет» не выполнялось никогда,
+        /// и позже созданные комбобоксы (строки панели «Свойства», редакторы ячеек) оставались светлыми.
         /// </para>
         /// </summary>
         internal static void ThemeComboBoxes(DependencyObject root, StudioThemeColors palette)
@@ -220,10 +261,63 @@ namespace RPA.Helpers
                 return;
             }
 
-            if (!SweepComboBoxes(root, palette))
+            bool sweptNow = SweepComboBoxes(root, palette);
+            LogComboBoxState("sweep", root);
+            HookComboBoxSweep(root, palette, sweptNow);
+            HookLayoutSweep(root, palette);
+        }
+
+        /// <summary>
+        /// Кисти поля ввода-редактора значения (ячейка таблицы, строка «Свойства»): ставятся локальными
+        /// значениями, потому что шаблон WF перекрывает неявные стили собственными кистями.
+        /// </summary>
+        /// <param name="strongBorder">
+        /// Редактор ввода в ячейке: рамка <c>SeparatorStrong</c> — так поле отличается от поверхности строки.
+        /// </param>
+        internal static void ApplyTextEditor(TextBox textBox, StudioThemeColors palette, bool strongBorder = false)
+        {
+            if (textBox == null)
             {
-                HookComboBoxSweep(root, palette);
+                return;
             }
+
+            StudioThemeColors colors = palette ?? StudioPalette.Dark;
+
+            textBox.Background = WfThemeStyles.Brush(colors.Surface);
+            textBox.Foreground = WfThemeStyles.Brush(colors.Foreground);
+            textBox.BorderBrush = WfThemeStyles.Brush(strongBorder ? colors.SeparatorStrong : colors.Separator);
+            textBox.CaretBrush = WfThemeStyles.Brush(colors.Foreground);
+            textBox.FontFamily = WfThemeStyles.Font;
+        }
+
+        /// <summary>
+        /// Редактор значения целиком: поля ввода поддерева (<c>DataGridTextColumn</c>) и комбобоксы
+        /// (<c>DataGridComboBoxColumn</c> — столбцы Scope и Modifiers, enum-свойства панели «Свойства»).
+        /// <para>
+        /// Один вход и для таблиц (<see cref="WfDataGridTheme"/>), и для контекстного меню ячейки
+        /// (<c>DesignerVariableContextMenuService</c>): палитра редактора не должна расходиться между ними.
+        /// </para>
+        /// </summary>
+        internal static void ApplyEditorPalette(DependencyObject editingElement, StudioThemeColors palette)
+        {
+            if (editingElement == null)
+            {
+                return;
+            }
+
+            StudioThemeColors colors = palette ?? StudioPalette.Dark;
+
+            if (editingElement is TextBox root)
+            {
+                ApplyTextEditor(root, colors, strongBorder: true);
+            }
+
+            foreach (TextBox textBox in FindVisualChildren<TextBox>(editingElement))
+            {
+                ApplyTextEditor(textBox, colors, strongBorder: true);
+            }
+
+            ThemeComboBoxes(editingElement, colors);
         }
 
         /// <summary>Темизирует корень-комбобокс и все комбобоксы поддерева; <c>true</c> — если хоть один найден.</summary>
@@ -263,6 +357,11 @@ namespace RPA.Helpers
             comboBox.FontFamily = WfThemeStyles.Font;
             comboBox.FontSize = WfThemeStyles.FontSize;
 
+            // Шаблон комбобокса реализуется лениво: до ApplyTemplate в дереве нет редактируемого поля
+            // PART_EditableTextBox, и оно остаётся с системным белым фоном — именно его видно как «белый
+            // комбобокс» Scope/Modifiers: проход по поддереву до реализации шаблона поля не находит.
+            comboBox.ApplyTemplate();
+
             // Редактируемая часть (масштаб в shell bar — IsEditable) и есть видимый свёрнутый текст.
             foreach (TextBox textBox in FindVisualChildren<TextBox>(comboBox))
             {
@@ -289,7 +388,52 @@ namespace RPA.Helpers
             }
 
             ThemeComboBoxDropDown(comboBox, palette);
+
+            // Шаблон комбобокса и его внутренние части материализуются не сразу (в строках WF — следующим
+            // циклом загрузки). Если поля правки ещё нет, проход повторяется один раз: иначе белая плашка
+            // шаблона и белое поле правки остаются до первого клика по комбобоксу.
+            if (comboBox.Template == null || (comboBox.IsEditable && !FindVisualChildren<TextBox>(comboBox).Any()))
+            {
+                ScheduleComboBoxRetry(comboBox, palette);
+            }
+            MarkComboBox(comboBox, palette);
             HookComboBoxDropDown(comboBox, palette);
+        }
+
+        /// <summary>
+        /// Один отложенный проход по комбобоксу, у которого на момент темы не был материализован шаблон
+        /// (или его поле правки при <see cref="ComboBox.IsEditable"/>): шаблон строк WF применяется
+        /// следующим циклом загрузки, и без повтора белая плашка и белое поле правки остаются до первого
+        /// клика по комбобоксу. Пометка на палитру — защита от бесконечной цепочки.
+        /// </summary>
+        private static void ScheduleComboBoxRetry(ComboBox comboBox, StudioThemeColors palette)
+        {
+            if (comboBox == null || palette == null)
+            {
+                return;
+            }
+
+            if (RetryMarks.TryGetValue(comboBox, out ComboBoxPalette mark))
+            {
+                if (ReferenceEquals(mark.Palette, palette))
+                {
+                    return;
+                }
+
+                _ = RetryMarks.Remove(comboBox);
+            }
+
+            RetryMarks.Add(comboBox, new ComboBoxPalette { Palette = palette });
+
+            Dispatcher dispatcher = comboBox.Dispatcher;
+            if (dispatcher == null)
+            {
+                return;
+            }
+
+            _ = dispatcher.BeginInvoke(
+                DispatcherPriority.Loaded,
+                new Action(() => ThemeComboBox(comboBox, palette)));
         }
 
         /// <summary>
@@ -299,6 +443,10 @@ namespace RPA.Helpers
         /// </summary>
         private static void ThemeComboBoxDropDown(ComboBox comboBox, StudioThemeColors palette)
         {
+            // Шаблон списка (Border#DropDownBorder, ScrollViewer, элементы) реализуется к моменту раскрытия,
+            // но у комбобокса, которому тема ставилась до первого открытия, он может быть ещё не применён.
+            comboBox.ApplyTemplate();
+
             if (!(comboBox?.Template?.FindName(ComboBoxPopupPartName, comboBox) is Popup popup)
                 || !(popup.Child is DependencyObject content))
             {
@@ -310,6 +458,12 @@ namespace RPA.Helpers
             // Белые плашки шаблона списка (Border#DropDownBorder, Rectangle#OpaqueRect, полосы прокрутки):
             // общий проход не трогает чистый белый — это токен палитры CloseHoverForeground.
             PaintTemplatePlates(content, palette);
+
+            // Текст элементов списка (в том числе чекбоксы flags-enum: Modifiers → ReadOnly/Mapped).
+            // WF оставляет элементам системный Foreground (#000) — на тёмной подложке popup буквы
+            // не видны. Красится явно и локально: шаблон элемента и стиль WF при этом не подменяются.
+            PaintItemForeground(content, palette);
+            LogComboBoxState("dropdown", comboBox);
         }
 
         /// <summary>
@@ -327,6 +481,30 @@ namespace RPA.Helpers
             hook = new DropDownHook { Palette = palette };
             DropDownHooks.Add(comboBox, hook);
 
+            // Контейнеры списка генератор создаёт при раскрытии и пересоздаёт при виртуализации: текст
+            // элемента получает цвет палитры в момент их появления, иначе остаётся системным чёрным.
+            comboBox.ItemContainerGenerator.StatusChanged += (sender, args) =>
+            {
+                if (comboBox.ItemContainerGenerator.Status == GeneratorStatus.ContainersGenerated)
+                {
+                    ThemeComboBoxDropDown(comboBox, hook.Palette);
+                }
+            };
+
+            // Поле правки (PART_EditableTextBox) и шаблон комбобокса материализуются при входе в режим
+            // правки — до этого момента внутренняя часть остаётся белой. Проход повторяется по фокусу.
+            comboBox.IsKeyboardFocusWithinChanged += (sender, args) =>
+            {
+                if (!comboBox.IsKeyboardFocusWithin)
+                {
+                    return;
+                }
+
+                _ = comboBox.Dispatcher?.BeginInvoke(
+                    DispatcherPriority.Background,
+                    new Action(() => ThemeComboBox(comboBox, hook.Palette)));
+            };
+
             comboBox.DropDownOpened += (sender, args) =>
             {
                 ThemeComboBoxDropDown(comboBox, hook.Palette);
@@ -340,41 +518,162 @@ namespace RPA.Helpers
         }
 
         /// <summary>
-        /// Повторный проход по <see cref="FrameworkElement.Loaded"/> для корня, у которого комбобоксов пока
-        /// нет (shell bar дизайнера строится шаблоном). Подписка ставится один раз на элемент.
+        /// Повторный проход по <see cref="FrameworkElement.Loaded"/> для корня: содержимое shell bar дизайнера
+        /// и строки панели «Свойства» материализуются генератором уже после применения темы. Подписка ставится
+        /// один раз на корень и не зависит от того, были ли комбобоксы в момент вызова.
         /// </summary>
-        private static void HookComboBoxSweep(DependencyObject root, StudioThemeColors palette)
+        private static void HookComboBoxSweep(DependencyObject root, StudioThemeColors palette, bool sweptNow)
         {
-            if (!(root is FrameworkElement element) || ComboBoxSweepHooks.TryGetValue(element, out _))
+            if (!(root is FrameworkElement element))
             {
                 return;
             }
 
-            ComboBoxSweepHooks.Add(element, ComboBoxSweepHooks);
+            if (ComboBoxSweepHooks.TryGetValue(element, out ComboBoxSweepHook existing))
+            {
+                // Корень уже под наблюдением: обновляется только палитра отложенного прохода.
+                existing.Palette = palette;
+                return;
+            }
+
+            ComboBoxSweepHook hook = new ComboBoxSweepHook { Palette = palette };
+            ComboBoxSweepHooks.Add(element, hook);
 
             void sweep(object sender, RoutedEventArgs args)
             {
                 element.Loaded -= sweep;
-                ComboBoxSweepHooks.Remove(element);
-
-                if (!SweepComboBoxes(element, palette) && element.Dispatcher != null)
-                {
-                    // StatusBar наполняется на этапе Loaded: один отложенный повтор на случай, если
-                    // шаблон применился уже после события.
-                    _ = element.Dispatcher.BeginInvoke(
-                        DispatcherPriority.Loaded,
-                        new Action(() => SweepComboBoxes(element, palette)));
-                }
+                SweepComboBoxes(element, hook.Palette);
             }
 
             if (element.IsLoaded)
             {
-                // Loaded уже прошёл — повторного события не будет.
-                sweep(element, null);
+                // Loaded уже прошёл — повторного события не будет. Синхронный проход здесь не нужен
+                // (его уже сделал вызывающий), остаётся один отложенный: шаблон дизайнера может
+                // примениться после раскладки. Иначе каждый проход темы делал бы лишнюю работу.
+                if (!sweptNow && element.Dispatcher != null)
+                {
+                    _ = element.Dispatcher.BeginInvoke(
+                        DispatcherPriority.Loaded,
+                        new Action(() => SweepComboBoxes(element, hook.Palette)));
+                }
+
                 return;
             }
 
             element.Loaded += sweep;
+        }
+
+        /// <summary>
+        /// Повторная проверка корня по раскладке: WF создаёт редакторы значений (и пересоздаёт их при смене
+        /// выделения) уже после прохода темы, поэтому дерево просматривается на предмет комбобоксов без
+        /// отметки текущей палитры. Проверка синхронная и дешёвая (только комбобоксы), сама темизация —
+        /// отложенно, чтобы не менять свойства во время раскладки.
+        /// </summary>
+        private static void HookLayoutSweep(DependencyObject root, StudioThemeColors palette)
+        {
+            if (!(root is FrameworkElement element))
+            {
+                return;
+            }
+
+            if (LayoutSweepHooks.TryGetValue(element, out ComboBoxSweepHook existing))
+            {
+                existing.Palette = palette;
+                return;
+            }
+
+            LayoutSweepHooks.Add(element, new ComboBoxSweepHook { Palette = palette });
+
+            element.LayoutUpdated += (sender, args) =>
+            {
+                if (!LayoutSweepHooks.TryGetValue(element, out ComboBoxSweepHook hook)
+                    || hook.Pending
+                    || !HasUnthemedComboBoxes(element, hook.Palette))
+                {
+                    return;
+                }
+
+                hook.Pending = true;
+
+                Dispatcher dispatcher = element.Dispatcher;
+                if (dispatcher == null)
+                {
+                    hook.Pending = false;
+                    return;
+                }
+
+                _ = dispatcher.BeginInvoke(
+                    DispatcherPriority.Background,
+                    new Action(() =>
+                    {
+                        if (!LayoutSweepHooks.TryGetValue(element, out ComboBoxSweepHook current))
+                        {
+                            return;
+                        }
+
+                        current.Pending = false;
+                        ThemeUnthemedComboBoxes(element, current.Palette);
+                    }));
+            };
+        }
+
+        /// <summary>Есть ли в поддереве комбобокс, не помеченный текущей палитрой.</summary>
+        private static bool HasUnthemedComboBoxes(DependencyObject root, StudioThemeColors palette)
+        {
+            if (root is ComboBox rootComboBox && IsUnthemed(rootComboBox, palette))
+            {
+                return true;
+            }
+
+            foreach (ComboBox comboBox in FindVisualChildren<ComboBox>(root))
+            {
+                if (IsUnthemed(comboBox, palette))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Темизирует только комбобоксы без отметки текущей палитры.</summary>
+        private static void ThemeUnthemedComboBoxes(DependencyObject root, StudioThemeColors palette)
+        {
+            if (root is ComboBox rootComboBox && IsUnthemed(rootComboBox, palette))
+            {
+                ThemeComboBox(rootComboBox, palette);
+            }
+
+            foreach (ComboBox comboBox in FindVisualChildren<ComboBox>(root))
+            {
+                if (IsUnthemed(comboBox, palette))
+                {
+                    ThemeComboBox(comboBox, palette);
+                }
+            }
+        }
+
+        private static bool IsUnthemed(ComboBox comboBox, StudioThemeColors palette)
+        {
+            return !(ComboBoxMarks.TryGetValue(comboBox, out ComboBoxPalette mark)
+                && ReferenceEquals(mark.Palette, palette));
+        }
+
+        /// <summary>Отметка «этот комбобокс уже на палитре» — вход для прохода по раскладке.</summary>
+        private static void MarkComboBox(ComboBox comboBox, StudioThemeColors palette)
+        {
+            if (comboBox == null || palette == null)
+            {
+                return;
+            }
+
+            if (ComboBoxMarks.TryGetValue(comboBox, out ComboBoxPalette mark))
+            {
+                mark.Palette = palette;
+                return;
+            }
+
+            ComboBoxMarks.Add(comboBox, new ComboBoxPalette { Palette = palette });
         }
 
         /// <summary>
@@ -734,10 +1033,127 @@ namespace RPA.Helpers
         }
 
 
+        /// <summary>
+        /// Текст элементов раскрытого списка: WF и шаблон Aero2 оставляют элементам системный чёрный
+        /// <c>Foreground</c>, а подложка popup уже тёмная — буквы не читаются. Значение ставится локально
+        /// (сильнее и шаблона, и стиля), поэтому текст виден при любой комбинации стилей: и строки списка,
+        /// и чекбоксы flags-enum (<c>Modifiers</c> → ReadOnly / Mapped).
+        /// </summary>
+        private static void PaintItemForeground(DependencyObject content, StudioThemeColors palette)
+        {
+            if (content == null || palette == null)
+            {
+                return;
+            }
+
+            SolidColorBrush foreground = WfThemeStyles.Brush(palette.Foreground);
+
+            if (content is Control contentControl)
+            {
+                contentControl.Foreground = foreground;
+            }
+
+            foreach (TextBlock textBlock in FindVisualChildren<TextBlock>(content))
+            {
+                textBlock.Foreground = foreground;
+            }
+
+            foreach (AccessText accessText in FindVisualChildren<AccessText>(content))
+            {
+                accessText.Foreground = foreground;
+            }
+
+            foreach (CheckBox checkBox in FindVisualChildren<CheckBox>(content))
+            {
+                // Галочка и рамка чекбокса рисуются системными кистями шаблона — на тёмной подложке
+                // невидимы; кисти гасятся к палитре (текст подписи покрашен выше).
+                checkBox.Foreground = foreground;
+                WfThemeStyles.NeutralizeLightBrushes(checkBox, palette, stopAtItemContainers: true);
+            }
+        }
+
+        /// <summary>
+        /// Временная диагностика (по образцу <c>LoadActivityToDesignerHelper.LogDesignerViewState</c>):
+        /// пишет в <c>%TEMP%\airpa-wf-combo-diag.txt</c>, доходит ли проход темы до конкретного комбобокса
+        /// и какие кисти у него и у элементов списка. Удаляется после подтверждения причины.
+        /// </summary>
+        internal static void LogComboBoxState(string stage, DependencyObject root)
+        {
+            if (!EnableComboBoxDiagnostics)
+            {
+                return;
+            }
+
+            LogComboBoxStateCore(stage, root);
+        }
+
+        /// <summary>Временная диагностика выключена: включать только на время разбора дефекта.</summary>
+        private const bool EnableComboBoxDiagnostics = false;
+
+        private static void LogComboBoxStateCore(string stage, DependencyObject root)
+        {
+            try
+            {
+                List<ComboBox> combos = FindVisualChildren<ComboBox>(root).ToList();
+                StringBuilder text = new StringBuilder();
+                text.AppendLine(string.Format(
+                    CultureInfo.InvariantCulture,
+                    "[{0:HH:mm:ss}] {1}: root={2} combos={3}",
+                    DateTime.Now,
+                    stage,
+                    (root as FrameworkElement)?.GetType().Name ?? root?.GetType().Name ?? "null",
+                    combos.Count));
+
+                foreach (ComboBox comboBox in combos)
+                {
+                    bool themed = comboBox.ItemContainerStyle != null && WfThemeStyles.IsThemed(comboBox.ItemContainerStyle);
+                    Popup popup = comboBox.Template?.FindName(ComboBoxPopupPartName, comboBox) as Popup;
+                    int texts = popup?.Child == null ? 0 : FindVisualChildren<TextBlock>(popup.Child).Count();
+                    text.AppendLine(string.Format(
+                        CultureInfo.InvariantCulture,
+                        "  {0}: editable={1} itcSet={2} themed={3} selector={4} bg={5} fg={6} textBoxes={7} popup={8} popupTexts={9}",
+                        comboBox.Name,
+                        comboBox.IsEditable,
+                        comboBox.ItemContainerStyle != null,
+                        themed,
+                        comboBox.ItemContainerStyleSelector?.GetType().Name ?? "null",
+                        Hex(comboBox.Background),
+                        Hex(comboBox.Foreground),
+                        FindVisualChildren<TextBox>(comboBox).Count(),
+                        popup == null ? "null" : "found",
+                        texts));
+                }
+
+                File.AppendAllText(DiagPath, text.ToString());
+            }
+            catch (Exception)
+            {
+                // диагностика не должна влиять на работу студии
+            }
+        }
+
+        private static string Hex(Brush brush)
+        {
+            return brush is SolidColorBrush solid ? solid.Color.ToString() : brush?.GetType().Name ?? "null";
+        }
+
+        private static readonly string DiagPath =
+            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "airpa-wf-combo-diag.txt");
+
+
         /// <summary>Подписка на раскрытие списка комбобокса и палитра, которой он рисуется.</summary>
         private sealed class DropDownHook
         {
             public StudioThemeColors Palette { get; set; }
+        }
+
+        /// <summary>Наблюдение за корнем (повторный проход по Loaded) и активная для него палитра.</summary>
+        private sealed class ComboBoxSweepHook
+        {
+            public StudioThemeColors Palette { get; set; }
+
+            /// <summary>Проверка по раскладке уже назначена (защита от повторов на каждый цикл).</summary>
+            public bool Pending { get; set; }
         }
 
         /// <summary>Стиль контейнера по умолчанию для одной палитры (чтобы не плодить экземпляры).</summary>

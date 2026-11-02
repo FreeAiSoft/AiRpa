@@ -83,7 +83,9 @@ public class StudioPaletteTests
 
         Assert.That(StudioPalette.Luminance(palette.Surface), Is.LessThan(StudioPalette.Luminance(palette.SurfaceAlt)));
         Assert.That(StudioPalette.Luminance(palette.SurfaceAlt), Is.LessThan(StudioPalette.Luminance(palette.Hover)));
-        Assert.That(StudioPalette.Luminance(palette.Hover), Is.LessThan(StudioPalette.Luminance(palette.Selected)));
+        Assert.That(StudioPalette.Luminance(palette.Hover), Is.LessThan(StudioPalette.Luminance(palette.TabActive)),
+            "активная вкладка светлее hover, но темнее Selected");
+        Assert.That(StudioPalette.Luminance(palette.TabActive), Is.LessThan(StudioPalette.Luminance(palette.Selected)));
         Assert.That(StudioPalette.Luminance(palette.Foreground), Is.GreaterThan(StudioPalette.Luminance(palette.Selected)));
     }
 
@@ -94,6 +96,9 @@ public class StudioPaletteTests
 
         Assert.That(StudioPalette.Luminance(palette.Surface), Is.GreaterThan(StudioPalette.Luminance(palette.SurfaceAlt)));
         Assert.That(StudioPalette.Luminance(palette.SurfaceAlt), Is.GreaterThan(StudioPalette.Luminance(palette.Hover)));
+        Assert.That(StudioPalette.Luminance(palette.Surface), Is.GreaterThanOrEqualTo(StudioPalette.Luminance(palette.TabActive)));
+        Assert.That(StudioPalette.Luminance(palette.TabActive), Is.GreaterThan(StudioPalette.Luminance(palette.SurfaceAlt)),
+            "в светлой теме активная вкладка светлее неактивной");
         Assert.That(StudioPalette.Luminance(palette.Hover), Is.GreaterThan(StudioPalette.Luminance(palette.Selected)));
         Assert.That(StudioPalette.Luminance(palette.Foreground), Is.LessThan(StudioPalette.Luminance(palette.Selected)));
     }

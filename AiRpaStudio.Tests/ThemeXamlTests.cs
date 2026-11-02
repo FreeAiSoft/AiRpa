@@ -354,7 +354,7 @@ public class ThemeXamlTests
             Assert.That(ColorOf(regular.Background), Is.EqualTo(baseColor),
                 "неактивная вкладка документа должна брать фон AvalonDock_Base");
             Assert.That(ColorOf(selected.Background), Is.EqualTo(activeColor),
-                "выбранная вкладка документа должна сливаться с контентом (AvalonDock_Active)");
+                "выбранная вкладка документа светлее неактивной (AvalonDock_Active)");
             Assert.That(ColorOf(selected.BorderBrush), Is.EqualTo(separatorColor),
                 "у выбранной вкладки — hairline AvalonDock_Separator");
         });

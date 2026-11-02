@@ -10,6 +10,7 @@ namespace AiRpaStudio.Tests;
 
 /// <summary>
 /// Кисти вкладок AvalonDock (<c>AvalonDock_Base</c>/<c>AvalonDock_Hover</c>/<c>AvalonDock_Active</c>).
+/// Активная вкладка берётся из отдельного токена палитры и светлее неактивной.
 /// Тема <c>AvalonDock.Themes.Metro\Theme.xaml</c> берёт их по DynamicResource, а в словаре темы они
 /// объявлены светлыми (<c>#FAFAFA</c>/<c>#DDDDDD</c>/<c>#CCCCCC</c>) — из-за этого в тёмной теме
 /// вкладки панелей «Проекты / Активности / Структура» и вкладки документов оставались светлыми.
@@ -18,9 +19,9 @@ namespace AiRpaStudio.Tests;
 public class DockingThemeBrushesTests
 {
     private static readonly Color ExpectedDarkTab = StudioPalette.Dark.SurfaceAlt;
-    private static readonly Color ExpectedDarkActive = StudioPalette.Dark.Surface;
+    private static readonly Color ExpectedDarkActive = StudioPalette.Dark.TabActive;
     private static readonly Color ExpectedLightTab = StudioPalette.Light.SurfaceAlt;
-    private static readonly Color ExpectedLightActive = StudioPalette.Light.Surface;
+    private static readonly Color ExpectedLightActive = StudioPalette.Light.TabActive;
 
     private static ResourceDictionary MaterialDesignSource(bool dark)
     {
@@ -100,8 +101,9 @@ public class DockingThemeBrushesTests
         Assert.That(Luminance(tab), Is.LessThan(0.5), "неактивная вкладка должна быть тёмной");
         Assert.That(Luminance(active), Is.LessThan(0.5), "активная вкладка должна быть тёмной");
         Assert.That(tab, Is.EqualTo(ExpectedDarkTab));
-        // Активная вкладка сливается с фоном контента (как в Visual Studio).
+        // Активная вкладка светлее неактивной — иначе переключатель вкладок выглядит «вдавленным».
         Assert.That(active, Is.EqualTo(ExpectedDarkActive));
+        Assert.That(Luminance(active), Is.GreaterThan(Luminance(tab)), "активная вкладка светлее неактивной");
         Assert.That(Luminance(hover), Is.GreaterThan(Luminance(tab)), "hover в тёмной теме светлее базы");
     }
 
@@ -119,6 +121,7 @@ public class DockingThemeBrushesTests
         Assert.That(Luminance(tab), Is.GreaterThan(0.5), "неактивная вкладка должна быть светлой");
         Assert.That(tab, Is.EqualTo(ExpectedLightTab));
         Assert.That(active, Is.EqualTo(ExpectedLightActive));
+        Assert.That(Luminance(active), Is.GreaterThan(Luminance(tab)), "активная вкладка светлее неактивной");
         Assert.That(Luminance(hover), Is.LessThan(Luminance(tab)), "hover в светлой теме темнее базы");
     }
 
@@ -275,9 +278,9 @@ public class DockingThemeBrushesTests
 
         StudioThemeColors palette = StudioPalette.Dark;
 
-        // Один фон: поверхность, вкладка «как контент» и legacy BaseColor1 — одно и то же значение.
+        // Один фон: поверхность и legacy BaseColor1 — одно значение; у вкладки свой токен TabActive.
         Assert.That(ColorOf(target, DockingThemeBrushes.SurfaceKey), Is.EqualTo(palette.Surface));
-        Assert.That(ColorOf(target, DockingThemeBrushes.TabActiveKey), Is.EqualTo(palette.Surface));
+        Assert.That(ColorOf(target, DockingThemeBrushes.TabActiveKey), Is.EqualTo(palette.TabActive));
         Assert.That(ColorOf(target, DockingThemeBrushes.LegacyBaseColor1Key), Is.EqualTo(palette.Surface));
 
         Assert.That(ColorOf(target, DockingThemeBrushes.TabBackgroundKey), Is.EqualTo(palette.SurfaceAlt));

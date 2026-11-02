@@ -60,6 +60,10 @@ namespace RPA.CSharpExpressionEditor
         private void SetSettings()
         {
             SyntaxHighlighting = StudioEditorTheme.GetDefinition("C#");
+
+            // Ссылки (URL в тексте выражения): #3794FF вместо Brushes.Blue — иначе на тёмном фоне не видно.
+            // Полный ApplyChrome здесь не применяется: фон и текст RoslynPad красит сам.
+            StudioEditorTheme.ApplyLinkColor(this);
             FontFamily = StudioFonts.CodeFont;
             FontSize = 12;
 

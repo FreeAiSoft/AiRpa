@@ -537,6 +537,58 @@ public class WfThemeTests
     }
 
     [Test]
+    public void SetPropertyStyles_ThemesInspectorComboBoxes()
+    {
+        // Enum-свойства строк «Свойства» (Scope, Modifiers, True/False): шаблон Aero2 рисует под текстом
+        // белую плашку, а список раскрытия живёт в popup — вне визуального дерева инспектора, поэтому
+        // прежний обход ComboBoxItem внутри инспектора был мёртвым кодом.
+        var root = new StackPanel();
+        var comboBox = new ComboBox();
+        _ = root.Children.Add(comboBox);
+
+        new PropertyWindowStyleHelper().SetPropertyStyles(root, StudioPalette.Dark);
+
+        Style items = comboBox.ItemContainerStyle;
+        Trigger hover = TriggersOf(items ?? new Style(typeof(ComboBoxItem))).OfType<Trigger>()
+            .FirstOrDefault(trigger => trigger.Property == UIElement.IsMouseOverProperty);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(comboBox.Background), Is.EqualTo(StudioPalette.Dark.Surface),
+                "белая плашка шаблона Aero2 осталась под текстом редактора-списка");
+            Assert.That(ColorOf(comboBox.Foreground), Is.EqualTo(StudioPalette.Dark.Foreground));
+            Assert.That(ColorOf(comboBox.BorderBrush), Is.EqualTo(StudioPalette.Dark.Separator));
+            Assert.That(items, Is.Not.Null,
+                "элементы списка остались на системном стиле: в тёмной теме это чёрные буквы на тёмном фоне");
+            Assert.That(SetterColor(items, Control.ForegroundProperty), Is.EqualTo(StudioPalette.Dark.Foreground),
+                "текст элемента списка обязан быть цветом палитры, а не системным чёрным");
+            Assert.That(hover, Is.Not.Null, "наведение в списке осталось светлой плашкой Aero2");
+            Assert.That(SetterColor(hover, Control.BackgroundProperty), Is.EqualTo(StudioPalette.Dark.Hover));
+        });
+    }
+
+    [Test]
+    public void SetPropertyStyles_SwitchesInspectorComboBoxPalette()
+    {
+        var root = new StackPanel();
+        var comboBox = new ComboBox();
+        _ = root.Children.Add(comboBox);
+
+        var helper = new PropertyWindowStyleHelper();
+        helper.SetPropertyStyles(root, StudioPalette.Dark);
+        helper.SetPropertyStyles(root, StudioPalette.Light);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(comboBox.Background), Is.EqualTo(StudioPalette.Light.Surface));
+            Assert.That(ColorOf(comboBox.Foreground), Is.EqualTo(StudioPalette.Light.Foreground));
+            Assert.That(SetterColor(comboBox.ItemContainerStyle, Control.ForegroundProperty),
+                Is.EqualTo(StudioPalette.Light.Foreground),
+                "список обязан следовать теме, а не остаться на кистях прежней палитры");
+        });
+    }
+
+    [Test]
     public void PropertyHelper_AttachIsIdempotent()
     {
         (Panel root, _, _, _, _, _, _, _, _) = BuildInspectorTree();

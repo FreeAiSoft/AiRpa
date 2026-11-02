@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 
@@ -305,6 +306,83 @@ public class WfDesignerTableThemeTests
         }
     }
 
+    // --- Комбобоксы таблиц: столбцы Scope и Modifiers. ---
+    // Регресс: в тёмной теме свёрнутый комбобокс стоял на белой плашке шаблона Aero2, а его список
+    // (popup вне дерева таблицы) оставался с системными чёрными буквами на тёмном фоне.
+
+    [Test]
+    public void Apply_LateCreatedCellComboBoxIsThemed()
+    {
+        (Window window, Grid root, DataGrid grid, ObservableCollection<string> items) = CreateLiveComboTable();
+        StudioThemeColors palette = StudioPalette.Dark;
+
+        try
+        {
+            window.Show();
+            WfDataGridTheme.Apply(root, palette);
+
+            // Строка и её редактор создаются после применения темы — проход обязан их догнать.
+            items.Add("first");
+            Pump(window);
+
+            ComboBox comboBox = Walk(grid).OfType<ComboBox>().FirstOrDefault();
+            Assert.That(comboBox, Is.Not.Null, "предпосылка: комбобокс ячейки материализован");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ColorOf(comboBox.Background), Is.EqualTo(palette.Surface),
+                    "под текстом комбобокса осталась белая плашка шаблона Aero2 — буквы на ней не читаются");
+                Assert.That(ColorOf(comboBox.Foreground), Is.EqualTo(palette.Foreground), "текст — палитра");
+                Assert.That(ColorOf(comboBox.BorderBrush), Is.EqualTo(palette.Separator), "рамка — hairline палитры");
+                Assert.That(comboBox.FontFamily, Is.EqualTo(StudioFonts.UiFont), "шрифт комбобокса — Roboto");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [Test]
+    public void Apply_CellComboBoxItemStyleUsesPalette()
+    {
+        (Window window, Grid root, DataGrid grid, ObservableCollection<string> items) = CreateLiveComboTable();
+        StudioThemeColors palette = StudioPalette.Dark;
+
+        try
+        {
+            window.Show();
+            WfDataGridTheme.Apply(root, palette);
+            items.Add("first");
+            Pump(window);
+
+            ComboBox comboBox = Walk(grid).OfType<ComboBox>().FirstOrDefault();
+            Assert.That(comboBox, Is.Not.Null, "предпосылка: комбобокс ячейки материализован");
+
+            Style style = comboBox.ItemContainerStyle;
+            Assert.That(style, Is.Not.Null,
+                "элементы списка остались на системном стиле Aero2: буквы в списке Modifiers не видны");
+
+            Color itemForeground = SetterColourOf(style, Control.ForegroundProperty);
+            Assert.Multiple(() =>
+            {
+                Assert.That(WfThemeStyles.IsThemed(style), Is.True, "стиль элементов списка обязан быть стилем палитры");
+                Assert.That(itemForeground, Is.EqualTo(palette.Foreground),
+                    "текст элемента списка обязан быть цветом палитры, а не системным чёрным");
+                Assert.That(Math.Abs(Luminance(itemForeground) - Luminance(palette.Surface)),
+                    Is.GreaterThanOrEqualTo(0.3), "контраст текста списка к поверхности ниже порога");
+                Assert.That(TriggerColourOf(style, UIElement.IsMouseOverProperty, Control.BackgroundProperty),
+                    Is.EqualTo(palette.Hover), "наведение в списке — Hover палитры, а не светлая плашка Aero2");
+                Assert.That(TriggerColourOf(style, ListBoxItem.IsSelectedProperty, Control.BackgroundProperty),
+                    Is.EqualTo(palette.Selected), "выделение в списке — Selected палитры, а не системное синее");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // --- Вкладки shell bar: «Переменные / Аргументы / Пространства имён», PanMode. ---
 
     [Test]
@@ -418,6 +496,27 @@ public class WfDesignerTableThemeTests
                 "зашитые hex-цвета запрещены");
             Assert.That(Regex.IsMatch(source, @"\bColors\.", RegexOptions.None, TimeSpan.FromSeconds(2)), Is.False,
                 "зашитые системные цвета запрещены");
+        });
+    }
+
+    [Test]
+    public void Sources_TableThemeThemesComboBoxes()
+    {
+        string source = ReadSource(Path.Combine("AiRpaStudio", "Helpers", "WfDataGridTheme.cs"));
+
+        int boxes = source.IndexOf("WfVisualTreeThemer.ThemeComboBoxes", StringComparison.Ordinal);
+        int plates = source.IndexOf("WfThemeStyles.NeutralizeLightBrushes(grid, palette);", StringComparison.Ordinal);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(boxes, Is.GreaterThanOrEqualTo(0),
+                "комбобоксы столбцов Scope и Modifiers обязаны темизироваться общим механизмом");
+            Assert.That(boxes, Is.GreaterThan(plates),
+                "проход по комбобоксам идёт последним: он сам гасит плашки шаблона внутри комбобокса");
+            Assert.That(source, Does.Contain("WfVisualTreeThemer.ApplyEditorPalette"),
+                "палитра редактора ставится при входе в правку ячейки");
+            Assert.That(source, Does.Contain("grid.PreparingCellForEdit +="),
+                "иначе комбобокс окрашивался кадром позже — видна вспышка белой плашки Aero2");
         });
     }
 
@@ -538,6 +637,47 @@ public class WfDesignerTableThemeTests
         return (window, root, grid, items);
     }
 
+    /// <summary>
+    /// Живая таблица, в ячейке которой лежит комбобокс: так WF объявляет столбцы Scope и Modifiers
+    /// (DataGridComboBoxColumn/DataGridTemplateColumn с редактором-списком).
+    /// </summary>
+    private static (Window Window, Grid Root, DataGrid Grid, ObservableCollection<string> Items) CreateLiveComboTable()
+    {
+        var items = new ObservableCollection<string>();
+        var grid = new DataGrid
+        {
+            Name = DesignerVariableContextMenuTableName,
+            AutoGenerateColumns = false,
+            ItemsSource = items
+        };
+
+        grid.Columns.Add(new DataGridTemplateColumn
+        {
+            Header = "Scope",
+            CellTemplate = new DataTemplate { VisualTree = new FrameworkElementFactory(typeof(ComboBox)) }
+        });
+
+        var panel = new Grid { Name = "variables1" };
+        panel.Children.Add(grid);
+
+        var bottomPanel = new Grid();
+        bottomPanel.Children.Add(panel);
+
+        var designerView = new UserControl { Name = WfDesignerTheme.DesignerViewElementName, Content = bottomPanel };
+        var root = new Grid();
+        root.Children.Add(designerView);
+
+        var window = new Window
+        {
+            Width = 360,
+            Height = 240,
+            ShowInTaskbar = false,
+            Content = root
+        };
+
+        return (window, root, grid, items);
+    }
+
     private const string DesignerVariableContextMenuTableName = "variableDataGrid";
 
     /// <summary>Shell bar как у WF: вкладки — <see cref="ToggleButton"/> с подписью-<see cref="TextBlock"/>.</summary>
@@ -588,6 +728,268 @@ public class WfDesignerTableThemeTests
     }
 
 
+
+    // --- Комбобоксы панели «Свойства активности»: Scope и Modifiers. ---
+    // Регресс: свёрнутый комбобокс стоял на белом поле правки (PART_EditableTextBox материализуется только
+    // после реализации шаблона, и проход темы его не находил), а список Modifiers (flags-enum → чекбоксы
+    // ReadOnly/Mapped) оставался с системными чёрными буквами на тёмной подложке popup.
+
+    [Test]
+    public void ThemeComboBoxes_PaintsEditableFieldOfCollapsedComboBox()
+    {
+        StudioThemeColors palette = StudioPalette.Dark;
+        var comboBox = new ComboBox
+        {
+            IsEditable = true,
+            Text = "ReadOnly, Mapped",
+            ItemsSource = new[] { "ReadOnly", "Mapped" }
+        };
+
+        var root = new Grid();
+        root.Children.Add(comboBox);
+
+        WfVisualTreeThemer.ThemeComboBoxes(root, palette);
+
+        TextBox editableField = Walk(comboBox).OfType<TextBox>().FirstOrDefault();
+        Assert.That(editableField, Is.Not.Null,
+            "поле правки не материализовано: шаблон комбобокса не реализован до покраски");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(editableField.Background), Is.EqualTo(palette.Surface),
+                "поле правки осталось белым — это и есть «белый комбобокс» Scope/Modifiers в тёмной теме");
+            Assert.That(ColorOf(editableField.Foreground), Is.EqualTo(palette.Foreground),
+                "текст поля правки обязан быть цветом палитры");
+        });
+    }
+
+    [Test]
+    public void ThemeComboBoxes_PaintsDropDownCheckBoxTextWithPalette()
+    {
+        StudioThemeColors palette = StudioPalette.Dark;
+        var comboBox = new ComboBox { ItemsSource = new[] { "ReadOnly", "Mapped" } };
+        comboBox.ItemTemplate = CreateBlackCheckBoxTemplate();
+
+        var root = new Grid();
+        root.Children.Add(comboBox);
+        var window = new Window
+        {
+            Width = 320,
+            Height = 200,
+            ShowInTaskbar = false,
+            Content = root
+        };
+
+        try
+        {
+            window.Show();
+            Pump(window);
+
+            WfVisualTreeThemer.ThemeComboBoxes(root, palette);
+            comboBox.IsDropDownOpen = true;
+            Pump(window);
+
+            var popup = comboBox.Template.FindName("PART_Popup", comboBox) as Popup;
+            Assert.That(popup, Is.Not.Null, "предпосылка: шаблон комбобокса содержит popup");
+            Assert.That(popup.Child, Is.Not.Null, "предпосылка: список раскрыт");
+
+            List<CheckBox> checkBoxes = Walk(popup.Child).OfType<CheckBox>().ToList();
+            Assert.That(checkBoxes, Is.Not.Empty, "предпосылка: элементы списка — чекбоксы (как у flags-enum Modifiers)");
+
+            foreach (CheckBox checkBox in checkBoxes)
+            {
+                Assert.That(ColorOf(checkBox.Foreground), Is.EqualTo(palette.Foreground),
+                    "подпись чекбокса осталась системной чёрной — буквы на тёмном фоне не видны");
+
+                foreach (TextBlock textBlock in Walk(checkBox).OfType<TextBlock>())
+                {
+                    Assert.That(ColorOf(textBlock.Foreground), Is.EqualTo(palette.Foreground),
+                        "текст чекбокса в списке обязан быть цветом палитры");
+                }
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [Test]
+    public void SetPropertyStyles_ThemesComboBoxOfRowCreatedAfterSweep()
+    {
+        var helper = new PropertyWindowStyleHelper();
+        StudioThemeColors palette = StudioPalette.Dark;
+        var root = new Grid();
+        var window = new Window
+        {
+            Width = 360,
+            Height = 240,
+            ShowInTaskbar = false,
+            Content = root
+        };
+
+        try
+        {
+            window.Show();
+            Pump(window);
+            helper.SetPropertyStyles(root, palette);
+
+            // Строку свойств WF создаёт после применения темы: выбор активности, разворот категории.
+            var comboBox = new ComboBox { ItemsSource = new[] { "Public", "Private" } };
+            root.Children.Add(comboBox);
+
+            // Клик внутри панели — точка, где строка уже существует.
+            root.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+            {
+                RoutedEvent = UIElement.PreviewMouseDownEvent
+            });
+
+            // Раскладка намеренно не прогоняется: проверяется именно обработчик взаимодействия,
+            // а не проход по изменившемуся отпечатку дерева.
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ColorOf(comboBox.Background), Is.EqualTo(palette.Surface),
+                    "поздно созданный комбобокс строки «Свойства» остался белым");
+                Assert.That(comboBox.ItemContainerStyle, Is.Not.Null,
+                    "элементы списка остались на системном стиле Aero2");
+                Assert.That(WfThemeStyles.IsThemed(comboBox.ItemContainerStyle), Is.True,
+                    "стиль элементов списка обязан быть стилем палитры");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // --- Комбобокс, созданный после прохода темы (та самая «белая плашка до первого клика»). ---
+
+    [Test]
+    public void ThemeComboBoxes_ComboBoxCreatedAfterSweep_IsThemedOnLoad()
+    {
+        StudioThemeColors palette = StudioPalette.Dark;
+        var root = new Grid();
+        var window = new Window
+        {
+            Width = 360,
+            Height = 240,
+            ShowInTaskbar = false,
+            Content = root
+        };
+
+        try
+        {
+            window.Show();
+            Pump(window);
+
+            // В панели уже есть комбобоксы строк (редакторы соседних свойств): проход их находит,
+            // поэтому отложенный обход не назначается — ровно то состояние, в котором оказывается
+            // «Свойства активности» после выбора переменной.
+            root.Children.Add(new ComboBox { ItemsSource = new[] { "Public", "Private" } });
+            Pump(window);
+            WfVisualTreeThemer.ThemeComboBoxes(root, palette);
+
+            // Редактор значения WF подставляется позже прохода: FlagEditor (flags-enum Modifiers) —
+            // редактируемый ComboBox со своим стилем элементов списка.
+            var comboBox = new ComboBox
+            {
+                IsEditable = true,
+                Text = "ReadOnly",
+                ItemsSource = new[] { "ReadOnly", "Mapped" },
+                ItemContainerStyle = new Style(typeof(ComboBoxItem))
+            };
+
+            root.Children.Add(comboBox);
+            Pump(window);
+
+            TextBox field = Walk(comboBox).OfType<TextBox>().FirstOrDefault();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(field, Is.Not.Null, "предпосылка: у редактируемого комбобокса материализовано поле правки");
+                Assert.That(ColorOf(comboBox.Background), Is.EqualTo(palette.Surface),
+                    "комбобокс, созданный после прохода темы, остался на системной теме — белая плашка до первого клика");
+                Assert.That(ColorOf(field.Background), Is.EqualTo(palette.Surface),
+                    "поле правки поздно созданного комбобокса осталось белым");
+                Assert.That(WfThemeStyles.IsThemed(comboBox.ItemContainerStyle), Is.True,
+                    "элементы списка поздно созданного комбобокса остались на системном стиле Aero2");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [Test]
+    public void ThemeComboBoxes_ComboBoxOutsideThemedRootsKeepsSystemChrome()
+    {
+        var comboBox = new ComboBox
+        {
+            IsEditable = true,
+            Text = "a",
+            ItemsSource = new[] { "a", "b" }
+        };
+
+        var window = new Window
+        {
+            Width = 240,
+            Height = 160,
+            ShowInTaskbar = false,
+            Content = comboBox
+        };
+
+        try
+        {
+            window.Show();
+            Pump(window);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(comboBox.ItemContainerStyle, Is.Null,
+                    "подписка на Loaded всех комбобоксов не должна темизировать контролы вне WF-поверхностей");
+                Assert.That(WfThemeStyles.IsThemed(comboBox.Style), Is.False,
+                    "стиль комбобокса вне WF-поверхностей подменять нельзя");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [Test]
+    public void Sources_ThemerThemesLateCreatedComboBoxesOnLayout()
+    {
+        string source = ReadSource(Path.Combine("AiRpaStudio", "Helpers", "WfVisualTreeThemer.cs"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(source, Does.Contain("HookLayoutSweep"),
+                "поздно созданные комбобоксы WF должны доводиться проходом по раскладке корня");
+            Assert.That(source, Does.Contain("element.LayoutUpdated +="),
+                "корень обязан перепроверяться по LayoutUpdated, иначе новый комбобокс не будет найден");
+            Assert.That(source, Does.Contain("ThemeUnthemedComboBoxes"),
+                "проход по раскладке должен перекрашивать только комбобоксы без отметки палитры");
+            Assert.That(source, Does.Contain("public bool Pending { get; set; }"),
+                "повторная проверка по раскладке обязана быть одноразовой на цикл раскладки");
+            Assert.That(source, Does.Contain("ScheduleComboBoxRetry"),
+                "комбобокс без материализованного шаблона должен доводиться отложенным проходом");
+            Assert.That(Regex.IsMatch(source, @"private const bool EnableComboBoxDiagnostics = false;"),
+                "временная диагностика обязана оставаться выключенной");
+        });
+    }
+
+    /// <summary>Элемент списка как у WF-flags-enum: чекбокс с жёстко заданным системным чёрным текстом.</summary>
+    private static DataTemplate CreateBlackCheckBoxTemplate()
+    {
+        var checkBox = new FrameworkElementFactory(typeof(CheckBox));
+        checkBox.SetValue(Control.ForegroundProperty, Brushes.Black);
+        checkBox.SetBinding(ContentControl.ContentProperty, new Binding());
+
+        return new DataTemplate { VisualTree = checkBox };
+    }
 
     private static Color SetterColourOf(Style style, DependencyProperty property)
     {

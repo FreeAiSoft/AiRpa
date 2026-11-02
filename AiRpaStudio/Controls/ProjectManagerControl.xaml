@@ -111,6 +111,38 @@
                       Click="BuildWithMsBuildMenuItem_Click"
                       Focusable="False"/>
         </ContextMenu>
+
+        <!-- Контекстное меню основного файла проекта Visual Studio (.csproj): те же действия, что и у
+             нативного проекта студии (project.json) — создать активность и папку, переименовать проект,
+             добавить зависимость. Имена пунктов отличаются от файлового меню намеренно: ContextMenu_Opened
+             по именам решает, что скрывать, и не должен прятать «Открыть в VS» у корня проекта. -->
+        <ContextMenu x:Key="VsProjectRootContext" Opened="ContextMenu_Opened" Focusable="False">
+            <MenuItem Header="Добавить активность"
+                      x:Name="VsAddActivityMenuItem"
+                      Click="AddActivityToVsProjectMenuItem_Click"
+                      Focusable="False" />
+            <MenuItem Header="Добавить папку проекта"
+                      x:Name="VsAddFolderMenuItem"
+                      Click="AddFolder_Click"
+                      Focusable="False" />
+            <MenuItem Header="Переименовать проект"
+                      x:Name="VsRenameProjectMenuItem"
+                      Click="Rename_Click"
+                      Focusable="False" />
+            <MenuItem Header="Добавить зависимость"
+                      x:Name="VsAddDependencyMenuItem"
+                      Click="AddDependencyToVsProjectMenuItem_Click"
+                      Focusable="False" />
+            <Separator />
+            <MenuItem Header="{DynamicResource lang_cm_open_in_vs}"
+                      x:Name="VsRootOpenInVsMenuItem"
+                      Click="OpenInVsMenuItem_Click"
+                      Focusable="False" />
+            <MenuItem Header="{DynamicResource lang_cm_build_msbuild}"
+                      x:Name="VsRootBuildWithMsBuildMenuItem"
+                      Click="BuildWithMsBuildMenuItem_Click"
+                      Focusable="False" />
+        </ContextMenu>
         
         <!-- Стиль для обычных кнопок в стиле toggle -->
         <Style TargetType="Button"
@@ -286,7 +318,7 @@
                                     <DataTrigger Binding="{Binding FSNodeType}"
                                                  Value="{x:Static enums:FSNodeType.VsProject}">
                                         <Setter Property="ContextMenu"
-                                                Value="{StaticResource VsProjectContext}" />
+                                                Value="{StaticResource VsProjectRootContext}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>

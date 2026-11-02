@@ -497,6 +497,21 @@ namespace RPA.Views
             }
         }
 
+        /// <summary>
+        /// Показывает панель NuGet для указанного проекта (пункт «Добавить зависимость»).
+        /// В параметре может прийти папка или файл проекта (.csproj) — панель принимает папку.
+        /// </summary>
+        public void ShowNuGetPanelFor(string projectPath)
+        {
+            string projectFolder = ProjectPathResolver.GetProjectFolder(projectPath);
+            if (nuGetPanel != null && !string.IsNullOrWhiteSpace(projectFolder))
+            {
+                _ = nuGetPanel.SetProjectFolder(projectFolder);
+            }
+
+            ShowNuGetPanel();
+        }
+
         private void RemoveDesigner(string loadedFile)
         {
             ((BaseViewModel)DataContext).Cmd.Execute(new List<object> { "CmdRemoveDesigner", loadedFile });

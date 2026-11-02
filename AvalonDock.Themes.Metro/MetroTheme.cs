@@ -44,7 +44,7 @@ namespace AvalonDock.Themes
             resourceDictionary.Add("AvalonDock_ThemeMetro_BaseColor7", Neutral(0x37, 0x37, 0x37)); // Separator
             resourceDictionary.Add("AvalonDock_Base", Neutral(0x2E, 0x2E, 0x2F));
             resourceDictionary.Add("AvalonDock_Hover", Neutral(0x33, 0x36, 0x38));
-            resourceDictionary.Add("AvalonDock_Active", Neutral(0x27, 0x27, 0x27));
+            resourceDictionary.Add("AvalonDock_Active", Neutral(0x3A, 0x3B, 0x3E)); // TabActive (светлее AvalonDock_Base)
 
             return resourceDictionary;
         }

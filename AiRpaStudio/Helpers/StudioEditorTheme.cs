@@ -130,7 +130,42 @@ namespace RPA.Helpers
             if (editor.TextArea?.TextView != null)
             {
                 editor.TextArea.TextView.CurrentLineBackground = Brush(colors.CurrentLine);
+                editor.TextArea.TextView.LinkTextForegroundBrush = Brush(colors.Link);
             }
+        }
+
+        /// <summary>
+        /// Цвет гиперссылок редактора под текущую тему приложения.
+        /// <para>
+        /// Отдельно от <see cref="ApplyChrome"/> нужно редакторам выражений: VB-редактор и
+        /// <c>RoslynCodeEditor</c> красят фон и текст сами, поэтому вызывать полный <c>ApplyChrome</c> там нельзя,
+        /// а ссылки (URL в тексте выражения) всё равно должны читаться.
+        /// </para>
+        /// </summary>
+        public static void ApplyLinkColor(TextEditor editor)
+        {
+            ApplyLinkColor(editor, StudioPalette.DetectDark(Application.Current?.Resources));
+        }
+
+        /// <summary>Цвет гиперссылок редактора под конкретную тему.</summary>
+        public static void ApplyLinkColor(TextEditor editor, bool dark)
+        {
+            ApplyLinkColor(editor, StudioEditorPalette.For(dark));
+        }
+
+        /// <summary>
+        /// Цвет гиперссылок по палитре: <c>#3794FF</c> вместо <c>Brushes.Blue</c> по умолчанию
+        /// (AvalonEdit ставит <c>Brushes.Blue</c> в <c>TextView.LinkTextForegroundBrush</c> и перекрывает
+        /// им подсветку синтаксиса; на тёмном фоне #0000FF почти не виден).
+        /// </summary>
+        public static void ApplyLinkColor(TextEditor editor, EditorThemeColors colors)
+        {
+            if (editor?.TextArea?.TextView == null || colors == null)
+            {
+                return;
+            }
+
+            editor.TextArea.TextView.LinkTextForegroundBrush = Brush(colors.Link);
         }
 
         private static IHighlightingDefinition CreateDefinition(string language, bool dark)

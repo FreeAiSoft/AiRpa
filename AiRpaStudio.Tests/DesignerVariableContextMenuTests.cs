@@ -103,6 +103,55 @@ public class DesignerVariableContextMenuTests
         }
     }
 
+    [Test]
+    public void PreparingCellForEdit_ComboBoxGetsPalette()
+    {
+        // Столбцы Scope и Modifiers — комбобоксы: палитра обязана ставиться редактору целиком, а не только
+        // полю ввода, иначе свёрнутый список стоит на белой плашке шаблона Aero2, а его элементы в тёмной
+        // теме остаются с системными чёрными буквами.
+        (Window window, DataGrid dataGrid) = CreateLiveComboGrid();
+        var designer = new Grid { Name = DesignerVariableContextMenuService.VariableDesignerElementName };
+        designer.Children.Add(dataGrid);
+        window.Content = designer;
+
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+
+            var service = new TestableContextMenuService(designer);
+            service.Attach(designer, DesignerVariableContextMenuService.VariableDataGridElementName);
+
+            Assert.That(dataGrid.Items.Count, Is.EqualTo(1), "предпосылка: строка таблицы создана");
+            dataGrid.CurrentCell = new DataGridCellInfo(dataGrid.Items[0], dataGrid.Columns[0]);
+            _ = dataGrid.Focus();
+            Assert.That(dataGrid.BeginEdit(), Is.True, "предпосылка: правка ячейки началась");
+
+            DrainDispatcher();
+            window.UpdateLayout();
+            DrainDispatcher();
+
+            ComboBox comboBox = FindDescendant<ComboBox>(dataGrid);
+            Assert.That(comboBox, Is.Not.Null, "предпосылка: редактор-комбобокс создан");
+
+            StudioThemeColors palette = ExpectedPalette();
+            Assert.Multiple(() =>
+            {
+                Assert.That(ColorOf(comboBox.Background), Is.EqualTo(palette.Surface),
+                    "у редактора-комбобокса осталась белая плашка шаблона Aero2");
+                Assert.That(ColorOf(comboBox.Foreground), Is.EqualTo(palette.Foreground));
+                Assert.That(comboBox.ItemContainerStyle, Is.Not.Null,
+                    "элементы списка Modifiers остались на системном стиле (чёрные буквы на тёмном фоне)");
+                Assert.That(WfThemeStyles.IsThemed(comboBox.ItemContainerStyle), Is.True,
+                    "стиль элементов списка обязан быть стилем палитры");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // --- Подключение к панели переменных/аргументов. ---
 
     [Test]
@@ -361,8 +410,14 @@ public class DesignerVariableContextMenuTests
 
         foreach (MenuItem item in menu.Items.OfType<MenuItem>())
         {
-            Assert.That(ColorOf(item.Foreground), Is.EqualTo(StudioPalette.Light.Foreground));
-            Assert.That(ColorOf(item.Background), Is.EqualTo(StudioPalette.Light.Surface));
+            // Пункт рисует собственный шаблон палитры: плашки у него нет (поверхность даёт меню), а текст
+            // приходит сеттером стиля или триггером «недоступно» — команда без выделения disabled.
+            Assert.That(WfThemeStyles.IsThemed(item.Style), Is.True, "пункт обязан получить стиль палитры");
+            Assert.That(((SolidColorBrush)item.Background).Color.A, Is.EqualTo(0),
+                "пункт не рисует собственную плашку: иначе она перекрывает поверхность меню");
+            Assert.That(new[] { StudioPalette.Light.Foreground, StudioPalette.Light.ForegroundMuted },
+                Does.Contain(ColorOf(item.Foreground)),
+                "текст пункта обязан быть на палитре (основной или приглушённый для недоступной команды)");
         }
     }
 
@@ -732,6 +787,25 @@ public class DesignerVariableContextMenuTests
         designer.Children.Add(dataGrid);
 
         return (new Window { Width = 420, Height = 220, ShowInTaskbar = false, Content = designer }, dataGrid);
+    }
+
+    /// <summary>Живая таблица со столбцом-комбобоксом: так WF объявляет Scope и Modifiers.</summary>
+    private static (Window Window, DataGrid DataGrid) CreateLiveComboGrid()
+    {
+        var dataGrid = new DataGrid
+        {
+            Name = DesignerVariableContextMenuService.VariableDataGridElementName,
+            AutoGenerateColumns = false,
+            ItemsSource = new[] { "first" }
+        };
+
+        dataGrid.Columns.Add(new DataGridComboBoxColumn
+        {
+            Header = "Scope",
+            ItemsSource = new[] { "first", "second" }
+        });
+
+        return (new Window { Width = 420, Height = 220, ShowInTaskbar = false }, dataGrid);
     }
 
     private static DataTemplate CreateCellTemplate()

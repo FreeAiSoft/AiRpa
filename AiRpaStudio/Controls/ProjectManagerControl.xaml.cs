@@ -387,7 +387,7 @@ namespace RPA.Controls
                     string uniqueFolderName = GenerateUniqueFolderName(parentNode, "Новая папка");
 
                     // Создаем временный узел для новой папки
-                    FSNode newNode = new FSNode(Path.Combine(parentNode.RuntimeFullPath, uniqueFolderName), Enums.FSNodeType.Dir)
+                    FSNode newNode = new FSNode(Path.Combine(ProjectPathResolver.GetNodeFolder(parentNode) ?? parentNode.RuntimeFullPath, uniqueFolderName), Enums.FSNodeType.Dir)
                     {
                         IsNew = true,
                         IsEditing = true,
@@ -438,7 +438,7 @@ namespace RPA.Controls
                     Debug.WriteLine($"[AddFolderToFolder] Unique folder name: {uniqueFolderName}");
 
                     // Создаем временный узел для новой папки
-                    FSNode newNode = new FSNode(Path.Combine(parentNode.RuntimeFullPath, uniqueFolderName), Enums.FSNodeType.Dir)
+                    FSNode newNode = new FSNode(Path.Combine(ProjectPathResolver.GetNodeFolder(parentNode) ?? parentNode.RuntimeFullPath, uniqueFolderName), Enums.FSNodeType.Dir)
                     {
                         IsNew = true,
                         IsEditing = true,
@@ -618,7 +618,7 @@ namespace RPA.Controls
                         // Проверяем тип узла: папка или файл (активность)
                         if (fSNode.FSNodeType == Enums.FSNodeType.Dir)
                         {
-                            string newFolderPath = Path.Combine(parent.RuntimeFullPath, newName);
+                            string newFolderPath = Path.Combine(ProjectPathResolver.GetNodeFolder(parent) ?? parent.RuntimeFullPath, newName);
 
                             if (Directory.Exists(newFolderPath))
                             {
@@ -705,6 +705,11 @@ namespace RPA.Controls
             {
                 renameResult = Services.ProjectManager.RenameProject(fSNode, newName);
             }
+            else if (fSNode.FSNodeType == Enums.FSNodeType.VsProject)
+            {
+                // Переименование проекта Visual Studio — переименование только файла .csproj
+                renameResult = Services.ProjectManager.RenameVsProject(fSNode, newName);
+            }
             else
             {
                 return;
@@ -787,24 +792,76 @@ namespace RPA.Controls
 
         private void AddActivityToFolderMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is MenuItem mnu)
+            AddActivityToNode(sender);
+        }
+
+        /// <summary>
+        /// «Добавить активность» для основного файла проекта Visual Studio (.csproj).
+        /// </summary>
+        private void AddActivityToVsProjectMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            AddActivityToNode(sender);
+        }
+
+        /// <summary>
+        /// «Добавить зависимость»: открывает панель NuGet для выбранного проекта.
+        /// </summary>
+        private void AddDependencyToVsProjectMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is MenuItem mnu))
             {
-                FrameworkElement target = ((ContextMenu)mnu.Parent).PlacementTarget as FrameworkElement;
-                if (target?.Tag is FSNode parentNode)
-                {
-                    // Добавляем в дочерние элементы
-                    string folderPath = parentNode.RuntimeFullPath;
-                    MainViewModel mainViewModel = (MainViewModel)DataContext;
-                    Models.Main main = (Models.Main)mainViewModel.Model;
-                    main.CmdAddNewActivityToProjectFolder(folderPath);
-
-                    // Sort children after adding new activity
-                    SortChildren(parentNode);
-
-                    // Разворачиваем родительский узел, чтобы новая активность была видна
-                    parentNode.IsExpanded = true;
-                }
+                return;
             }
+
+            FrameworkElement target = ((ContextMenu)mnu.Parent).PlacementTarget as FrameworkElement;
+            if (!(target?.Tag is FSNode projectNode))
+            {
+                return;
+            }
+
+            string projectFolder = ProjectPathResolver.GetNodeFolder(projectNode);
+            if (string.IsNullOrWhiteSpace(projectFolder))
+            {
+                return;
+            }
+
+            MainViewModel mainViewModel = (MainViewModel)DataContext;
+            Models.Main main = (Models.Main)mainViewModel.Model;
+            main.CmdOpenNuGetPanel(projectFolder);
+        }
+
+        /// <summary>
+        /// Создаёт активность в выбранном узле дерева. Папка узла берётся через ProjectPathResolver,
+        /// поэтому команда работает и для папки проекта, и для файла проекта Visual Studio (.csproj).
+        /// </summary>
+        private void AddActivityToNode(object sender)
+        {
+            if (!(sender is MenuItem mnu))
+            {
+                return;
+            }
+
+            FrameworkElement target = ((ContextMenu)mnu.Parent).PlacementTarget as FrameworkElement;
+            if (!(target?.Tag is FSNode parentNode))
+            {
+                return;
+            }
+
+            string folderPath = ProjectPathResolver.GetNodeFolder(parentNode);
+            if (string.IsNullOrWhiteSpace(folderPath))
+            {
+                return;
+            }
+
+            MainViewModel mainViewModel = (MainViewModel)DataContext;
+            Models.Main main = (Models.Main)mainViewModel.Model;
+            main.CmdAddNewActivityToProjectFolder(folderPath);
+
+            // Sort children after adding new activity
+            SortChildren(parentNode);
+
+            // Разворачиваем родительский узел, чтобы новая активность была видна
+            parentNode.IsExpanded = true;
         }
 
         #endregion Context menu folder

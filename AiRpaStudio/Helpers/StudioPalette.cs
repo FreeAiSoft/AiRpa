@@ -11,7 +11,7 @@ namespace RPA.Helpers
     /// Что гарантирует палитра:
     /// один фон (<see cref="StudioThemeColors.Surface"/>) для окна, панелей, заголовков, вкладок, контента
     /// документов и поверхности дизайнера; различие зон передаётся только hairline-разделителем и яркостью
-    /// (SurfaceAlt → Hover → Selected); акцентных цветов нет — единственное исключение красный hover кнопки
+    /// (SurfaceAlt → Hover → TabActive → Selected); акцентных цветов нет — единственное исключение красный hover кнопки
     /// закрытия; ровно две палитры (тёмная и светлая), третьей «смешанной» нет.
     /// </para>
     /// <para>
@@ -28,6 +28,12 @@ namespace RPA.Helpers
         public const string SurfaceAltToken = "SurfaceAlt";
         public const string HoverToken = "Hover";
         public const string SelectedToken = "Selected";
+
+        /// <summary>
+        /// Фон выбранной (активной) вкладки. Отдельный токен: активная вкладка обязана быть светлее
+        /// неактивной (<see cref="StudioThemeColors.SurfaceAlt"/>), но не сливаться с фоном контента.
+        /// </summary>
+        public const string TabActiveToken = "TabActive";
         public const string SeparatorToken = "Separator";
         public const string SeparatorStrongToken = "SeparatorStrong";
         public const string ForegroundToken = "Foreground";
@@ -44,6 +50,7 @@ namespace RPA.Helpers
             SurfaceAltToken,
             HoverToken,
             SelectedToken,
+            TabActiveToken,
             SeparatorToken,
             SeparatorStrongToken,
             ForegroundToken,
@@ -64,6 +71,7 @@ namespace RPA.Helpers
             SurfaceAltToken,
             HoverToken,
             SelectedToken,
+            TabActiveToken,
             SeparatorToken
         };
 
@@ -94,6 +102,7 @@ namespace RPA.Helpers
             surfaceAlt: Rgb(0x2E, 0x2E, 0x2F),
             hover: Rgb(0x33, 0x36, 0x38),
             selected: Rgb(0x40, 0x40, 0x46),
+            tabActive: Rgb(0x3A, 0x3B, 0x3E),
             separator: Rgb(0x37, 0x37, 0x37),
             separatorStrong: Rgb(0x48, 0x48, 0x4F),
             foreground: Rgb(0xF1, 0xF1, 0xF1),
@@ -108,6 +117,7 @@ namespace RPA.Helpers
             surfaceAlt: Rgb(0xF3, 0xF3, 0xF3),
             hover: Rgb(0xEA, 0xEA, 0xEA),
             selected: Rgb(0xE4, 0xE4, 0xE4),
+            tabActive: Rgb(0xFF, 0xFF, 0xFF),
             separator: Rgb(0xE4, 0xE4, 0xE4),
             separatorStrong: Rgb(0xCF, 0xCF, 0xCF),
             foreground: Rgb(0x1F, 0x1F, 0x1F),
@@ -209,6 +219,7 @@ namespace RPA.Helpers
             Color surfaceAlt,
             Color hover,
             Color selected,
+            Color tabActive,
             Color separator,
             Color separatorStrong,
             Color foreground,
@@ -223,6 +234,7 @@ namespace RPA.Helpers
                 [StudioPalette.SurfaceAltToken] = surfaceAlt,
                 [StudioPalette.HoverToken] = hover,
                 [StudioPalette.SelectedToken] = selected,
+                [StudioPalette.TabActiveToken] = tabActive,
                 [StudioPalette.SeparatorToken] = separator,
                 [StudioPalette.SeparatorStrongToken] = separatorStrong,
                 [StudioPalette.ForegroundToken] = foreground,
@@ -249,6 +261,9 @@ namespace RPA.Helpers
 
         /// <summary>Выбранное состояние.</summary>
         public Color Selected => Get(StudioPalette.SelectedToken);
+
+        /// <summary>Фон выбранной (активной) вкладки: светлее <see cref="SurfaceAlt"/>, но темнее <see cref="Selected"/>.</summary>
+        public Color TabActive => Get(StudioPalette.TabActiveToken);
 
         /// <summary>Hairline-разделитель 1px между зонами.</summary>
         public Color Separator => Get(StudioPalette.SeparatorToken);

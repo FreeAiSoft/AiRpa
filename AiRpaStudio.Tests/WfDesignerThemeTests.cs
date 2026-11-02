@@ -450,7 +450,14 @@ public class WfDesignerThemeTests
 
         foreach (MenuItem item in menu.Items.OfType<MenuItem>())
         {
-            Assert.That(ColorOf(item.Foreground), Is.EqualTo(StudioPalette.Dark.Foreground));
+            // Текст пункта приходит из стиля контейнера: основной, либо приглушённый — команда без
+            // выделения в буфере недоступна, и WPF сам делает пункт IsEnabled = false.
+            Assert.That(
+                new[] { StudioPalette.Dark.Foreground, StudioPalette.Dark.ForegroundMuted },
+                Does.Contain(ColorOf(item.Foreground)),
+                "текст пункта меню обязан быть на палитре");
+            Assert.That(WfThemeStyles.IsThemed(item.Style), Is.True,
+                "текст пункта меню обязан быть на палитре");
         }
     }
 

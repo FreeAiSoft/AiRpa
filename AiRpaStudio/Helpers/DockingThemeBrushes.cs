@@ -31,7 +31,7 @@ namespace RPA.Helpers
         /// <summary>Фон вкладки под курсором.</summary>
         public const string TabHoverKey = "AvalonDock_Hover";
 
-        /// <summary>Фон выбранной (активной) вкладки.</summary>
+        /// <summary>Фон выбранной (активной) вкладки — светлее неактивной (<see cref="TabBackgroundKey"/>).</summary>
         public const string TabActiveKey = "AvalonDock_Active";
 
         // --- Нейтральные ключи палитры. ---
@@ -193,10 +193,12 @@ namespace RPA.Helpers
                 return;
             }
 
-            // Вкладки: неактивная — SurfaceAlt, hover — Hover, активная сливается с контентом (Surface).
+            // Вкладки: неактивная — SurfaceAlt, hover — Hover, выбранная — TabActive.
+            // Выбранная вкладка обязана быть светлее неактивной: раньше она брала Surface и сливалась с
+            // фоном полосы вкладок, из-за чего переключатель «Проект / Активности / Структура» выглядел вдавленным.
             Set(target, TabBackgroundKey, palette.SurfaceAlt);
             Set(target, TabHoverKey, palette.Hover);
-            Set(target, TabActiveKey, palette.Surface);
+            Set(target, TabActiveKey, palette.TabActive);
 
             Set(target, SurfaceKey, palette.Surface);
             Set(target, SurfaceAltKey, palette.SurfaceAlt);

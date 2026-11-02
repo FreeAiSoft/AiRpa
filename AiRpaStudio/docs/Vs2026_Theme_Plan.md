@@ -56,7 +56,7 @@
 | `AvalonDock_Separator` | `BaseColor7` | `Separator` |
 | `AvalonDock_Selection` | `BaseColor3` | `Selected` |
 | `AvalonDock_SelectionHover` | `BaseColor4` | `Hover` |
-| `AvalonDock_Base` / `AvalonDock_Hover` / `AvalonDock_Active` | уже существуют | `SurfaceAlt` / `Hover` / `Surface` |
+| `AvalonDock_Base` / `AvalonDock_Hover` / `AvalonDock_Active` | уже существуют | `SurfaceAlt` / `Hover` / `TabActive` |
 | `AvalonDock_OverlayFill` / `AvalonDock_OverlayStroke` | `AliceBlue` / `SystemColors.Highlight` | `Surface`@15% / `SeparatorStrong` |
 | `AvalonDock_NavigatorHover` / `AvalonDock_NavigatorSelected` | 4 градиента `#FFF1FBFF…#FF9BDDFB` | `Hover` / `Selected` |
 
@@ -337,7 +337,80 @@
 
 **Сделано (этап 6):** F-01, F-02, F-03 закрыты — цвета только из `StudioPalette` (`MaterialThemePalette` в WF-контролах не используется), шрифт Segoe UI, состояния через триггеры стиля, `PropertyWindowStyleHelper` ищет по именам и перекрашивается повторным применением. Скроллбар и виртуализованные элементы — частично (см. отклонения этапа 6).
 **Сделано (этап 7):** F-04, F-05, F-06 закрыты — `Helpers\WfDesignerTheme.cs` темизирует поверхность дизайнера (один `Surface`, hairline вместо рамок, shell bar/breadcrumb/MiniMap на палитре), объявляет `DesignerViewBackground`/`DesignerViewForeground` и ключи шаблонов WF, ставит свой адаптер ошибки (`CloseHoverBackground` — единственный красный) и отдаёт контекстное меню дизайнера на палитре. Ограничения (см. отклонения): валидационная иконка WF не перекрашивается, `PropertyInspectorFontAndColorData` не используется.
+**Сделано (контекстные меню дизайнера — второй заход по живому дефекту).** В таблицах «Переменные» и
+«Аргументы» меню «Вырезать/Копировать/Вставить» рисовалось белым с белыми буквами. Причин две: меню
+живёт в **popup** и в проходы темы по дереву дизайнера не попадает ни разу, а внешний вид задавал чужой
+шаблон (`MaterialDesignContextMenu`/`MaterialDesignMenuItem` из `App.xaml`, в чистом процессе Aero2) —
+его подсветка строится от `Foreground`, поэтому в тёмной теме наведение давало светлую накладку под
+белым текстом. Локальные `Background`/`Foreground` этот симптом не лечат. Добавлен
+`AiRpaStudio\Helpers\WfContextMenuTheme.cs`: собственные `Template` меню, `ItemsPanel` и
+`ItemContainerStyle` пунктов на палитре (`Surface`, hairline `SeparatorStrong`, `Hover`,
+`ForegroundMuted` для недоступного пункта, радиус `MenuCornerRadius`, `HasDropShadow = false`,
+`PART_Popup` подменю) и общий проход `Hook()` по `ContextMenu.OpenedEvent` для меню самого дизайнера,
+ограниченный цепочкой родителей/`PlacementTarget` до `DesignerView`/`System.Activities.Presentation`;
+палитру, заданную фабрикой, проход не перебивает. Меню правого клика темизируется **до показа**
+(`ContextMenuService.ContextMenuOpeningEvent` → `PrepareOpen`): стиль пунктов раздаётся
+`ItemContainerStyleSelector`, а `Separator` получает свой hairline-стиль — иначе чужой
+`ItemContainerStyle` с `TargetType=MenuItem` роняет открытие меню на разделителе. `WfDesignerTheme.CreateEditingContextMenu` и
+`RecolorEditingContextMenu` идут через одну точку; шаблоны кэшируются по палитре. Стражи —
+`WfContextMenuThemeTests` — 11.
 **Сделано (этап 8):** F-07, F-08 закрыты — `LogControlLibrary\Controls\LogViewerControl.xaml` переведён на `{DynamicResource Studio.*}` (фон панели, разделители, hover/выделение, статусная строка, popup настроек, заголовки колонок), а `LogLevelToColorConverter`/`LogLevelToHoverConverter`/`LogLevelToBackgroundConverter` отдают средние тона и полупрозрачные накладки (замороженные кисти). В `RPA.Chat` все цвета собраны в `ChatTheme.Dark.xaml`/`ChatTheme.Light.xaml`, акцент заменён нейтральными токенами, локальные `<SolidColorBrush>` из контролов убраны, а в студии словарь на лету перекрывает `RPA.Chat\Themes\ChatStudioBridge.cs` (ключи `Studio.*` читаются по строкам — сборка не ссылается на `RPA.Helpers`).
+
+**Сделано (комбобоксы панели «Свойства активности» — второй заход по живому дефекту).** На запущенной
+студии симптом остался: в строках `Modifiers`/`Scope` типа `DesignTimeVariable` свёрнутый комбобокс
+показывал белое поле, а в раскрытом списке `Modifiers` (flags-enum → чекбоксы `ReadOnly`/`Mapped`) буквы
+были чёрными на тёмной подложке. Замеры по UI Automation и по пикселям запущенного процесса показали:
+каркас панели темизируется (кнопки 28×28, поиск 24, фон `Surface`), но до комбобоксов строк проход не
+доезжает — строки свойств WF создаёт позже (выбор активности, разворот категории), а `ThemeComboBox`
+работал до реализации шаблона, когда внутреннего `PART_EditableTextBox` ещё нет, поэтому поле правки
+оставалось белым. Что добавлено: `comboBox.ApplyTemplate()` до покраски; `PaintItemForeground` —
+локальная покраска текста popup (строки и чекбоксы flags-enum, включая привязки, которые
+`NeutralizeLightBrushes` пропускает); подписки `ItemContainerGenerator.StatusChanged` (контейнеры
+создаются при раскрытии) и `IsKeyboardFocusWithinChanged` (переход в режим правки); в
+`PropertyWindowStyleHelper.Attach` — доводка комбобоксов по `PreviewMouseDown`/`GotKeyboardFocus` панели
+(клик внутри инспектора — гарантированная точка, где строка уже существует). Стражи —
+`WfDesignerTableThemeTests.ThemeComboBoxes_PaintsEditableFieldOfCollapsedComboBox`,
+`.ThemeComboBoxes_PaintsDropDownCheckBoxTextWithPalette`,
+`.SetPropertyStyles_ThemesComboBoxOfRowCreatedAfterSweep`.
+
+**Сделано (дополнение к F-03/F-04 — комбобоксы WF-поверхностей).** Свёрнутые `ComboBox` таблиц (столбцы
+`Scope`/`Modifiers` в «Переменных» и «Аргументах») и панели «Свойства» (enum-свойства) стояли на опаковой
+белой плашке шаблона Aero2, а элементы их раскрытых списков оставались системными — чёрные буквы на
+тёмном фоне. Причины: 1) `WfDataGridTheme.Refresh` комбобоксы не темизировал вовсе; 2)
+`PropertyWindowStyleHelper.ApplyValueEditors` красил `ComboBox`/`ComboBoxItem` внутри визуального дерева
+инспектора, но список живёт в popup — вне этого дерева, поэтому обход `ComboBoxItem` был мёртвым кодом;
+3) `WfVisualTreeThemer.ThemeComboBoxes` ставил подписку на `Loaded` только когда комбобоксов ещё нет: в
+дизайнере к этому моменту `zoomPicker` уже есть, поэтому позже созданные комбобоксы не темизировались
+никогда. Решение: единственный вход `WfVisualTreeThemer.ThemeComboBoxes` (безусловная подписка на
+`Loaded` с актуальной палитрой), вызов последним проходом `WfDataGridTheme.Refresh`,
+`WfDataGridTheme.HookGrid` ставит `PreparingCellForEdit` (палитра до первой отрисовки, а не следующим
+циклом раскладки), общий вход `WfVisualTreeThemer.ApplyEditorPalette` (поля ввода + комбобоксы) для
+таблиц и для `DesignerVariableContextMenuService`, `PropertyWindowStyleHelper.ApplyValueEditors` отдаёт
+комбобоксы строк тому же механизму. Стражи —
+`WfDesignerTableThemeTests.Apply_LateCreatedCellComboBoxIsThemed`,
+`.Apply_CellComboBoxItemStyleUsesPalette`, `.Sources_TableThemeThemesComboBoxes`,
+`WfThemeTests.SetPropertyStyles_ThemesInspectorComboBoxes`,
+`.SetPropertyStyles_SwitchesInspectorComboBoxPalette`,
+`DesignerVariableContextMenuTests.PreparingCellForEdit_ComboBoxGetsPalette`.
+
+**Сделано (третье дополнение — WF создаёт редактор значения уже после прохода темы).** Замеры на
+запущенной студии (UI Automation + пиксели панели «Свойства активности») после второго захода: при выборе
+переменной, когда строка `Modifiers`/`Scope` видна, но по ней ещё не кликали, левый край редактора
+`Modifiers` (`FlagEditor`, `autoId=ComboBox_1`) — `#FFFFFF`, `Scope` (`autoId=scopeEditoComboBox`) —
+`#EFEFEF`, поле правки `PART_EditableTextBox` — `#F1F1F3`; после первого клика те же пиксели становятся
+`#272727`. Причина: WF материализует редактор значения (и пересоздаёт его при смене выделения) **после**
+прохода темы, поэтому `ThemeComboBoxes` его не видел, а отпечаток дерева инспектора (`ComputeSignature` —
+число контролов и `TextBlock`) к этому моменту уже не менялся, и повторного прохода не было. Решение:
+`WfVisualTreeThemer.HookLayoutSweep` — корень, за которым наблюдает темизатор, на каждом `LayoutUpdated`
+синхронно проверяет, есть ли комбобоксы без отметки активной палитры (`ComboBoxMarks`), и темизирует только
+их отложенно (приоритет `Background`, флаг `Pending` — одна проверка на цикл раскладки); плюс
+`ScheduleComboBoxRetry` — один повторный проход для комбобокса, у которого шаблон ещё не материализован
+(`Template == null` или нет `PART_EditableTextBox` при `IsEditable`), с пометкой на палитру от бесконечной
+цепочки. Контрольный замер после правки: доминирующий цвет всех редакторов строк (`Modifiers`, `Scope`,
+`Type`, поля ввода) — `#272727`. Стражи —
+`WfDesignerTableThemeTests.ThemeComboBoxes_ComboBoxCreatedAfterSweep_IsThemedOnLoad` (красный без правки),
+`.ThemeComboBoxes_ComboBoxOutsideThemedRootsKeepsSystemChrome`,
+`.Sources_ThemerThemesLateCreatedComboBoxesOnLayout`.
 
 **Регресс F-04 (shell bar, комбобокс масштаба):** свёрнутый `zoomPicker` показывал белые буквы на белом
 фоне. WF-стиль `statusBarComboBoxStyle` задаёт только `FontFamily`/`Foreground`/`Background = #00FFFFFF`,

@@ -157,46 +157,141 @@ namespace RPA.Models
                 return;
             }
 
-            string rootPath = FSNodes[0].RuntimeFullPath;
-
-            if (!filePath.Contains(rootPath))
+            if (string.IsNullOrWhiteSpace(filePath))
             {
-                OnSendMessage($"Указанный путь к файлу {filePath} вне папки проекта {rootPath}");
+                OnSendMessage("Путь к файлу не указан");
                 return;
             }
 
-            if (!Directory.Exists(Path.GetDirectoryName(filePath)))
+            string fullPath = Path.GetFullPath(filePath);
+            string folder = Path.GetDirectoryName(fullPath);
+
+            if (!Directory.Exists(folder))
             {
-                OnSendMessage($"Папка файла {Path.GetDirectoryName(filePath)} не существует");
+                OnSendMessage($"Папка файла {folder} не существует");
                 return;
             }
 
-            string[] parts = filePath.Replace(rootPath, "").Trim('\\').Split('\\');
-            Queue<string> partsStack = new Queue<string>(parts);
+            // Корень дерева может быть как папкой (project.json), так и файлом проекта (.csproj/.sln),
+            // поэтому границы проекта и родительскую папку определяем через ProjectPathResolver,
+            // а не разбором относительного пути по именам узлов.
+            FSNode root = FSNodes[0];
+            string rootFolder = ProjectPathResolver.GetNodeFolder(root);
+            if (!ProjectPathResolver.IsInsideProject(fullPath, rootFolder ?? root.RuntimeFullPath))
+            {
+                OnSendMessage($"Указанный путь к файлу {fullPath} вне папки проекта {rootFolder}");
+                return;
+            }
 
-            AddFileNode(partsStack, FSNodes[0], filePath);
+            FSNode parentNode = FindFolderNode(root, folder) ?? AddFolderChain(root, folder);
+            if (parentNode == null)
+            {
+                OnSendMessage($"Не удалось найти папку {folder} в дереве проекта");
+                return;
+            }
+
+            if (parentNode.Childs == null)
+            {
+                parentNode.Childs = new ObservableCollection<FSNode>();
+            }
+
+            bool exists = parentNode.Childs.Any(n => ProjectPathResolver.AreSamePath(n.RuntimeFullPath, fullPath));
+            if (!exists)
+            {
+                parentNode.Childs.Add(new FSNode(fullPath, FSNodeType.File));
+                SortChildren(parentNode);
+            }
+
+            parentNode.IsExpanded = true;
         }
 
-        private void AddFileNode(Queue<string> partsStack, FSNode fSNode, string filePath)
+        /// <summary>
+        /// Ищет в дереве узел-контейнер, которому соответствует указанная папка.
+        /// </summary>
+        private static FSNode FindFolderNode(FSNode node, string folder)
         {
-            string name = partsStack.Dequeue();
-            if (partsStack.Count == 0)
+            if (node == null || string.IsNullOrWhiteSpace(folder))
             {
-                fSNode.Childs.Add(new FSNode(filePath, FSNodeType.File));
-                // Sort children after adding new file
-                SortChildren(fSNode);
+                return null;
             }
-            else
+
+            if (ProjectPathResolver.IsContainerNode(node)
+                && string.Equals(ProjectPathResolver.GetNodeFolder(node), folder, StringComparison.OrdinalIgnoreCase))
             {
-                FSNode node = fSNode.Childs.FirstOrDefault(n => n.FSNodeType == FSNodeType.Dir && n.Name == name);
-                if (node == null)
+                return node;
+            }
+
+            if (node.Childs == null)
+            {
+                return null;
+            }
+
+            foreach (FSNode child in node.Childs)
+            {
+                FSNode found = FindFolderNode(child, folder);
+                if (found != null)
                 {
-                    OnSendMessage($"Не удалось найти папку {name}");
-                    return;
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Достраивает в дереве отсутствующие узлы папок от ближайшего существующего родителя.
+        /// </summary>
+        private FSNode AddFolderChain(FSNode root, string folder)
+        {
+            string rootFolder = ProjectPathResolver.GetNodeFolder(root);
+            if (string.IsNullOrWhiteSpace(rootFolder))
+            {
+                return null;
+            }
+
+            List<string> missingFolders = new List<string>();
+            string current = folder;
+            while (!string.IsNullOrEmpty(current) && !ProjectPathResolver.AreSamePath(current, rootFolder))
+            {
+                if (!ProjectPathResolver.IsInsideProject(current, rootFolder))
+                {
+                    return null;
                 }
 
-                AddFileNode(partsStack, node, filePath);
+                missingFolders.Add(current);
+                current = Path.GetDirectoryName(current);
             }
+
+            FSNode parent = FindFolderNode(root, rootFolder);
+            for (int i = missingFolders.Count - 1; i >= 0; i--)
+            {
+                FSNode existing = FindFolderNode(root, missingFolders[i]);
+                if (existing != null)
+                {
+                    parent = existing;
+                    continue;
+                }
+
+                if (parent == null)
+                {
+                    return null;
+                }
+
+                if (parent.Childs == null)
+                {
+                    parent.Childs = new ObservableCollection<FSNode>();
+                }
+
+                FSNode created = new FSNode(missingFolders[i], FSNodeType.Dir)
+                {
+                    Childs = new ObservableCollection<FSNode>()
+                };
+                parent.Childs.Add(created);
+                SortChildren(parent);
+                parent = created;
+            }
+
+            return parent;
         }
 
         internal void DeleteFile(FSNode fSNode)
@@ -357,6 +452,136 @@ namespace RPA.Models
             catch (Exception ex)
             {
                 return new CallResult { Error = new Error($"Ошибка при переименовании проекта: {ex}") };
+            }
+        }
+
+        /// <summary>
+        /// Переименовывает проект Visual Studio: переименовывается только файл проекта (.csproj)
+        /// и ссылка на него в .sln; содержимое проекта не меняется.
+        /// </summary>
+        internal CallResult RenameVsProject(FSNode projectNode, string newName)
+        {
+            if (projectNode == null)
+            {
+                return new CallResult { Error = new Error("Узел проекта не указан") };
+            }
+
+            if (projectNode.FSNodeType != FSNodeType.VsProject)
+            {
+                return new CallResult { Error = new Error("Указанный узел не является проектом Visual Studio") };
+            }
+
+            if (string.IsNullOrWhiteSpace(newName))
+            {
+                return new CallResult { Error = new Error("Имя проекта не может быть пустым") };
+            }
+
+            string oldPath = projectNode.RuntimeFullPath;
+
+            try
+            {
+                string newPath = VsProjectWriter.RenameProjectFile(oldPath, newName);
+
+                projectNode.RuntimeFullPath = newPath;
+                projectNode.Name = Path.GetFileNameWithoutExtension(newPath);
+
+                UpdateLastLoadedProjectPath(oldPath, newPath);
+
+                return new CallResult();
+            }
+            catch (Exception ex)
+            {
+                return new CallResult { Error = new Error($"Ошибка при переименовании файла проекта: {ex}") };
+            }
+        }
+
+        /// <summary>
+        /// Регистрирует новую активность в файле проекта Visual Studio (элемент XamlAppDef),
+        /// чтобы созданный .xaml собирался вместе с библиотекой.
+        /// </summary>
+        internal CallResult RegisterFileInVsProject(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || FSNodes == null || FSNodes.Count == 0)
+            {
+                return new CallResult();
+            }
+
+            try
+            {
+                string fullPath = Path.GetFullPath(filePath);
+                FSNode projectNode = FindOwningVsProject(FSNodes[0], fullPath);
+                if (projectNode == null)
+                {
+                    // Проект студии (project.json) — регистрировать активность не нужно.
+                    return new CallResult();
+                }
+
+                string projectPath = projectNode.RuntimeFullPath;
+                string projectFolder = Path.GetDirectoryName(projectPath);
+                string include = VsProjectWriter.GetRelativeIncludePath(projectFolder, fullPath);
+                _ = VsProjectWriter.AddXamlItem(projectPath, include);
+
+                return new CallResult();
+            }
+            catch (Exception ex)
+            {
+                return new CallResult { Error = new Error($"Не удалось добавить активность в файл проекта: {ex}") };
+            }
+        }
+
+        private static FSNode FindOwningVsProject(FSNode node, string filePath)
+        {
+            if (node == null)
+            {
+                return null;
+            }
+
+            if (node.FSNodeType == FSNodeType.VsProject
+                && ProjectPathResolver.IsInsideProject(filePath, ProjectPathResolver.GetNodeFolder(node)))
+            {
+                return node;
+            }
+
+            if (node.Childs == null)
+            {
+                return null;
+            }
+
+            foreach (FSNode child in node.Childs)
+            {
+                FSNode found = FindOwningVsProject(child, filePath);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// После переименования файла проекта обновляет сохранённый путь, чтобы проект
+        /// автоматически открылся при следующем запуске студии.
+        /// </summary>
+        private static void UpdateLastLoadedProjectPath(string oldPath, string newPath)
+        {
+            try
+            {
+                string lastLoaded = Properties.Settings.Default.LastLoadedProjectPath;
+                if (string.IsNullOrWhiteSpace(lastLoaded)
+                    || string.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase)
+                    || !ProjectPathResolver.AreSamePath(lastLoaded, oldPath))
+                {
+                    return;
+                }
+
+                Properties.Settings.Default.LastLoadedProjectPath = newPath;
+                Properties.Settings.Default.Save();
+            }
+            catch (Exception ex)
+            {
+                // Настройки не критичны для переименования: путь просто останется прежним.
+                CustomWfDesigner.GetInstance().Log($"Не удалось обновить сохранённый путь проекта: {ex}", (int)RpaCommon.Enums.LogLevel.Warn);
             }
         }
 

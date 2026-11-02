@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -414,12 +414,28 @@ namespace RPA.Helpers
 
             propertyInspector.LayoutUpdated += OnInspectorLayoutUpdated;
             propertyInspector.Unloaded += OnInspectorUnloaded;
+
+            // Строки свойств WF пересобирает при выборе активности, развороте категории и скролле, поэтому
+            // комбобоксы строк (Scope, Modifiers и прочие enum-свойства) появляются уже после первого прохода
+            // и остаются с системной белой плашкой. Клик/фокус внутри панели — гарантированная точка, где
+            // строки существуют: комбобоксы доводятся до палитры прямо перед открытием их списка.
+            propertyInspector.PreviewMouseDown += OnInspectorInteraction;
+            propertyInspector.GotKeyboardFocus += OnInspectorInteraction;
         }
 
         /// <summary>Сколько инспекторов сейчас под наблюдением (для тестов идемпотентности).</summary>
         public static bool IsAttached(FrameworkElement propertyInspector)
         {
             return propertyInspector != null && Attachments.TryGetValue(propertyInspector, out _);
+        }
+
+        private static void OnInspectorInteraction(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement inspector && Attachments.TryGetValue(inspector, out Attachment attachment))
+            {
+                // Только комбобоксы: полный SetPropertyStyles на каждый клик пересоздавал бы иконки панели.
+                WfVisualTreeThemer.ThemeComboBoxes(inspector, attachment.Owner?.Palette ?? StudioPalette.Dark);
+            }
         }
 
         private static void OnInspectorLayoutUpdated(object sender, EventArgs e)
@@ -467,6 +483,8 @@ namespace RPA.Helpers
 
             inspector.LayoutUpdated -= OnInspectorLayoutUpdated;
             inspector.Unloaded -= OnInspectorUnloaded;
+            inspector.PreviewMouseDown -= OnInspectorInteraction;
+            inspector.GotKeyboardFocus -= OnInspectorInteraction;
             _ = Attachments.Remove(inspector);
         }
 
@@ -501,6 +519,11 @@ namespace RPA.Helpers
         /// <summary>
         /// Поля и списки строк «Свойства»: WF рисует редакторы значения своим шаблоном, поэтому цвета
         /// приходят из системных кистей (светлый фон/тёмный текст). Красим их палитрой студии.
+        /// <para>
+        /// Комбобоксы (enum-свойства: Scope, Modifiers, True/False) отдаются
+        /// <see cref="WfVisualTreeThemer.ThemeComboBoxes"/>: только он ставит стиль элементов списка и
+        /// гасит плашки шаблона Aero2 в popup, которого в дереве инспектора нет.
+        /// </para>
         /// </summary>
         private void ApplyValueEditors(DependencyObject propertyInspector)
         {
@@ -515,21 +538,6 @@ namespace RPA.Helpers
                 textBox.BorderBrush = separator;
                 textBox.CaretBrush = foreground;
                 textBox.FontFamily = WfThemeStyles.Font;
-            }
-
-            foreach (ComboBox comboBox in FindVisualChildren<ComboBox>(propertyInspector))
-            {
-                comboBox.Background = surface;
-                comboBox.Foreground = foreground;
-                comboBox.BorderBrush = separator;
-                comboBox.FontFamily = WfThemeStyles.Font;
-            }
-
-            foreach (ComboBoxItem item in FindVisualChildren<ComboBoxItem>(propertyInspector))
-            {
-                item.Background = surface;
-                item.Foreground = foreground;
-                item.FontFamily = WfThemeStyles.Font;
             }
 
             foreach (ListBox listBox in FindVisualChildren<ListBox>(propertyInspector))
@@ -557,6 +565,13 @@ namespace RPA.Helpers
                 expander.Background = surface;
                 expander.FontFamily = WfThemeStyles.Font;
             }
+
+            // Комбобоксы строк (enum-свойства: Scope, Modifiers, True/False). Шаблон Aero2 рисует под их
+            // текстом опаковую белую плашку, а список раскрытия живёт в popup — вне визуального дерева
+            // инспектора, поэтому прежний обход ComboBoxItem внутри инспектора «чёрные буквы на тёмном
+            // фоне» не лечил вовсе: элементов списка в дереве ещё нет. Темизация — тем же механизмом,
+            // что shell bar и таблицы: кисти, стиль элементов списка и подписка на раскрытие.
+            WfVisualTreeThemer.ThemeComboBoxes(propertyInspector, Palette);
         }
 
         /// <summary>Состояние наблюдения за одним инспектором (палитра-владелец и отпечаток дерева).</summary>

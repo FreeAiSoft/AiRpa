@@ -28,6 +28,9 @@ namespace RehostedWorkflowDesigner.VbExpressionEditor
             TextArea.LostKeyboardFocus += TextArea_LostFocus;
 
             SyntaxHighlighting = StudioEditorTheme.GetDefinition("VB");
+
+            // Ссылки (URL в тексте выражения): #3794FF вместо Brushes.Blue — иначе на тёмном фоне не видно.
+            StudioEditorTheme.ApplyLinkColor(this);
             FontFamily = StudioFonts.CodeFont;
             FontSize = 12;
         }

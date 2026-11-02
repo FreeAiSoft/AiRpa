@@ -30,6 +30,13 @@ namespace RPA.Helpers
         public const string SelectionToken = "Selection";
         public const string SelectionForegroundToken = "SelectionForeground";
 
+        /// <summary>
+        /// Цвет гиперссылок в редакторе (<c>TextView.LinkTextForegroundBrush</c>). AvalonEdit по умолчанию
+        /// берёт <c>Brushes.Blue</c> (#0000FF): на тёмном фоне это нечитаемо (контраст ≈1.9), поэтому
+        /// цвет берётся из палитры (#3794FF в обеих темах).
+        /// </summary>
+        public const string LinkToken = "Link";
+
         // --- Токены подсветки синтаксиса (схема VS). ---
         public const string CommentToken = "Comment";
         public const string StringToken = "String";
@@ -52,7 +59,7 @@ namespace RPA.Helpers
         public static readonly IReadOnlyList<string> TokenNames = new[]
         {
             BackgroundToken, ForegroundToken, LineNumberToken, CurrentLineToken,
-            SelectionToken, SelectionForegroundToken,
+            SelectionToken, SelectionForegroundToken, LinkToken,
             CommentToken, StringToken, KeywordToken, ControlKeywordToken, TypeToken, NumberToken,
             MethodToken, FieldToken, PreprocessorToken, XmlTagToken, AttributeNameToken,
             AttributeValueToken, MarkupExtensionToken, EntityToken, CDataToken, XmlDeclarationToken
@@ -67,6 +74,9 @@ namespace RPA.Helpers
             currentLine: Rgb(0x28, 0x28, 0x28),
             selection: Rgb(0x26, 0x4F, 0x78),
             selectionForeground: Rgb(0xFF, 0xFF, 0xFF),
+            // Ссылки: #3794FF из темы VS Code Dark+ вместо синего Brushes.Blue (#0000FF) — на фоне
+            // #1E1E1E синий практически не читается.
+            link: Rgb(0x37, 0x94, 0xFF),
             comment: Rgb(0x6A, 0x99, 0x55),
             @string: Rgb(0xCE, 0x91, 0x78),
             keyword: Rgb(0x56, 0x9C, 0xD6),
@@ -93,6 +103,8 @@ namespace RPA.Helpers
             currentLine: Rgb(0xF0, 0xF0, 0xF0),
             selection: Rgb(0xAD, 0xD6, 0xFF),
             selectionForeground: Rgb(0x00, 0x00, 0x00),
+            // Ссылки: тот же #3794FF и в светлой теме (по требованию — один цвет на обе темы).
+            link: Rgb(0x37, 0x94, 0xFF),
             comment: Rgb(0x00, 0x80, 0x00),
             @string: Rgb(0xA3, 0x15, 0x15),
             keyword: Rgb(0x00, 0x00, 0xFF),
@@ -226,6 +238,7 @@ namespace RPA.Helpers
             Color currentLine,
             Color selection,
             Color selectionForeground,
+            Color link,
             Color comment,
             Color @string,
             Color keyword,
@@ -252,6 +265,7 @@ namespace RPA.Helpers
                 [StudioEditorPalette.CurrentLineToken] = currentLine,
                 [StudioEditorPalette.SelectionToken] = selection,
                 [StudioEditorPalette.SelectionForegroundToken] = selectionForeground,
+                [StudioEditorPalette.LinkToken] = link,
                 [StudioEditorPalette.CommentToken] = comment,
                 [StudioEditorPalette.StringToken] = @string,
                 [StudioEditorPalette.KeywordToken] = keyword,
@@ -285,6 +299,9 @@ namespace RPA.Helpers
         public Color Selection => Get(StudioEditorPalette.SelectionToken);
 
         public Color SelectionForeground => Get(StudioEditorPalette.SelectionForegroundToken);
+
+        /// <summary>Цвет гиперссылок (URL в XAML, C#, VB, JSON).</summary>
+        public Color Link => Get(StudioEditorPalette.LinkToken);
 
         /// <summary>Все токены палитры (имя → цвет).</summary>
         public IReadOnlyDictionary<string, Color> Tokens => _tokens;

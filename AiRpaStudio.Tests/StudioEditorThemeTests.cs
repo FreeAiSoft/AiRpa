@@ -58,7 +58,8 @@ public class StudioEditorThemeTests
                          StudioEditorPalette.TypeToken,
                          StudioEditorPalette.NumberToken,
                          StudioEditorPalette.XmlTagToken,
-                         StudioEditorPalette.AttributeNameToken
+                         StudioEditorPalette.AttributeNameToken,
+                         StudioEditorPalette.LinkToken
                      })
             {
                 Assert.That(Contrast(colors.Get(token), colors.Background), Is.GreaterThanOrEqualTo(3d),
@@ -175,6 +176,63 @@ public class StudioEditorThemeTests
         Assert.That(ColorOf(editor.SyntaxHighlighting, "String"),
             Is.EqualTo(StudioEditorPalette.Dark.Get(StudioEditorPalette.StringToken)),
             "строки JSON перекрашиваются (в AvalonEdit это зелёный)");
+    }
+
+    [Test]
+    public void ApplyChrome_SetsThemedLinkColor()
+    {
+        // #3794FF — цвет ссылок VS Code Dark+ (в AvalonEdit по умолчанию Brushes.Blue, т.е. #0000FF).
+        Color expected = Color.FromRgb(0x37, 0x94, 0xFF);
+        var editor = new TextEditor();
+
+        Assert.That(ColorOf(editor.TextArea.TextView.LinkTextForegroundBrush), Is.EqualTo(Colors.Blue),
+            "AvalonEdit по умолчанию красит ссылки в синий #0000FF — именно это и было не видно в XAML");
+
+        StudioEditorTheme.ApplyChrome(editor, dark: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(StudioEditorPalette.Dark.Link, Is.EqualTo(expected), "ссылки в тёмной теме — ровно #3794FF");
+            Assert.That(StudioEditorPalette.Light.Link, Is.EqualTo(expected), "ссылки в светлой теме — тот же #3794FF");
+            Assert.That(ColorOf(editor.TextArea.TextView.LinkTextForegroundBrush), Is.EqualTo(expected));
+            Assert.DoesNotThrow(() => StudioEditorTheme.ApplyLinkColor(null));
+            Assert.DoesNotThrow(() => StudioEditorTheme.ApplyLinkColor(null, StudioEditorPalette.Dark));
+        });
+    }
+
+    [Test]
+    public void ApplyLinkColor_WorksWithoutFullChrome()
+    {
+        var editor = new TextEditor();
+
+        StudioEditorTheme.ApplyLinkColor(editor, StudioEditorPalette.Light);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(editor.TextArea.TextView.LinkTextForegroundBrush),
+                Is.EqualTo(StudioEditorPalette.Light.Link));
+            Assert.That(editor.FontFamily.Source, Does.Not.Contain("Roboto"),
+                "ApplyLinkColor не трогает шрифт и фон: редакторы выражений (VB/Roslyn) красят себя сами");
+        });
+    }
+
+    [Test]
+    public void ExpressionEditors_UseThemedLinkColor()
+    {
+        string root = FindRepositoryRoot();
+
+        foreach (string relative in new[]
+                 {
+                     Path.Combine("AiRpaStudio", "VbExpressionEditor", "VbExpressionEditorInstance.cs"),
+                     Path.Combine("AiRpaStudio", "CSharpExpressionEditor", "RoslynExpressionEditorInstance2.cs")
+                 })
+        {
+            string text = File.ReadAllText(Path.Combine(root, relative));
+
+            Assert.That(Regex.IsMatch(text, @"StudioEditorTheme\.ApplyLinkColor\s*\(\s*this\s*\)"), Is.True,
+                relative + ": редактор должен брать цвет ссылок из палитры (StudioEditorTheme.ApplyLinkColor), " +
+                "иначе AvalonEdit вернёт синий #0000FF");
+        }
     }
 
     private static Color ColorOf(IHighlightingDefinition definition, string colorName)

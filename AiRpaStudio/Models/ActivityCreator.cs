@@ -42,7 +42,9 @@ namespace RPA.Models
 
         public ActivityCreator(string folderPath = null)
         {
-            SelectedPath = folderPath ?? Properties.Settings.Default.LastLoadedProjectPath;
+            // Путь может прийти файлом проекта (.csproj/.sln) — например, из
+            // Settings.LastLoadedProjectPath. В диалоге всегда должна быть папка проекта.
+            SelectedPath = ProjectPathResolver.GetProjectFolder(folderPath ?? Properties.Settings.Default.LastLoadedProjectPath);
             ActivityName = CoerceProjectName(Consts.defaultActivityName, SelectedPath);
         }
 
@@ -86,7 +88,8 @@ namespace RPA.Models
 
         public void CreateActivity()
         {
-            SelectedPath = SelectedPath.Trim();
+            // Нормализуем: в поле может оказаться путь к файлу проекта — тогда работаем с его папкой.
+            SelectedPath = ProjectPathResolver.GetProjectFolder(SelectedPath) ?? SelectedPath?.Trim();
 
             if (string.IsNullOrWhiteSpace(SelectedPath))
             {
@@ -100,7 +103,7 @@ namespace RPA.Models
                 return;
             }
 
-            if (!SelectedPath.Contains(Properties.Settings.Default.LastLoadedProjectPath.Trim().TrimEnd('\\')))
+            if (!ProjectPathResolver.IsInsideProject(SelectedPath, Properties.Settings.Default.LastLoadedProjectPath))
             {
                 OnSendMessage($"Файл активности должен располагаться в папке проекта.");
                 return;

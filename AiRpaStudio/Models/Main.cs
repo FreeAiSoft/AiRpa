@@ -166,12 +166,14 @@ namespace RPA.Models
         /// </summary>
         public void CmdAddNewActivityToProject()
         {
-            ActivityCreator activityCreator = new ActivityCreator();
+            // В настройке может лежать файл проекта (.csproj/.sln) — диалогу нужна папка.
+            string projectFolder = ProjectPathResolver.GetProjectFolder(Properties.Settings.Default.LastLoadedProjectPath)
+                                   ?? ProjectPathResolver.GetProjectFolder(ProjectManager.ProjectFolder);
+            ActivityCreator activityCreator = new ActivityCreator(projectFolder);
             MvvmFactory.CreateWindow(activityCreator, new ActivityCreatorViewModel(), new ActivityCreatorView(), ViewMode.ShowDialog);
             if (activityCreator.IsCreate)
             {
-                CustomWfDesigner.ActiveWorkflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(activityCreator.FilePath);
-                ProjectManager.AddFile(activityCreator.FilePath);
+                OpenCreatedActivity(activityCreator.FilePath);
             }
         }
 
@@ -180,13 +182,42 @@ namespace RPA.Models
         /// </summary>
         public void CmdAddNewActivityToProjectFolder(string folderPath)
         {
+            // В команду может прийти путь узла дерева: для проекта Visual Studio это файл .csproj.
             ActivityCreator activityCreator = new ActivityCreator(folderPath);
             MvvmFactory.CreateWindow(activityCreator, new ActivityCreatorViewModel(), new ActivityCreatorView(), ViewMode.ShowDialog);
             if (activityCreator.IsCreate)
             {
-                CustomWfDesigner.ActiveWorkflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(activityCreator.FilePath);
-                ProjectManager.AddFile(activityCreator.FilePath);
+                OpenCreatedActivity(activityCreator.FilePath);
             }
+        }
+
+        /// <summary>
+        /// Открывает созданную активность, добавляет узел в дерево проекта и регистрирует файл
+        /// в .csproj — иначе новая активность не попадёт в сборку библиотеки Visual Studio.
+        /// </summary>
+        private void OpenCreatedActivity(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                return;
+            }
+
+            CustomWfDesigner.ActiveWorkflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(filePath);
+            ProjectManager.AddFile(filePath);
+
+            CallResult registerResult = ProjectManager.RegisterFileInVsProject(filePath);
+            if (registerResult.Error != null)
+            {
+                OnSendMessage(registerResult.Error.Message);
+            }
+        }
+
+        /// <summary>
+        /// Открывает панель NuGet для указанного проекта — пункт «Добавить зависимость».
+        /// </summary>
+        public void CmdOpenNuGetPanel(string projectPath)
+        {
+            (ViewModel?.View as MainView)?.ShowNuGetPanelFor(projectPath);
         }
 
         public void CmdRemoveDesigner(string loadedFile)

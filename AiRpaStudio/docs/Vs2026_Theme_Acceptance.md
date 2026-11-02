@@ -26,7 +26,9 @@ $vstest = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\
 Запустить студию (тема по умолчанию — тёмная: `App.xaml` `BaseTheme="Dark"`, `Properties.Settings.UseDarkTheme`
 по умолчанию `true`). Пройти глазами: панели докинга, центр, правая сторона, заголовки, вкладки,
 панель «Log», «Chat», popup `SearchableComboBox`, popup настроек лога, диалог «Свойства».
-Ни один прямоугольник не должен быть светлее `Studio.Surface` (`#272727`) — кроме hairline 1px.
+Ни один прямоугольник не должен быть светлее `Studio.Surface` (`#272727`) — кроме hairline 1px
+и фона выбранной вкладки `Studio.TabActive` (`#3A3B3E`): активная вкладка «Проект / Активности /
+Структура» и вкладка документа обязаны быть светлее неактивных.
 
 Автоматически: `ThemeAcceptanceTests.ThemedXaml_HaveNoHardcodedColors`,
 `.ThemedXaml_HaveNoNamedColorAttributes`, `LogAndChatThemeTests.*`.
@@ -73,6 +75,36 @@ breadcrumb, MiniMap и панели докинга должны быть одн�
 `.Apply_ComboBoxTextHasContrastInBothThemes`, `.Apply_SwitchesComboBoxPalette`,
 `.Apply_ComboBoxThemeIsIdempotent`.
 
+Столбцы `Scope` и `Modifiers` в «Переменных»/«Аргументах» (редактор — `ComboBox`): войти в правку ячейки
+двойным кликом — у свёрнутого списка фон `Surface`, буквы `Foreground`, стрелка раскрытия видна, белой
+плашки Aero2 нет; раскрыть список — элементы на поверхности палитры, hover `Hover`, выделение `Selected`,
+чёрных букв на тёмном фоне нет. То же для enum-свойств панели «Свойства» (`Scope`, `Modifiers`,
+`True/False`) и после переключения темы без перезапуска.
+
+Автоматически: `WfDesignerTableThemeTests.Apply_LateCreatedCellComboBoxIsThemed`,
+`.Apply_CellComboBoxItemStyleUsesPalette`, `.Sources_TableThemeThemesComboBoxes`,
+`WfThemeTests.SetPropertyStyles_ThemesInspectorComboBoxes`,
+`.SetPropertyStyles_SwitchesInspectorComboBoxPalette`,
+`DesignerVariableContextMenuTests.PreparingCellForEdit_ComboBoxGetsPalette`.
+
+Панель «Свойства активности» (выбрана переменная → строки `Modifiers` и `Scope`): щёлкнуть по комбобоксу
+(вход в режим правки) — поле остаётся на `Surface`, белой плашки нет; раскрыть `Modifiers` (flags-enum) —
+подписи чекбоксов `ReadOnly`/`Mapped` светлые на тёмной подложке, галочки и рамки видны; всё то же после
+переключения темы на лету и после повторного выбора активности (строки WF пересоздаются).
+
+Автоматически: `WfDesignerTableThemeTests.ThemeComboBoxes_PaintsEditableFieldOfCollapsedComboBox`,
+`.ThemeComboBoxes_PaintsDropDownCheckBoxTextWithPalette`,
+`.SetPropertyStyles_ThemesComboBoxOfRowCreatedAfterSweep`.
+
+Панель «Свойства активности», выбранная переменная (`Modifiers`, `Scope`, `Type`): **до любого клика** по
+редактору фон комбобоксов — `Surface` (в тёмной теме `#272727`), поле правки `Modifiers` тоже тёмное, белых
+плашек (`#FFFFFF` у `Modifiers`, `#EFEFEF` у `Scope`) нет; после клика цвет не меняется. Раньше
+`FlagEditor`/`ScopeComboBox` создавались после прохода темы, и до первого клика они оставались светлыми.
+
+Автоматически: `WfDesignerTableThemeTests.ThemeComboBoxes_ComboBoxCreatedAfterSweep_IsThemedOnLoad`,
+`.ThemeComboBoxes_ComboBoxOutsideThemedRootsKeepsSystemChrome`,
+`.Sources_ThemerThemesLateCreatedComboBoxesOnLayout`.
+
 Автоматически: `ThemeAcceptanceTests.DialogsAndMainWindow_UseSingleSurfaceBackground`,
 `WfDesignerThemeTests` (ключи поверхности, отсутствие акцента в словаре).
 
@@ -82,15 +114,21 @@ breadcrumb, MiniMap и панели докинга должны быть одн�
 синее), фокус ячейки — hairline `SeparatorStrong`, глиф сортировки виден, белых плашек Aero2 (шапка, угол
 «выделить всё», пустая область, «новая строка») нет. Вкладки: активная — `Selected`, неактивная подпись —
 `ForegroundMuted`. Двойной клик в ячейку → правый клик: меню открывается во всех трёх таблицах, включая
-«Пространства имён» (раньше эта таблица не обслуживалась вовсе), правка не завершается. То же после
-переключения темы (п.5).
+«Пространства имён» (раньше эта таблица не обслуживалась вовсе), правка не завершается. Само меню — на
+палитре: поверхность `Surface`, hairline по периметру, текст `Foreground`, наведение `Hover`, недоступный
+пункт приглушён (`ForegroundMuted`); белых плашек и белых букв нет ни в одной теме (раньше меню рисовал
+чужой шаблон: popup вне дерева дизайнера). То же после переключения темы (п.5).
 
 Автоматически: `WfDesignerTableThemeTests.Apply_ThemesAllDesignerTables`,
 `.Apply_TableHeaderUsesSurfaceAltAndHairline`, `.Apply_TableRowStatesUsePalette`,
 `.Apply_TableCellFocusUsesSeparatorStrongHairline`, `.Apply_TablePanelBackdropBehindWhiteHostIsSurface`,
 `.Apply_LateCreatedRowsAreThemed`, `.Apply_LiveTableHasNoLightPlates`,
 `.Apply_LiveTableHeaderAndCellsUsePalette`, `.Apply_ThemesShellBarItems`,
-`.Apply_ShellBarItemsFollowThemeSwitch`, `DesignerVariableContextMenuTests.RefreshTables_*`.
+`.Apply_ShellBarItemsFollowThemeSwitch`, `DesignerVariableContextMenuTests.RefreshTables_*`,
+`WfContextMenuThemeTests.CreateEditingContextMenu_*` (свои шаблоны, палитра, контраст в обеих темах),
+`.RecolorEditingContextMenu_RebuildsTemplatesForNewPalette`, `.Apply_ThemesForeignDesignerContextMenu`,
+`.Apply_ThemesDesignerMenuWithSeparator` (меню WF с разделителем не падает),
+`.Hook_LeavesMenusOutsideDesignerAlone`.
 
 ### 4. Скруглённые углы: главное окно, четыре диалога, откреплённый документ и панель, Ctrl+Tab
 

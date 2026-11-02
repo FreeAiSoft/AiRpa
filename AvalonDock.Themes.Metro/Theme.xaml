@@ -233,6 +233,7 @@
                         <Setter.Value>
                             <ControlTemplate TargetType="{x:Type TabItem}">
                                 <Grid SnapsToDevicePixels="true">
+                                    <!--  Вкладка панели: неактивная — AvalonDock_Base, hover — AvalonDock_Hover, выбранная — AvalonDock_Active (светлее) + hairline.  -->
                                     <Border x:Name="Bd"
                                             Padding="{TemplateBinding Padding}"
                                             Background="{DynamicResource AvalonDock_Base}"
@@ -251,7 +252,7 @@
                                              Value="true">
                                         <Setter Property="BorderBrush"
                                                 TargetName="Bd"
-                                                Value="{DynamicResource AvalonDock_Active}" />
+                                                Value="{DynamicResource AvalonDock_Separator}" />
                                         <Setter Property="Background"
                                                 TargetName="Bd"
                                                 Value="{DynamicResource AvalonDock_Active}" />
@@ -262,7 +263,7 @@
                                                  Value="True">
                                         <Setter Property="BorderBrush"
                                                 TargetName="Bd"
-                                                Value="{DynamicResource AvalonDock_Active}" />
+                                                Value="{DynamicResource AvalonDock_Separator}" />
                                         <Setter Property="Background"
                                                 TargetName="Bd"
                                                 Value="{DynamicResource AvalonDock_Active}" />
@@ -1031,7 +1032,7 @@
                                         <Setter Property="Panel.ZIndex"
                                                 Value="0" />
                                     </MultiTrigger>
-                                    <!--  Выбранная вкладка сливается с контентом (Surface) и обведена hairline.  -->
+                                    <!--  Выбранная вкладка светлее неактивной (AvalonDock_Active) и обведена hairline.  -->
                                     <Trigger Property="Selector.IsSelected"
                                              Value="true">
                                         <Setter TargetName="TabBorder"

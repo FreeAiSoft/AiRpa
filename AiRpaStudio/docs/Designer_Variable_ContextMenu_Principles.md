@@ -8,16 +8,19 @@
 Реализация: `AiRpaStudio\Core\Services\DesignerVariableContextMenuService.cs` (подключение),
 `DesignerVariableContextMenuPolicy.cs` (решения, чистые функции),
 `DesignerContextMenuState.cs` (автомат флагов), `AiRpaStudio\Helpers\WfDesignerTheme.cs`
-(единственная фабрика меню `CreateEditingContextMenu` и перекраска `RecolorEditingContextMenu`).
+(единственная фабрика меню `CreateEditingContextMenu` и перекраска `RecolorEditingContextMenu`),
+`AiRpaStudio\Helpers\WfContextMenuTheme.cs` (оформление меню: собственные шаблоны меню и пунктов на
+палитре + общий проход по меню дизайнера).
 Тесты: `AiRpaStudio.Tests\DesignerVariableContextMenuPolicyTests.cs`,
-`AiRpaStudio.Tests\DesignerVariableContextMenuTests.cs`. Тема контекстных меню дизайнера —
-F-06 плана `docs\Vs2026_Theme_Plan.md`.
+`AiRpaStudio.Tests\DesignerVariableContextMenuTests.cs`, `AiRpaStudio.Tests\WfContextMenuThemeTests.cs`.
+Тема контекстных меню дизайнера — F-06 плана `docs\Vs2026_Theme_Plan.md`.
 
 ## Зафиксированные дефекты
 
 | Версия / время | Симптом | Причина | Исправление |
 | --- | --- | --- | --- |
 | 1.0.0.0, 2026-11-02 03:21:35 | `InvalidOperationException: ResourceDictionary доступен только для чтения и не может быть изменен.` Падает открытие панели «Переменные». | Стиль поля ввода писался в `DataTemplate.Resources` шаблона правки. Шаблоны правки WF-дизайнера **запечатаны** (`FrameworkTemplate.Seal` при первом применении), их словарь доступен только для чтения — `set_Item` бросает исключение. | Записи в ресурсы шаблонов убраны полностью: обработчики живут на `DataGrid`, палитра ставится полю ввода локальными значениями в `PreparingCellForEdit`. |
+| 2026-11-02 (F-06) | Меню «Вырезать/Копировать/Вставить» в таблицах переменных и аргументов рисуется **белым, текст белый** — в тему не попадает. | Причин две. (1) Меню — **popup**, а не потомок `DesignerView`: ни `WfDesignerTheme.Apply`, ни `WfVisualTreeThemer` до него не доходят, потому что обходят визуальное дерево дизайнера. (2) Внешний вид задавали **локальные** `Background`/`Foreground`, но рисовал **чужой шаблон** (`MaterialDesignContextMenu`/`MaterialDesignMenuItem` из `App.xaml`, в чистом процессе — системный Aero2): его подсветка строится от `Foreground` (на тёмной теме — светлая накладка, под ней белый текст), углы, рамку и тень рисует шаблон, а не наши кисти. | `Helpers\WfContextMenuTheme.cs`: собственные шаблон меню, панель пунктов и стиль контейнера пункта на палитре (`WfDesignerTheme.CreateEditingContextMenu`/`RecolorEditingContextMenu` идут через него), плюс общий проход по `ContextMenu.OpenedEvent` для меню самого дизайнера. |
 
 Этот случай — главный аргумент инварианта 10: **сервис не обращается к `CellEditingTemplate` вообще**,
 даже на чтение, потому что «прочитать и аккуратно дописать» здесь невозможно by design.
@@ -107,10 +110,13 @@ Attach(grid)
    фокус у поля.
 6. **Позиционирование явное.** `PlacementTarget` = поле ввода, `Placement = PlacementMode.MousePoint`
    (`ConfigureMenuPlacement`): программно открытое меню иначе рисуется в углу экрана.
-7. **Меню — только из фабрики.** `WfDesignerTheme.CreateEditingContextMenu(palette)`; `new ContextMenu`,
-   зашитые `#RRGGBB`/`Colors.*`, `MessageBox` и `Debug.WriteLine` запрещены. `StaysOpen = true`,
-   `HasDropShadow = false` (закрытием управляем сами; тень даёт светлый прямоугольник поверх тёмной
-   темы).
+7. **Меню — только из фабрики и только на собственных шаблонах.** `WfDesignerTheme.CreateEditingContextMenu(palette)`;
+   `new ContextMenu`, зашитые `#RRGGBB`/`Colors.*`, `MessageBox` и `Debug.WriteLine` запрещены.
+   `StaysOpen = true`, `HasDropShadow = false` (закрытием управляем сами; тень даёт светлый прямоугольник
+   поверх тёмной темы). Одних локальных `Background`/`Foreground` **недостаточно**: внешний вид меню
+   задаёт шаблон, поэтому `WfContextMenuTheme.Apply` ставит `Template` меню, `ItemsPanel` и
+   `ItemContainerStyle` пунктов (свой `ControlTemplate`: рамка палитры, заголовок, жест, `PART_Popup`
+   подменю). Триггеры стиля: наведение/подсветка — `Hover`, `IsEnabled = false` — `ForegroundMuted`.
 8. **Цвета применяются на каждое открытие.** Меню создаётся один раз на поле ввода, тема может
    измениться → `WfDesignerTheme.RecolorEditingContextMenu(menu, palette)` в `Opened`. Перекраска не
    пересоздаёт пункты и не меняет команды.
@@ -133,6 +139,22 @@ Attach(grid)
     «Пространства имён» называется `imports1` — на имена полагаться нельзя. Отдельного меню «только для
     пространств имён» нет: пункты «Вырезать/Копировать/Вставить» одинаковы, а доступность команды
     решает сам `ApplicationCommands` (в таблице пространств имён ячейки только для чтения).
+13. **Popup темизируется отдельно от дерева дизайнера.** Меню не является потомком `DesignerView`,
+    поэтому общий проход по дереву до него не доходит — ни разу. Отсюда отдельная точка правды:
+    `WfContextMenuTheme.Hook()` ставит обработчик класса `ContextMenu` на `ContextMenu.OpenedEvent`
+    (не на `Loaded`: у popup-ребёнка `Loaded` обработчикам класса не доставляется — проверено
+    `WfContextMenuThemeTests.Apply_ThemesForeignDesignerContextMenu`). Проход применяется только к меню,
+    чья цепочка родителей (или `PlacementTarget`) доходит до `DesignerView`/контролов
+    `System.Activities.Presentation`: меню AvalonDock, дерева проекта и чата остаются на своих стилях
+    (`Hook_LeavesMenusOutsideDesignerAlone`). Палитру, заданную владельцем меню (фабрика/перекраска),
+    общий проход не перебивает — только доводит материализованные части до неё же.
+    Меню дизайнера, открываемое правым кликом, темизируется **до показа** — на
+    `ContextMenuService.ContextMenuOpeningEvent` (`WfContextMenuTheme.PrepareOpen`): если стиль пунктов
+    ещё чужой, генератор контейнеров падает на разделителе
+    (`InvalidOperationException: Стиль, заданный для типа "MenuItem", не может применяться к типу
+    "Separator"`), поэтому стиль пунктов раздаётся селектором (`ItemContainerStyleSelector`), а
+    `ItemContainerStyle` снимается. Разделители получают собственный hairline-стиль палитры
+    (`WfContextMenuThemeTests.Apply_ThemesDesignerMenuWithSeparator`).
 
 ## Правила закрытия меню
 
@@ -169,8 +191,11 @@ Attach(grid)
    завершается обычным способом (флаг отмены не залип).
 5. Открыть меню, переключить тему (`Настройки → Тема`) и открыть меню снова — цвета светлой темы,
    без белых/чёрных артефактов.
-6. Закрыть меню клавишей `Escape` и кликом вне — поле сохраняет фокус, повторный показ меню работает.
-7. Нажать `Ctrl+C` при открытом меню — меню не закрывается, копирование работает.
+6. Меню в обеих темах: поверхность `Surface`, hairline по периметру, текст `Foreground`, наведение —
+   `Hover`, недоступный пункт — приглушённый текст. Белых плашек и белых букв быть не должно ни в одном
+   столбце и ни в одной таблице (переменные, аргументы, пространства имён).
+7. Закрыть меню клавишей `Escape` и кликом вне — поле сохраняет фокус, повторный показ меню работает.
+8. Нажать `Ctrl+C` при открытом меню — меню не закрывается, копирование работает.
 
 Автоматизированная часть чеклиста: `vstest.console` по `AiRpaStudio.Tests` (все тесты, включая стражи),
 плюс отдельный запуск `RealRightClickInEditingCell_ReachesGridHandler`
@@ -200,6 +225,10 @@ Attach(grid)
 | позиционирование меню | `ConfigureMenuPlacement_*` |
 | ровно одна инициализация после `SetVariablesStyle` | `DesignerVariableContextMenuTests.Source_InitializesTrackingOnceAfterVariablesStyle` |
 | стражи по исходникам (см. раздел «Стражи») | `DesignerVariableContextMenuTests.Source_*`, `ProjectFile_*`, `Document_*`, `Agents_*` |
+| меню на палитре: свои шаблоны, поверхность, текст, контраст в обеих темах | `WfContextMenuThemeTests.CreateEditingContextMenu_*` (4 теста) |
+| перекраска меню при смене темы (шаблоны пересобираются) | `WfContextMenuThemeTests.RecolorEditingContextMenu_RebuildsTemplatesForNewPalette`, `DesignerVariableContextMenuTests.RecolorEditingContextMenu_SwitchesPalette` |
+| меню самого дизайнера (popup вне дерева) и границы общего прохода | `WfContextMenuThemeTests.Apply_ThemesForeignDesignerContextMenu`, `Hook_LeavesMenusOutsideDesignerAlone` |
+| меню с разделителями (меню самого WF) не падает и темизируется | `WfContextMenuThemeTests.Apply_ThemesDesignerMenuWithSeparator` |
 
 ## Стражи
 
@@ -218,6 +247,10 @@ Attach(grid)
 | `Source_ThemeRecolorIsUsedByFactory` | раскраску пунктов мимо `RecolorEditingContextMenu` |
 | `Source_AttachesEveryDesignerTable` | возврат к двум зашитым именам панелей; потерю общего прохода `RefreshTables` и поиска таблиц по типу |
 | `Sources_TableThemeIsWiredIntoDesignerTheme` / `Sources_TableThemeUsesPaletteOnly` | выпадение темизации таблиц из `WfDesignerTheme.Apply`; возврат `#RRGGBB`, `Colors.*` и записи в шаблоны правки |
+| `WfContextMenuThemeTests.Sources_ContextMenuThemeUsesPaletteOnly` | возврат меню на чужой шаблон (нет `new ControlTemplate(typeof(ContextMenu))`/`ItemContainerStyle`), `#RRGGBB`, `Colors.*`, `SystemColors`, `MaterialDesign.Brush`, `DropShadowEffect` |
+| `WfContextMenuThemeTests.Sources_FactoryAndRecolorGoThroughMenuTheme` | раскраску меню мимо `WfContextMenuTheme`; потерю общего прохода `WfContextMenuTheme.Hook()` |
+| `WfContextMenuThemeTests.ProjectFile_CompilesContextMenuTheme` | забытый `<Compile Include="Helpers\WfContextMenuTheme.cs" />` (legacy-csproj) |
+| `WfContextMenuThemeTests.Document_RecordsMenuTemplateInvariant` | удаление из документа причины (popup), симптома «белые буквы» и упоминания `WfContextMenuTheme` |
 
 | `ProjectFile_CompilesSourcesAndShipsDocument` | забытый `<Compile Include>` / документ вне проекта |
 | `Document_RecordsPrinciplesInvariantsAndGuards` | удаление разделов «Инварианты»/«Стражи»/«Тесты»; пропажу симптома «только для чтения» и записи о 1.0.0.0 |
@@ -235,6 +268,11 @@ Attach(grid)
   consume). Проверьте `DesignerContextMenuState.NotifyMenuClosed` в `Closed` и в `CloseMenu`.
 * **Меню не появляется только в части столбцов** → обработчики попали в шаблон правки вместо таблицы
   (у `DataGridTextColumn` своего шаблона нет).
+* **Меню белое с белыми буквами / не следует теме** → меню рисует чужой шаблон: проверьте, что
+  `RecolorEditingContextMenu` идёт через `WfContextMenuTheme.Apply` (собственный `Template` меню и
+  `ItemContainerStyle` пунктов), а `WfDesignerTheme.ApplyToApplication` вызывает
+  `WfContextMenuTheme.Hook()` для меню самого дизайнера. Локальные `Background`/`Foreground` этот
+  симптом не лечат — они шаблон не перекрывают.
 * **Меню старых цветов после смены темы** → `Opened` не вызывает `RecolorEditingContextMenu`, либо
   палитра поля ставится не в `PreparingCellForEdit`.
 * **Утечка обработчиков / падение после закрытия документа** → `Closed` не снимает хуки с корня.
@@ -246,3 +284,4 @@ Attach(grid)
 | --- | --- |
 | 2026-11-02 | Документ создан: механизм зафиксирован, покрыт тестами и стражами. |
 | 2026-11-02 | Дефект 1.0.0.0 (запись в запечатанный `DataTemplate.Resources`) — исправлен, добавлены `SealedTemplateResources_DoNotThrow` и `Source_NoWritesIntoCellTemplates`; палитра переведена на локальные значения (`ApplyCellPalette`), обработчики — на `DataGrid`. |
+| 2026-11-02 (F-06) | Дефект «белое меню с белыми буквами» — исправлен: меню и пункты получили собственные шаблоны (`WfContextMenuTheme`), добавлен общий проход по `ContextMenu.OpenedEvent` для меню дизайнера (popup вне дерева), инвариант 7 переписан, появился инвариант 13 и `WfContextMenuThemeTests`. |

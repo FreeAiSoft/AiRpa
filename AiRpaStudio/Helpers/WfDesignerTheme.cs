@@ -68,6 +68,10 @@ namespace RPA.Helpers
         /// </summary>
         public static void ApplyToApplication(ResourceDictionary target, StudioThemeColors palette)
         {
+            // Контекстные меню живут в popup и в проходы по дереву дизайнера не попадают: общий проход
+            // подключается здесь — на старте приложения и на каждой смене темы (идемпотентно).
+            WfContextMenuTheme.Hook();
+
             if (target == null || palette == null)
             {
                 return;
@@ -316,26 +320,12 @@ namespace RPA.Helpers
                 return;
             }
 
-            StudioThemeColors colors = palette ?? StudioPalette.Dark;
-
-            menu.Background = WfThemeStyles.Brush(colors.Surface);
-            menu.Foreground = WfThemeStyles.Brush(colors.Foreground);
-            menu.BorderBrush = WfThemeStyles.Brush(colors.SeparatorStrong);
-            menu.BorderThickness = new Thickness(1);
-            menu.FontFamily = WfThemeStyles.Font;
-
-            foreach (object item in menu.Items)
-            {
-                if (!(item is MenuItem menuItem))
-                {
-                    continue;
-                }
-
-                menuItem.Foreground = WfThemeStyles.Brush(colors.Foreground);
-                menuItem.Background = WfThemeStyles.Brush(colors.Surface);
-                menuItem.BorderBrush = WfThemeStyles.Brush(colors.Separator);
-                menuItem.FontFamily = WfThemeStyles.Font;
-            }
+            // Кисти, шаблон меню, панель пунктов и стиль контейнера пункта — в одной точке
+            // (WfContextMenuTheme): локальных Background/Foreground на чужом шаблоне недостаточно.
+            // Меню живёт в popup и в проходы темы по дереву дизайнера не попадает, а подсветку, углы и
+            // тень рисует чужой шаблон (MaterialDesign/Aero2), причём подсветка строится от Foreground —
+            // в тёмной теме это светлая накладка под белыми буквами.
+            WfContextMenuTheme.Apply(menu, palette);
         }
 
         private static MenuItem CreateMenuItem(string header, ICommand command)

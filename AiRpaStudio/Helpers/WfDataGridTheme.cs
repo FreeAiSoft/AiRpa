@@ -427,6 +427,12 @@ namespace RPA.Helpers
             // Плашки шаблона Aero2 (шапка, угол «выделить всё», пустая область) и системные кисти
             // внутри материализованных строк гасятся общим правилом WF-контролов.
             WfThemeStyles.NeutralizeLightBrushes(grid, palette);
+
+            // Комбобоксы таблицы идут последними: «Переменные» и «Аргументы» держат столбцы Scope и
+            // Modifiers (DataGridComboBoxColumn), а шаблон Aero2 рисует под их текстом опаковую белую
+            // плашку. ThemeComboBoxes гасит эту плашку сам и ставит стиль элементов списка; список
+            // раскрытия живёт в popup — вне дерева таблицы, поэтому общий проход его не видит.
+            WfVisualTreeThemer.ThemeComboBoxes(grid, palette);
         }
 
         /// <summary>
@@ -581,6 +587,34 @@ namespace RPA.Helpers
                         }
                     }),
                     DispatcherPriority.Background);
+            };
+
+            // Вход в правку ячейки: редактор уже создан, и палитра ставится сразу. Через LayoutUpdated
+            // комбобокс (столбцы Scope и Modifiers) окрашивался бы кадром позже — видна вспышка белой
+            // плашки шаблона Aero2. Для DataGridTemplateColumn в EditingElement лежит ContentPresenter,
+            // поэтому редактор доокрашивается ещё раз — после применения шаблона правки.
+            grid.PreparingCellForEdit += (sender, args) =>
+            {
+                if (!GridHooks.TryGetValue(grid, out GridHook current)
+                    || !(args.EditingElement is DependencyObject editingElement))
+                {
+                    return;
+                }
+
+                WfVisualTreeThemer.ApplyEditorPalette(editingElement, current.Palette);
+
+                if (editingElement is FrameworkElement host && host.Dispatcher != null)
+                {
+                    _ = host.Dispatcher.BeginInvoke(
+                        DispatcherPriority.Loaded,
+                        new Action(() =>
+                        {
+                            if (GridHooks.TryGetValue(grid, out GridHook latest))
+                            {
+                                WfVisualTreeThemer.ApplyEditorPalette(editingElement, latest.Palette);
+                            }
+                        }));
+                }
             };
         }
 

@@ -115,7 +115,7 @@
   Тесты: `AiRpaStudio.Tests\DockingThemeBrushesTests.cs`, `AvalonDockThemeBridgeTests.cs`,
   `ThemeXamlTests.cs` (регекс-стражи по `AvalonDock.Themes.Metro\Theme.xaml` + полный разбор XAML).
   Полоса вкладок документов (P-08): состояния рисует `Border x:Name="TabBorder"` в шаблоне контейнера
-  вкладки (`AvalonDock_Base` → hover `AvalonDock_Hover` → выбранная `AvalonDock_Active` + hairline
+  вкладки (`AvalonDock_Base` → hover `AvalonDock_Hover` → выбранная `AvalonDock_Active` — светлее неактивной, + hairline
   `AvalonDock_Separator`). Сеттеры `Background`/`BorderBrush` в триггерах обязаны быть адресованы
   `TargetName` элемента шаблона: `BorderBrush` у самого `TabItem` ничем не отрисовывается — из-за
   этого вкладки выглядели «без темы». Кнопка закрытия вкладки —
@@ -169,6 +169,20 @@
   значению дефолта WF; пользовательские кисти не трогаются. Адаптер ошибки — `Validation.ErrorTemplate`
   с hairline `CloseHoverBackground` (красный только для ошибок). Контекстное меню дизайнера —
   `WfDesignerTheme.CreateEditingContextMenu` (им пользуется `DesignerVariableContextMenuService`).
+  Оформление меню вынесено в `Helpers\WfContextMenuTheme.cs`: меню — **popup**, а не потомок
+  `DesignerView`, поэтому проход темы по дереву дизайнера до него не доходит ни разу, а локальных
+  `Background`/`Foreground` недостаточно — рисует чужой шаблон (`MaterialDesignContextMenu`/
+  `MaterialDesignMenuItem` из `App.xaml`, в чистом процессе Aero2), и его подсветка строится от
+  `Foreground` (белые буквы на светлой накладке). `WfContextMenuTheme.Apply` ставит собственные
+  `Template` меню, `ItemsPanel` и `ItemContainerStyle` пунктов (рамка палитры, `Hover`, `ForegroundMuted`
+  для недоступного пункта, `PART_Popup` подменю), а `Hook()` — общий проход по `ContextMenu.OpenedEvent`
+  для меню самого дизайнера (по `Loaded` popup-ребёнку обработчик класса не доставляется). Проход
+  ограничен цепочкой родителей/`PlacementTarget` до `DesignerView` и `System.Activities.Presentation`,
+  а палитру, заданную фабрикой, не перебивает. Отдельно меню правого клика темизируется **до показа** —
+  `ContextMenuService.ContextMenuOpeningEvent` (`PrepareOpen`): иначе генератор контейнеров падает на
+  разделителе, если стиль пунктов ещё чужой (`Стиль, заданный для типа "MenuItem", не может применяться
+  к типу "Separator"`), поэтому стиль раздаётся `ItemContainerStyleSelector`, а `Separator` получает
+  свой hairline-стиль. Стражи — `AiRpaStudio.Tests\WfContextMenuThemeTests.cs`.
   Механизм этого меню зафиксирован документально (`docs\Designer_Variable_ContextMenu_Principles.md`):
   правый клик в ячейке `variableDataGrid`/`argumentsDataGrid` открывает меню программно (штатное меню
   завершает правку и закрывает панель), а завершение правки отменяется флагом, взведённым на
@@ -226,6 +240,48 @@
   `.Apply_ComboBoxThemeIsIdempotent`, `.Apply_SwitchesComboBoxPalette`,
   `WfDesignerThemeTests.Apply_ThemesShellBarZoomCombo`, `.Apply_ShellBarZoomComboIsReadableInBothThemes`,
   `.Apply_ThemesShellBarZoomComboList`.
+  Тот же механизм обслуживает комбобоксы таблиц (столбцы `Scope`/`Modifiers` — `DataGridComboBoxColumn`)
+  и строк панели «Свойства» (enum-свойства): `WfDataGridTheme.Refresh` вызывает `ThemeComboBoxes`
+  последним проходом, `WfDataGridTheme.HookGrid` ставит `PreparingCellForEdit` (палитра ставится до
+  первой отрисовки, а не следующим циклом раскладки), `PropertyWindowStyleHelper.ApplyValueEditors`
+  отдаёт комбобоксы строк тому же механизму, а `WfVisualTreeThemer.ApplyEditorPalette` — общий вход для
+  редактора ячейки (поля ввода + комбобоксы) из таблицы и из `DesignerVariableContextMenuService`.
+  Прежние самописные обходы `ComboBox`/`ComboBoxItem` внутри инспектора были мёртвым кодом: элементов
+  списка в его визуальном дереве нет — список живёт в popup. Подписка на `Loaded` в `ThemeComboBoxes`
+  ставится всегда (в shell bar к моменту применения темы `zoomPicker` уже есть, поэтому прежнее условие
+  «комбобоксов нет» не выполнялось никогда, и позже созданные комбобоксы не темизировались). Стражи —
+  `WfDesignerTableThemeTests.Apply_LateCreatedCellComboBoxIsThemed`,
+  `.Apply_CellComboBoxItemStyleUsesPalette`, `.Sources_TableThemeThemesComboBoxes`,
+  `WfThemeTests.SetPropertyStyles_ThemesInspectorComboBoxes`,
+  `.SetPropertyStyles_SwitchesInspectorComboBoxPalette`,
+  `DesignerVariableContextMenuTests.PreparingCellForEdit_ComboBoxGetsPalette`.
+
+  Панель «Свойства активности» (`DesignTimeVariable`: строки `Modifiers` и `Scope`) потребовала второго
+  захода: каркас панели темизировался, а до комбобоксов строк проход не доезжал — WF создаёт строки
+  позже (выбор активности, разворот категории), и `ThemeComboBox` срабатывал до реализации шаблона, когда
+  внутреннего поля правки `PART_EditableTextBox` ещё нет (отсюда белое поле в тёмной теме), а элементы
+  popup (у `Modifiers` это чекбоксы `ReadOnly`/`Mapped`) получали системный чёрный текст. Теперь
+  `ThemeComboBox` вызывает `comboBox.ApplyTemplate()` до покраски, `PaintItemForeground` локально красит
+  текст popup (включая привязки, которые `NeutralizeLightBrushes` пропускает), подписки
+  `ItemContainerGenerator.StatusChanged` и `IsKeyboardFocusWithinChanged` доводят список и режим правки, а
+  `PropertyWindowStyleHelper.Attach` вешает доводку комбобоксов на `PreviewMouseDown`/`GotKeyboardFocus`
+  панели. Стражи — `WfDesignerTableThemeTests.ThemeComboBoxes_PaintsEditableFieldOfCollapsedComboBox`,
+  `.ThemeComboBoxes_PaintsDropDownCheckBoxTextWithPalette`,
+  `.SetPropertyStyles_ThemesComboBoxOfRowCreatedAfterSweep`.
+
+  Третье дополнение (WF создаёт редактор значения уже после прохода темы): на запущенной студии левый край
+  редакторов `Modifiers` (`FlagEditor`, `autoId=ComboBox_1`) и `Scope` (`autoId=scopeEditoComboBox`) при
+  выборе переменной был `#FFFFFF`/`#EFEFEF` до первого клика и становился `#272727` после него. Причина:
+  `ThemeComboBoxes` к этому моменту уже прошёл, а WF подставляет редактор значения позже, и отпечаток
+  дерева инспектора (`PropertyWindowStyleHelper.ComputeSignature`) при этом не меняется. Решение:
+  `WfVisualTreeThemer.HookLayoutSweep` — по `LayoutUpdated` корня ищутся комбобоксы без отметки палитры
+  (`ComboBoxMarks`) и темизируются только они (отложенно, флаг `Pending` — одна проверка на цикл
+  раскладки), плюс `ScheduleComboBoxRetry` — один повторный проход, если шаблон ещё не материализован
+  (`Template == null` или нет `PART_EditableTextBox` при `IsEditable`), с пометкой на палитру от
+  бесконечной цепочки. Стражи —
+  `WfDesignerTableThemeTests.ThemeComboBoxes_ComboBoxCreatedAfterSweep_IsThemedOnLoad`,
+  `.ThemeComboBoxes_ComboBoxOutsideThemedRootsKeepsSystemChrome`,
+  `.Sources_ThemerThemesLateCreatedComboBoxesOnLayout`.
 
   Панели «Переменные», «Аргументы», «Пространства имён» (вкладки shell bar, таблицы и их контекстное
   меню) темизирует `Helpers\WfDataGridTheme.cs` (F-04). Причина отдельного прохода: WF объявляет таблицы

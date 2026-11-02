@@ -329,6 +329,7 @@
     <Compile Include="Enums\WorkflowState.cs" />
     <Compile Include="Helpers\AssembliesHelper.cs" />
     <Compile Include="Helpers\XamlHelper.cs" />
+    <Compile Include="Helpers\ProjectPathResolver.cs" />
     <Compile Include="Logging\Log.cs" />
     <Compile Include="Core\WorkflowDesignerEx.cs" />
     <Compile Include="Extensions\SourceLocationExtensions.cs" />
@@ -354,6 +355,7 @@
     <Compile Include="Helpers\WfThemeStyles.cs" />
     <Compile Include="Helpers\WfDesignerTheme.cs" />
     <Compile Include="Helpers\WfDataGridTheme.cs" />
+    <Compile Include="Helpers\WfContextMenuTheme.cs" />
 
     <Compile Include="Helpers\MaterialThemePalette.cs" />
     <Compile Include="Helpers\StudioPalette.cs" />
@@ -530,6 +532,7 @@
     <None Include="Docs\User_Guide_AI_Activities.md" />
     <None Include="Docs\Vs2026_Theme_Acceptance.md" />
     <None Include="Docs\Vs2026_Theme_Plan.md" />
+    <None Include="Docs\Vs_Project_ContextMenu_Plan.md" />
     <None Include="Docs\WorkflowEditTracking_Architecture.md" />
     <None Include="NLog.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -692,6 +695,7 @@
     <Compile Include="VsProject\VsProjectParser.cs" />
     <Compile Include="VsProject\VsProjectLoader.cs" />
     <Compile Include="VsProject\VsProjectBuilder.cs" />
+    <Compile Include="VsProject\VsProjectWriter.cs" />
     <Compile Include="Models\VsProjectOpen.cs" />
     <Compile Include="ViewModels\VsProjectOpenViewModel.cs" />
     <Compile Include="Views\VsProjectOpenView.xaml.cs">
