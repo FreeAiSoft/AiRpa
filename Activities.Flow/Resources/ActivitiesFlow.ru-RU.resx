@@ -118,10 +118,10 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="args" xml:space="preserve">
-    <value>Аргементы</value>
+    <value>Аргументы</value>
   </data>
   <data name="args_desc" xml:space="preserve">
-    <value>Аргементы активности</value>
+    <value>Аргументы активности</value>
   </data>
   <data name="change_args" xml:space="preserve">
     <value>Изменить аргументы</value>

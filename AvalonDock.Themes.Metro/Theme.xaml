@@ -816,7 +816,12 @@
     </DataTemplate>
 
     <!--  DocumentPaneControlStyle  -->
-    <!--  Кнопка закрытия вкладки документа: hover — семантика закрытия (CloseHover* палитры).  -->
+    <!--
+        Кнопка закрытия вкладки документа: hover — нейтральная подсветка фона из палитры
+        (AvalonDock_SelectionHover, нажатие — AvalonDock_Selection). Красной плашки и смены цвета глифа
+        нет: в шапке вкладок крестик не должен превращаться в «красный кружок с крестиком».
+        Токены CloseHover* остаются для кнопки закрытия окна и валидации WF — здесь не используются.
+    -->
     <Style x:Key="AvalonDock_ThemeMetro_DocumentCloseButtonStyle"
            TargetType="Button"
            BasedOn="{StaticResource AvalonDock_ThemeMetro_ButtonStyle}">
@@ -824,14 +829,104 @@
             <Trigger Property="IsMouseOver"
                      Value="True">
                 <Setter Property="Background"
-                        Value="{DynamicResource AvalonDock_CloseHoverBackground}" />
+                        Value="{DynamicResource AvalonDock_SelectionHover}" />
             </Trigger>
             <Trigger Property="IsPressed"
                      Value="True">
                 <Setter Property="Background"
-                        Value="{DynamicResource AvalonDock_CloseHoverBackground}" />
+                        Value="{DynamicResource AvalonDock_Selection}" />
             </Trigger>
         </Style.Triggers>
+    </Style>
+
+    <!--
+        Меню списка открытых документов (шеврон в шапке панели документов).
+        Раньше меню и его пункты рисовали неявные стили MaterialDesign из App.xaml: у пункта
+        Padding="24,0,24,0", поэтому между кромкой меню и названием документа оставалась широкая
+        пустая полоса. Теперь у меню своя рамка 1 px и нулевой паддинг, а отступ подписи задаёт
+        Padding пункта — 9 px: ровно 10 px от внешней кромки меню до начала текста (1 px рамки + 9 px).
+        Иконка документа в пункте не рисуется: колонка иконки шаблона MaterialDesign и была вторым
+        источником пустого места, а IconSource у документов студии не задан.
+    -->
+    <Style x:Key="AvalonDock_ThemeMetro_DocumentPaneContextMenuStyle"
+           TargetType="{x:Type avalonDockControls:ContextMenuEx}">
+        <Setter Property="Background"
+                Value="{DynamicResource AvalonDock_Surface}" />
+        <Setter Property="Foreground"
+                Value="{DynamicResource AvalonDock_Foreground}" />
+        <Setter Property="BorderBrush"
+                Value="{DynamicResource AvalonDock_SeparatorStrong}" />
+        <Setter Property="BorderThickness"
+                Value="1" />
+        <!--  Нулевой паддинг меню: весь отступ слева задаёт пункт (см. цифру 10 px выше).  -->
+        <Setter Property="Padding"
+                Value="0" />
+        <Setter Property="FontFamily"
+                Value="{DynamicResource Studio.FontFamily}" />
+        <Setter Property="SnapsToDevicePixels"
+                Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type avalonDockControls:ContextMenuEx}">
+                    <Border x:Name="MenuBorder"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4"
+                            SnapsToDevicePixels="True">
+                        <StackPanel IsItemsHost="True"
+                                    KeyboardNavigation.DirectionalNavigation="Cycle" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="AvalonDock_ThemeMetro_DocumentPaneMenuItemStyle"
+           TargetType="{x:Type avalonDockControls:MenuItemEx}">
+        <!--  10 px от внешней кромки меню: 1 px рамки меню + 9 px отступа пункта.  -->
+        <Setter Property="Padding"
+                Value="9,4,12,4" />
+        <Setter Property="Foreground"
+                Value="{DynamicResource AvalonDock_Foreground}" />
+        <Setter Property="FontFamily"
+                Value="{DynamicResource Studio.FontFamily}" />
+        <Setter Property="SnapsToDevicePixels"
+                Value="True" />
+        <Setter Property="HeaderTemplate"
+                Value="{Binding Path=Root.Manager.DocumentPaneMenuItemHeaderTemplate}" />
+        <Setter Property="HeaderTemplateSelector"
+                Value="{Binding Path=Root.Manager.DocumentPaneMenuItemHeaderTemplateSelector}" />
+        <Setter Property="Command"
+                Value="{Binding Path=., Converter={avalonDockConverters:ActivateCommandLayoutItemFromLayoutModelConverter}}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type avalonDockControls:MenuItemEx}">
+                    <Border x:Name="ItemBorder"
+                            Background="Transparent"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="Left"
+                                          VerticalAlignment="Center"
+                                          ContentSource="Header"
+                                          RecognizesAccessKey="False" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted"
+                                 Value="True">
+                            <Setter TargetName="ItemBorder"
+                                    Property="Background"
+                                    Value="{DynamicResource AvalonDock_Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled"
+                                 Value="False">
+                            <Setter Property="Foreground"
+                                    Value="{DynamicResource AvalonDock_ForegroundMuted}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key="AvalonDock_ThemeMetro_DocumentPaneControlStyle"
@@ -873,31 +968,14 @@
                                                                          KeyboardNavigation.TabIndex="1" />
                                 <avalonDockControls:DropDownButton x:Name="MenuDropDownButton"
                                                                    Grid.Column="1"
+                                                                   Margin="0,0,3,0"
                                                                    VerticalAlignment="Center"
                                                                    Focusable="False"
                                                                    Style="{StaticResource AvalonDock_ThemeMetro_ToolButtonStyle}">
                                     <avalonDockControls:DropDownButton.DropDownContextMenu>
                                         <avalonDockControls:ContextMenuEx ItemsSource="{Binding Model.ChildrenSorted, RelativeSource={RelativeSource TemplatedParent}}"
-                                                                          Background="{DynamicResource AvalonDock_Surface}"
-                                                                          Foreground="{DynamicResource AvalonDock_Foreground}"
-                                                                          BorderBrush="{DynamicResource AvalonDock_SeparatorStrong}"
-                                                                          BorderThickness="1">
-                                            <avalonDockControls:ContextMenuEx.ItemContainerStyle>
-                                                <Style BasedOn="{StaticResource {x:Type MenuItem}}"
-                                                       TargetType="{x:Type avalonDockControls:MenuItemEx}">
-                                                    <Setter Property="HeaderTemplate"
-                                                            Value="{Binding Path=Root.Manager.DocumentPaneMenuItemHeaderTemplate}" />
-                                                    <Setter Property="HeaderTemplateSelector"
-                                                            Value="{Binding Path=Root.Manager.DocumentPaneMenuItemHeaderTemplateSelector}" />
-                                                    <Setter Property="IconTemplate"
-                                                            Value="{Binding Path=Root.Manager.IconContentTemplate}" />
-                                                    <Setter Property="IconTemplateSelector"
-                                                            Value="{Binding Path=Root.Manager.IconContentTemplateSelector}" />
-                                                    <Setter Property="Command"
-                                                            Value="{Binding Path=., Converter={avalonDockConverters:ActivateCommandLayoutItemFromLayoutModelConverter}}" />
-                                                </Style>
-                                            </avalonDockControls:ContextMenuEx.ItemContainerStyle>
-                                        </avalonDockControls:ContextMenuEx>
+                                                                          ItemContainerStyle="{StaticResource AvalonDock_ThemeMetro_DocumentPaneMenuItemStyle}"
+                                                                          Style="{StaticResource AvalonDock_ThemeMetro_DocumentPaneContextMenuStyle}" />
                                     </avalonDockControls:DropDownButton.DropDownContextMenu>
                                     <Path Width="10" Height="10" Stretch="Uniform" Fill="{DynamicResource AvalonDock_ForegroundMuted}" Data="{StaticResource AvalonDock_GlyphMenu}" />
                                 </avalonDockControls:DropDownButton>
@@ -1313,15 +1391,17 @@
                                                   ContentTemplate="{Binding DocumentHeaderTemplate, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type avalonDock:DockingManager}, Mode=FindAncestor}}"
                                                   ContentTemplateSelector="{Binding DocumentHeaderTemplateSelector, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type avalonDock:DockingManager}, Mode=FindAncestor}}" />
                                 <!--  Close button should be moved out to the container style  -->
+                                <!--  Крестик вкладки: Margin 5px слева — чтобы глиф не прилипал к заголовку документа.  -->
                                 <Button x:Name="DocumentCloseButton"
                                         Grid.Column="2"
+                                        Margin="5,0,0,0"
                                         HorizontalAlignment="Center"
                                         VerticalAlignment="Center"
                                         Command="{Binding Path=LayoutItem.CloseCommand, RelativeSource={RelativeSource TemplatedParent}}"
                                         Style="{StaticResource AvalonDock_ThemeMetro_DocumentCloseButtonStyle}"
                                         ToolTip="{x:Static avalonDockProperties:Resources.Document_Close}"
                                         Visibility="Visible">
-                                    <Path x:Name="PART_ImgPinClose" Width="10" Height="10" Stretch="Uniform" Fill="{DynamicResource AvalonDock_Foreground}" Data="{StaticResource AvalonDock_GlyphClose}" />
+                                    <Path x:Name="PART_ImgPinClose" Width="8" Height="8" Margin="1" Stretch="Uniform" Fill="{DynamicResource AvalonDock_Foreground}" Data="{StaticResource AvalonDock_GlyphClose}" />
                                 </Button>
                             </Grid>
                         </Border>
@@ -1389,15 +1469,10 @@
                                     Property="Visibility"
                                     Value="Collapsed" />
                         </MultiDataTrigger>
-
-                        <!--  Крестик закрытия: hover — глиф из семантики закрытия (единственный не-нейтральный цвет).  -->
-                        <Trigger SourceName="DocumentCloseButton"
-                                 Property="IsMouseOver"
-                                 Value="True">
-                            <Setter TargetName="PART_ImgPinClose"
-                                    Property="Fill"
-                                    Value="{DynamicResource AvalonDock_CloseHoverForeground}" />
-                        </Trigger>
+                        <!--
+                            Hover крестика меняет только фон кнопки (AvalonDock_ThemeMetro_DocumentCloseButtonStyle):
+                            глиф остаётся AvalonDock_Foreground, поэтому «вспышки» белого на красном здесь нет.
+                        -->
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>

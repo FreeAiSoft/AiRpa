@@ -1,0 +1,123 @@
+        private DispatcherTimer _validationTimer;
+
+        /// <summary>
+        /// Подпись реализованных вьюх на момент последнего полного прохода (см. <see cref="ValidationSchedule"/>).
+        /// <c>null</c> — прохода ещё не было.
+        /// </summary>
+        private string _lastRealizedSignature;
+
+        private const int ValidationDelayMs = 800; // Период сверки: полный проход — только при изменениях
+
+        public DesignerValidator(WorkflowDesignerEx workflowDesignerEx)
+        {
+            _workflowDesignerEx = workflowDesignerEx;
+            workflowDesignerEx.ModelChanged += WorkflowDesignerEx_ModelChanged;
+
+            // Подписываемся на событие изменения сервисов
+            _workflowDesignerEx.Context.Services.Subscribe<ModelService>(OnModelServiceAvailable);
+
+            // Инициализация таймера для фоновой валидации
+            InitializeValidationTimer();
+        }
+
+        /// <summary>
+        /// Инициализирует таймер для фоновой валидации
+        /// </summary>
+        private void InitializeValidationTimer()
+        {
+            _validationTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(ValidationDelayMs)
+            };
+            _validationTimer.Tick += ValidationTimer_Tick;
+            _validationTimer.Start();
+        }
+
+        /// <summary>
+        /// Тик таймера: полный проход выполняется, только когда он имеет смысл.
+        /// <para>
+        /// Иконка живёт в вьюхе активности, а вьюхи появляются позже загрузки документа (панель,
+        /// раскладка, тема) и исчезают при сворачивании активности. Поэтому триггером служит не только
+        /// изменение модели, но и смена подписи реализованных вьюх: без этого единственный
+        /// «инициализационный» проход отрабатывал до построения поверхности, и ошибки не показывались
+        /// до первой правки (баг «при загрузке и в покое ошибок нет»).
+        /// </para>
+        /// </summary>
+        private void ValidationTimer_Tick(object sender, EventArgs e)
+        {
+            if (!_isModelServiceAvailable)
+            {
+                return;
+            }
+
+            List<ModelItem> modelItems = GetModelItems();
+            string currentSignature = modelItems == null ? null : BuildRealizedSignature(modelItems);
+
+            bool isModelChanged = _isModelChanged;
+            if (!ValidationSchedule.ShouldValidate(isModelChanged, _isNeedInitValidation, _lastRealizedSignature, currentSignature))
+            {
+                return;
+            }
+
+            _isModelChanged = false;
+            Validate(modelItems);
+
+            // Подпись фиксируется после прохода, флаг инициализации снимается: дальше проход повторяется
+            // только по изменению модели или появлению/пересозданию вьюх.
+            _lastRealizedSignature = BuildRealizedSignature(modelItems);
+            _isNeedInitValidation = false;
+        }
+
+        /// <summary>
+        /// Активности рабочего процесса из модели дизайнера. <c>null</c> — модель ещё не загружена
+        /// (проход не имеет смысла, таймер повторит проверку на следующем тике).
+        /// </summary>
+        private List<ModelItem> GetModelItems()
+        {
+            ModelService modelService = _workflowDesignerEx.Context.Services.GetService<ModelService>();
+            ModelItem rootModelItem = modelService?.Root;
+            ModelItem implementationModelItem = rootModelItem?.Properties["Implementation"]?.Value;
+            if (implementationModelItem == null
+                || !(implementationModelItem.GetCurrentValue() is System.Activities.Activity))
+            {
+                return null;
+            }
+
+            return GetModelItemChilds(implementationModelItem);
+        }
+
+        /// <summary>
+        /// Подпись реализованных вьюх: для каждой активности с вьюхой — ключ с идентичностью вьюхи.
+        /// Обход модели без компиляции выражений, поэтому его можно выполнять на каждом тике.
+        /// </summary>
+        private static string BuildRealizedSignature(List<ModelItem> modelItems)
+        {
+            List<string> keys = new List<string>(modelItems.Count);
+            for (int index = 0; index < modelItems.Count; index++)
+            {
+                ModelItem modelItem = modelItems[index];
+                object view;
+                try
+                {
+                    view = modelItem.View;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"BuildRealizedSignature: View недоступен для {modelItem.ItemType?.Name}: {ErrorText.Of(ex)}");
+                    continue;
+                }
+
+                if (view == null)
+                {
+                    continue;
+                }
+
+                keys.Add(ValidationSchedule.BuildViewKey(
+                    index,
+                    modelItem.ItemType?.Name,
+                    System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(view)));
+            }
+
+            return ValidationSchedule.BuildSignature(keys);
+        }
+

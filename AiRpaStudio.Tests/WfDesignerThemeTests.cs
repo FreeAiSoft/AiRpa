@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using System.Activities.Presentation;
 using System.Collections.Generic;
 using System.IO;
@@ -215,6 +217,82 @@ public class WfDesignerThemeTests
             Assert.That(ColorOf(activityBorder.Background), Is.EqualTo(StudioPalette.Dark.Surface));
         });
     }
+
+    [Test]
+    public void Apply_RestoresWorkflowDefaultsAfterReturningToLight()
+    {
+        // Регресс: пустая активность в дизайнере — плита Border 440x440 вокруг подсказки
+        // «Перетащите сюда действие» — после light → dark → light оставалась цвета Dark.Surface
+        // (#272727): на светлой теме вокруг подсказки был виден чёрный прямоугольник толщиной
+        // с бордер плиты. Причина: дефолт WF подменялся один раз, а цвет палитры предыдущей темы
+        // в списке дефолтов отсутствовал, поэтому обратная замена не срабатывала никогда.
+        (Grid root, _, _, _, _, _, _) = BuildDesignerViewTree();
+        Border plate = AddActivityPlate(root, out Label caption);
+        var placeholder = (TextBlock)caption.Content;
+
+        WfDesignerTheme.Apply(root, StudioPalette.Light);
+        Assert.That(ColorOf(plate.Background), Is.EqualTo(StudioPalette.Light.Surface),
+            "свежий документ в светлой теме: плита на поверхности");
+
+        WfDesignerTheme.Apply(root, StudioPalette.Dark);
+        Assert.That(ColorOf(plate.Background), Is.EqualTo(StudioPalette.Dark.Surface),
+            "тёмная тема: плита на поверхности");
+
+        WfDesignerTheme.Apply(root, StudioPalette.Light);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(plate.Background), Is.EqualTo(StudioPalette.Light.Surface),
+                "плита осталась на цвете тёмной палитры — вокруг подсказки виден чёрный прямоугольник");
+            Assert.That(ColorOf(plate.BorderBrush), Is.EqualTo(StudioPalette.Light.SeparatorStrong),
+                "рамка плиты осталась на цвете тёмной палитры");
+            Assert.That(ColorOf(caption.Foreground), Is.EqualTo(StudioPalette.Light.Foreground),
+                "подпись осталась на цвете тёмной палитры");
+            Assert.That(ColorOf(placeholder.Foreground), Is.EqualTo(StudioPalette.Light.Foreground));
+        });
+    }
+
+    [Test]
+    public void Apply_RestoresWorkflowDefaultsWhenDocumentOpensInDarkTheme()
+    {
+        // Обратный порядок: документ открыт в тёмной теме, затем переключение на светлую (без
+        // предварительного светлого прохода, поэтому «дефолт WF» сразу подменяется на тёмный).
+        (Grid root, _, _, _, _, _, _) = BuildDesignerViewTree();
+        Border plate = AddActivityPlate(root, out Label caption);
+
+        WfDesignerTheme.Apply(root, StudioPalette.Dark);
+        Assert.That(ColorOf(plate.Background), Is.EqualTo(StudioPalette.Dark.Surface));
+
+        WfDesignerTheme.Apply(root, StudioPalette.Light);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(plate.Background), Is.EqualTo(StudioPalette.Light.Surface));
+            Assert.That(ColorOf(plate.BorderBrush), Is.EqualTo(StudioPalette.Light.SeparatorStrong));
+            Assert.That(ColorOf(caption.Foreground), Is.EqualTo(StudioPalette.Light.Foreground));
+        });
+    }
+
+    [Test]
+    public void Apply_RoundTrip_KeepsCustomBrushes()
+    {
+        // Второе правило замены (цвет противоположной палитры → токен активной) не должно
+        // захватывать пользовательские кисти: они не токены палитры.
+        (Grid root, _, _, _, _, _, _) = BuildDesignerViewTree();
+        var custom = new Border { Background = Brushes.Magenta, BorderBrush = Brushes.Magenta };
+        root.Children.Add(custom);
+
+        WfDesignerTheme.Apply(root, StudioPalette.Light);
+        WfDesignerTheme.Apply(root, StudioPalette.Dark);
+        WfDesignerTheme.Apply(root, StudioPalette.Light);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(custom.Background), Is.EqualTo(Colors.Magenta));
+            Assert.That(ColorOf(custom.BorderBrush), Is.EqualTo(Colors.Magenta));
+        });
+    }
+
 
     [Test]
     public void Apply_DoesNotTouchCustomBackgrounds()
@@ -1135,6 +1213,172 @@ public class WfDesignerThemeTests
 
 
     // --- Построители и помощники. ---
+    /// <summary>
+    /// Плита пустой активности в том виде, в каком её строит WF: <c>Border</c> с локальными
+    /// (пришедшими через <c>{StaticResource}</c>) фоном и рамкой и подсказкой «Перетащите сюда
+    /// действие» внутри. Локальные кисти не пересчитываются при смене темы — их перекрашивает
+    /// только <c>ReplaceWorkflowDefaultColors</c>.
+    /// </summary>
+    private static Border AddActivityPlate(Grid root, out Label caption)
+    {
+        caption = new Label
+        {
+            Foreground = new SolidColorBrush(WorkflowDesignerColors.WorkflowViewElementCaptionColor),
+            Content = new TextBlock { Text = "Перетащите сюда действие" }
+        };
+
+        var plate = new Border
+        {
+            Background = new SolidColorBrush(WorkflowDesignerColors.WorkflowViewElementBackgroundColor),
+            BorderBrush = new SolidColorBrush(WorkflowDesignerColors.WorkflowViewElementBorderColor),
+            Child = caption
+        };
+
+        root.Children.Add(plate);
+        return plate;
+    }
+
+
+    // --- Пункт «кнопки Развернуть/Свернуть в заголовке дизайнера» (P-10). ---
+
+    [Test]
+    public void Apply_HeaderButtonsFitTheirCaptions()
+    {
+        (Grid root, ToggleButton expand, ToggleButton collapse) = BuildHeaderButtons();
+
+        var window = new Window { Width = 420, Height = 120, ShowInTaskbar = false, Content = root };
+        window.Show();
+        try
+        {
+            Pump(window);
+            WfDesignerTheme.Apply(root, StudioPalette.Dark);
+            Pump(window);
+
+            TextBlock expandCaption = HeaderCaptionOf(expand);
+            TextBlock collapseCaption = HeaderCaptionOf(collapse);
+
+            Assert.Multiple(() =>
+            {
+                // Регресс: кнопки WF получают неявный стиль MaterialDesign с Width=34 — подпись
+                // «Развернуть все» (≈83 px) вылезала за кнопку и обрезалась краем панели.
+                Assert.That(expand.Width, Is.EqualTo(double.NaN), "Width=34 из стиля MaterialDesign должен быть снят");
+                Assert.That(collapse.Width, Is.EqualTo(double.NaN), "Width=34 из стиля MaterialDesign должен быть снят");
+                Assert.That(expand.ActualWidth, Is.GreaterThanOrEqualTo(CaptionWidth(expandCaption) + 10d),
+                    "подпись «Развернуть все» должна целиком влезать в кнопку");
+                Assert.That(collapse.ActualWidth, Is.GreaterThanOrEqualTo(CaptionWidth(collapseCaption) + 10d),
+                    "подпись «Свернуть все» должна целиком влезать в кнопку");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [Test]
+    public void Apply_HeaderButtonsKeepFivePixelRightInset()
+    {
+        (Grid root, ToggleButton expand, ToggleButton collapse) = BuildHeaderButtons();
+
+        var window = new Window { Width = 420, Height = 120, ShowInTaskbar = false, Content = root };
+        window.Show();
+        try
+        {
+            Pump(window);
+            WfDesignerTheme.Apply(root, StudioPalette.Dark);
+
+            // Смена темы не должна накапливать отступ: проход идемпотентен.
+            WfDesignerTheme.Apply(root, StudioPalette.Light);
+            WfDesignerTheme.Apply(root, StudioPalette.Dark);
+            Pump(window);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(collapse.Margin.Right, Is.EqualTo(WfDesignerTheme.HeaderButtonsRightInset),
+                    "пара кнопок должна отступать от правого края на 5 px дальше, чем задано шаблоном WF");
+                Assert.That(expand.Margin.Right, Is.Zero,
+                    "отступ добавляется один раз на пару: у левой кнопки своего отступа нет");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// Пара «Развернуть все»/«Свернуть все» в том виде, в каком её строит WF: правый край шапки
+    /// (колонка <c>Auto</c>) и горизонтальная панель с <c>HorizontalAlignment=Right</c>.
+    /// </summary>
+    private static (Grid Root, ToggleButton Expand, ToggleButton Collapse) BuildHeaderButtons()
+    {
+        var root = new Grid();
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var panel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+
+        Grid.SetColumn(panel, 1);
+
+        ToggleButton expand = CreateHeaderButton(WfDesignerTheme.ExpandAllButtonName, "Развернуть все");
+        ToggleButton collapse = CreateHeaderButton(WfDesignerTheme.CollapseAllButtonName, "Свернуть все");
+
+        _ = panel.Children.Add(expand);
+        _ = panel.Children.Add(collapse);
+        _ = root.Children.Add(panel);
+
+        return (root, expand, collapse);
+    }
+
+    /// <summary>
+    /// Кнопка заголовка как в <c>DesignerView.xaml</c>: собственный шаблон растягивает подпись
+    /// с отступом 5, а размер задаёт неявный стиль MaterialDesign (<c>Width=34</c>).
+    /// </summary>
+    private static ToggleButton CreateHeaderButton(string name, string caption)
+    {
+        var button = new ToggleButton { Name = name, Tag = caption, Width = 34, Focusable = false };
+        button.Template = (ControlTemplate)System.Windows.Markup.XamlReader.Parse(
+            "<ControlTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml' TargetType='{x:Type ToggleButton}'>"
+            + "<Grid><TextBlock x:Name='" + WfDesignerTheme.HeaderCaptionPartName
+            + "' Margin='5,5,5,5' Text='{Binding Path=Tag, RelativeSource={RelativeSource AncestorType={x:Type ToggleButton}}}' /></Grid>"
+            + "</ControlTemplate>");
+        return button;
+    }
+
+    /// <summary>Подпись кнопки заголовка (часть шаблона <c>collapseAllText</c>).</summary>
+    private static TextBlock HeaderCaptionOf(ToggleButton button)
+    {
+        button.ApplyTemplate();
+
+        if (button.Template.FindName(WfDesignerTheme.HeaderCaptionPartName, button) is TextBlock caption)
+        {
+            return caption;
+        }
+
+        TextBlock found = FindDescendant<TextBlock>(button);
+        Assert.That(found, Is.Not.Null, "в шаблоне кнопки заголовка нет подписи");
+        return found;
+    }
+
+    /// <summary>Ширина подписи в пикселях — по ней считается минимальная ширина кнопки.</summary>
+    private static double CaptionWidth(TextBlock caption)
+    {
+        var formatted = new FormattedText(
+            caption.Text,
+            CultureInfo.CurrentUICulture,
+            FlowDirection.LeftToRight,
+            new Typeface(caption.FontFamily, caption.FontStyle, caption.FontWeight, caption.FontStretch),
+            caption.FontSize,
+            Brushes.Black,
+            1.0);
+
+        return formatted.WidthIncludingTrailingWhitespace;
+    }
+
 
     /// <summary>
     /// Синтетическое дерево, повторяющее структуру <c>DesignerView</c>:

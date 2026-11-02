@@ -1,0 +1,66 @@
+defaults keys=46
+dictionaries=197
+=== ToggleButton present=True
+--- ToggleButton target=ToggleButton
+--- basedOn of ToggleButton target=ToggleButton
+    setter Panel.Background = System.Windows.DynamicResourceExtension
+    setter Border.BorderThickness = 1,1,1,1
+    setter FrameworkElement.Cursor = Hand
+    setter FrameworkElement.FocusVisualStyle = System.Windows.Style
+    setter TextElement.Foreground = System.Windows.DynamicResourceExtension
+    setter Control.Padding = 0,1,0,0
+    setter Control.Template = System.Windows.Controls.ControlTemplate
+    setter Validation.ErrorTemplate = System.Windows.Controls.ControlTemplate
+    setter FrameworkElement.Width = 34
+    setter ToggleButtonAssist.SwitchTrackOffBackground = #FF000000
+    setter ToggleButtonAssist.SwitchTrackOnBackground = System.Windows.DynamicResourceExtension
+TEMPLATE for ToggleButton from ToggleButton:
+  Viewbox name= margin=0,0,0,0 w=NaN h=NaN minw=0
+    ContainerVisual
+      Grid name= margin=0,0,0,0 w=NaN h=NaN minw=0
+        Rectangle name=Track margin=4.211,5,4.211,0 w=40 h=15 minw=0
+        Grid name=ThumbHolder margin=0,0,0,0 w=NaN h=NaN minw=0
+          Ellipse name=RippleThumb margin=0,0,0,0 w=25 h=25 minw=0
+          Ellipse name=halo margin=0,0,0,0 w=22 h=22 minw=0
+          AdornerDecorator name= margin=0,0,0,0 w=NaN h=NaN minw=0
+            Ellipse name=Thumb margin=0,0,0,0 w=25 h=25 minw=0
+            AdornerLayer name= margin=0,0,0,0 w=NaN h=NaN minw=0
+          ContentPresenter name=ContentPresenter margin=0,0,0,0 w=NaN h=NaN minw=0
+=== MenuItem present=True
+--- MenuItem target=MenuItem
+--- basedOn of MenuItem target=MenuItem
+    setter Panel.Background = #00FFFFFF
+    setter FrameworkElement.OverridesDefaultStyle = True
+    setter Control.Padding = 24,0,24,0
+    setter MenuItemAssist.HighlightedBackground = System.Windows.Data.Binding
+    setter Control.Template = System.Windows.Controls.ControlTemplate
+TEMPLATE for MenuItem from MenuItem:
+  Grid name= margin=0,0,0,0 w=NaN h=NaN minw=0
+    Border name=templateRoot margin=0,0,0,0 w=NaN h=NaN minw=0
+    Border name=BackgroundRoot margin=0,0,0,0 w=NaN h=NaN minw=0
+    Ripple name= margin=0,0,0,0 w=NaN h=NaN minw=0 padding=0,0,0,0
+    Popup name=PART_Popup margin=0,0,0,0 w=NaN h=NaN minw=0
+=== ContextMenu present=True
+--- ContextMenu target=ContextMenu
+--- basedOn of ContextMenu target=ContextMenu
+    setter Panel.Background = System.Windows.DynamicResourceExtension
+    setter Control.Template = System.Windows.Controls.ControlTemplate
+--- basedOn of basedOn of ContextMenu target=MenuBase
+      setter Panel.Background = #00FFFFFF
+      setter TextElement.FontFamily = pack://application:,,,/MaterialDesignThemes.Wpf;component/Resources/Roboto/#Roboto
+      setter TextElement.Foreground = System.Windows.DynamicResourceExtension
+      setter Control.Template = System.Windows.Controls.ControlTemplate
+      setter TextElement.FontSize = 15
+      setter FrameworkElement.UseLayoutRounding = True
+      setter Control.VerticalContentAlignment = Center
+      setter MenuAssist.TopLevelMenuItemHeight = 48
+TEMPLATE for ContextMenu from ContextMenu:
+  AdornerDecorator name= margin=0,0,0,0 w=NaN h=NaN minw=0
+    Grid name= margin=0,0,0,0 w=NaN h=NaN minw=0
+      Border name= margin=3,3,3,3 w=NaN h=NaN minw=0
+      Border name= margin=3,3,3,3 w=NaN h=NaN minw=0
+        ScrollViewer name=SubMenuScrollViewer margin=0,0,0,0 w=NaN h=NaN minw=0 padding=0,0,0,0
+    AdornerLayer name= margin=0,0,0,0 w=NaN h=NaN minw=0
+TEMPLATE for ContextMenu from MenuBase:
+  Border name= margin=0,0,0,0 w=NaN h=NaN minw=0
+    ItemsPresenter name= margin=0,0,0,0 w=NaN h=NaN minw=0

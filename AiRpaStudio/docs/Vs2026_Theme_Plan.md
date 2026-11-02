@@ -581,6 +581,16 @@ Release-сборка `AiRpaStudio.csproj` проходит.
 * Roslyn-редактор (`CSharpExpressionEditor\RoslynExpressionEditor.xaml`): многоцветные `DrawingBrush`
   `TextBoxErrorIcon`/`ResizeGripIcon` удалены, рамка — `Studio.Separator`, бейдж ошибки — hairline-рамка
   `Studio.CloseHoverBackground` (красный только для ошибки), `MaterialDesign.Brush.Card.Border` заменён;
+  **Уточнение (баг «ошибка выражения — красная рамка без иконки»):** hairline-бейдж неотличим от
+  «иконки нет» — в `RoslynExpressionEditor.xaml` он заменён глифом `materialIcons:MaterialIcon`
+  (`Kind="Error"`) в `Studio.CloseHoverBackground`; проверка выражения идёт по изменению текста с
+  паузой-дребезгом (`Core\ExpressionValidationTiming.cs`, 350 мс; резервный цикл 3000 мс вместо
+  10 000 мс). Иконка на активности рисуется родным рисунком WF
+  (`ValidationIconState.ErrorIconBrush()` = `DesignerItems.ActivityErrorValidation`, сплошная кисть
+  палитры только как резерв), у адаптера ошибки рядом с рамкой появился значок «!».
+  Стражи: `AiRpaStudio.Tests\ErrorBadgeTests.cs`, `ExpressionValidationTimingTests.cs`,
+  `ValidationIconGlyphTests.cs`.
+
 * `AvalonDock\Themes\generic.xaml`: `Background="White"` → `Transparent`, `Fill="AliceBlue"`/`Stroke`
   → `AvalonDock_OverlayFill`/`AvalonDock_OverlayStroke` (ключи моста этапа 3);
 * `AvalonDock.Themes.Metro\MetroTheme.cs`: акцент `#DC143C`/`#FF8C00` и светлые `#FFFFFF`/`#FAFAFA`
@@ -729,4 +739,26 @@ Release-сборка `AiRpaStudio.csproj` проходит.
 * `Controls\CodeEditorView` — `ApplyTheme()`, вызов из `MainView.ReapplyWorkflowControlThemes`;
   редактор выражения WF (`RoslynExpressionEditorInstance2`, `VbExpressionEditorInstance`) — шрифт
   `StudioFonts.CodeFont` и темизированное определение `C#`/`VB`.
+
+### 12.7 Плоские кнопки окна «Свойства» (правка F-03)
+
+* `Helpers\PropertyWindowStyleHelper.cs`, `CreateIconHost` получил `iconSize`/`framed`:
+  у переключателей «По категориям»/«Алфавитный» `CornerRadius = 0` — скругления убраны, hairline-рамка
+  `Separator`, размер кнопки 28×28 и глиф 20 px (`ToolButtonIconSize`) не менялись; у кнопки очистки
+  поиска рамки нет вовсе (`framed: false`), а крестик уменьшен в 1,5 раза — `ClearIconSize = 11` вместо
+  16 (было `ClearButtonSize − IconPadding`) при том же размере кнопки 24×24. Токен
+  `StudioPalette.ButtonCornerRadius` остался общим правилом студии и здесь просто не применяется.
+* Кнопка «…» строк свойств (WF `EditModeSwitchButton`) плоская: `ApplyEditModeButtons` →
+  `MakeFlatButtonChrome` ставит прозрачные `Background`/`BorderBrush`, `BorderThickness = 0`,
+  `Effect = null`, а в шаблоне обнуляет `CornerRadius`, рамку, фон и тень у всех детей (скругление и
+  «объём» приходят из чужого шаблона кнопки, своих сеттеров WF-стиль не содержит). Если хромировку
+  рисует системный `ButtonChrome` (Border-потомка нет) — ставится плоский шаблон на `ContentPresenter`;
+  глиф не теряется, потому что WF отдаёт его через `Content` (триггер `TargetEditMode = Dialog` →
+  `Content = "..."` в `stylescore.editmodeswitchbutton.baml`). Ховер-плашки у «…» больше нет — прямое
+  следствие «плоскости»; размеры (`Width`/`Height` = 20 из WF-стиля) не менялись.
+* Тесты: `WfThemeTests.PropertyHelper_StylesButtonsByName` (радиус 0 у обоих переключателей),
+  `.PropertyHelper_SearchClearButton_IsFramelessWithSmallerGlyph`,
+  `.EditModeButton_IsFlatWithoutCornerRadiusAndShadow`,
+  `.EditModeButton_WithoutBorderChrome_GetsFlatTemplateAndKeepsGlyph`,
+  `.PropertyHelper_FlattensEditModeButtons`.
 

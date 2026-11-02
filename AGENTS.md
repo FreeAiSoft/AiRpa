@@ -67,6 +67,22 @@
   («…не является Visual или Visual3D»). Страж — `AiRpaStudio.Tests\VisualTreeWalkTests.cs`.
 
 
+## Версии пакетов и привязка сборок
+- В решении должна быть **одна** версия каждой транзитивной зависимости. `System.Threading.Tasks.Extensions`
+  закреплена на 4.5.4 (сборка 4.2.0.1): в legacy-проектах через `packages.config`, в SDK-проектах — явным
+  `PackageReference`. Пакет 4.5.2 даёт сборку 4.2.0.0 (её тянули транзитивно `RPA.Chat` и `VibeCoder.Core`).
+- Симптом нарушения: при загрузке проекта WF-панель «Пространства имён» (`ImportDesigner`) перечисляет типы
+  сборок (`Assembly.GetExportedTypes`), привязка зависимости падает с `FileLoadException` / HRESULT 0x80131040,
+  и дизайнер показывает модальное окно «Конструктор рабочих процессов», блокирующее студию.
+- Страховка: `AiRpaStudio\Helpers\AssemblyBindingUnifier.cs` (`Install(AppDomain.CurrentDomain)` в конструкторе
+  `App`) — на `AppDomain.AssemblyResolve` возвращает уже загруженную сборку того же имени и открытого ключа с
+  версией **не меньше** запрошенной. Сателлиты `*.resources`, запросы с культурой, без версии и без открытого
+  ключа, а также понижение версии не подменяются. Тесты: `AiRpaStudio.Tests\AssemblyBindingUnifierTests.cs`
+  (включая стражи: единая версия пакета, redirect в `App.config`, версии сборок в папках вывода).
+- Запускать студию можно только из `AiRpaStudio\bin\Debug|Release`: в `AiRpaStudio.Tests\bin\Debug\net48` копия
+  `AiRpaStudio.exe` лежит без ~20 зависимостей студии (WF-сборки, `System.Reflection.Metadata`), и запуск оттуда
+  даёт ложные ошибки Roslyn/дизайнера.
+
 ## Сборка и тесты
 - Решение: `AiRpa.sln` (корень репозитория).
 - Проект приложения: `AiRpaStudio\AiRpaStudio.csproj`.
@@ -119,9 +135,11 @@
   `AvalonDock_Separator`). Сеттеры `Background`/`BorderBrush` в триггерах обязаны быть адресованы
   `TargetName` элемента шаблона: `BorderBrush` у самого `TabItem` ничем не отрисовывается — из-за
   этого вкладки выглядели «без темы». Кнопка закрытия вкладки —
-  `AvalonDock_ThemeMetro_DocumentCloseButtonStyle` (hover `AvalonDock_CloseHoverBackground`/
-  `AvalonDock_CloseHoverForeground`). Стражи: `ThemeXamlTests.ThemeXaml_DocumentTabTemplateDrawsStates`,
-  `ThemeXaml_DocumentTabCloseButtonUsesCloseHoverColors`, `DocumentTabStyle_RendersPaletteBrushes`.
+  `AvalonDock_ThemeMetro_DocumentCloseButtonStyle`: hover — нейтральная подсветка фона
+  (`AvalonDock_SelectionHover`, нажатие — `AvalonDock_Selection`), глиф остаётся `AvalonDock_Foreground`;
+  красные `AvalonDock_CloseHover*` в шапке вкладок не используются (токены остаются для кнопки закрытия
+  окна и валидации WF). Стражи: `ThemeXamlTests.ThemeXaml_DocumentTabTemplateDrawsStates`,
+  `ThemeXaml_DocumentTabCloseButtonHoversNeutral`, `DocumentTabStyle_RendersPaletteBrushes`.
 - Скругления окон: `AiRpaStudio\Helpers\WindowCorner.cs` — DWM
   (`DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2)`, Windows 11) с
   fallback на region через `WindowChrome.CornerRadius` (радиус — `StudioPalette.WindowCornerRadius`,
@@ -159,6 +177,21 @@
   (`_propertyToolBar`, `PART_ByCategoryViewButton`, `PART_AlphaViewButton`, `PART_SearchClearButton`),
   состояния кнопок — триггеры стиля (не обработчики), повторное применение перекрашивает контрол без
   пересоздания. Тесты: `AiRpaStudio.Tests\WfThemeTests.cs`.
+- Плоские кнопки окна «Свойства» (правка F-03). `PropertyWindowStyleHelper.CreateIconHost` принимает
+  `iconSize`/`framed`: у переключателей «По категориям»/«Алфавитный» `CornerRadius = 0` (hairline-рамка
+  `Separator` осталась, кнопка 28×28 и глиф 20 px не менялись), у кнопки очистки поиска рамки нет вовсе
+  (`framed: false`), а крестик уменьшен в 1,5 раза — `ClearIconSize = 11` вместо 16 при том же размере
+  кнопки `ClearButtonSize` 24×24. Кнопка «…» строк свойств (WF `EditModeSwitchButton`) полностью плоская:
+  `ApplyEditModeButtons` → `MakeFlatButtonChrome` ставит прозрачные `Background`/`BorderBrush`,
+  `BorderThickness = 0`, `Effect = null` и обнуляет `CornerRadius`/рамку/фон у `Border` шаблона; если
+  хромировку рисует системный `ButtonChrome` (Border-потомка нет) — ставится плоский шаблон на
+  `ContentPresenter`. Глиф «…» не теряется: WF отдаёт его через `Content` (триггер
+  `TargetEditMode = Dialog` → `Content = "..."`, проверено по `stylescore.editmodeswitchbutton.baml`).
+  Ховер-плашки у «…» больше нет — это следствие «плоскости». Проход идемпотентен, строки, созданные
+  после выбора другой активности, подхватывает тот же `Attach`/`LayoutUpdated`. Тесты:
+  `WfThemeTests.PropertyHelper_StylesButtonsByName`, `.PropertyHelper_SearchClearButton_IsFramelessWithSmallerGlyph`,
+  `.EditModeButton_IsFlatWithoutCornerRadiusAndShadow`,
+  `.EditModeButton_WithoutBorderChrome_GetsFlatTemplateAndKeepsGlyph`, `.PropertyHelper_FlattensEditModeButtons`.
 - Поверхность дизайнера WF (F-04…F-06): `Helpers\WfDesignerTheme.cs` — объявляет ключи
   `DesignerViewBackground`/`DesignerViewForeground` (на первый ссылается
   `CSharpExpressionEditor\RoslynExpressionEditor.xaml`) и ключи шаблонов WF (поверхность, элементы
@@ -220,6 +253,32 @@
   `.Apply_BreadCrumbArtifactsCreatedAfterApplyAreNeutralized`,
   `.Apply_BreadCrumbBandStaysOpaqueSurfaceUnderWhiteHost`,
   `.Apply_BreadCrumbBackdropBehindNamesIsSurface`.
+  Активности (плита, рамка, подпись, контролы внутри) темизирует отдельный проход
+  `Helpers\WfActivityTheme.cs`. Цвета активности берутся из **WF-словаря** `ColorResources.xaml`, который
+  WF подмешивает в `ControlTemplate.Resources` **своего** шаблона
+  (`WorkflowElementDesignerDefaultTemplate.xaml`), поэтому ключи `WorkflowViewElementBackground` /
+  `DesignerViewBackground` из `WfDesignerTheme` до активностей не доходят: плита оставалась белой, плашка
+  заголовка `#E9ECEE`, рамка `#D0D7E2`. Кисти WF-словаря заморожены, а сам словарь после загрузки шаблонов
+  становится read-only (`InvalidOperationException` на записи) — поэтому тема ставится **локальными
+  значениями** на элементы шаблона: плита → `Surface`, полоса заголовка → `SurfaceAlt`,
+  рамка и линии → `SeparatorStrong`, глифы → `ForegroundMuted`, буквы → `Foreground`, а `RestoreStale`
+  переносит кисти предыдущей темы (иначе возврат к светлой оставил бы тёмные плашки). Активности, созданные
+  позже (перетаскивание из панели, «провал», отмена), достраиваются по `LayoutUpdated` (`Marks` + `IsStale`:
+  один проход на цикл раскладки, повторный проход идемпотентен). Привязки модели не разрываются
+  (`BindingOperations.IsDataBound`), поэтому общий проход по `TextBlock` в `WfDesignerTheme.Apply` больше не
+  перезаписывает привязанный `Foreground`.
+  Неявные стили MaterialDesign из `App.xaml` внутри активностей и в шапке дизайнера гасятся пустыми
+  стилями-заглушками (`UseNativeControlStyles`, список `NativeStyleTypes`). Регресс, ради которого это
+  сделано: `CheckBox` из `ActivityTop` получал стиль MaterialDesign 29×29, `Button#AnnotationIndicator` —
+  шрифт 14, кнопки «Развернуть все»/«Свернуть все» — `Width = 34`, из-за чего подпись не влезала. Форма и
+  шрифт контролов остаются нативными (WF/Aero2), цвета ставит темизатор; `ScrollBar` в списке заглушек нет
+  намеренно (плоские скроллы 10 px задаёт `Themes\StudioScrollBar.xaml`). Подпись активности в `ActivityTop`
+  больше не красится конвертером: цвет даёт палитра, выключенное состояние показывается `Opacity = 0.55`, а
+  сам `BoolToColorConverter` берёт `Studio.Foreground`/`Studio.ForegroundMuted` по строковым ключам (сборки
+  активностей не ссылаются на `RPA.Helpers`). Проверка на настоящем `WorkflowDesigner` — пробник
+  `tools\designer-ui-diagnostics` (проход «DARK (первое включение)»: `фон чужой поверхности` = 0 и для
+  пустой активности, и для workflow с вложенными активностями, и для кастомного дизайнера
+  `Activities.Debug.Logger`). Стражи: `AiRpaStudio.Tests\WfActivityThemeTests.cs`.
   Тесты: `AiRpaStudio.Tests\WfDesignerThemeTests.cs`.
   Комбобоксы WF-поверхностей (в дизайнере — масштаб в shell bar, `zoomPicker`) темизируются
   `WfVisualTreeThemer.ThemeComboBoxes` (вызывается из `WfVisualTreeThemer.Apply` и из
@@ -386,6 +445,28 @@
     заморозить `Freezable` нельзя, а Style-значение валит `XamlParseException`. Кисти здесь создаёт
     `StudioBrushes.ApplyToApplication()`. Страж — `ThemeAcceptanceTests.App_HasNoDynamicResourceLookupsInResourceValues`
     (регрессия этапа 9: мёртвый ресурс `Bulb`).
+  * Шеврон панели документов и меню списка открытых документов (P-09): шеврон (`MenuDropDownButton`)
+    отступает от правой кромки панели на 3 px (`Margin="0,0,3,0"`), а меню и пункты рисуют **собственные**
+    шаблоны темы (`AvalonDock_ThemeMetro_DocumentPaneContextMenuStyle` /
+    `AvalonDock_ThemeMetro_DocumentPaneMenuItemStyle`). Иначе работает неявный `MenuItem` MaterialDesign с
+    `Padding="24,0,24,0"` и колонкой иконки — между кромкой меню и названием документа оставалась широкая
+    пустая полоса. Инвариант: **10 px от внешней кромки меню до начала текста** = 1 px рамки меню +
+    9 px `Padding` пункта (паддинг самого меню — 0). Менять эти два числа можно только вместе.
+    Стражи — `ThemeXamlTests.ThemeXaml_DocumentPaneChevronHasThreePixelRightInset`,
+    `ThemeXaml_DocumentPaneMenuUsesOwnTemplates`,
+    `ThemeXaml_DocumentPaneMenuTextStartsTenPixelsFromOuterEdge` (сумма сеттеров) и
+    `DocumentPaneMenu_TextStartsTenPixelsFromOuterEdge` (материализация: замер `TransformToAncestor`).
+  * Кнопки «Развернуть все»/«Свернуть все» в шапке дизайнера WF (P-10): WF-шаблон
+    (`ExpandAllCollapseAllTemplate`) своей ширины не задаёт, поэтому её задаёт неявный `ToggleButton`
+    MaterialDesign — `Width = 34` (та же причина, что у «коробки» `OutlinedComboBoxStyle`). Подпись
+    «Развернуть все» ≈90 px в такую кнопку не влезает и обрезалась правой кромкой панели — в шапке
+    читались только «разв» и «свер». `WfDesignerTheme.ThemeHeaderButtons` (шаг 4б `Apply`) снимает
+    `Width` (`NaN`) и `MaxWidth`, ставит `MinWidth` по `FormattedText` ширине подписи + отступы подписи,
+    паддинг и рамку кнопки, а правой кнопке пары — `Margin.Right = 5` (сдвигается вся пара, зазор между
+    кнопками не растёт). Проход идемпотентен (`Math.Max`), поэтому смена темы не накапливает отступ.
+    Стражи — `WfDesignerThemeTests.Apply_HeaderButtonsFitTheirCaptions`,
+    `.Apply_HeaderButtonsKeepFivePixelRightInset`; живая проверка — отчёт
+    `tools\designer-ui-diagnostics` (`ReportHeaderButtons`, печатает ширину кнопки и «влезает=да/НЕТ»).
   Тесты: `AiRpaStudio.Tests\ThemeAcceptanceTests.cs` (сквозные стражи §9) + стражи этапов 1-8.
 
 ## Шаблон MVVM проекта AiRpaStudio (FW.EasyMvvm) — обязательное требование
@@ -430,3 +511,47 @@
 - Сообщения «модель → представление»: `BaseModel.OnSendMessage(string)` →
   `IView.OnSendMessage(string)` (обычно MahApps `ShowMessageAsync`), а не `MessageBox`.
 
+## Состояние вкладок, валидация WF и окна WF (три регресса одной задачи)
+- **Состояние вкладок** хранится в одном месте — `AiRpaStudio\Core\WorkflowSessionState.cs`
+  (формат: `{version, project, active, documents[{path, kind}]}` в настройке
+  `Properties.Settings.Default.DesignerFiles`; старый JSON-массив путей читается как fallback).
+  Владелец сохранения/восстановления — `Main.SaveSessionState` / `Main.RestoreSessionState`
+  (`AiRpaStudio\Models\Main.cs`): подписка на `CustomWfDesigner.WorkflowDesigners.CollectionChanged` и
+  `Main.OpenCodeDocuments.CollectionChanged` живёт в конструкторе `Main`, финальная запись —
+  `MainView.OnClosing`. Восстанавливают **оба** режима проекта (project.json и .sln/.csproj).
+  Запрещено возвращать сохранение в подписку внутри `CustomWfDesigner.LoadProject` (именно из-за этого
+  в VS-проекте вкладки не сохранялись) и писать настройку из двух мест. На время восстановления
+  `_isRestoringSession` глушит запись: промежуточное состояние затирало список вкладок.
+  Стражи: `AiRpaStudio.Tests\WorkflowSessionStateTests.cs`, `StudioSessionWiringTests.cs`.
+- **Иконка валидации на активности** рисуется WF (триггеры `ModelItem.ValidationState` у
+  `Border x:Name="validationVisuals"`). Студия (`DesignerValidator`) ставит свои значения **только**
+  когда есть её собственные ошибки (выражения, типы аргументов), иначе обязана вызвать
+  `ClearValue(VisibilityProperty/BackgroundProperty/ToolTipProperty)`: локальное значение сильнее
+  триггера шаблона, и `Visibility = Collapsed` гасил нативную красную иконку (баг «ошибки валидации
+  исчезают»). Решение и кисть ошибки — `AiRpaStudio\Core\ValidationIconState.cs`: `ErrorIconBrush()`
+  отдаёт родной рисунок WF (`DesignerItems.ActivityErrorValidation`, красный круг с белым «!»), а
+  сплошная кисть палитры — только резерв: заливка без глифа и была дефектом «красная рамка без иконки».
+  Флаг `_isNeedInitValidation` сбрасывается после первого прохода,
+  разбор каждой активности — в собственном `try/catch`. Стражи: `AiRpaStudio.Tests\ValidationIconTests.cs`.
+- **Бейдж ошибки C#-выражения** (`CSharpExpressionEditor\RoslynExpressionEditor.xaml`) — глиф
+  `materialIcons:MaterialIcon` (`Kind="Error"`) в единственном не-нейтральном цвете палитры
+  (`Studio.CloseHoverBackground`, `Style x:Key="errorStyle"`); пустая `Rectangle`-рамка запрещена —
+  её и видел пользователь как «красная рамка без иконки». Видимость — `HasValidationError`,
+  подсказка — `ValidationErrorMessage`. Проверка выражения запускается по изменению текста
+  (`IExpressionEditorInstance.TextChanged`) с паузой-дребезгом: политика в
+  `AiRpaStudio\Core\ExpressionValidationTiming.cs` (350 мс, резервный фон — 3000 мс вместо прежних
+  10 000 мс, из-за которых ошибка появлялась «через десяток секунд»), таймер останавливается в
+  `OnEditorClosing`/`OnEditorUnloaded`, подписка снимается вместе с редактором. `ValidateExpression`
+  обязана звать `UpdateValidationError(null)` при отсутствии ошибки — иначе исправленное выражение
+  оставляло бейдж. У адаптера `Validation.ErrorTemplate` (`WfDesignerTheme.CreateValidationErrorTemplate`)
+  кроме hairline-рамки есть значок ошибки. Стражи: `AiRpaStudio.Tests\ErrorBadgeTests.cs`,
+  `ExpressionValidationTimingTests.cs`, `ValidationIconGlyphTests.cs`.
+
+- **Окна WF** (`WorkflowElementDialogWindow`, `EditorDialog` — редактор выражений по «…» в окне
+  «Свойства») — обычные `Window` с системным caption, белым в любой теме; `WfDesignerTheme` до них не
+  достаёт. Тема ставится `AiRpaStudio\Helpers\WfDialogWindowTheme.cs`: `WindowChrome` с
+  `CaptionHeight = 0`, ключи палитры через `SetResourceReference`, содержимое оборачивается в `Grid`
+  с полосой `StudioTitleBar` 32 px, скругление — `WindowCorner.Enable`. Точка вызова —
+  `RoslynExpressionEditor.OnEditorLoadedForSize` (там же, где восстанавливается размер окна).
+  Хелпер идемпотентен и никогда не бросает исключений. Стражи:
+  `AiRpaStudio.Tests\WfDialogWindowThemeTests.cs`.

@@ -1,4 +1,5 @@
 using System;
+using System.Activities.Presentation.PropertyEditing;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -28,6 +29,11 @@ namespace RPA.Helpers
     /// а не обработчиками событий: повторное применение не накапливает подписки;</item>
     /// <item>повторный вызов на том же контроле (смена темы) перекрашивает его без пересоздания —
     /// хранится только исходный стиль поля поиска (<see cref="OriginalTextBoxStyles"/>).</item>
+    /// <item>панель плоская: у переключателей «по категориям»/«алфавитный» скруглений нет (радиус 0),
+    /// у очистки поиска рамка снята вовсе, а крестик меньше прежнего в 1,5 раза
+    /// (<see cref="ClearIconSize"/>) — размеры кнопок при этом не меняются;</item>
+    /// <item>кнопка редактирования значения «…» в строках свойств (WF <c>EditModeSwitchButton</c>) лишена
+    /// системной хромировки: без скруглений и без тени (<see cref="ApplyEditModeButtons"/>).</item>
     /// </list>
     /// </summary>
     internal class PropertyWindowStyleHelper
@@ -41,7 +47,20 @@ namespace RPA.Helpers
         public const double ClearButtonSize = 24d;
         public const double SearchTextBoxHeight = 24d;
 
-        /// <summary>Отступ иконки внутри кнопки: 28 → 20, 24 → 16.</summary>
+        /// <summary>Размер иконки переключателей «по категориям»/«алфавитный»: 28 − 8 = 20 px.</summary>
+        public const double ToolButtonIconSize = ToolButtonSize - IconPadding;
+
+        /// <summary>
+        /// Размер крестика очистки поиска: раньше был 16 px (24 − <see cref="IconPadding"/>), по требованию
+        /// «крестик в 1,5 раза меньше» — 16 / 1,5 ≈ 10,7, округлено до 11 px. Размер самой кнопки (24×24)
+        /// не меняется: уменьшается только глиф.
+        /// </summary>
+        public const double ClearIconSize = 11d;
+
+        /// <summary>
+        /// Отступ иконки внутри кнопки: 28 → 20. У кнопки очистки поиска глиф задан отдельно
+        /// (<see cref="ClearIconSize"/>) — там этот отступ не применяется.
+        /// </summary>
         private const double IconPadding = 8d;
 
         /// <summary>
@@ -52,7 +71,7 @@ namespace RPA.Helpers
             new ConditionalWeakTable<TextBox, Style>();
 
         private readonly MaterialIconDataProvider materialIconData = new MaterialIconDataProvider();
-        private ControlTemplate flatButtonTemplate;
+        private static ControlTemplate flatButtonTemplate;
 
         /// <summary>Палитра последнего применения (нужна для повторной темизации и тестов).</summary>
         public StudioThemeColors Palette { get; private set; } = StudioPalette.Dark;
@@ -89,11 +108,14 @@ namespace RPA.Helpers
 
             ApplyRoot(propertyInspector);
             ApplyToolBar(propertyInspector);
-            ApplyIconButton(propertyInspector, ByCategoryButtonName, MaterialIconKind.ShapePlusOutline, ToolButtonSize);
-            ApplyIconButton(propertyInspector, AlphaViewButtonName, MaterialIconKind.OrderAlphabeticalAscending, ToolButtonSize);
-            ApplyIconButton(propertyInspector, SearchClearButtonName, MaterialIconKind.Close, ClearButtonSize);
+            // Переключатели видов: hairline-рамка остаётся, скруглений нет (панель плоская).
+            ApplyIconButton(propertyInspector, ByCategoryButtonName, MaterialIconKind.ShapePlusOutline, ToolButtonSize, ToolButtonIconSize, framed: true);
+            ApplyIconButton(propertyInspector, AlphaViewButtonName, MaterialIconKind.OrderAlphabeticalAscending, ToolButtonSize, ToolButtonIconSize, framed: true);
+            // Крестик очистки поиска: рамки нет вовсе, глиф меньше в 1,5 раза, кнопка остаётся 24×24.
+            ApplyIconButton(propertyInspector, SearchClearButtonName, MaterialIconKind.Close, ClearButtonSize, ClearIconSize, framed: false);
             ApplySearchTextBox(propertyInspector);
             ApplyValueEditors(propertyInspector);
+            ApplyEditModeButtons(propertyInspector);
             ApplySeparators(propertyInspector);
             ApplyFont(propertyInspector);
         }
@@ -159,7 +181,13 @@ namespace RPA.Helpers
 
         // --- Кнопки панели (иконки Material.Icons). ---
 
-        private void ApplyIconButton(DependencyObject propertyInspector, string name, MaterialIconKind icon, double size)
+        private void ApplyIconButton(
+            DependencyObject propertyInspector,
+            string name,
+            MaterialIconKind icon,
+            double size,
+            double iconSize,
+            bool framed)
         {
             if (!(FindByName<Control>(propertyInspector, name) is Control button))
             {
@@ -178,7 +206,7 @@ namespace RPA.Helpers
             if (button is ContentControl contentControl)
             {
                 // Контент пересоздаётся, сам контрол — никогда: обработчиков не добавляем.
-                contentControl.Content = CreateIconHost(button as ButtonBase, icon, size);
+                contentControl.Content = CreateIconHost(button as ButtonBase, icon, size, iconSize, framed);
             }
 
             if (button is ButtonBase buttonBase)
@@ -187,16 +215,22 @@ namespace RPA.Helpers
             }
         }
 
-        private Border CreateIconHost(ButtonBase button, MaterialIconKind icon, double size)
+        /// <summary>
+        /// Плашка иконки кнопки панели. Скруглений нет: панель «Свойства» плоская, поэтому
+        /// <see cref="StudioPalette.ButtonCornerRadius"/> здесь не применяется (общий токен студии не тронут).
+        /// <paramref name="framed"/> = <c>false</c> — рамки нет вовсе (кнопка очистки поиска),
+        /// <paramref name="iconSize"/> задаёт размер глифа независимо от размера кнопки.
+        /// </summary>
+        private Border CreateIconHost(ButtonBase button, MaterialIconKind icon, double size, double iconSize, bool framed)
         {
             Border host = new Border
             {
                 Width = size,
                 Height = size,
-                BorderThickness = new Thickness(1),
-                BorderBrush = WfThemeStyles.Brush(Palette.Separator),
-                CornerRadius = new CornerRadius(StudioPalette.ButtonCornerRadius),
-                Child = CreateIcon(icon, Math.Max(size - IconPadding, 8d), Palette.Foreground),
+                BorderThickness = framed ? new Thickness(1) : new Thickness(0),
+                BorderBrush = framed ? WfThemeStyles.Brush(Palette.Separator) : Brushes.Transparent,
+                CornerRadius = new CornerRadius(0),
+                Child = CreateIcon(icon, Math.Max(iconSize, 8d), Palette.Foreground),
                 Style = CreateStateStyle(button)
             };
 
@@ -274,8 +308,11 @@ namespace RPA.Helpers
             };
         }
 
-        /// <summary>Кнопка без собственной хромировки: только контент (иконка в рамке).</summary>
-        private ControlTemplate FlatButtonTemplate
+        /// <summary>
+        /// Кнопка без собственной хромировки: только контент. Используется и для кнопок панели
+        /// (иконка в рамке), и как плоская замена системной хромировки кнопки «…».
+        /// </summary>
+        private static ControlTemplate FlatButtonTemplate
         {
             get
             {
@@ -292,6 +329,98 @@ namespace RPA.Helpers
 
                 return flatButtonTemplate;
             }
+        }
+
+        // --- Кнопка «…» строк свойств (WF EditModeSwitchButton). ---
+
+        /// <summary>
+        /// Кнопка редактирования значения «…» (<c>EditModeSwitchButton</c> из
+        /// <c>System.Activities.Presentation.PropertyEditing</c>) приходит с системной хромировкой: скруглённой
+        /// рамкой и тенью, из-за чего в плоской панели «Свойства» она выглядит чужеродно. Проход снимает
+        /// хромировку локальными значениями. Строки, созданные позже (выбор другой активности, разворот
+        /// категории, скролл), подхватываются обычным повторным применением через <see cref="Attach"/>.
+        /// </summary>
+        private void ApplyEditModeButtons(DependencyObject propertyInspector)
+        {
+            foreach (EditModeSwitchButton button in FindAll<EditModeSwitchButton>(propertyInspector))
+            {
+                MakeFlatButtonChrome(button);
+            }
+        }
+
+        /// <summary>
+        /// Плоская кнопка «…»: без рамки, без скруглений и без тени. Размеры, отступы и содержимое («…»)
+        /// не меняются — снимается только оформление, поэтому повторный вызов безопасен.
+        /// </summary>
+        internal static void MakeFlatButtonChrome(Control button)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.Background = Brushes.Transparent;
+            button.BorderBrush = Brushes.Transparent;
+            button.BorderThickness = new Thickness(0);
+            button.Effect = null;
+
+            // Строка могла быть создана только что: без развёрнутого шаблона обходить нечего.
+            _ = button.ApplyTemplate();
+
+            bool chromeIsBorder = FlattenChrome(button);
+
+            // Хромировку рисует не Border, а системный ButtonChrome (Aero2): у него нет ни CornerRadius,
+            // ни Border-потомка, поэтому скругление и тень снимаются только собственным плоским шаблоном.
+            // Ставится он лишь когда глиф приходит из Content — иначе содержимое шаблона потерялось бы.
+            if (!chromeIsBorder && button is ContentControl contentControl && contentControl.Content != null)
+            {
+                button.Template = FlatButtonTemplate;
+            }
+        }
+
+        /// <summary>
+        /// Обнуляет скругления, рамки и тени внутри шаблона кнопки.
+        /// Возвращает <c>true</c>, если найден Border-хром (т.е. скругление рисует он, а не системная хромировка).
+        /// </summary>
+        private static bool FlattenChrome(DependencyObject parent)
+        {
+            bool chromeIsBorder = false;
+
+            foreach (DependencyObject child in XamlHelper.Children(parent))
+            {
+                if (!XamlHelper.IsVisual(child))
+                {
+                    continue;
+                }
+
+                if (child is Border border)
+                {
+                    chromeIsBorder = true;
+                    border.CornerRadius = new CornerRadius(0);
+                    border.BorderThickness = new Thickness(0);
+                    border.BorderBrush = Brushes.Transparent;
+                    border.Background = Brushes.Transparent;
+                }
+
+                if (child is FrameworkElement element)
+                {
+                    element.Effect = null;
+                }
+
+                if (child is Control control)
+                {
+                    control.BorderThickness = new Thickness(0);
+                    control.BorderBrush = Brushes.Transparent;
+                    control.Effect = null;
+                }
+
+                if (FlattenChrome(child))
+                {
+                    chromeIsBorder = true;
+                }
+            }
+
+            return chromeIsBorder;
         }
 
         // --- Поиск и шрифт. ---
@@ -637,6 +766,37 @@ namespace RPA.Helpers
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Поиск по типу в логическом и визуальном дереве: строка свойств может быть создана, но ещё не
+        /// развёрнута шаблоном, и тогда элемент виден только в логическом дереве.
+        /// </summary>
+        private static IEnumerable<T> FindAll<T>(DependencyObject root) where T : DependencyObject
+        {
+            return root == null ? Enumerable.Empty<T>() : FindAllIterator<T>(root);
+        }
+
+        private static IEnumerable<T> FindAllIterator<T>(DependencyObject parent) where T : DependencyObject
+        {
+            foreach (DependencyObject child in XamlHelper.Children(parent))
+            {
+                // RowDefinition/ColumnDefinition и прочие не-визуальные узлы: их детей обходить нельзя.
+                if (!XamlHelper.IsVisual(child))
+                {
+                    continue;
+                }
+
+                if (child is T match)
+                {
+                    yield return match;
+                }
+
+                foreach (T nested in FindAllIterator<T>(child))
+                {
+                    yield return nested;
+                }
+            }
         }
 
         private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject

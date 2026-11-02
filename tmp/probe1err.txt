@@ -1,0 +1,35 @@
+строка:1 знак:285
++ ... tems'); =.GetProperty('ActivityErrorValidation'); =.GetValue(); 'TYPE ...
++                                                                  ~
+После ''('' ожидалось выражение.
+строка:1 знак:297
++ ... tProperty('ActivityErrorValidation'); =.GetValue(); 'TYPE=' + .GetTyp ...
++                                                                  ~
+Необходимо предоставить выражение для значения справа от оператора "+".
+строка:1 знак:298
++ ... ('ActivityErrorValidation'); =.GetValue(); 'TYPE=' + .GetType().FullN ...
++                                                          ~~~~~~~~
+Непредвиденная лексема ".GetType" в выражении или операторе.
+строка:1 знак:307
++ ... 'ActivityErrorValidation'); =.GetValue(); 'TYPE=' + .GetType().FullNa ...
++                                                                  ~
+После ''('' ожидалось выражение.
+строка:1 знак:330
++ ... n'); =.GetValue(); 'TYPE=' + .GetType().FullName; 'FROZEN=' + .IsFroz ...
++                                                                  ~
+Необходимо предоставить выражение для значения справа от оператора "+".
+строка:1 знак:331
++ ... Value(); 'TYPE=' + .GetType().FullName; 'FROZEN=' + .IsFrozen; if ( - ...
++                                                         ~~~~~~~~~
+Непредвиденная лексема ".IsFrozen" в выражении или операторе.
+строка:1 знак:397
++ ... ozen; if ( -is [System.Windows.Media.DrawingBrush]) { 'VB=' + .Viewbo ...
++                                                                  ~
+Необходимо предоставить выражение для значения справа от оператора "+".
+строка:1 знак:398
++ ... ( -is [System.Windows.Media.DrawingBrush]) { 'VB=' + .Viewbox + ' VT= ...
++                                                          ~~~~~~~~
+Непредвиденная лексема ".Viewbox" в выражении или операторе.
+    + CategoryInfo          : ParserError: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : ExpectedExpression
+ 

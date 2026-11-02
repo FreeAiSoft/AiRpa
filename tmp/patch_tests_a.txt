@@ -1,0 +1,78 @@
+            Assert.That(ColorOf(activityBorder.Background), Is.EqualTo(StudioPalette.Dark.Surface));
+        }
+    }
+
+    [Test]
+    public void Apply_RestoresWorkflowDefaultsAfterReturningToLight()
+    {
+        // Регресс: пустая активность в дизайнере — плита Border 440x440 вокруг подсказки
+        // «Перетащите сюда действие» — после light → dark → light оставалась цвета Dark.Surface
+        // (#272727): на светлой теме вокруг подсказки был виден чёрный прямоугольник толщиной
+        // с бордер плиты. Причина: дефолт WF подменялся один раз, а цвет палитры предыдущей темы
+        // в списке дефолтов отсутствовал, поэтому обратная замена не срабатывала никогда.
+        (Grid root, _, _, _, _, _, _) = BuildDesignerViewTree();
+        Border plate = AddActivityPlate(root, out Label caption);
+        var placeholder = (TextBlock)caption.Content;
+
+        WfDesignerTheme.Apply(root, StudioPalette.Light);
+        Assert.That(ColorOf(plate.Background), Is.EqualTo(StudioPalette.Light.Surface),
+            "свежий документ в светлой теме: плита на поверхности");
+
+        WfDesignerTheme.Apply(root, StudioPalette.Dark);
+        Assert.That(ColorOf(plate.Background), Is.EqualTo(StudioPalette.Dark.Surface),
+            "тёмная тема: плита на поверхности");
+
+        WfDesignerTheme.Apply(root, StudioPalette.Light);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(plate.Background), Is.EqualTo(StudioPalette.Light.Surface),
+                "плита осталась на цвете тёмной палитры — вокруг подсказки виден чёрный прямоугольник");
+            Assert.That(ColorOf(plate.BorderBrush), Is.EqualTo(StudioPalette.Light.SeparatorStrong),
+                "рамка плиты осталась на цвете тёмной палитры");
+            Assert.That(ColorOf(caption.Foreground), Is.EqualTo(StudioPalette.Light.Foreground),
+                "подпись осталась на цвете тёмной палитры");
+            Assert.That(ColorOf(placeholder.Foreground), Is.EqualTo(StudioPalette.Light.Foreground));
+        });
+    }
+
+    [Test]
+    public void Apply_RestoresWorkflowDefaultsWhenDocumentOpensInDarkTheme()
+    {
+        // Обратный порядок: документ открыт в тёмной теме, затем переключение на светлую (без
+        // предварительного светлого прохода, поэтому «дефолт WF» сразу подменяется на тёмный).
+        (Grid root, _, _, _, _, _, _) = BuildDesignerViewTree();
+        Border plate = AddActivityPlate(root, out Label caption);
+
+        WfDesignerTheme.Apply(root, StudioPalette.Dark);
+        Assert.That(ColorOf(plate.Background), Is.EqualTo(StudioPalette.Dark.Surface));
+
+        WfDesignerTheme.Apply(root, StudioPalette.Light);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(plate.Background), Is.EqualTo(StudioPalette.Light.Surface));
+            Assert.That(ColorOf(plate.BorderBrush), Is.EqualTo(StudioPalette.Light.SeparatorStrong));
+            Assert.That(ColorOf(caption.Foreground), Is.EqualTo(StudioPalette.Light.Foreground));
+        });
+    }
+
+    [Test]
+    public void Apply_RoundTrip_KeepsCustomBrushes()
+    {
+        // Второе правило замены (цвет противоположной палитры → токен активной) не должно
+        // захватывать пользовательские кисти: они не токены палитры.
+        (Grid root, _, _, _, _, _, _) = BuildDesignerViewTree();
+        var custom = new Border { Background = Brushes.Magenta, BorderBrush = Brushes.Magenta };
+        root.Children.Add(custom);
+
+        WfDesignerTheme.Apply(root, StudioPalette.Light);
+        WfDesignerTheme.Apply(root, StudioPalette.Dark);
+        WfDesignerTheme.Apply(root, StudioPalette.Light);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(custom.Background), Is.EqualTo(Colors.Magenta));
+            Assert.That(ColorOf(custom.BorderBrush), Is.EqualTo(Colors.Magenta));
+        });
+    }

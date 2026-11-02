@@ -1,6 +1,9 @@
 using System;
 using System.Activities.Presentation;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -44,6 +47,18 @@ namespace RPA.Helpers
         public const string BreadCrumbElementName = "breadCrumbListBox";
         public const string MiniMapElementName = "miniMap";
         public const string ExtensionSurfaceElementName = "designerExtensionSurface";
+
+        /// <summary>Кнопки «Развернуть все»/«Свернуть все» в шапке <c>DesignerView</c> (имена из Reference Source).</summary>
+        public const string ExpandAllButtonName = "expandAllButton";
+        public const string CollapseAllButtonName = "collapseAllButton";
+
+        /// <summary>Подпись кнопки в шаблоне WF (<c>ExpandAllCollapseAllTemplate</c>).</summary>
+        public const string HeaderCaptionPartName = "collapseAllText";
+
+        /// <summary>Дополнительный отступ пары кнопок от правой кромки дизайнера, px.</summary>
+        public const double HeaderButtonsRightInset = 5d;
+
+
 
         /// <summary>Маркер словаря, созданного темизатором (повторное применение обновляет его, а не добавляет новый).</summary>
         private const string PaletteDictionaryMarker = "Studio.WfDesignerTheme.Palette";
@@ -110,12 +125,14 @@ namespace RPA.Helpers
             // 1) Ключи: в корень документа (ExpressionTextBox, ErrorView) и в сам DesignerView —
             //    его собственные ColorResources иначе перекрывают словарь приложения.
             ApplyToApplication(root.Resources, palette);
+            WfActivityTheme.UseNativeControlStyles(root.Resources);
 
             FrameworkElement designerView = FindByName(root, DesignerViewElementName);
             if (designerView != null)
             {
                 ApplyToApplication(designerView.Resources, palette);
                 SetBackground(designerView, surface);
+                WfActivityTheme.UseNativeControlStyles(designerView.Resources);
             }
 
             // 2) Поверхность: один фон на всю площадь.
@@ -123,6 +140,9 @@ namespace RPA.Helpers
 
             // 3) Дефолтные цвета WF, пришедшие через StaticResource (не пересчитываются при смене темы).
             ReplaceWorkflowDefaultColors(root, palette);
+
+            // Активности: словари цветов WF, плита/рамка/подпись и нативные стили контролов внутри.
+            WfActivityTheme.Apply(root, palette);
 
             // 4) Именованные части дизайнера.
             StatusBar shellBar = FindByName(root, ShellBarElementName) as StatusBar;
@@ -148,10 +168,17 @@ namespace RPA.Helpers
                 }
             }
 
+            // 4б) Кнопки «Развернуть все»/«Свернуть все» в шапке дизайнера: подписи в них не влезали.
+            ThemeHeaderButtons(root);
+
             // 5) Текст (подписи активностей, breadcrumb, watermark) и поля ввода.
             foreach (TextBlock textBlock in FindVisualChildren<TextBlock>(root))
             {
-                textBlock.Foreground = foreground;
+                // Привязку не разрываем: подпись активности может красить конвертер модели.
+                if (!System.Windows.Data.BindingOperations.IsDataBound(textBlock, TextBlock.ForegroundProperty))
+                {
+                    textBlock.Foreground = foreground;
+                }
             }
 
             // Поля ввода и скроллбары дизайнера — общий темизатор WF-контролов.
@@ -271,6 +298,29 @@ namespace RPA.Helpers
             root.AppendChild(placeholder);
             root.AppendChild(border);
 
+            // Значок ошибки в правом верхнем углу: одна рамка — это дефект «красная рамка без иконки».
+            FrameworkElementFactory badge = new FrameworkElementFactory(typeof(Grid));
+            badge.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Right);
+            badge.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Top);
+            badge.SetValue(FrameworkElement.WidthProperty, 12d);
+            badge.SetValue(FrameworkElement.HeightProperty, 12d);
+            badge.SetValue(UIElement.IsHitTestVisibleProperty, false);
+
+            FrameworkElementFactory circle = new FrameworkElementFactory(typeof(Ellipse));
+            circle.SetValue(Shape.FillProperty, error);
+
+            FrameworkElementFactory mark = new FrameworkElementFactory(typeof(TextBlock));
+            mark.SetValue(TextBlock.TextProperty, "!");
+            mark.SetValue(TextBlock.FontSizeProperty, 9d);
+            mark.SetValue(TextBlock.FontWeightProperty, FontWeights.Bold);
+            mark.SetValue(TextBlock.ForegroundProperty, WfThemeStyles.Brush((palette ?? StudioPalette.Dark).Surface));
+            mark.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+            mark.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+
+            badge.AppendChild(circle);
+            badge.AppendChild(mark);
+            root.AppendChild(badge);
+
             ControlTemplate template = new ControlTemplate(typeof(Control)) { VisualTree = root };
             template.Seal();
             return template;
@@ -370,6 +420,17 @@ namespace RPA.Helpers
         /// Заменяет дефолтные цвета WF, пришедшие в элементы через <c>{StaticResource}</c>
         /// (белая поверхность дизайнера, фон/рамка/подпись элемента активности). Пользовательские
         /// кисти не трогаются: сравнивается точное значение дефолта.
+        /// <para>
+        /// Проход двусторонний: «дефолт WF → цвет палитры» <b>и</b> «цвет противоположной палитры → тот же
+        /// токен активной» (<see cref="WithStalePaletteColour"/>). Без второго правила возврат
+        /// «тёмная → светлая» оставлял бы тёмные плашки: дефолт уже подменён, а тёмный цвет палитры в
+        /// списке дефолтов отсутствует, поэтому замена не срабатывала никогда.
+        /// </para>
+        /// <para>
+        /// Регресс: пустая активность в дизайнере (плита <c>Border</c> 440×440 вокруг подсказки
+        /// «Перетащите сюда действие») после light → dark → light оставалась цвета <c>Surface</c> тёмной
+        /// палитры — на светлой теме была видна чёрная рамка толщиной с бордер плиты.
+        /// </para>
         /// </summary>
         private static void ReplaceWorkflowDefaultColors(DependencyObject root, StudioThemeColors palette)
         {
@@ -377,26 +438,38 @@ namespace RPA.Helpers
             SolidColorBrush separatorStrong = WfThemeStyles.Brush(palette.SeparatorStrong);
             SolidColorBrush foreground = WfThemeStyles.Brush(palette.Foreground);
 
-            Color[] designerBackgrounds =
-            {
-                SafeColor(() => WorkflowDesignerColors.DesignerViewBackgroundColor, FallbackDesignerViewBackground),
-                FallbackDesignerViewBackground
-            };
-            Color[] elementBackgrounds =
-            {
-                SafeColor(() => WorkflowDesignerColors.WorkflowViewElementBackgroundColor, FallbackViewElementBackground),
-                FallbackViewElementBackground
-            };
-            Color[] elementBorders =
-            {
-                SafeColor(() => WorkflowDesignerColors.WorkflowViewElementBorderColor, FallbackViewElementBorder),
-                FallbackViewElementBorder
-            };
-            Color[] captions =
-            {
-                SafeColor(() => WorkflowDesignerColors.WorkflowViewElementCaptionColor, FallbackViewElementCaption),
-                FallbackViewElementCaption
-            };
+            Color[] designerBackgrounds = WithStalePaletteColour(
+                new[]
+                {
+                    SafeColor(() => WorkflowDesignerColors.DesignerViewBackgroundColor, FallbackDesignerViewBackground),
+                    FallbackDesignerViewBackground
+                },
+                palette,
+                StudioPalette.SurfaceToken);
+            Color[] elementBackgrounds = WithStalePaletteColour(
+                new[]
+                {
+                    SafeColor(() => WorkflowDesignerColors.WorkflowViewElementBackgroundColor, FallbackViewElementBackground),
+                    FallbackViewElementBackground
+                },
+                palette,
+                StudioPalette.SurfaceToken);
+            Color[] elementBorders = WithStalePaletteColour(
+                new[]
+                {
+                    SafeColor(() => WorkflowDesignerColors.WorkflowViewElementBorderColor, FallbackViewElementBorder),
+                    FallbackViewElementBorder
+                },
+                palette,
+                StudioPalette.SeparatorStrongToken);
+            Color[] captions = WithStalePaletteColour(
+                new[]
+                {
+                    SafeColor(() => WorkflowDesignerColors.WorkflowViewElementCaptionColor, FallbackViewElementCaption),
+                    FallbackViewElementCaption
+                },
+                palette,
+                StudioPalette.ForegroundToken);
 
             foreach (DependencyObject element in SelfAndDescendants(root))
             {
@@ -434,6 +507,37 @@ namespace RPA.Helpers
                     return;
                 }
             }
+        }
+
+        /// <summary>
+        /// Дополняет список «заменяемых» цветов цветом <b>того же токена противоположной палитры</b>:
+        /// так проход узнаёт собственную работу предыдущей темы и переносит её в активную.
+        /// <para>
+        /// Токен задаётся именем, а не значением, поэтому пары совпадают для любой палитры: фон плиты,
+        /// покрашенный в <c>Surface</c>, узнаётся как <c>Surface</c> и становится <c>Surface</c> активной
+        /// темы, рамка — <c>SeparatorStrong</c>, подпись — <c>Foreground</c>. Полупрозрачные токены
+        /// (<c>Overlay*</c>) пропускаются: локальная плашка ими не красится.
+        /// </para>
+        /// </summary>
+        private static Color[] WithStalePaletteColour(Color[] defaults, StudioThemeColors palette, string tokenName)
+        {
+            if (defaults == null || palette == null || string.IsNullOrEmpty(tokenName))
+            {
+                return defaults;
+            }
+
+            StudioThemeColors previous = palette.IsDark ? StudioPalette.Light : StudioPalette.Dark;
+            if (!previous.Tokens.TryGetValue(tokenName, out Color stale)
+                || stale.A != 0xFF
+                || Array.IndexOf(defaults, stale) >= 0)
+            {
+                return defaults;
+            }
+
+            Color[] extended = new Color[defaults.Length + 1];
+            Array.Copy(defaults, extended, defaults.Length);
+            extended[defaults.Length] = stale;
+            return extended;
         }
 
         private static Color SafeColor(Func<Color> getter, Color fallback)
@@ -567,6 +671,155 @@ namespace RPA.Helpers
                 }
             }
         }
+        /// <summary>
+        /// Кнопки «Развернуть все»/«Свернуть все» в шапке <c>DesignerView</c>.
+        /// <para>
+        /// Регресс: кнопки WF (две <see cref="ToggleButton"/>, шаблон <c>ExpandAllCollapseAllTemplate</c>)
+        /// получают неявный стиль <c>ToggleButton</c> MaterialDesign из <c>App.xaml</c>, а там
+        /// <c>Width = 34</c>. Подпись «Развернуть все» ≈83 px в такую кнопку не влезает: она вылезала за
+        /// кнопку и обрезалась правой кромкой панели — в шапке читались только «разв» и «свер».
+        /// </para>
+        /// <para>
+        /// Лечение: локальные <see cref="FrameworkElement.Width"/> = <c>NaN</c> и
+        /// <see cref="FrameworkElement.MaxWidth"/> = бесконечность перебивают стиль, а
+        /// <see cref="FrameworkElement.MinWidth"/> считается по фактической ширине подписи
+        /// (<see cref="FormattedText"/>, тем же шрифтом и размером) плюс отступы подписи, паддинг и рамка
+        /// кнопки. Пара кнопок дополнительно отступает от правой кромки на
+        /// <see cref="HeaderButtonsRightInset"/>: отступ ставится последней кнопке панели, поэтому
+        /// сдвигается вся пара, а не растёт зазор между кнопками. Проход идемпотентен — <c>Math.Max</c>
+        /// по <c>MinWidth</c> и <c>Margin.Right</c> не накапливает значения при смене темы.
+        /// </para>
+        /// </summary>
+        internal static void ThemeHeaderButtons(FrameworkElement root)
+        {
+            ButtonBase expand = FindByName(root, ExpandAllButtonName) as ButtonBase;
+            ButtonBase collapse = FindByName(root, CollapseAllButtonName) as ButtonBase;
+
+            foreach (ButtonBase button in new[] { expand, collapse })
+            {
+                if (button == null)
+                {
+                    continue;
+                }
+
+                double captionWidth = CaptionWidthOf(button);
+                if (captionWidth <= 0d)
+                {
+                    continue;
+                }
+
+                // Локальные значения важнее сеттеров неявного стиля MaterialDesign (Width = 34).
+                button.Width = double.NaN;
+                button.MaxWidth = double.PositiveInfinity;
+
+                // 2 px — запас на округление раскладки (WPF считает в device-independent единицах).
+                double minWidth = Math.Ceiling(captionWidth + CaptionInsetsOf(button) + 2d);
+                if (button.MinWidth < minWidth)
+                {
+                    button.MinWidth = minWidth;
+                }
+            }
+
+            ButtonBase last = LastInPair(expand, collapse);
+            if (last == null)
+            {
+                return;
+            }
+
+            Thickness margin = last.Margin;
+            if (margin.Right < HeaderButtonsRightInset)
+            {
+                last.Margin = new Thickness(margin.Left, margin.Top, HeaderButtonsRightInset, margin.Bottom);
+            }
+        }
+
+        /// <summary>Подпись кнопки шапки: часть шаблона WF, а если шаблон ещё не применён — первый TextBlock.</summary>
+        private static TextBlock CaptionOf(ButtonBase button)
+        {
+            button.ApplyTemplate();
+
+            if (button.Template != null
+                && button.Template.FindName(HeaderCaptionPartName, button) is TextBlock caption)
+            {
+                return caption;
+            }
+
+            return FindVisualChildren<TextBlock>(button).FirstOrDefault();
+        }
+
+        private static double CaptionWidthOf(ButtonBase button)
+        {
+            TextBlock caption = CaptionOf(button);
+            if (caption == null || string.IsNullOrEmpty(caption.Text))
+            {
+                return 0d;
+            }
+
+            try
+            {
+                var formatted = new FormattedText(
+                    caption.Text,
+                    CultureInfo.CurrentUICulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface(caption.FontFamily, caption.FontStyle, caption.FontWeight, caption.FontStretch),
+                    caption.FontSize,
+                    Brushes.Black,
+                    VisualTreeHelper.GetDpi(button).PixelsPerDip);
+
+                return formatted.WidthIncludingTrailingWhitespace;
+            }
+            catch (Exception)
+            {
+                // Экзотический шрифт/размер: остаётся раскладка WF, но кнопка всё равно растянется
+                // по содержимому (Width снят выше).
+                return 0d;
+            }
+        }
+
+        /// <summary>Отступы вокруг подписи: Margin подписи в шаблоне WF + паддинг и рамка кнопки.</summary>
+        private static double CaptionInsetsOf(ButtonBase button)
+        {
+            TextBlock caption = CaptionOf(button);
+            if (caption == null)
+            {
+                return 0d;
+            }
+
+            return caption.Margin.Left + caption.Margin.Right
+                   + button.Padding.Left + button.Padding.Right
+                   + button.BorderThickness.Left + button.BorderThickness.Right;
+        }
+
+        /// <summary>
+        /// Правая кнопка пары (в шаблоне WF это <c>collapseAllButton</c>): отступ ставится ей, чтобы
+        /// сдвинулась вся пара.
+        /// </summary>
+        private static ButtonBase LastInPair(ButtonBase first, ButtonBase second)
+        {
+            if (first == null)
+            {
+                return second;
+            }
+
+            if (second == null)
+            {
+                return first;
+            }
+
+            if (first.Parent is Panel panel && ReferenceEquals(first.Parent, second.Parent))
+            {
+                int firstIndex = panel.Children.IndexOf(first);
+                int secondIndex = panel.Children.IndexOf(second);
+                return secondIndex >= firstIndex ? second : first;
+            }
+
+
+
+            // Кнопки живут в одной панели шапки; если родители разные, правая — «Свернуть все».
+            return second;
+        }
+
+
 
         // --- Хлебные крошки (Main › Sequence › Assign): имена активностей на палитре. ---
 
@@ -890,7 +1143,11 @@ namespace RPA.Helpers
 
             foreach (TextBlock textBlock in FindVisualChildren<TextBlock>(breadCrumb))
             {
-                textBlock.Foreground = foreground;
+                // Привязку не разрываем: подпись активности может красить конвертер модели.
+                if (!System.Windows.Data.BindingOperations.IsDataBound(textBlock, TextBlock.ForegroundProperty))
+                {
+                    textBlock.Foreground = foreground;
+                }
                 textBlock.FontFamily = WfThemeStyles.Font;
             }
 

@@ -1,0 +1,25 @@
+    /// <summary>
+    /// Плита пустой активности в том виде, в каком её строит WF: <c>Border</c> с локальными
+    /// (пришедшими через <c>{StaticResource}</c>) фоном и рамкой и подсказкой «Перетащите сюда
+    /// действие» внутри. Локальные кисти не пересчитываются при смене темы — их перекрашивает
+    /// только <c>ReplaceWorkflowDefaultColors</c>.
+    /// </summary>
+    private static Border AddActivityPlate(Grid root, out Label caption)
+    {
+        caption = new Label
+        {
+            Foreground = new SolidColorBrush(WorkflowDesignerColors.WorkflowViewElementCaptionColor),
+            Content = new TextBlock { Text = "Перетащите сюда действие" }
+        };
+
+        var plate = new Border
+        {
+            Background = new SolidColorBrush(WorkflowDesignerColors.WorkflowViewElementBackgroundColor),
+            BorderBrush = new SolidColorBrush(WorkflowDesignerColors.WorkflowViewElementBorderColor),
+            Child = caption
+        };
+
+        root.Children.Add(plate);
+        return plate;
+    }
+

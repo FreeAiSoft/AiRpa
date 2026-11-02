@@ -42,7 +42,14 @@ namespace RPA.Core.Services
         private bool _isNeedInitValidation = true;
 #pragma warning restore IDE0044 // Add readonly modifier
         private DispatcherTimer _validationTimer;
-        private const int ValidationDelayMs = 1000; // Задержка перед валидацией (1.5 секунды)
+
+        /// <summary>
+        /// Подпись реализованных вьюх на момент последнего полного прохода (см. <see cref="ValidationSchedule"/>).
+        /// <c>null</c> — прохода ещё не было.
+        /// </summary>
+        private string _lastRealizedSignature;
+
+        private const int ValidationDelayMs = 800; // Период сверки: полный проход — только при изменениях
 
         public DesignerValidator(WorkflowDesignerEx workflowDesignerEx)
         {
@@ -70,15 +77,91 @@ namespace RPA.Core.Services
         }
 
         /// <summary>
-        /// Обработчик тика таймера - запускает валидацию если были изменения
+        /// Тик таймера: полный проход выполняется, только когда он имеет смысл.
+        /// <para>
+        /// Иконка живёт в вьюхе активности, а вьюхи появляются позже загрузки документа (панель,
+        /// раскладка, тема) и исчезают при сворачивании активности. Поэтому триггером служит не только
+        /// изменение модели, но и смена подписи реализованных вьюх: без этого единственный
+        /// «инициализационный» проход отрабатывал до построения поверхности, и ошибки не показывались
+        /// до первой правки (баг «при загрузке и в покое ошибок нет»).
+        /// </para>
         /// </summary>
         private void ValidationTimer_Tick(object sender, EventArgs e)
         {
-            if ((_isModelChanged || _isNeedInitValidation) && _isModelServiceAvailable)
+            if (!_isModelServiceAvailable)
             {
-                _isModelChanged = false;
-                Validate();
+                return;
             }
+
+            List<ModelItem> modelItems = GetModelItems();
+            string currentSignature = modelItems == null ? null : BuildRealizedSignature(modelItems);
+
+            bool isModelChanged = _isModelChanged;
+            if (!ValidationSchedule.ShouldValidate(isModelChanged, _isNeedInitValidation, _lastRealizedSignature, currentSignature))
+            {
+                return;
+            }
+
+            _isModelChanged = false;
+            Validate(modelItems);
+
+            // Подпись фиксируется после прохода, флаг инициализации снимается: дальше проход повторяется
+            // только по изменению модели или появлению/пересозданию вьюх.
+            _lastRealizedSignature = BuildRealizedSignature(modelItems);
+            _isNeedInitValidation = false;
+        }
+
+        /// <summary>
+        /// Активности рабочего процесса из модели дизайнера. <c>null</c> — модель ещё не загружена
+        /// (проход не имеет смысла, таймер повторит проверку на следующем тике).
+        /// </summary>
+        private List<ModelItem> GetModelItems()
+        {
+            ModelService modelService = _workflowDesignerEx.Context.Services.GetService<ModelService>();
+            ModelItem rootModelItem = modelService?.Root;
+            ModelItem implementationModelItem = rootModelItem?.Properties["Implementation"]?.Value;
+            if (implementationModelItem == null
+                || !(implementationModelItem.GetCurrentValue() is System.Activities.Activity))
+            {
+                return null;
+            }
+
+            return GetModelItemChilds(implementationModelItem);
+        }
+
+        /// <summary>
+        /// Подпись реализованных вьюх: для каждой активности с вьюхой — ключ с идентичностью вьюхи.
+        /// Обход модели без компиляции выражений, поэтому его можно выполнять на каждом тике.
+        /// </summary>
+        private static string BuildRealizedSignature(List<ModelItem> modelItems)
+        {
+            List<string> keys = new List<string>(modelItems.Count);
+            for (int index = 0; index < modelItems.Count; index++)
+            {
+                ModelItem modelItem = modelItems[index];
+                object view;
+                try
+                {
+                    view = modelItem.View;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"BuildRealizedSignature: View недоступен для {modelItem.ItemType?.Name}: {ErrorText.Of(ex)}");
+                    continue;
+                }
+
+                if (view == null)
+                {
+                    continue;
+                }
+
+                keys.Add(ValidationSchedule.BuildViewKey(
+                    index,
+                    modelItem.ItemType?.Name,
+                    System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(view)));
+            }
+
+            return ValidationSchedule.BuildSignature(keys);
         }
 
         /// <summary>
@@ -108,10 +191,16 @@ namespace RPA.Core.Services
         }
 
         /// <summary>
-        /// Устанавливает иконку валидации напрямую на Border (обходной путь)
-        /// Это имитирует эффект срабатывания триггера при ValidationState.Error
+        /// Иконка валидации на активности (<c>WorkflowDesignerIconBorder</c> с именем
+        /// <c>validationVisuals</c> из шаблона <c>WorkflowElementDesignerDefaultTemplate</c>).
+        /// <para>
+        /// Свои значения ставим <b>только</b> когда есть ошибки студии (выражения, типы аргументов).
+        /// Если своих ошибок нет — снимаем локальные значения: локальное значение сильнее триггера
+        /// шаблона, и раньше <c>Visibility = Collapsed</c> гасил нативную красную иконку WF
+        /// (ошибки обязательных свойств, валидаторы активностей, «дочерняя активность некорректна»).
+        /// </para>
         /// </summary>
-        private void SetValidationIconDirectly(FrameworkElement validationVisuals, List<string> errors)
+        private void SetValidationIconDirectly(FrameworkElement validationVisuals, List<string> errors, string workflowMessage)
         {
             try
             {
@@ -121,53 +210,19 @@ namespace RPA.Core.Services
                     return;
                 }
 
-                // Получаем тип WorkflowDesignerIcons из System.Activities.Presentation
-                Type workflowDesignerIconsType = Type.GetType("System.Activities.Presentation.WorkflowDesignerIcons, System.Activities.Presentation");
-
-                if (workflowDesignerIconsType == null)
+                if (!ValidationIconState.ShouldDrawOwn(errors))
                 {
+                    // Отдаём отрисовку WF: триггеры по ModelItem.ValidationState снова работают.
+                    border.ClearValue(UIElement.VisibilityProperty);
+                    border.ClearValue(Border.BackgroundProperty);
+                    border.ClearValue(FrameworkElement.ToolTipProperty);
                     return;
                 }
 
-                // Получаем вложенный класс DesignerItems
-                Type designerItemsType = workflowDesignerIconsType.GetNestedType("DesignerItems", BindingFlags.Public | BindingFlags.Static);
-
-                if (designerItemsType == null)
-                {
-                    return;
-                }
-
-                // Получаем статическое поле ActivityErrorValidation
-                PropertyInfo activityErrorValidationField = designerItemsType.GetProperty("ActivityErrorValidation",
-                    BindingFlags.Public | BindingFlags.Static);
-
-                if (activityErrorValidationField == null)
-                {
-                    return;
-                }
-
-                // Получаем значение иконки (это Brush)
-                object errorIconBrush = activityErrorValidationField.GetValue(null);
-
-                if (errorIconBrush is Brush brush)
-                {
-                    if (errors.Count == 0)
-                    {
-                        // Если ошибок нет, скрываем иконку
-                        border.Visibility = Visibility.Collapsed;
-                        border.Background = null;
-                        border.ToolTip = null;
-                    }
-                    else
-                    {
-                        // Устанавливаем Background для Border
-                        border.Visibility = Visibility.Visible;
-                        border.Background = brush;
-
-                        // Устанавливаем ToolTip для отображения сообщения об ошибке
-                        border.ToolTip = string.Join(Environment.NewLine, errors);
-                    }
-                }
+                // Своя иконка: кисть палитры (красный — семантика ошибки), подсказка — свои ошибки + текст WF.
+                border.Visibility = Visibility.Visible;
+                border.Background = ValidationIconState.ErrorIconBrush();
+                border.ToolTip = ValidationIconState.ComposeToolTip(errors, workflowMessage);
             }
             catch (Exception ex)
             {
@@ -181,19 +236,11 @@ namespace RPA.Core.Services
             _isModelChanged = true;
         }
 
-        private void Validate()
+        private void Validate(List<ModelItem> modelItems)
         {
             try
             {
-                DebuggerService debuggerService = (DebuggerService)_workflowDesignerEx.DebugManagerView;
-                ModelService modelService = _workflowDesignerEx.Context.Services.GetService<ModelService>();
-                if (modelService == null)
-                {
-                    return;
-                }
-                ModelItem rootModelItem = modelService.Root;
-                ModelItem implementationModelItem = rootModelItem.Properties["Implementation"]?.Value;
-                if (implementationModelItem == null || !(implementationModelItem.GetCurrentValue() is System.Activities.Activity rootActivity))
+                if (modelItems == null)
                 {
                     return;
                 }
@@ -202,23 +249,26 @@ namespace RPA.Core.Services
                 ValidationService validationService = _workflowDesignerEx.Context.Services.GetService<ValidationService>();
                 validationService?.ValidateWorkflow();
 
-                // Получаем словарь ошибок валидации
-                //Dictionary<dynamic, dynamic> validationErrors = GetNativeErrors(validationService);
-
-                // Получение всех потомков типа ModelItem
-                List<ModelItem> modelItems = GetModelItemChilds(implementationModelItem);
-
                 foreach (ModelItem modelItem in modelItems)
                 {
                     // Получаем Activity объект из ModelItem
-                    if (!(modelItem.GetCurrentValue() is System.Activities.Activity activity))
+                    if (!(modelItem.GetCurrentValue() is System.Activities.Activity))
                     {
                         continue;
                     }
 
-                    List<string> errors = GetActivityErrors(modelItem);
+                    // Одна «плохая» активность не должна обрывать проход по остальным: без try/catch
+                    // исключение внутри разбора аргументов оставляло часть активностей с устаревшей иконкой.
+                    try
+                    {
+                        List<string> errors = GetActivityErrors(modelItem);
 
-                    SetValivationErrorsToModelItem(modelItem, errors);
+                        SetValivationErrorsToModelItem(modelItem, errors, validationService);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Ошибка валидации активности {modelItem.ItemType?.Name}: {ErrorText.Of(ex)}");
+                    }
                 }
             }
             catch (Exception ex)
@@ -251,12 +301,19 @@ namespace RPA.Core.Services
         {
             Type argumentGenericParameterType = argumentProperty.PropertyType.GetGenericArguments()[0];
             ModelItem propertyModelItem = argumentProperty.Value;
-            ModelItem expressionModelItem = propertyModelItem.Properties["Expression"].Value;
+            ModelItem expressionModelItem = propertyModelItem?.Properties["Expression"]?.Value;
+            if (expressionModelItem == null)
+            {
+                // Аргумент без выражения (только что добавленный): раньше здесь был NullReferenceException,
+                // и весь проход валидации обрывался на середине.
+                return;
+            }
+
             // expressionModelItemType - если выражение не корректно, то тип CSharpValue, иначе Literal,
             // но рандомно может быть почему-то CSharpValue
             Type expressionModelItemType = expressionModelItem.ItemType;
             string argName = argumentProperty.Name;
-            string expressionText = (string)expressionModelItem.Properties["ExpressionText"]?.Value.GetCurrentValue();
+            string expressionText = expressionModelItem.Properties["ExpressionText"]?.Value?.GetCurrentValue() as string ?? string.Empty;
 
             // Для OutArgument чекаем только, что это переменная или аргумент в зоне видимости
             if (typeof(OutArgument).IsAssignableFrom(argumentProperty.PropertyType))
@@ -423,7 +480,7 @@ namespace RPA.Core.Services
             modelItems.AddRange(children);
         }
 
-        private void SetValivationErrorsToModelItem(ModelItem modelItem, List<string> errors)
+        private void SetValivationErrorsToModelItem(ModelItem modelItem, List<string> errors, ValidationService validationService)
         {
             // Получаем UI элемент, связанный с ModelItem
             UIElement activityUI = (UIElement)modelItem.View;
@@ -442,8 +499,12 @@ namespace RPA.Core.Services
             {
                 Debug.WriteLine($"  ✓ Найден validationVisuals для: {modelItem.ItemType.Name}");
 
+                // Текст WF (обязательные свойства, валидаторы активностей) — чтобы не потерять его,
+                // когда свои ошибки есть и иконку рисуем мы.
+                string workflowMessage = ValidationIconState.TryGetWorkflowMessage(validationService, modelItem);
+
                 // Устанавливаем иконку напрямую на Border (обходной путь)
-                SetValidationIconDirectly(validationVisuals, errors);
+                SetValidationIconDirectly(validationVisuals, errors, workflowMessage);
 
                 Debug.WriteLine($"  ✓ Установлена иконка валидации для: {modelItem.ItemType.Name}");
             }

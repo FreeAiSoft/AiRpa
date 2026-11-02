@@ -50,7 +50,9 @@ namespace RPA.CSharpExpressionEditor
         //Примеры: myVariable, myObject.Property, array[0]
         //Применение: OutArgument, InOutArgument, переменные для записи результата
 
-        private const int validationWaitTime = 10000;
+        private const int validationWaitTime = RPA.Core.Services.ExpressionValidationTiming.PollIntervalMilliseconds;
+        private System.Windows.Threading.DispatcherTimer _expressionValidationTimer;
+        private string _lastExpressionValidationText;
         private TextBlock textBlock;
         private bool isBeginEditPending;
         private readonly List<Type> _primitiveTypes = new List<Type>
@@ -374,11 +376,83 @@ namespace RPA.CSharpExpressionEditor
 
         private static void ValidateExpression(RoslynExpressionEditor etb)
         {
-            if (etb.HasError(new ExpressionValidationContext(etb), out string errorMessage))
+            bool hasError = etb.HasError(new ExpressionValidationContext(etb), out string errorMessage);
+            if (hasError)
             {
                 etb.UpdateValidationError(errorMessage);
             }
+            else
+            {
+                // Исправленное выражение обязано снять бейдж: раньше ветка без ошибки оставляла старый текст.
+                etb.UpdateValidationError(null);
+            }
         }
+
+        /// <summary>
+        /// Текст в редакторе изменился: проверяем выражение, но с паузой-«дребезгом», чтобы не
+        /// компилировать Roslyn на каждое нажатие. Проверка по факту изменения текста и есть исправление
+        /// бага «ошибка появляется только через десяток секунд»: раньше единственным триггером был
+        /// фоновый цикл с паузой <see cref="ValidationWaitTime"/> и потеря фокуса.
+        /// </summary>
+        private void OnExpressionEditorTextChanged(object sender, EventArgs e)
+        {
+            ScheduleExpressionValidation();
+        }
+
+        private void ScheduleExpressionValidation()
+        {
+            if (_expressionValidationTimer == null)
+            {
+                _expressionValidationTimer = new System.Windows.Threading.DispatcherTimer
+                {
+                    Interval = TimeSpan.FromMilliseconds(RPA.Core.Services.ExpressionValidationTiming.DebounceMilliseconds)
+                };
+                _expressionValidationTimer.Tick += ExpressionValidationTimer_Tick;
+            }
+
+            // Перезапуск паузы: проверка идёт после последнего нажатия, а не на каждое.
+            _expressionValidationTimer.Stop();
+            _expressionValidationTimer.Start();
+        }
+
+        private void ExpressionValidationTimer_Tick(object sender, EventArgs e)
+        {
+            StopExpressionValidationTimer();
+            ValidateCurrentExpression();
+        }
+
+        private void StopExpressionValidationTimer()
+        {
+            _expressionValidationTimer?.Stop();
+        }
+
+        /// <summary>
+        /// Проверяет текущий текст редактора. Неизменённый текст не проверяется
+        /// (<c>ExpressionValidationTiming.ShouldValidate</c>), иначе Roslyn компилируется на каждый тик.
+        /// </summary>
+        private void ValidateCurrentExpression()
+        {
+            try
+            {
+                string currentText = ExpressionEditorInstance != null
+                    ? ExpressionEditorInstance.Text
+                    : EditingTextBox != null ? EditingTextBox.Text : Text;
+
+                if (!RPA.Core.Services.ExpressionValidationTiming.ShouldValidate(_lastExpressionValidationText, currentText))
+                {
+                    return;
+                }
+
+                _lastExpressionValidationText = currentText ?? string.Empty;
+                ValidateExpression(this);
+            }
+            catch (Exception ex)
+            {
+                // Исключение проверки не должно ломать редактор выражения.
+                _perfLogger.Warn(ex, "[RoslynExpressionEditor] ValidateCurrentExpression ERROR");
+            }
+        }
+
 
         private void UpdateValidationError(string errorMessage)
         {
@@ -625,6 +699,7 @@ namespace RPA.CSharpExpressionEditor
         private void OnEditorLostAggregateFocus(object sender, EventArgs e)
         {
             KillValidator();
+            StopExpressionValidationTimer();
 
             ValidateExpression(this);
 
@@ -673,6 +748,7 @@ namespace RPA.CSharpExpressionEditor
                 //do this in the CloseExpressionEditor method
                 ExpressionEditorInstance.LostAggregateFocus -= new EventHandler(OnEditorLostAggregateFocus);
 
+                ExpressionEditorInstance.TextChanged -= OnExpressionEditorTextChanged;
                 ExpressionEditorInstance.Closing -= new EventHandler(OnEditorClosing);
                 ExpressionEditorInstance = null;
             }
@@ -684,6 +760,9 @@ namespace RPA.CSharpExpressionEditor
 
             HostControl = null;
             EditorName = null;
+
+            // Таймер проверки не должен тикать после закрытия документа.
+            StopExpressionValidationTimer();
         }
 
         protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
@@ -894,6 +973,10 @@ namespace RPA.CSharpExpressionEditor
                 ExpressionEditorInstance.LostAggregateFocus += new EventHandler(OnEditorLostAggregateFocus);
                 ExpressionEditorInstance.Closing += new EventHandler(OnEditorClosing);
 
+                // Проверка выражения по факту изменения текста (баг «ошибка видна только через 10 с»).
+                _lastExpressionValidationText = null;
+                ExpressionEditorInstance.TextChanged += OnExpressionEditorTextChanged;
+
                 // Set up Hostable Editor properties
                 ExpressionEditorInstance.MinLines = MinLines;
                 ExpressionEditorInstance.MaxLines = MaxLines;
@@ -927,6 +1010,7 @@ namespace RPA.CSharpExpressionEditor
                 {
                     _ = Commit(false);
                 }
+                StopExpressionValidationTimer();
                 ExpressionEditorInstance.Close();
             }
             else
@@ -1003,6 +1087,11 @@ namespace RPA.CSharpExpressionEditor
                         windowTypeName == "EditorDialog" ||
                         parentWindow.GetType().BaseType?.Name == "WorkflowElementDialog")
                     {
+                        // Системный заголовок окна WF белый в любой теме, а WfDesignerTheme до этого окна не
+                        // достаёт (окно не потомок DesignerView): снимаем caption, ставим палитру студии и
+                        // полосу заголовка StudioTitleBar.
+                        _ = RPA.Helpers.WfDialogWindowTheme.Apply(parentWindow);
+
                         // Load saved size from settings
                         double savedWidth = Properties.Settings.Default.ExpressionEditorWidth;
                         double savedHeight = Properties.Settings.Default.ExpressionEditorHeight;

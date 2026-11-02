@@ -1,0 +1,13 @@
+                                <avalonDockControls:DropDownButton x:Name="MenuDropDownButton"
+                                                                   Grid.Column="1"
+                                                                   Margin="0,0,3,0"
+                                                                   VerticalAlignment="Center"
+                                                                   Focusable="False"
+                                                                   Style="{StaticResource AvalonDock_ThemeMetro_ToolButtonStyle}">
+                                    <avalonDockControls:DropDownButton.DropDownContextMenu>
+                                        <avalonDockControls:ContextMenuEx ItemsSource="{Binding Model.ChildrenSorted, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                          ItemContainerStyle="{StaticResource AvalonDock_ThemeMetro_DocumentPaneMenuItemStyle}"
+                                                                          Style="{StaticResource AvalonDock_ThemeMetro_DocumentPaneContextMenuStyle}" />
+                                    </avalonDockControls:DropDownButton.DropDownContextMenu>
+                                    <Path Width="10" Height="10" Stretch="Uniform" Fill="{DynamicResource AvalonDock_ForegroundMuted}" Data="{StaticResource AvalonDock_GlyphMenu}" />
+                                </avalonDockControls:DropDownButton>

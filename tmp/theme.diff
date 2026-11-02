@@ -1,0 +1,113 @@
+diff --git a/AiRpaStudio/Helpers/WfDesignerTheme.cs b/AiRpaStudio/Helpers/WfDesignerTheme.cs
+index 59055cc..5677d28 100644
+--- a/AiRpaStudio/Helpers/WfDesignerTheme.cs
++++ b/AiRpaStudio/Helpers/WfDesignerTheme.cs
+@@ -371,4 +371,15 @@ namespace RPA.Helpers
+         /// (белая поверхность дизайнера, фон/рамка/подпись элемента активности). Пользовательские
+         /// кисти не трогаются: сравнивается точное значение дефолта.
++        /// <para>
++        /// Проход двусторонний: «дефолт WF → цвет палитры» <b>и</b> «цвет противоположной палитры → тот же
++        /// токен активной» (<see cref="WithStalePaletteColour"/>). Без второго правила возврат
++        /// «тёмная → светлая» оставлял бы тёмные плашки: дефолт уже подменён, а тёмный цвет палитры в
++        /// списке дефолтов отсутствует, поэтому замена не срабатывала никогда.
++        /// </para>
++        /// <para>
++        /// Регресс: пустая активность в дизайнере (плита <c>Border</c> 440×440 вокруг подсказки
++        /// «Перетащите сюда действие») после light → dark → light оставалась цвета <c>Surface</c> тёмной
++        /// палитры — на светлой теме была видна чёрная рамка толщиной с бордер плиты.
++        /// </para>
+         /// </summary>
+         private static void ReplaceWorkflowDefaultColors(DependencyObject root, StudioThemeColors palette)
+@@ -378,24 +389,36 @@ namespace RPA.Helpers
+             SolidColorBrush foreground = WfThemeStyles.Brush(palette.Foreground);
+ 
+-            Color[] designerBackgrounds =
+-            {
+-                SafeColor(() => WorkflowDesignerColors.DesignerViewBackgroundColor, FallbackDesignerViewBackground),
+-                FallbackDesignerViewBackground
+-            };
+-            Color[] elementBackgrounds =
+-            {
+-                SafeColor(() => WorkflowDesignerColors.WorkflowViewElementBackgroundColor, FallbackViewElementBackground),
+-                FallbackViewElementBackground
+-            };
+-            Color[] elementBorders =
+-            {
+-                SafeColor(() => WorkflowDesignerColors.WorkflowViewElementBorderColor, FallbackViewElementBorder),
+-                FallbackViewElementBorder
+-            };
+-            Color[] captions =
+-            {
+-                SafeColor(() => WorkflowDesignerColors.WorkflowViewElementCaptionColor, FallbackViewElementCaption),
+-                FallbackViewElementCaption
+-            };
++            Color[] designerBackgrounds = WithStalePaletteColour(
++                new[]
++                {
++                    SafeColor(() => WorkflowDesignerColors.DesignerViewBackgroundColor, FallbackDesignerViewBackground),
++                    FallbackDesignerViewBackground
++                },
++                palette,
++                StudioPalette.SurfaceToken);
++            Color[] elementBackgrounds = WithStalePaletteColour(
++                new[]
++                {
++                    SafeColor(() => WorkflowDesignerColors.WorkflowViewElementBackgroundColor, FallbackViewElementBackground),
++                    FallbackViewElementBackground
++                },
++                palette,
++                StudioPalette.SurfaceToken);
++            Color[] elementBorders = WithStalePaletteColour(
++                new[]
++                {
++                    SafeColor(() => WorkflowDesignerColors.WorkflowViewElementBorderColor, FallbackViewElementBorder),
++                    FallbackViewElementBorder
++                },
++                palette,
++                StudioPalette.SeparatorStrongToken);
++            Color[] captions = WithStalePaletteColour(
++                new[]
++                {
++                    SafeColor(() => WorkflowDesignerColors.WorkflowViewElementCaptionColor, FallbackViewElementCaption),
++                    FallbackViewElementCaption
++                },
++                palette,
++                StudioPalette.ForegroundToken);
+ 
+             foreach (DependencyObject element in SelfAndDescendants(root))
+@@ -437,4 +460,35 @@ namespace RPA.Helpers
+         }
+ 
++        /// <summary>
++        /// Дополняет список «заменяемых» цветов цветом <b>того же токена противоположной палитры</b>:
++        /// так проход узнаёт собственную работу предыдущей темы и переносит её в активную.
++        /// <para>
++        /// Токен задаётся именем, а не значением, поэтому пары совпадают для любой палитры: фон плиты,
++        /// покрашенный в <c>Surface</c>, узнаётся как <c>Surface</c> и становится <c>Surface</c> активной
++        /// темы, рамка — <c>SeparatorStrong</c>, подпись — <c>Foreground</c>. Полупрозрачные токены
++        /// (<c>Overlay*</c>) пропускаются: локальная плашка ими не красится.
++        /// </para>
++        /// </summary>
++        private static Color[] WithStalePaletteColour(Color[] defaults, StudioThemeColors palette, string tokenName)
++        {
++            if (defaults == null || palette == null || string.IsNullOrEmpty(tokenName))
++            {
++                return defaults;
++            }
++
++            StudioThemeColors previous = palette.IsDark ? StudioPalette.Light : StudioPalette.Dark;
++            if (!previous.Tokens.TryGetValue(tokenName, out Color stale)
++                || stale.A != 0xFF
++                || Array.IndexOf(defaults, stale) >= 0)
++            {
++                return defaults;
++            }
++
++            Color[] extended = new Color[defaults.Length + 1];
++            Array.Copy(defaults, extended, defaults.Length);
++            extended[defaults.Length] = stale;
++            return extended;
++        }
++
+         private static Color SafeColor(Func<Color> getter, Color fallback)
+         {

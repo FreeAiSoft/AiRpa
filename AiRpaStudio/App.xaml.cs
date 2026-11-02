@@ -31,6 +31,11 @@ namespace RPA
             // Application.ThreadException для WPF-приложения не срабатывает.
             AppDomain.CurrentDomain.UnhandledException += Log.AppDomain_CurrentDomain_UnhandledException;
             DispatcherUnhandledException += Log.Application_DispatcherUnhandledException;
+
+            // Страховка от несогласованных версий зависимостей: WF-панель «Пространства имён»
+            // перечисляет типы сборок (Assembly.GetExportedTypes), и копия библиотеки другой версии
+            // в папке приложения роняла дизайнер модальным окном FileLoadException (HRESULT 0x80131040).
+            AssemblyBindingUnifier.Install(AppDomain.CurrentDomain);
         }
 
         private void Application_Startup(object sender, StartupEventArgs e)

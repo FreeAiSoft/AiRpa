@@ -6,13 +6,7 @@
              xmlns:local="clr-namespace:ActivityLibraryBase.Controls"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800"
-             xmlns:conv="clr-namespace:ActivityLibraryBase.Converters"
              xmlns:localResx="clr-namespace:ActivityLibraryBase.Resources">
-    <UserControl.Resources>
-        <ResourceDictionary>
-            <conv:BoolToColorConverter x:Key="BoolToColorConverter" />
-        </ResourceDictionary>
-    </UserControl.Resources>
 
     <Grid Width="300">
         <Grid.ColumnDefinitions>
@@ -24,10 +18,27 @@
                   IsChecked="{Binding Path=ModelItem.IsEnabled, Mode=TwoWay}" 
                   Checked="IsEnabledCheckBox_Checked"
                   Unchecked="IsEnabledCheckBox_Unchecked"/>
+        <!--
+            Подпись активности: цвет берётся из палитры темизатора дизайнера (он ставит локальное значение
+            на TextBlock), поэтому Foreground здесь не задаётся. Отключённая активность показывается
+            прозрачностью, а не цветом: зашитый цвет (прежняя кисть Black)
+            в тёмной теме не читался — чёрные буквы на тёмной плите.
+        -->
         <TextBlock Text="{Binding TitleText, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                   Foreground="{Binding ElementName=isEnabledCheckBox, Path=IsChecked, Converter={StaticResource BoolToColorConverter}}"
                    HorizontalAlignment="Center"
                    Grid.Column="1"
-                   FontWeight="Black" />
+                   FontWeight="Black">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsChecked, ElementName=isEnabledCheckBox}"
+                                     Value="False">
+                            <Setter Property="Opacity"
+                                    Value="0.55" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
     </Grid>
 </UserControl>

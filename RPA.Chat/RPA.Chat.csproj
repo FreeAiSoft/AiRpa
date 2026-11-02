@@ -15,6 +15,10 @@
     <PackageReference Include="Markdig" Version="1.4.2" />
     <PackageReference Include="Material.Icons.WPF" Version="2.4.1" />
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <!-- Единая версия пакета во всём решении: 4.5.2 даёт сборку 4.2.0.0, а студия перенаправляет
+         привязку на 4.2.0.1 (пакет 4.5.4). Разные копии одной сборки в папке приложения роняли
+         дизайнер WF (FileLoadException, HRESULT 0x80131040) при перечислении пространств имён. -->
+    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
   </ItemGroup>
 
   <ItemGroup>

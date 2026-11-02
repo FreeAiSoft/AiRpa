@@ -1,0 +1,124 @@
+        /// <summary>
+        /// Заменяет дефолтные цвета WF, пришедшие в элементы через <c>{StaticResource}</c>
+        /// (белая поверхность дизайнера, фон/рамка/подпись элемента активности). Пользовательские
+        /// кисти не трогаются: сравнивается точное значение дефолта.
+        /// <para>
+        /// Проход двусторонний: «дефолт WF → цвет палитры» <b>и</b> «цвет противоположной палитры → тот же
+        /// токен активной» (<see cref="WithStalePaletteColour"/>). Без второго правила возврат
+        /// «тёмная → светлая» оставлял бы тёмные плашки: дефолт уже подменён, а тёмный цвет палитры в
+        /// списке дефолтов отсутствует, поэтому замена не срабатывала никогда.
+        /// </para>
+        /// <para>
+        /// Регресс: пустая активность в дизайнере (плита <c>Border</c> 440×440 вокруг подсказки
+        /// «Перетащите сюда действие») после light → dark → light оставалась <c>#272727</c> — на светлой
+        /// теме была видна чёрная рамка толщиной с бордер плиты.
+        /// </para>
+        /// </summary>
+        private static void ReplaceWorkflowDefaultColors(DependencyObject root, StudioThemeColors palette)
+        {
+            SolidColorBrush surface = WfThemeStyles.Brush(palette.Surface);
+            SolidColorBrush separatorStrong = WfThemeStyles.Brush(palette.SeparatorStrong);
+            SolidColorBrush foreground = WfThemeStyles.Brush(palette.Foreground);
+
+            Color[] designerBackgrounds = WithStalePaletteColour(
+                new[]
+                {
+                    SafeColor(() => WorkflowDesignerColors.DesignerViewBackgroundColor, FallbackDesignerViewBackground),
+                    FallbackDesignerViewBackground
+                },
+                palette,
+                StudioPalette.SurfaceToken);
+            Color[] elementBackgrounds = WithStalePaletteColour(
+                new[]
+                {
+                    SafeColor(() => WorkflowDesignerColors.WorkflowViewElementBackgroundColor, FallbackViewElementBackground),
+                    FallbackViewElementBackground
+                },
+                palette,
+                StudioPalette.SurfaceToken);
+            Color[] elementBorders = WithStalePaletteColour(
+                new[]
+                {
+                    SafeColor(() => WorkflowDesignerColors.WorkflowViewElementBorderColor, FallbackViewElementBorder),
+                    FallbackViewElementBorder
+                },
+                palette,
+                StudioPalette.SeparatorStrongToken);
+            Color[] captions = WithStalePaletteColour(
+                new[]
+                {
+                    SafeColor(() => WorkflowDesignerColors.WorkflowViewElementCaptionColor, FallbackViewElementCaption),
+                    FallbackViewElementCaption
+                },
+                palette,
+                StudioPalette.ForegroundToken);
+
+            foreach (DependencyObject element in SelfAndDescendants(root))
+            {
+                ReplaceColor(element, Panel.BackgroundProperty, designerBackgrounds, surface);
+                ReplaceColor(element, Panel.BackgroundProperty, elementBackgrounds, surface);
+                ReplaceColor(element, Control.BackgroundProperty, designerBackgrounds, surface);
+                ReplaceColor(element, Control.BackgroundProperty, elementBackgrounds, surface);
+                ReplaceColor(element, Border.BackgroundProperty, designerBackgrounds, surface);
+                ReplaceColor(element, Border.BackgroundProperty, elementBackgrounds, surface);
+                ReplaceColor(element, Border.BorderBrushProperty, elementBorders, separatorStrong);
+                ReplaceColor(element, Control.BorderBrushProperty, elementBorders, separatorStrong);
+                ReplaceColor(element, Control.ForegroundProperty, captions, foreground);
+                ReplaceColor(element, TextBlock.ForegroundProperty, captions, foreground);
+            }
+        }
+
+        private static void ReplaceColor(DependencyObject element, DependencyProperty property, Color[] from, Brush to)
+        {
+            if (element == null || property == null || to == null)
+            {
+                return;
+            }
+
+            // Только локально заданные кисти: значения из шаблонов и привязок не переписываем.
+            if (!(element.ReadLocalValue(property) is SolidColorBrush current))
+            {
+                return;
+            }
+
+            foreach (Color color in from)
+            {
+                if (current.Color == color)
+                {
+                    element.SetValue(property, to);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Дополняет список «заменяемых» цветов цветом <b>того же токена противоположной палитры</b>:
+        /// так проход узнаёт собственную работу предыдущей темы и переносит её в активную.
+        /// <para>
+        /// Токен задаётся именем, а не значением, поэтому пары совпадают для любой палитры: фон плиты,
+        /// покрашенный в <c>Surface</c>, узнаётся как <c>Surface</c> и становится <c>Surface</c> активной
+        /// темы, рамка — <c>SeparatorStrong</c>, подпись — <c>Foreground</c>. Полупрозрачные токены
+        /// (<c>Overlay*</c>) пропускаются: локальная плашка ими не красится.
+        /// </para>
+        /// </summary>
+        private static Color[] WithStalePaletteColour(Color[] defaults, StudioThemeColors palette, string tokenName)
+        {
+            if (defaults == null || palette == null || string.IsNullOrEmpty(tokenName))
+            {
+                return defaults;
+            }
+
+            StudioThemeColors previous = palette.IsDark ? StudioPalette.Light : StudioPalette.Dark;
+            if (!previous.Tokens.TryGetValue(tokenName, out Color stale)
+                || stale.A != 0xFF
+                || Array.IndexOf(defaults, stale) >= 0)
+            {
+                return defaults;
+            }
+
+            Color[] extended = new Color[defaults.Length + 1];
+            Array.Copy(defaults, extended, defaults.Length);
+            extended[defaults.Length] = stale;
+            return extended;
+        }
+

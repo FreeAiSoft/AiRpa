@@ -1,0 +1,14 @@
+﻿powershell : Исключение при вызове ".ctor" с "1" аргументами: "Недопустимое значение URI: Указан недопустимый порт."
+строка:1 знак:43
++ ... yContinue'; powershell -NoProfile -ExecutionPolicy Bypass -STA -File  ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Исключение при ...пустимый порт.":String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+C:\Users\Maxxx\Desktop\AI-RPA\tmp\mdinspect.ps1:15 знак:5
++     $dict.Source = [System.Uri]::new($uri)
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [], MethodInvocationException
+    + FullyQualifiedErrorId : UriFormatException
+ 
+lines=6

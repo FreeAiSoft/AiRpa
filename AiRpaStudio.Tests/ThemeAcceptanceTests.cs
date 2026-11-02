@@ -255,15 +255,17 @@ public class ThemeAcceptanceTests
     }
 
     [Test]
-    public void RoslynExpressionEditor_UsesPaletteAndHairlineErrorBadge()
+    public void RoslynExpressionEditor_UsesPaletteAndErrorIconBadge()
     {
         string xaml = WithoutComments(Read(@"AiRpaStudio\CSharpExpressionEditor\RoslynExpressionEditor.xaml"));
 
         Assert.That(xaml, Does.Contain("Studio.Separator"), "рамка редактора — hairline палитры");
         Assert.That(xaml, Does.Contain("Studio.CloseHoverBackground"),
-            "бейдж ошибки — единственный не-нейтральный цвет, как на hairline-адаптере этапа 7");
+            "бейдж ошибки — единственный не-нейтральный цвет палитры (иконка, а не рамка)");
         Assert.That(xaml, Does.Not.Contain("TextBoxErrorIcon"),
-            "многоцветная иконка ошибки (#FFDADADA/#FF1AA1E2/#FFFFFFFF) заменена hairline-бейджем");
+            "многоцветная иконка ошибки (#FFDADADA/#FF1AA1E2/#FFFFFFFF) заменена глифом палитры");
+        Assert.That(xaml, Does.Contain("materialIcons:MaterialIcon"),
+            "бейдж ошибки — иконка MaterialIcon с глифом, а не пустая рамка");
         Assert.That(xaml, Does.Not.Contain("ResizeGripIcon"), "неиспользуемый ресурс удалён");
     }
 

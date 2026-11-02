@@ -1,0 +1,90 @@
+    <!--
+        Меню списка открытых документов (шеврон в шапке панели документов).
+        Раньше меню и его пункты рисовали неявные стили MaterialDesign из App.xaml: у пункта
+        Padding="24,0,24,0", поэтому между кромкой меню и названием документа оставалась широкая
+        пустая полоса. Теперь у меню своя рамка 1 px и нулевой паддинг, а отступ подписи задаёт
+        Padding пункта — 9 px: ровно 10 px от внешней кромки меню до начала текста (1 px рамки + 9 px).
+        Иконка документа в пункте не рисуется: колонка иконки шаблона MaterialDesign и была вторым
+        источником пустого места, а IconSource у документов студии не задан.
+    -->
+    <Style x:Key="AvalonDock_ThemeMetro_DocumentPaneContextMenuStyle"
+           TargetType="{x:Type avalonDockControls:ContextMenuEx}">
+        <Setter Property="Background"
+                Value="{DynamicResource AvalonDock_Surface}" />
+        <Setter Property="Foreground"
+                Value="{DynamicResource AvalonDock_Foreground}" />
+        <Setter Property="BorderBrush"
+                Value="{DynamicResource AvalonDock_SeparatorStrong}" />
+        <Setter Property="BorderThickness"
+                Value="1" />
+        <!--  Нулевой паддинг меню: весь отступ слева задаёт пункт (см. цифру 10 px выше).  -->
+        <Setter Property="Padding"
+                Value="0" />
+        <Setter Property="FontFamily"
+                Value="{DynamicResource Studio.FontFamily}" />
+        <Setter Property="SnapsToDevicePixels"
+                Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type avalonDockControls:ContextMenuEx}">
+                    <Border x:Name="MenuBorder"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4"
+                            SnapsToDevicePixels="True">
+                        <StackPanel IsItemsHost="True"
+                                    KeyboardNavigation.DirectionalNavigation="Cycle" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="AvalonDock_ThemeMetro_DocumentPaneMenuItemStyle"
+           TargetType="{x:Type avalonDockControls:MenuItemEx}">
+        <!--  10 px от внешней кромки меню: 1 px рамки меню + 9 px отступа пункта.  -->
+        <Setter Property="Padding"
+                Value="9,4,12,4" />
+        <Setter Property="Foreground"
+                Value="{DynamicResource AvalonDock_Foreground}" />
+        <Setter Property="FontFamily"
+                Value="{DynamicResource Studio.FontFamily}" />
+        <Setter Property="SnapsToDevicePixels"
+                Value="True" />
+        <Setter Property="HeaderTemplate"
+                Value="{Binding Path=Root.Manager.DocumentPaneMenuItemHeaderTemplate}" />
+        <Setter Property="HeaderTemplateSelector"
+                Value="{Binding Path=Root.Manager.DocumentPaneMenuItemHeaderTemplateSelector}" />
+        <Setter Property="Command"
+                Value="{Binding Path=., Converter={avalonDockConverters:ActivateCommandLayoutItemFromLayoutModelConverter}}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type avalonDockControls:MenuItemEx}">
+                    <Border x:Name="ItemBorder"
+                            Background="Transparent"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="Left"
+                                          VerticalAlignment="Center"
+                                          ContentSource="Header"
+                                          RecognizesAccessKey="False" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted"
+                                 Value="True">
+                            <Setter TargetName="ItemBorder"
+                                    Property="Background"
+                                    Value="{DynamicResource AvalonDock_Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled"
+                                 Value="False">
+                            <Setter Property="Foreground"
+                                    Value="{DynamicResource AvalonDock_ForegroundMuted}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+

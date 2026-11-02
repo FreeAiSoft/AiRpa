@@ -1,0 +1,26 @@
+--- bounding boxes ---
+000000: count=6016 bbox=(0,0)-(1934,1054)
+272727: count=4300 bbox=(622,362)-(1060,800)
+1F1F1F: count=597 bbox=(20,18)-(1904,1036)
+404046: count=0 bbox=(99999,99999)-(-1,-1)
+48484F: count=0 bbox=(99999,99999)-(-1,-1)
+--- horizontal scan y=366 (through top edge of ring) ---
+x=600 -> FFFFFF
+x=622 -> 272727
+x=1062 -> FFFFFF
+--- vertical scan x=900 (through interior) ---
+y=350 -> FFFFFF
+y=361 -> 272727
+y=371 -> FFFFFF
+y=579 -> 1F1F1F
+y=580 -> FFDD98
+y=582 -> FFBB73
+y=583 -> BB731F
+y=584 -> 984B4B
+y=585 -> FFFFFF
+y=791 -> 272727
+y=801 -> FFFFFF
+--- vertical scan x=630 (through left edge of ring) ---
+y=350 -> FFFFFF
+y=361 -> 272727
+y=801 -> FFFFFF

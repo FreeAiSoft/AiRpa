@@ -1,0 +1,41 @@
+        private void Validate(List<ModelItem> modelItems)
+        {
+            try
+            {
+                if (modelItems == null)
+                {
+                    return;
+                }
+
+                // Получаем ValidationService для установки кастомных ошибок
+                ValidationService validationService = _workflowDesignerEx.Context.Services.GetService<ValidationService>();
+                validationService?.ValidateWorkflow();
+
+                foreach (ModelItem modelItem in modelItems)
+                {
+                    // Получаем Activity объект из ModelItem
+                    if (!(modelItem.GetCurrentValue() is System.Activities.Activity))
+                    {
+                        continue;
+                    }
+
+                    // Одна «плохая» активность не должна обрывать проход по остальным: без try/catch
+                    // исключение внутри разбора аргументов оставляло часть активностей с устаревшей иконкой.
+                    try
+                    {
+                        List<string> errors = GetActivityErrors(modelItem);
+
+                        SetValivationErrorsToModelItem(modelItem, errors, validationService);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Ошибка валидации активности {modelItem.ItemType?.Name}: {ErrorText.Of(ex)}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"ОШИБКА в CustomValidation(): {ex}");
+            }
+        }
+

@@ -309,7 +309,7 @@ public class ThemeXamlTests
     }
 
     [Test]
-    public void ThemeXaml_DocumentTabCloseButtonUsesCloseHoverColors()
+    public void ThemeXaml_DocumentTabCloseButtonHoversNeutral()
     {
         string text = ReadTheme();
 
@@ -320,8 +320,10 @@ public class ThemeXamlTests
 
         Assert.That(closeStyle.Success, Is.True, "нет стиля кнопки закрытия вкладки документа");
         Assert.That(closeStyle.Value, Does.Contain("IsMouseOver"), "крестик вкладки должен реагировать на hover");
-        Assert.That(closeStyle.Value, Does.Contain("{DynamicResource AvalonDock_CloseHoverBackground}"),
-            "hover крестика — AvalonDock_CloseHoverBackground (семантика закрытия из палитры)");
+        Assert.That(closeStyle.Value, Does.Contain("Value=\"{DynamicResource AvalonDock_SelectionHover}\""),
+            "hover крестика — нейтральная подсветка AvalonDock_SelectionHover");
+        Assert.That(closeStyle.Value, Does.Not.Contain("AvalonDock_CloseHover"),
+            "красная семантика закрытия в шапке вкладок не используется: крестик лишь подсвечивает фон");
         Assert.That(closeStyle.Value, Does.Contain("AvalonDock_ThemeMetro_ButtonStyle"),
             "стиль кнопки закрытия наследует общий стиль кнопок темы");
 
@@ -331,8 +333,19 @@ public class ThemeXamlTests
 
         Assert.That(tabItem, Does.Contain("AvalonDock_ThemeMetro_DocumentCloseButtonStyle"),
             "кнопка закрытия вкладки документа должна использовать стиль с hover");
-        Assert.That(tabItem, Does.Contain("{DynamicResource AvalonDock_CloseHoverForeground}"),
-            "глиф крестика при hover — AvalonDock_CloseHoverForeground");
+        Assert.That(tabItem, Does.Not.Contain("AvalonDock_CloseHover"),
+            "шаблон вкладки документа не перекрашивает крестик в семантику закрытия");
+        Assert.That(tabItem, Does.Not.Contain("SourceName=\"DocumentCloseButton\""),
+            "hover крестика не должен менять состояние глифа: подсвечивается только фон кнопки");
+
+        Match glyph = Regex.Match(tabItem,
+            "<Path x:Name=\"PART_ImgPinClose\"[^>]*/>",
+            RegexOptions.Singleline,
+            TimeSpan.FromSeconds(2));
+
+        Assert.That(glyph.Success, Is.True, "в шаблоне вкладки документа нет глифа PART_ImgPinClose");
+        Assert.That(glyph.Value, Does.Contain("{DynamicResource AvalonDock_Foreground}"),
+            "глиф крестика во всех состояниях — AvalonDock_Foreground");
     }
 
     [Test]
@@ -359,6 +372,144 @@ public class ThemeXamlTests
                 "у выбранной вкладки — hairline AvalonDock_Separator");
         });
     }
+    // --- Пункт «шеврон панели документов и меню открытых документов» (P-09). ---
+
+    /// <summary>Имя рамки меню в шаблоне темы (по нему тест находит кромку для замера отступа).</summary>
+    private const string AvalonDockMenuBorderPartName = "MenuBorder";
+
+    [Test]
+    public void ThemeXaml_DocumentPaneChevronHasThreePixelRightInset()
+    {
+        string text = ReadTheme();
+
+        string style = Segment(text,
+            "<Style x:Key=\"AvalonDock_ThemeMetro_DocumentPaneControlStyle\"",
+            "<Setter Property=\"ItemTemplate\">");
+
+        Match chevron = Regex.Match(style,
+            "<avalonDockControls:DropDownButton x:Name=\"MenuDropDownButton\".*?>",
+            RegexOptions.Singleline,
+            TimeSpan.FromSeconds(2));
+
+        Assert.That(chevron.Success, Is.True, "в шапке панели документов нет шеврона MenuDropDownButton");
+        Assert.That(chevron.Value, Does.Contain("Margin=\"0,0,3,0\""),
+            "шеврон списка открытых документов должен отступать от правой кромки панели на 3 px");
+    }
+
+    [Test]
+    public void ThemeXaml_DocumentPaneMenuUsesOwnTemplates()
+    {
+        string text = ReadTheme();
+
+        string style = Segment(text,
+            "<Style x:Key=\"AvalonDock_ThemeMetro_DocumentPaneControlStyle\"",
+            "<Setter Property=\"ItemTemplate\">");
+
+        Assert.Multiple(() =>
+        {
+            // Меню списка документов рисовали шаблоны MaterialDesign (Padding 24,0,24,0 у пункта):
+            // текст уезжал вправо на десятки пикселей. Теперь меню и пункты — на шаблонах темы.
+            Assert.That(style, Does.Contain("Style=\"{StaticResource AvalonDock_ThemeMetro_DocumentPaneContextMenuStyle}\""),
+                "меню списка документов должно брать стиль темы (у MaterialDesign пункт имеет Padding 24 px слева)");
+            Assert.That(style, Does.Contain("ItemContainerStyle=\"{StaticResource AvalonDock_ThemeMetro_DocumentPaneMenuItemStyle}\""),
+                "пункты меню должны брать стиль темы, а не неявный MenuItem MaterialDesign");
+        });
+
+        string itemStyle = Segment(text,
+            "<Style x:Key=\"AvalonDock_ThemeMetro_DocumentPaneMenuItemStyle\"",
+            "</Style>");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(itemStyle, Does.Contain("Margin=\"{TemplateBinding Padding}\""),
+                "отступ подписи пункта задаётся Padding пункта (иначе цифра в тесте ниже ничего не значит)");
+            Assert.That(itemStyle, Does.Contain("ContentSource=\"Header\""),
+                "подпись пункта приходит из Header (HeaderTemplate ставит панель документов)");
+            Assert.That(itemStyle, Does.Contain("{DynamicResource AvalonDock_Hover}"),
+                "hover пункта должен брать AvalonDock_Hover");
+            Assert.That(itemStyle, Does.Contain("{DynamicResource AvalonDock_ForegroundMuted}"),
+                "недоступный пункт — AvalonDock_ForegroundMuted");
+        });
+    }
+
+    [Test]
+    public void ThemeXaml_DocumentPaneMenuTextStartsTenPixelsFromOuterEdge()
+    {
+        ResourceDictionary dictionary = LoadThemeDictionary();
+
+        var menuStyle = dictionary["AvalonDock_ThemeMetro_DocumentPaneContextMenuStyle"] as Style;
+        var itemStyle = dictionary["AvalonDock_ThemeMetro_DocumentPaneMenuItemStyle"] as Style;
+
+        Assert.That(menuStyle, Is.Not.Null, "в теме нет стиля меню списка документов");
+        Assert.That(itemStyle, Is.Not.Null, "в теме нет стиля пункта меню списка документов");
+
+        double inset = ThicknessSetterOf(menuStyle, Control.BorderThicknessProperty).Left
+                       + ThicknessSetterOf(menuStyle, Control.PaddingProperty).Left
+                       + ThicknessSetterOf(itemStyle, Control.PaddingProperty).Left;
+
+        Assert.That(inset, Is.EqualTo(10d),
+            "текст пункта обязан начинаться ровно в 10 px от внешней кромки меню (рамка меню + отступ пункта)");
+    }
+
+    [Test]
+    public void DocumentPaneMenu_TextStartsTenPixelsFromOuterEdge()
+    {
+        // Материализация: цифры выше относятся к сеттерам, а этот тест проверяет саму раскладку —
+        // кромку рамки меню против левого края подписи пункта.
+        ResourceDictionary dictionary = LoadThemeDictionary();
+        var menuStyle = dictionary["AvalonDock_ThemeMetro_DocumentPaneContextMenuStyle"] as Style;
+        var itemStyle = dictionary["AvalonDock_ThemeMetro_DocumentPaneMenuItemStyle"] as Style;
+
+        var menu = new AvalonDock.Controls.ContextMenuEx { Style = menuStyle };
+        if (itemStyle != null)
+        {
+            menu.ItemContainerStyle = itemStyle;
+        }
+
+        foreach (string key in new[]
+                 {
+                     "AvalonDock_Surface",
+                     "AvalonDock_Foreground",
+                     "AvalonDock_ForegroundMuted",
+                     "AvalonDock_SeparatorStrong",
+                     "AvalonDock_Hover",
+                     "AvalonDock_Selection"
+                 })
+        {
+            menu.Resources[key] = FrozenBrush(Color.FromRgb(0x20, 0x20, 0x20));
+        // Шрифт — отдельный ключ (не кисть): значение берётся у студии, как и в рантайме.
+        menu.Resources["Studio.FontFamily"] = StudioFonts.UiFont;
+
+        }
+
+        _ = menu.Items.Add("Activity.xaml");
+
+        menu.Measure(new Size(320, 200));
+        menu.Arrange(new Rect(0, 0, 320, 200));
+
+        Border menuBorder = XamlHelper.FindVisualChildren<Border>(menu)
+            .FirstOrDefault(candidate => candidate.Name == AvalonDockMenuBorderPartName);
+        TextBlock caption = XamlHelper.FindVisualChildren<TextBlock>(menu).FirstOrDefault();
+
+        Assert.That(menuBorder, Is.Not.Null, "в шаблоне меню нет Border с именем " + AvalonDockMenuBorderPartName);
+        Assert.That(caption, Is.Not.Null, "в пункте меню нет подписи");
+
+        Point captionOrigin = caption.TransformToAncestor(menuBorder).Transform(new Point(0, 0));
+
+        Assert.That(captionOrigin.X, Is.EqualTo(10d).Within(0.5d),
+            "текст пункта должен начинаться в 10 px от внешней кромки меню");
+    }
+
+    /// <summary>Значение <see cref="Thickness"/> из сеттера стиля.</summary>
+    private static Thickness ThicknessSetterOf(Style style, DependencyProperty property)
+    {
+        Setter setter = style.Setters.OfType<Setter>().FirstOrDefault(candidate => candidate.Property == property);
+
+        Assert.That(setter, Is.Not.Null, $"в стиле {style.TargetType.Name} не задан {property.Name}");
+        return (Thickness)setter.Value;
+    }
+
+
 
     /// <summary>Загружает словарь темы (тот же разбор, что и при старте студии).</summary>
     private static ResourceDictionary LoadThemeDictionary()

@@ -25,6 +25,9 @@
     <ProjectReference Include="..\AiRpaStudio\AiRpaStudio.csproj" />
     <ProjectReference Include="..\VibeCoder.Core\VibeCoder.Core.csproj" />
     <ProjectReference Include="..\RPA.Chat\RPA.Chat.csproj" />
+    <!-- Панель документов: тесты темы материализуют меню списка документов (ContextMenuEx/MenuItemEx). -->
+    <ProjectReference Include="..\AvalonDock\AvalonDock.csproj" />
+
     <ProjectReference Include="..\RPA.NuGet\RPA.NuGet.csproj" />
   </ItemGroup>
 

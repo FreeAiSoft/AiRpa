@@ -1,0 +1,15 @@
+﻿ришедшими через <c>{StaticResource}</c>) фоном и рамкой и подсказкой «Перетащите сюда
+    /// действие» внутри. Локальные кисти не пересчитываются при смене темы — их перекрашивает
+    /// только <c>ReplaceWorkflowDefaultColors</c>.
+    /// </summary>
+    private static Border AddActivityPlate(Grid root, out Label caption)
+    {
+        caption = new Label
+        {
+            Foreground = new SolidColorBrush(WorkflowDesignerColors.WorkflowViewElementCaptionColor),
+            Content = new TextBlock { Text = "Перетащите сюда действие" }
+        };
+
+        var plate = new Border
+        {
+            Background = new SolidColorBrush(WorkflowDesignerColors.WorkflowViewElementB

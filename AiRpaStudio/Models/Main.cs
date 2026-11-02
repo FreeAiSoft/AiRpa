@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Activities.Core.Presentation;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -25,7 +26,26 @@ namespace RPA.Models
 
         private string language;
 
+        /// <summary>
+        /// Идёт восстановление сессии: изменения набора вкладок в этот момент не сохраняем, иначе
+        /// промежуточное состояние (открыта только главная активность) затрёт сохранённый список.
+        /// </summary>
+        private bool _isRestoringSession;
+
         #endregion Fields
+
+        public Main()
+        {
+            // Состояние вкладок сохраняется в одном месте и для обоих режимов проекта: классический
+            // project.json (CustomWfDesigner.LoadProject) и проект Visual Studio (.sln/.csproj).
+            CustomWfDesigner.WorkflowDesigners.CollectionChanged += WorkflowTabs_CollectionChanged;
+            OpenCodeDocuments.CollectionChanged += WorkflowTabs_CollectionChanged;
+        }
+
+        private void WorkflowTabs_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            SaveSessionState();
+        }
 
         #region Properties
         public CustomWfDesigner CustomWfDesigner { get; } = CustomWfDesigner.GetInstance();
@@ -147,9 +167,22 @@ namespace RPA.Models
                     return;
                 }
 
-                CustomWfDesigner.LoadProject(rootProjectFolder);
-                Properties.Settings.Default.LastLoadedProjectPath = rootProjectFolder;
-                Properties.Settings.Default.Save();
+                _isRestoringSession = true;
+                try
+                {
+                    CustomWfDesigner.LoadProject(rootProjectFolder);
+                    Properties.Settings.Default.LastLoadedProjectPath = rootProjectFolder;
+                    Properties.Settings.Default.Save();
+
+                    // Порядок вкладок, вкладки редактора кода и активная вкладка — из сохранённой сессии.
+                    RestoreSessionState(rootProjectFolder);
+                }
+                finally
+                {
+                    _isRestoringSession = false;
+                }
+
+                SaveSessionState();
             }
             catch (Exception ex)
             {
@@ -526,6 +559,21 @@ namespace RPA.Models
                 Properties.Settings.Default.LastLoadedProjectPath = path;
                 Properties.Settings.Default.Save();
 
+                // Проект Visual Studio не открывал ни одного документа: сохранение вкладок подписывалось
+                // только внутри CustomWfDesigner.LoadProject (классический проект), поэтому при перезапуске
+                // вкладок не было, хотя при закрытии они были.
+                _isRestoringSession = true;
+                try
+                {
+                    RestoreSessionState(path);
+                }
+                finally
+                {
+                    _isRestoringSession = false;
+                }
+
+                SaveSessionState();
+
                 CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_vs_project_loaded", path), (int)RpaCommon.Enums.LogLevel.Info);
             }
             catch (Exception ex)
@@ -535,6 +583,138 @@ namespace RPA.Models
             }
         }
 
+        /// <summary>
+        /// Сохраняет состояние вкладок студии: вкладки дизайнера в их порядке, вкладки редактора кода и
+        /// активную вкладку (<see cref="WorkflowSessionState"/>). Настройка — <c>DesignerFiles</c>
+        /// (в ней же лежал старый формат — JSON-массив путей).
+        /// </summary>
+        internal void SaveSessionState()
+        {
+            if (_isRestoringSession)
+            {
+                return;
+            }
+
+            try
+            {
+                string projectPath = Properties.Settings.Default.LastLoadedProjectPath;
+                if (string.IsNullOrWhiteSpace(projectPath))
+                {
+                    return;
+                }
+
+                List<string> workflowFiles = CustomWfDesigner.WorkflowDesigners
+                    .Select(CustomWfDesigner.GetLoadedFile)
+                    .Where(file => !string.IsNullOrWhiteSpace(file))
+                    .ToList();
+
+                List<string> codeFiles = OpenCodeDocuments
+                    .Select(document => document.FilePath)
+                    .Where(file => !string.IsNullOrWhiteSpace(file))
+                    .ToList();
+
+                WorkflowSessionState state = WorkflowSessionState.Create(
+                    projectPath, workflowFiles, codeFiles, ActiveDocumentPath());
+
+                Properties.Settings.Default.DesignerFiles = state.Serialize();
+                Properties.Settings.Default.Save();
+            }
+            catch (Exception ex)
+            {
+                CustomWfDesigner.Log($"Не удалось сохранить состояние вкладок: {ErrorText.Of(ex)}", (int)RpaCommon.Enums.LogLevel.Warn);
+            }
+        }
+
+        /// <summary>Путь активной вкладки: активный дизайнер, иначе последняя вкладка редактора кода.</summary>
+        private string ActiveDocumentPath()
+        {
+            string activeFile = CustomWfDesigner.GetLoadedFile(CustomWfDesigner.ActiveWorkflowDesignerEx);
+            if (!string.IsNullOrWhiteSpace(activeFile))
+            {
+                return activeFile;
+            }
+
+            return OpenCodeDocuments.LastOrDefault()?.FilePath;
+        }
+
+        /// <summary>
+        /// Восстанавливает сохранённые вкладки: открывает документы тем же путём, что и дерево проекта
+        /// (<see cref="CmdTryLoadFile"/>), возвращает порядок вкладок дизайнера и активирует сохранённую.
+        /// Несуществующие файлы и файлы чужого проекта отбрасывает <see cref="WorkflowSessionState"/>.
+        /// </summary>
+        internal void RestoreSessionState(string projectPath)
+        {
+            try
+            {
+                WorkflowSessionState state = WorkflowSessionState.Deserialize(
+                    Properties.Settings.Default.DesignerFiles, projectPath);
+
+                if (state.Documents.Count == 0)
+                {
+                    return;
+                }
+
+                foreach (WorkflowSessionDocument document in state.Documents)
+                {
+                    if (IsDocumentOpen(document.FilePath))
+                    {
+                        continue;
+                    }
+
+                    // Неизвестное расширение открывалось бы внешним приложением — такого при
+                    // восстановлении сессии быть не должно.
+                    if (!document.IsWorkflow && CodeLanguageProvider.GetLanguageForExtension(document.FilePath) == null)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        CmdTryLoadFile(document.FilePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        CustomWfDesigner.Log($"Не удалось восстановить вкладку {document.FilePath}: {ErrorText.Of(ex)}", (int)RpaCommon.Enums.LogLevel.Warn);
+                    }
+                }
+
+                CustomWfDesigner.ApplyDocumentOrder(state.Documents.Where(d => d.IsWorkflow).Select(d => d.FilePath));
+
+                if (!string.IsNullOrWhiteSpace(state.ActiveDocument))
+                {
+                    ActivateDocument(state.ActiveDocument);
+                }
+            }
+            catch (Exception ex)
+            {
+                CustomWfDesigner.Log($"Не удалось восстановить состояние вкладок: {ErrorText.Of(ex)}", (int)RpaCommon.Enums.LogLevel.Warn);
+            }
+        }
+
+        private bool IsDocumentOpen(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                return true;
+            }
+
+            return CustomWfDesigner.WorkflowDesigners.Any(
+                       d => string.Equals(CustomWfDesigner.GetLoadedFile(d), filePath, StringComparison.OrdinalIgnoreCase))
+                   || OpenCodeDocuments.Any(
+                       d => string.Equals(d.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private void ActivateDocument(string filePath)
+        {
+            if (CustomWfDesigner.WorkflowDesigners.Any(
+                    d => string.Equals(CustomWfDesigner.GetLoadedFile(d), filePath, StringComparison.OrdinalIgnoreCase)))
+            {
+                _ = CustomWfDesigner.SetActiveDesigner(filePath);
+                return;
+            }
+
+            (ViewModel?.View as MainView)?.ActivateCodeDocument(filePath);
+        }
         private static void ClearInvalidLastProjectPath(string invalidPath)
         {
             if (string.IsNullOrWhiteSpace(invalidPath))

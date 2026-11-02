@@ -1,0 +1,19 @@
+try {
+    Push-Location $bin
+    & '.\DesignerThemeProbe.exe' $reportPath
+    Write-Host ('exit=' + $LASTEXITCODE)
+}
+===NEW===
+$reportPath = Join-Path $outDir 'probe-report.txt'
+
+try {
+    Push-Location $bin
+    & '.\DesignerThemeProbe.exe' $reportPath
+    Write-Host ''
+    Write-Host ('Отчёт: ' + $reportPath)
+    Write-Host ''
+    if (Test-Path $reportPath) {
+        Get-Content $reportPath -Encoding UTF8 | Write-Host
+    }
+    Write-Host ('exit=' + $LASTEXITCODE)
+}

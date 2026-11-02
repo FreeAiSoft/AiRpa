@@ -1,9 +1,11 @@
+using System.Activities.Presentation.PropertyEditing;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 // NB: System.Windows.Shapes не подключаем — Path конфликтует с System.IO.Path.
 using System.Windows.Data;
 
@@ -410,6 +412,12 @@ public class WfThemeTests
             Assert.That(byCategoryHost.Child, Is.InstanceOf<Viewbox>());
             Assert.That(ColorOf(byCategoryHost.BorderBrush), Is.EqualTo(StudioPalette.Dark.Separator));
 
+            // Переключатели «по категориям»/«алфавитный» плоские: hairline-рамка осталась, скруглений нет.
+            Assert.That(byCategoryHost.CornerRadius, Is.EqualTo(new CornerRadius(0)),
+                "у кнопки «по категориям» остались скругления");
+            Assert.That(((Border)alpha.Content).CornerRadius, Is.EqualTo(new CornerRadius(0)),
+                "у кнопки «алфавитный» остались скругления");
+
             // Состояния — триггеры стиля, а не обработчики: их ровно три (hover/pressed/checked).
             Assert.That(TriggersOf(byCategoryHost.Style), Has.Count.EqualTo(3));
             Assert.That(DataTriggerFor(byCategoryHost.Style, "IsChecked"), Is.Not.Null);
@@ -422,6 +430,125 @@ public class WfThemeTests
             Assert.That(ColorOf(search.Foreground), Is.EqualTo(StudioPalette.Dark.Foreground));
             Assert.That(search.Height, Is.EqualTo(PropertyWindowStyleHelper.SearchTextBoxHeight));
             Assert.That(TriggersOf(search.Style).OfType<Trigger>().Any(t => t.Property == UIElement.IsKeyboardFocusWithinProperty), Is.True);
+        });
+    }
+
+    [Test]
+    public void PropertyHelper_SearchClearButton_IsFramelessWithSmallerGlyph()
+    {
+        // Кнопка очистки поиска (крестик справа от строки поиска): рамки нет вовсе, размер самой кнопки
+        // не меняется, а крестик уменьшен примерно в 1,5 раза относительно прежних 16 px (24 − 8).
+        (Panel root, _, _, _, _, Button clear, _, _, _) = BuildInspectorTree();
+
+        new PropertyWindowStyleHelper().SetPropertyStyles(root, StudioPalette.Dark);
+
+        Border host = clear.Content as Border;
+        Assert.That(host, Is.Not.Null, "кнопка очистки должна получить плашку с крестиком");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.BorderThickness, Is.EqualTo(new Thickness(0)), "у кнопки очистки поиска осталась рамка");
+            Assert.That(ColorOf(host.BorderBrush), Is.EqualTo(Colors.Transparent));
+            Assert.That(host.CornerRadius, Is.EqualTo(new CornerRadius(0)));
+            Assert.That(host.Width, Is.EqualTo(PropertyWindowStyleHelper.ClearButtonSize));
+            Assert.That(host.Height, Is.EqualTo(PropertyWindowStyleHelper.ClearButtonSize));
+            Assert.That(clear.Width, Is.EqualTo(PropertyWindowStyleHelper.ClearButtonSize), "размер кнопки менять нельзя");
+            Assert.That(clear.Height, Is.EqualTo(PropertyWindowStyleHelper.ClearButtonSize), "размер кнопки менять нельзя");
+
+            Viewbox glyph = host.Child as Viewbox;
+            Assert.That(glyph, Is.Not.Null, "крестик рисуется Viewbox'ом");
+            Assert.That(glyph.Width, Is.EqualTo(PropertyWindowStyleHelper.ClearIconSize));
+            Assert.That(glyph.Height, Is.EqualTo(PropertyWindowStyleHelper.ClearIconSize));
+            Assert.That(PropertyWindowStyleHelper.ClearIconSize * 1.5, Is.EqualTo(16d).Within(1.1),
+                "крестик должен быть примерно в 1,5 раза меньше прежних 16 px");
+        });
+    }
+
+    [Test]
+    public void EditModeButton_WithoutBorderChrome_GetsFlatTemplateAndKeepsGlyph()
+    {
+        // Хромировку может рисовать не Border, а системный ButtonChrome (Aero2): тогда единственный способ
+        // убрать скругление и тень — плоский шаблон. Глиф «…» при этом приходит из Content (WF-стиль ставит
+        // его триггером TargetEditMode = Dialog), поэтому ContentPresenter его сохраняет.
+        var button = new Button { Content = "…", Width = 20, Height = 20 };
+        var glyph = new FrameworkElementFactory(typeof(TextBlock));
+        glyph.SetValue(TextBlock.TextProperty, "…");
+        button.Template = new ControlTemplate(typeof(ButtonBase)) { VisualTree = glyph };
+
+        var host = new Grid();
+        _ = host.Children.Add(button);
+        host.Measure(new Size(100d, 100d));
+        host.Arrange(new Rect(0d, 0d, 100d, 100d));
+
+        PropertyWindowStyleHelper.MakeFlatButtonChrome(button);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(button.Template, Is.Not.Null);
+            Assert.That(button.Template.VisualTree.Type, Is.EqualTo(typeof(ContentPresenter)),
+                "кнопка «…» осталась на системной хромировке со скруглением и тенью");
+            Assert.That(button.Content, Is.EqualTo("…"), "глиф «…» обязан остаться");
+            Assert.That(button.Effect, Is.Null);
+            Assert.That(button.Width, Is.EqualTo(20d), "размер кнопки менять нельзя");
+        });
+    }
+
+    [Test]
+    public void EditModeButton_IsFlatWithoutCornerRadiusAndShadow()
+    {
+        // Кнопка «…» строк «Свойства» приходит с системной хромировкой: скругление рисует Border шаблона,
+        // «объём» — DropShadowEffect. Требование: ни скруглений, ни тени; размеры и глиф «…» не меняются.
+        var button = new Button { Content = "…", Width = 18, Height = 18 };
+
+        var chrome = new FrameworkElementFactory(typeof(Border));
+        chrome.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
+        chrome.SetValue(Border.BorderThicknessProperty, new Thickness(1));
+        chrome.SetValue(UIElement.EffectProperty, new DropShadowEffect { BlurRadius = 6, ShadowDepth = 2 });
+        chrome.AppendChild(new FrameworkElementFactory(typeof(ContentPresenter)));
+        button.Template = new ControlTemplate(typeof(ButtonBase)) { VisualTree = chrome };
+
+        var host = new Grid();
+        _ = host.Children.Add(button);
+        host.Measure(new Size(100d, 100d));
+        host.Arrange(new Rect(0d, 0d, 100d, 100d));
+
+        PropertyWindowStyleHelper.MakeFlatButtonChrome(button);
+        PropertyWindowStyleHelper.MakeFlatButtonChrome(button); // повторный вызов ничего не ломает
+
+        Border chromeBorder = FindVisual<Border>(button);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(chromeBorder, Is.Not.Null, "шаблон кнопки обязан остаться разобранным");
+            Assert.That(chromeBorder.CornerRadius, Is.EqualTo(new CornerRadius(0)), "скругление кнопки «…» не убрано");
+            Assert.That(chromeBorder.BorderThickness, Is.EqualTo(new Thickness(0)));
+            Assert.That(ColorOf(chromeBorder.Background), Is.EqualTo(Colors.Transparent));
+            Assert.That(chromeBorder.Effect, Is.Null, "тень шаблона кнопки «…» не убрана");
+
+            Assert.That(button.Effect, Is.Null, "тень кнопки «…» не убрана");
+            Assert.That(button.BorderThickness, Is.EqualTo(new Thickness(0)));
+            Assert.That(ColorOf(button.Background), Is.EqualTo(Colors.Transparent));
+            Assert.That(button.Width, Is.EqualTo(18d), "размер кнопки менять нельзя");
+            Assert.That(button.Content, Is.EqualTo("…"), "глиф «…» обязан остаться");
+        });
+    }
+
+    [Test]
+    public void PropertyHelper_FlattensEditModeButtons()
+    {
+        // В реальном инспекторе «…» — это WF-контрол EditModeSwitchButton: проход обязан дойти до него
+        // (он появляется в дереве уже после выбора активности) и снять системную хромировку.
+        (Panel root, _, _, _, _, _, _, _, _) = BuildInspectorTree();
+        var editModeButton = new EditModeSwitchButton();
+        _ = root.Children.Add(editModeButton);
+
+        new PropertyWindowStyleHelper().SetPropertyStyles(root, StudioPalette.Dark);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorOf(editModeButton.Background), Is.EqualTo(Colors.Transparent), "кнопка «…» не плоская");
+            Assert.That(editModeButton.BorderThickness, Is.EqualTo(new Thickness(0)));
+            Assert.That(editModeButton.Effect, Is.Null, "тень системной хромировки не убрана");
         });
     }
 

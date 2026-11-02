@@ -1,0 +1,173 @@
+ControlType.Window [Window] name="RPA" id="" rect=-8,-8,1936x1056
+  ControlType.Window [Popup] name="" id="" rect=0,321,398x32
+    ControlType.ToolTip [ToolTip] name="C:\Users\Maxxx\Documents\MybotStudio\ActivityLibrary5\Activity2.xaml" id="" rect=0,321,398x32
+      ControlType.Text [TextBlock] name="C:\Users\Maxxx\Documents\MybotStudio\ActivityLibrary5\Activity2.xaml" id="" rect=8,329,382x16
+  ControlType.Text [TextBlock] name="RPA" id="" rect=8,7,1771x14
+  ControlType.Button [Button] name="" id="" rect=1779,-2,46x32
+  ControlType.Button [Button] name="" id="MaximizeButton" rect=1825,-2,46x32
+  ControlType.Button [Button] name="" id="" rect=1871,-2,46x32
+  ControlType.Menu [Menu] name="" id="" rect=3,30,1919x14
+    ControlType.MenuItem [MenuItem] name="Файл" id="" rect=3,30,44x14
+      ControlType.Text [TextBlock] name="Файл" id="" rect=11,30,28x14
+    ControlType.MenuItem [MenuItem] name="Настройки" id="" rect=47,30,75x14
+      ControlType.Text [TextBlock] name="Настройки" id="" rect=55,30,59x14
+    ControlType.MenuItem [MenuItem] name="Tools" id="" rect=122,30,43x14
+      ControlType.Text [TextBlock] name="Tools" id="" rect=130,30,27x14
+  ControlType.ToolBar [ToolBar] name="" id="" rect=3,44,335x38
+    ControlType.Button [Button] name="" id="" rect=3,49,28x28
+    ControlType.Button [Button] name="" id="" rect=31,49,28x28
+    ControlType.Button [Button] name="" id="" rect=59,49,28x28
+    ControlType.Separator [Separator] name="" id="" rect=92,49,1x28
+    ControlType.Button [Button] name="" id="" rect=98,49,28x28
+    ControlType.Button [Button] name="" id="" rect=126,49,28x28
+    ControlType.Button [Button] name="" id="" rect=154,49,28x28
+    ControlType.Separator [Separator] name="" id="" rect=187,49,1x28
+    ControlType.Button [Button] name="" id="" rect=193,49,28x28
+    ControlType.Button [Button] name="" id="" rect=221,49,28x28
+    ControlType.Separator [Separator] name="" id="" rect=254,49,1x28
+    ControlType.ComboBox [ComboBox] name="" id="" rect=263,51,34x25
+    ControlType.Button [Button] name="" id="ThemeToggleButton" rect=305,49,28x28
+  ControlType.Tab [TabControl] name="" id="" rect=2,86,390x952
+    ControlType.TabItem [TabItem] name="AvalonDock.Layout.LayoutAnchorable" id="" rect=3,1017,62x20
+      ControlType.Text [TextBlock] name="Проекты" id="title" rect=10,1020,48x14
+      ControlType.Text [TextBlock] name="Проекты" id="" rect=10,87,357x17
+      ControlType.Button [Button] name="" id="MenuDropDownButton" rect=367,90,12x12
+      ControlType.Button [Button] name="" id="PART_AutoHidePin" rect=379,90,12x12
+      ControlType.Custom [ProjectManagerControl] name="" id="" rect=3,105,388x911
+        ControlType.Button [Button] name="" id="ExpandButton" rect=8,110,28x28
+        ControlType.Button [Button] name="" id="CollapseButton" rect=36,110,28x28
+        ControlType.Button [Button] name="" id="OpenProjectFolderButton" rect=64,110,28x28
+        ControlType.Edit [TextBox] name="" id="" rect=102,110,284x28
+          ControlType.Pane [ScrollViewer] name="" id="PART_ContentHost" rect=102,114,284x19
+            ControlType.Separator [Separator] name="" id="PART_TopSeparator" rect=102,114,284x1
+            ControlType.Separator [Separator] name="" id="PART_BottomSeparator" rect=102,132,284x1
+          ControlType.Text [TextBlock] name="" id="HelperTextTextBlock" rect=102,140,284x12
+        ControlType.Tree [TreeView] name="" id="projectTree" rect=8,148,378x863
+          ControlType.TreeItem [TreeViewItem] name="VsProject C:\Users\Maxxx\Documents\MybotStudio\ActivityLibrary5\ActivityLibrary5.csproj" id="" rect=8,148,378x160
+            ControlType.Button [Button] name="" id="Expander" rect=10,148,16x16
+            ControlType.Text [TextBlock] name="ActivityLibrary5" id="" rect=28,149,81x14
+            ControlType.TreeItem [TreeViewItem] name="Dir C:\Users\Maxxx\Documents\MybotStudio\ActivityLibrary5\Properties" id="" rect=27,164,359x16
+              ControlType.Button [Button] name="" id="Expander" rect=29,164,16x16
+              ControlType.Text [TextBlock] name="Properties" id="" rect=63,165,54x14
+            ControlType.TreeItem [TreeViewItem] name="Dir C:\Users\Maxxx\Documents\MybotStudio\ActivityLibrary5\Новая папка" id="" rect=27,180,359x16
+              ControlType.Button [Button] name="" id="Expander" rect=29,180,16x16
+              ControlType.Text [TextBlock] name="Новая папка" id="" rect=63,181,69x14
+            ControlType.TreeItem [TreeViewItem] name="Dir C:\Users\Maxxx\Documents\MybotStudio\ActivityLibrary5\Новая папка 1оа" id="" rect=27,196,359x64
+              ControlType.Button [Button] name="" id="Expander" rect=29,196,16x16
+              ControlType.Text [TextBlock] name="Новая папка 1оа" id="" rect=63,197,92x14
+              ControlType.TreeItem [TreeViewItem] name="Dir C:\Users\Maxxx\Documents\MybotStudio\ActivityLibrary5\Новая папка 1оа\Новая папка" id="" rect=46,212,340x32
+                ControlType.Button [Button] name="" id="Expander" rect=48,212,16x16
+                ControlType.Text [TextBlock] name="Новая папка" id="" rect=82,213,69x14
+                ControlType.TreeItem [TreeViewItem] name="File C:\Users\Maxxx\Documents\MybotStudio\ActivityLibrary5\Новая папка 1оа\Новая папка\Activity.xaml" id="" rect=65,228,321x16
+                  ControlType.Button [Button] name="" id="Expander" rect=67,228,16x16
+                  ControlType.Text [TextBlock] name="Activity.xaml" id="" rect=101,229,66x14
+              ControlType.TreeItem [TreeViewItem] name="File C:\Users\Maxxx\Documents\MybotStudio\ActivityLibrary5\Новая папка 1оа\Activity.xaml" id="" rect=46,244,340x16
+                ControlType.Button [Button] name="" id="Expander" rect=48,244,16x16
+                ControlType.Text [TextBlock] name="Activity.xaml" id="" rect=82,245,66x14
+            ControlType.TreeItem [TreeViewItem] name="File C:\Users\Maxxx\Documents\MybotStudio\ActivityLibrary5\Activity.xaml" id="" rect=27,260,359x16
+              ControlType.Button [Button] name="" id="Expander" rect=29,260,16x16
+              ControlType.Text [TextBlock] name="Activity.xaml" id="" rect=63,261,66x14
+            ControlType.TreeItem [TreeViewItem] name="File C:\Users\Maxxx\Documents\MybotStudio\ActivityLibrary5\Activity1.xaml" id="" rect=27,276,359x16
+              ControlType.Button [Button] name="" id="Expander" rect=29,276,16x16
+              ControlType.Text [TextBlock] name="Activity1.xaml" id="" rect=63,277,73x14
+            ControlType.TreeItem [TreeViewItem] name="File C:\Users\Maxxx\Documents\MybotStudio\ActivityLibrary5\Activity2.xaml" id="" rect=27,292,359x16
+              ControlType.Button [Button] name="" id="Expander" rect=29,292,16x16
+              ControlType.Text [TextBlock] name="Activity2.xaml" id="" rect=63,293,73x14
+    ControlType.TabItem [TabItem] name="AvalonDock.Layout.LayoutAnchorable" id="" rect=65,1017,78x20
+      ControlType.Text [TextBlock] name="Активности" id="title" rect=72,1020,64x14
+    ControlType.TabItem [TabItem] name="AvalonDock.Layout.LayoutAnchorable" id="" rect=143,1017,69x20
+      ControlType.Text [TextBlock] name="Структура" id="title" rect=150,1020,55x14
+  ControlType.Thumb [Thumb] name="" id="" rect=392,86,5x952
+  ControlType.Tab [TabControl] name="" id="" rect=397,86,875x952
+    ControlType.TabItem [TabItem] name="AvalonDock.Layout.LayoutDocument" id="" rect=398,87,98x22
+      ControlType.Text [TextBlock] name="Activity1.xaml" id="" rect=402,91,73x15
+      ControlType.Button [Button] name="" id="DocumentCloseButton" rect=480,93,12x12
+    ControlType.TabItem [TabItem] name="AvalonDock.Layout.LayoutDocument" id="" rect=496,87,97x22
+      ControlType.Text [TextBlock] name="Activity2.xaml" id="" rect=500,91,72x15
+      ControlType.Button [Button] name="" id="DocumentCloseButton" rect=577,93,12x12
+      ControlType.Custom [DesignerView] name="" id="UserControl_1" rect=398,110,873x927
+        ControlType.Pane [ScrollViewer] name="" id="ScrollViewer_1" rect=398,110,58x27
+          ControlType.List [ListBox] name="Строка навигатора" id="breadCrumbListBox" rect=398,110,58x27
+            ControlType.ListItem [ListBoxItem] name="Activity2" id="" rect=399,111,55x24
+              ControlType.Text [TextBlock] name="Activity2" id="BCActivity2" rect=404,116,45x14
+          ControlType.Separator [Separator] name="" id="PART_TopSeparator" rect=398,110,58x1
+          ControlType.Separator [Separator] name="" id="PART_BottomSeparator" rect=398,136,58x1
+        ControlType.Button [Button] name="ExpandAll" id="expandAllButton" rect=1081,110,98x27
+          ControlType.Text [TextBlock] name="Развернуть все" id="collapseAllText" rect=1086,115,88x17
+        ControlType.Button [Button] name="CollapseAll" id="collapseAllButton" rect=1179,110,87x27
+          ControlType.Text [TextBlock] name="Свернуть все" id="collapseAllText" rect=1184,115,77x17
+        ControlType.Pane [ScrollViewer] name="" id="scrollViewer" rect=398,137,873x872
+          ControlType.Custom [ActivityTypeDesigner] name="ActivityBuilder" id="ActivityTypeDesigner" rect=724,494,220x158
+            ControlType.Custom [WorkflowItemPresenter] name="Sequence" id="WorkflowItemPresenter" rect=734,504,200x138
+              ControlType.Custom [SpacerPlaceholder] name="" id="UserControl" rect=734,504,200x20
+              ControlType.Custom [SequenceDesigner] name="Sequence" id="Sequence(SequenceDesigner)" rect=734,524,200x98
+                ControlType.Custom [] name="Точка останова" id="debuggerVisuals" rect=719,524,16x16
+                ControlType.Custom [UserControl] name="Sequence" id="DisplayNameReadOnlyControl" rect=760,526,51x14
+                  ControlType.Text [TextBlock] name="Sequence" id="" rect=760,526,51x14
+                ControlType.Custom [WorkflowItemsPresenter] name="Перетащите сюда действие" id="WorkflowItemsPresenter" rect=745,557,178x54
+                  ControlType.Custom [VerticalConnector] name="" id="sacd:VerticalConnector_1" rect=745,557,178x40
+                  ControlType.Text [TextBlock] name="Перетащите сюда действие" id="" rect=751,597,166x14
+                ControlType.Custom [] name="Предупреждение" id="ValidActivity" rect=915,527,16x16
+              ControlType.Custom [SpacerPlaceholder] name="" id="UserControl" rect=734,622,200x20
+          ControlType.Separator [Separator] name="" id="PART_TopSeparator" rect=398,137,873x1
+          ControlType.Separator [Separator] name="" id="PART_BottomSeparator" rect=398,1008,873x1
+        ControlType.StatusBar [StatusBar] name="" id="StatusBar_1" rect=398,1013,873x24
+          ControlType.Button [Button] name="Переменные" id="NewVariablesToggleButton" rect=398,1015,81x21
+            ControlType.Text [TextBlock] name="Переменные" id="TextBlock_2" rect=403,1018,71x15
+          ControlType.Button [Button] name="Аргументы" id="NewArgumentsToggleButton" rect=486,1015,71x21
+            ControlType.Text [TextBlock] name="Аргументы" id="TextBlock_3" rect=491,1018,61x15
+          ControlType.Button [Button] name="Импорт" id="NewImportsToggleButton" rect=564,1015,53x21
+            ControlType.Text [TextBlock] name="Импорт" id="TextBlock_4" rect=569,1018,43x15
+          ControlType.Button [Button] name="PanMode" id="PanModeToggleButton" rect=1082,1015,26x21
+          ControlType.Button [Button] name="100%" id="ResetZoomCommand" rect=1108,1015,26x21
+          ControlType.ComboBox [ComboBox] name="Средство выбора масштаба" id="ZoomPicker" rect=1139,1015,75x21
+            ControlType.Edit [TextBox] name="Введите пропорции масштаба" id="PART_EditableTextBox" rect=1141,1017,54x17
+              ControlType.Pane [ScrollViewer] name="" id="PART_ContentHost" rect=1141,1017,54x17
+                ControlType.Separator [Separator] name="" id="PART_TopSeparator" rect=1141,1017,54x1
+                ControlType.Separator [Separator] name="" id="PART_BottomSeparator" rect=1141,1033,54x1
+          ControlType.Button [Button] name="На весь экран" id="ZoomToScreenButton" rect=1219,1015,26x21
+          ControlType.Button [Button] name="Общие сведения" id="MinimapToggleButton" rect=1245,1015,26x21
+  ControlType.Thumb [Thumb] name="" id="" rect=1272,86,5x952
+  ControlType.Tab [TabControl] name="" id="" rect=1277,86,618x426
+      ControlType.Text [TextBlock] name="Свойства активности" id="" rect=1285,87,585x17
+      ControlType.Button [Button] name="" id="MenuDropDownButton" rect=1870,90,12x12
+      ControlType.Button [Button] name="" id="PART_AutoHidePin" rect=1882,90,12x12
+      ControlType.Custom [PropertyInspector] name="Окно свойств" id="PropertyInspector" rect=1278,105,616x406
+        ControlType.Text [TextBlock] name="System.Activities.ActivityBuilder" id="TextBlock_1" rect=1280,109,608x15
+        ControlType.Custom [] name="" id="" rect=1278,132,616x31
+          ControlType.RadioButton [RadioButton] name="Кнопка просмотра по категории" id="PART_ByCategoryViewButton" rect=1280,133,28x28
+          ControlType.RadioButton [RadioButton] name="Кнопка просмотра по алфавиту" id="PART_AlphaViewButton" rect=1308,133,28x28
+          ControlType.Text [TextBlock] name="Метка поиска" id="PART_SearchLabel" rect=1345,139,36x15
+          ControlType.Edit [TextBox] name="Введите текст поиска" id="PART_SearchTextBox" rect=1385,135,485x24
+            ControlType.Pane [ScrollViewer] name="" id="PART_ContentHost" rect=1386,136,483x22
+              ControlType.Separator [Separator] name="" id="PART_TopSeparator" rect=1386,136,483x1
+              ControlType.Separator [Separator] name="" id="PART_BottomSeparator" rect=1386,157,483x1
+          ControlType.Button [Button] name="Кнопка очистки поиска" id="PART_SearchClearButton" rect=1870,135,24x24
+        ControlType.Custom [ItemsControl] name="Список категорий" id="Internal:CategoryList_1" rect=1278,163,616x348
+          ControlType.List [CategoryContainer] name="Прочее" id="" rect=1278,163,616x58
+            ControlType.Custom [PropertyContainer] name="ImplementationVersion" id="" rect=1279,182,615x18
+              ControlType.Text [TextBlock] name="ImplementationVersion" id="" rect=1297,184,123x14
+              ControlType.Custom [VersionEditor] name="" id="root" rect=1652,183,241x16
+                ControlType.Edit [TextBox] name="" id="StringEditor" rect=1652,183,241x16
+                  ControlType.Pane [ScrollViewer] name="" id="PART_ContentHost" rect=1653,184,239x14
+                    ControlType.Separator [Separator] name="" id="PART_TopSeparator" rect=1653,184,239x1
+                    ControlType.Separator [Separator] name="" id="PART_BottomSeparator" rect=1653,197,239x1
+            ControlType.Custom [PropertyContainer] name="Name" id="" rect=1279,200,615x21
+              ControlType.Text [TextBlock] name="Name" id="" rect=1297,204,31x14
+              ControlType.Edit [TextBox] name="Name" id="NameStringEditor" rect=1652,200,241x20
+                ControlType.Pane [ScrollViewer] name="" id="PART_ContentHost" rect=1653,201,239x18
+                  ControlType.Separator [Separator] name="" id="PART_TopSeparator" rect=1653,201,239x1
+                  ControlType.Separator [Separator] name="" id="PART_BottomSeparator" rect=1653,218,239x1
+  ControlType.Thumb [Thumb] name="" id="" rect=1277,512,618x5
+  ControlType.Tab [TabControl] name="" id="" rect=1277,517,618x521
+      ControlType.Text [TextBlock] name="Chat" id="" rect=1285,518,585x16
+      ControlType.Button [Button] name="" id="MenuDropDownButton" rect=1870,520,12x12
+      ControlType.Button [Button] name="" id="PART_AutoHidePin" rect=1882,520,12x12
+      ControlType.Custom [ChatPanel] name="" id="" rect=1278,535,616x502
+        ControlType.Tab [TabControl] name="" id="" rect=1278,535,616x502
+          ControlType.TabItem [TabItem] name="System.Windows.Controls.TabItem Header: Content:" id="" rect=1278,535,44x44
+          ControlType.TabItem [TabItem] name="System.Windows.Controls.TabItem Header: Content:" id="" rect=1322,535,44x44
+  ControlType.Text [TextBlock] name="Лог" id="title" rect=1902,88,14x20
+  ControlType.Text [TextBlock] name="NuGet" id="title" rect=1902,120,14x34
+  ControlType.Pane [HwndHost] name="" id="" rect=2,86,1893x952
+    ControlType.Pane [HwndWrapper[AiRpaStudio.exe;;4e398b62-0588-440a-8eb7-e755eaab112e]] name="" id="" rect=2,86,1893x952

@@ -30,7 +30,6 @@
       <AssemblyReference>System.Xaml</AssemblyReference>
       <AssemblyReference>System.Xml</AssemblyReference>
       <AssemblyReference>System.Xml.Linq</AssemblyReference>
-      <AssemblyReference>Activities</AssemblyReference>
       <AssemblyReference>mscorlib</AssemblyReference>
       <AssemblyReference>RPA-1</AssemblyReference>
     </sco:Collection>
@@ -39,24 +38,32 @@
     <Sequence.Variables>
       <Variable x:TypeArguments="x:String" Name="output" />
     </Sequence.Variables>
+    <Assign sap2010:WorkflowViewState.IdRef="Assign_1">
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:Object">
+          <mca:CSharpValue x:TypeArguments="x:Object">епрк</mca:CSharpValue>
+        </InArgument>
+      </Assign.Value>
+    </Assign>
     <WriteLine sap2010:WorkflowViewState.IdRef="WriteLine_1">
       <InArgument x:TypeArguments="x:String">
         <mca:CSharpValue x:TypeArguments="x:String">output</mca:CSharpValue>
       </InArgument>
     </WriteLine>
-    <sads:DebugSymbol.Symbol>dzFDOlxVc2Vyc1xNYXh4eFxzb3VyY2VccmVwb3NcTXlCb3RcUlBBLTFcTWFpbi54YW1sAyYDMA4CAQEqBS4RAgECLAksTQIBAw==</sads:DebugSymbol.Symbol>
+    <sads:DebugSymbol.Symbol>dy1DOlxVc2Vyc1xNYXh4eFxEZXNrdG9wXEFJLVJQQVxSUEEtMVxNYWluLnhhbWwFJQM2DgIBASkFLw4CAQUwBTQRAgECLAssTQIBBjIJMk0CAQM=</sads:DebugSymbol.Symbol>
   </Sequence>
   <sap2010:WorkflowViewState.ViewStateManager>
     <sap2010:ViewStateManager>
-      <sap2010:ViewStateData Id="WriteLine_1" sap:VirtualizedContainerService.HintSize="210,62" />
-      <sap2010:ViewStateData Id="Sequence_1" sap:VirtualizedContainerService.HintSize="232,186">
+      <sap2010:ViewStateData Id="Assign_1" sap:VirtualizedContainerService.HintSize="242,62" />
+      <sap2010:ViewStateData Id="WriteLine_1" sap:VirtualizedContainerService.HintSize="242,62" />
+      <sap2010:ViewStateData Id="Sequence_1" sap:VirtualizedContainerService.HintSize="264,288">
         <sap:WorkflowViewStateService.ViewState>
           <scg:Dictionary x:TypeArguments="x:String, x:Object">
             <x:Boolean x:Key="IsExpanded">True</x:Boolean>
           </scg:Dictionary>
         </sap:WorkflowViewStateService.ViewState>
       </sap2010:ViewStateData>
-      <sap2010:ViewStateData Id="RPA_1.Main_1" sap:VirtualizedContainerService.HintSize="272,266" />
+      <sap2010:ViewStateData Id="RPA_1.Main_1" sap:VirtualizedContainerService.HintSize="304,368" />
     </sap2010:ViewStateManager>
   </sap2010:WorkflowViewState.ViewStateManager>
 </Activity>

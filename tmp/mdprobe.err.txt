@@ -1,0 +1,3 @@
+﻿asm=MaterialDesignThemes.Wpf, Version=5.4.0.0, Culture=neutral, PublicKeyToken=df2a72020bd7962a
+attempt 1 FAILED: Недопустимое значение URI: Указан недопустимый порт.
+attempt 2 OK keys=46 merged=44 type=ResourceDictionary

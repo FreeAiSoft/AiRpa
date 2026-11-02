@@ -1,0 +1,38 @@
+﻿=== FRESH STATE (before any theming) ===
+  Border ''.Background = #FFFFFF size=440x440 source=Local frozen=True
+  Border ''.BorderBrush = #D3D3D3 size=420x420 source=Local frozen=True
+=== PASS 1: LIGHT (fresh, like opening a document in the light theme) ===
+  total stale dark-surface brushes: 0
+=== PASS 2: DARK (theme toggle to dark) ===
+  STALE Grid ''.Background = #272727 size=884x661
+    ^ Grid '' size=884x661
+    ^ Window '' size=900x700
+  STALE Border ''.Background = #272727 size=440x440
+    ^ Border '' size=440x440
+    ^ Grid 'scrollableContent' size=480x480
+    ^ Viewbox 'viewBox' size=480x480
+    ^ Grid 'scrollViewerContent' size=480x480
+    ^ ScrollViewer 'scrollViewer' size=884x607
+    ^ Grid 'designerViewGrid' size=884x611
+    ^ AdornerDecorator '' size=884x611
+    ^ Grid '' size=884x661
+    ^ DesignerView 'xnDesignerView' size=884x661
+    ^ Grid '' size=884x661
+    ^ Window '' size=900x700
+  total stale dark-surface brushes: 2
+=== PASS 3: LIGHT AGAIN (theme toggle back to light) ===
+  STALE Border ''.Background = #272727 size=440x440
+    ^ Border '' size=440x440
+    ^ Grid 'scrollableContent' size=480x480
+    ^ Viewbox 'viewBox' size=480x480
+    ^ Grid 'scrollViewerContent' size=480x480
+    ^ ScrollViewer 'scrollViewer' size=884x607
+    ^ Grid 'designerViewGrid' size=884x611
+    ^ AdornerDecorator '' size=884x611
+    ^ Grid '' size=884x661
+    ^ DesignerView 'xnDesignerView' size=884x661
+    ^ Grid '' size=884x661
+    ^ Window '' size=900x700
+  total stale dark-surface brushes: 1
+=== FRESH DESIGNER, LIGHT ONLY (control) ===
+  total stale dark-surface brushes: 0

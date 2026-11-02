@@ -6,6 +6,7 @@
                               xmlns:sapc="clr-namespace:System.Activities.Presentation.Converters;assembly=System.Activities.Presentation"
                               xmlns:sape="clr-namespace:System.Activities.Presentation.Expressions;assembly=System.Activities.Presentation"
                               xmlns:local="clr-namespace:RPA.CSharpExpressionEditor"
+                              xmlns:materialIcons="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
                               xmlns:editor="clr-namespace:RoslynPad.Editor;assembly=RoslynPad.Editor.Windows"
                               mc:Ignorable="d"
                               d:DesignHeight="300"
@@ -108,13 +109,10 @@
 
         <Style x:Uid="Style_4"
                x:Key="errorStyle"
-               TargetType="{x:Type Rectangle}">
+               TargetType="{x:Type materialIcons:MaterialIcon}">
             <Setter x:Uid="Setter_47"
                     Property="Visibility"
                     Value="Collapsed" />
-            <Setter x:Uid="Setter_52"
-                    Property="Fill"
-                    Value="{x:Null}" />
             <Setter x:Uid="Setter_49"
                     Property="HorizontalAlignment"
                     Value="Right" />
@@ -124,6 +122,21 @@
             <Setter x:Uid="Setter_87"
                     Property="ToolTipService.ShowOnDisabled"
                     Value="True" />
+            <!-- Бейдж ошибки — глиф палитры, а не пустая рамка: Kind=Error (залитый круг с «!»).
+                 Красный — единственный не-нейтральный цвет палитры, семантика ошибки. -->
+            <Setter Property="Kind"
+                    Value="Error" />
+            <Setter x:Uid="Setter_53"
+                    Property="Width"
+                    Value="12" />
+            <Setter x:Uid="Setter_54"
+                    Property="Height"
+                    Value="12" />
+            <Setter x:Uid="Setter_55"
+                    Property="Margin"
+                    Value="2,2,2,0" />
+            <Setter Property="Foreground"
+                    Value="{DynamicResource Studio.CloseHoverBackground}" />
             <Style.Triggers>
                 <DataTrigger x:Uid="DataTrigger_9"
                              Binding="{Binding Path=HasValidationError}"
@@ -134,28 +147,6 @@
                     <Setter x:Uid="Setter_51"
                             Property="ToolTip"
                             Value="{Binding Path=ValidationErrorMessage}" />
-
-                    <!-- Бейдж ошибки: hairline-рамка палитры; красный — только семантика ошибки (этап 7). -->
-                    <Setter x:Uid="Setter_52"
-                            Property="Fill"
-                            Value="{x:Null}" />
-                    <Setter Property="Stroke"
-                            Value="{DynamicResource Studio.CloseHoverBackground}" />
-                    <Setter Property="StrokeThickness"
-                            Value="1" />
-                    <Setter Property="RadiusX"
-                            Value="2" />
-                    <Setter Property="RadiusY"
-                            Value="2" />
-                    <Setter x:Uid="Setter_53"
-                            Property="Width"
-                            Value="12" />
-                    <Setter x:Uid="Setter_54"
-                            Property="Height"
-                            Value="12" />
-                    <Setter x:Uid="Setter_55"
-                            Property="Margin"
-                            Value="2,2,2,0" />
                     <Setter x:Uid="Setter_88"
                             Property="ToolTipService.InitialShowDelay"
                             Value="100" />
@@ -259,7 +250,7 @@
                                MouseLeftButtonDown="OnTextBlockMouseLeftButtonDown"
                                Name="expresionTextBlock" />
                 </Border>
-                <Rectangle x:Uid="Rectangle_2"
+                <materialIcons:MaterialIcon x:Uid="Rectangle_2"
                            Style="{StaticResource errorStyle}"
                            Grid.Column="1" />
             </Grid>
@@ -301,7 +292,7 @@
                                          VerticalScrollBarVisibility="Disabled"
                                          BorderThickness="1"
                                          BorderBrush="Black"/>-->
-                <Rectangle x:Uid="Rectangle_6"
+                <materialIcons:MaterialIcon x:Uid="Rectangle_6"
                            Grid.Column="1"
                            Style="{StaticResource errorStyle}" />
             </Grid>
@@ -333,7 +324,7 @@
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Stretch" />
         </Border>
-        <Rectangle x:Uid="Rectangle_6"
+        <materialIcons:MaterialIcon x:Uid="Rectangle_6"
                    Grid.Column="1"
                    Style="{StaticResource errorStyle}" />
     </Grid>

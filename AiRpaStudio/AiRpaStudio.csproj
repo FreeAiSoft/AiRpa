@@ -332,6 +332,10 @@
     <Compile Include="Helpers\ProjectPathResolver.cs" />
     <Compile Include="Logging\Log.cs" />
     <Compile Include="Core\WorkflowDesignerEx.cs" />
+    <Compile Include="Core\ExpressionValidationTiming.cs" />
+    <Compile Include="Core\ValidationSchedule.cs" />
+    <Compile Include="Core\ValidationIconState.cs" />
+    <Compile Include="Core\WorkflowSessionState.cs" />
     <Compile Include="Extensions\SourceLocationExtensions.cs" />
     <Compile Include="Extensions\StringExtensions.cs" />
     <Compile Include="Extensions\TrackingEventArgsExtensions.cs" />
@@ -356,10 +360,13 @@
     <Compile Include="Helpers\WfDesignerTheme.cs" />
     <Compile Include="Helpers\WfDataGridTheme.cs" />
     <Compile Include="Helpers\WfContextMenuTheme.cs" />
+    <Compile Include="Helpers\WfActivityTheme.cs" />
 
     <Compile Include="Helpers\MaterialThemePalette.cs" />
     <Compile Include="Helpers\StudioPalette.cs" />
     <Compile Include="Helpers\WindowCorner.cs" />
+    <Compile Include="Helpers\WfDialogWindowTheme.cs" />
+    <Compile Include="Helpers\AssemblyBindingUnifier.cs" />
     <Compile Include="Helpers\StudioBrushes.cs" />
     <Compile Include="Helpers\StudioFonts.cs" />
     <Compile Include="Helpers\StudioEditorPalette.cs" />

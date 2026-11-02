@@ -105,17 +105,67 @@ namespace RPA.Core
             WorkflowDesigners.CollectionChanged += WorkflowDesigners_CollectionChanged_EditTracking;
         }
 
-        private void WorkflowDesigners_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        /// <summary>
+        /// Файл, загруженный во вкладку дизайнера, или <c>null</c>, если вкладка ещё без файла.
+        /// <para>
+        /// Сохранение состояния вкладок переехало в <c>Main.SaveSessionState</c>: там видны и вкладки
+        /// дизайнера, и вкладки редактора кода, и активная вкладка. Старый обработчик подписывался только
+        /// внутри <see cref="LoadProject"/>, поэтому в проекте Visual Studio (<c>.sln</c>/<c>.csproj</c>)
+        /// состояние не сохранялось вовсе.
+        /// </para>
+        /// </summary>
+        public static string GetLoadedFile(WorkflowDesignerEx designer)
         {
             try
             {
-                string files = JsonConvert.SerializeObject(WorkflowDesigners.Select(wd => wd.Context.Items.GetValue<WorkflowFileItem>().LoadedFile).ToList());
-                Properties.Settings.Default.DesignerFiles = files;
-                Properties.Settings.Default.Save();
+                return designer?.CurrentWorkflowFile;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine(ex.ToString());
+                // Вкладка без WorkflowFileItem (дизайнер создан, файл ещё не загружен).
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Приводит вкладки дизайнера к сохранённому порядку. Нужно после восстановления сессии: главная
+        /// активность проекта открывается первой, а пользователь мог оставить её, например, третьей.
+        /// </summary>
+        internal void ApplyDocumentOrder(System.Collections.Generic.IEnumerable<string> order)
+        {
+            if (order == null)
+            {
+                return;
+            }
+
+            int index = 0;
+            foreach (string file in order)
+            {
+                if (string.IsNullOrWhiteSpace(file))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    WorkflowDesignerEx designer = GetDesignerByFile(file);
+                    if (designer == null)
+                    {
+                        continue;
+                    }
+
+                    int current = WorkflowDesigners.IndexOf(designer);
+                    if (current >= 0 && current != index)
+                    {
+                        WorkflowDesigners.Move(current, index);
+                    }
+
+                    index++;
+                }
+                catch (Exception ex)
+                {
+                    Log($"Не удалось переставить вкладку {file}: {ErrorText.Of(ex)}", (int)RpaCommon.Enums.LogLevel.Warn);
+                }
             }
         }
 
@@ -490,40 +540,19 @@ namespace RPA.Core
         {
             try
             {
-                WorkflowDesigners.CollectionChanged -= WorkflowDesigners_CollectionChanged;
                 WorkflowDesigners.Clear();
                 ActiveWorkflowDesignerEx = null;
                 Project = ObjectHelper.InitObject<Project>(Path.Combine(projectDirPath, Consts.projectFileName));
                 Project.SetProjectDir(projectDirPath);
                 string pathToMainActivity = Path.Combine(projectDirPath, Project.MainActivity);
-                RestoreOtherDesigners(pathToMainActivity);
+
+                // Остальные вкладки восстанавливает Main.RestoreSessionState: у него есть и вкладки
+                // дизайнера, и вкладки редактора кода, и сохранённая активная вкладка.
                 ActiveWorkflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(pathToMainActivity);
-                WorkflowDesigners.CollectionChanged += WorkflowDesigners_CollectionChanged;
             }
             catch (Exception ex)
             {
                 Log(ErrorText.Of(ex), (int)RpaCommon.Enums.LogLevel.Error);
-            }
-        }
-
-        /// <summary>
-        /// Загрузка активностей в диайнер
-        /// </summary>
-        /// <param name="pathToMainActivity"></param>
-        private void RestoreOtherDesigners(string pathToMainActivity)
-        {
-            try
-            {
-                if (!string.IsNullOrEmpty(Properties.Settings.Default.DesignerFiles))
-                {
-                    List<string> paths = JsonConvert.DeserializeObject<List<string>>(Properties.Settings.Default.DesignerFiles);
-                    _ = paths.Remove(pathToMainActivity);
-                    paths.ForEach(f => LoadActivityToDesignerHelper.LoadActivityToDesigner(f));
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
             }
         }
     }

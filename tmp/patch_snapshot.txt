@@ -1,0 +1,27 @@
+    if ($center -ne $entry.Hex) {
+        # Кольцо: по центру другой цвет, по периметру подозрительный → это Border, а не заливка.
+        $report.Add(('    это РАМКА: центр ({0},{1}) = {2}, кольцо сверху = {3}' -f $centerX, $centerY, $center, $edge))
+        $report.Add(('    → прямоугольник {0}x{1} цвета {2} с внутренностью {3}' -f $boxWidth, $boxHeight, $entry.Hex, $center))
+    }
+===NEW===
+    # Внутренность: самый частый цвет в сетке внутренних точек — центр может попасть в текст подсказки.
+    $samples = @{}
+    foreach ($fx in 0.25, 0.5, 0.75) {
+        foreach ($fy in 0.25, 0.5, 0.75) {
+            $color = To-Hex (Color-At ([int]($entry.MinX + $boxWidth * $fx)) ([int]($entry.MinY + $boxHeight * $fy)))
+            if ($samples.ContainsKey($color)) { $samples[$color]++ } else { $samples[$color] = 1 }
+        }
+    }
+
+    $inside = ($samples.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 1).Key
+
+    if ($inside -ne $entry.Hex) {
+        # Кольцо по периметру, внутри другой цвет → это Border, а не сплошная заливка.
+        $thickness = 0
+        while (($thickness -lt ($boxHeight / 2)) -and ((To-Hex (Color-At $centerX ($entry.MinY + $thickness))) -eq $entry.Hex)) {
+            $thickness++
+        }
+
+        $report.Add(('    это РАМКА: внутри {0}, толщина кольца ~{1} px' -f $inside, $thickness))
+        $report.Add(('    → прямоугольник {0}x{1} цвета {2} с внутренностью {3}' -f $boxWidth, $boxHeight, $entry.Hex, $inside))
+    }

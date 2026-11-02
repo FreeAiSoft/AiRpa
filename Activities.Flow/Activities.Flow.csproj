@@ -83,7 +83,9 @@
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>ActivitiesFlow.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-    <EmbeddedResource Include="Resources\ActivitiesFlow.ru-RU.resx" />
+    <EmbeddedResource Include="Resources\ActivitiesFlow.ru-RU.resx">
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
