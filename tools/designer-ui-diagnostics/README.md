@@ -1,4 +1,4 @@
-﻿# Диагностика темы дизайнера WF
+# Диагностика темы дизайнера WF
 
 Набор инструментов для визуальных багов темизации: «на светлой теме остался тёмный прямоугольник»,
 «после переключения темы плашка не вернулась», «текст не читается на фоне». Проверено на реальном баге
@@ -110,3 +110,50 @@ powershell -ExecutionPolicy Bypass -File tools\designer-ui-diagnostics\Get-UiSna
 `StudioScrollBar.xaml` и `AppSettings.ApplyTheme`): без ресурсов `App.xaml` неявные стили MaterialDesign
 не поднимаются, и половина дефектов (кнопки шапки шириной 34, «материальный» чекбокс) не воспроизводится.
 `App.xaml` студии не поднимается намеренно — его `Startup` создаёт `MainView`.
+
+## Режимы темизации: прежний и «кэш словаря WF»
+
+Студия ставит словарь палитры в кэш шаблонов WF (`WfColorResourcesOverride.TryInstall` в `App.xaml.cs`) —
+в этом режиме `WfDesignerTheme.ReplaceWorkflowDefaultColors` выключен, и часть дефектов видна **только**
+здесь. Пробник по умолчанию проверяет прежний режим, а режим кэша включается аргументом `cache`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\designer-ui-diagnostics\Invoke-DesignerThemeProbe.ps1 -ProbeArgs cache
+```
+
+В отчёте появляется строка `=== РЕЖИМ ТЕМИЗАЦИИ: … ===`, а также блок `поверхность …` с кистями
+`designerPresenterBorder` / `scrollableContent` / `scrollViewerContent` / `designerViewGrid`, цепочка
+предков до окна и признак кисти: `frozen static` (обычная кисть палитры) или `not-frozen bound`
+(связанная кисть `WfColorResourcesOverride`, меняется без обхода дерева).
+
+## Разобранный случай: белая полоса вокруг активностей после light → dark
+
+Симптом: студия только что загрузилась (тёмная тема) → переключение на светлую проходит нормально →
+возврат в тёмную, и вокруг активностей остаётся **белый фон**, хотя сами активности перекрашены.
+
+Что показал пробник в режиме `cache` (до исправления):
+
+* `DARK AGAIN`: `поверхность designerViewGrid: #FFFFFFFF frozen static [Local]` — на полосе остался
+  цвет светлой палитры, хотя в проходе `DARK (первое включение)` там было `#FF272727`;
+* `фон чужой поверхности: 5` — `Grid#designerViewGrid 984x670`, `Grid#bottomPanel`,
+  `ArgumentDesigner#arguments1`, `VariableDesigner#variables1`, `ImportDesigner#imports1`. В прежнем
+  режиме тот же сценарий давал `0`: там белый дефолт подменяет `ReplaceWorkflowDefaultColors`, а в
+  режиме кэша этот проход выключен.
+
+Причина: полосу красят несколько подпроходов (`WfDataGridTheme.PaintHost` — хосты таблиц,
+`WfVisualTreeThemer` — корень документа, `WfActivityTheme` — плиты), и в сторону тёмной темы ни один из
+них не узнавал белый: проверка «цвет входит в активную палитру» отбрасывала его, потому что в тёмной
+палитре чистый белый объявлен как `CloseHoverForeground`. В сторону светлой все проходы срабатывали —
+отсюда односторонность бага.
+
+Исправление: `WfThemeStyles.TryMapStalePaletteColour` сверяется только с токенами площади и текста
+(`WfThemeStyles.BackgroundTokens`), а у поверхности дизайнера есть собственный последний проход
+`WfDesignerTheme.RepaintSurfaceBand` («цвет противоположной палитры → `Surface`»; внутрь
+`WorkflowViewElement` и `AdornerLayer` не заходит, пользовательские кисти не трогает).
+
+После исправления: `поверхность designerViewGrid: #FF272727` и `фон чужой поверхности: 0` в `DARK AGAIN`,
+причём счётчики `DARK (первое включение)` и `DARK AGAIN` совпадают во всех трёх сценариях — это и есть
+инвариант «порядок переключений не важен». Остаточные `Path 16x10` в счётчике сценариев с активностями —
+белые глифы шаблонов WF внутри активностей, они одинаковы в обоих тёмных проходах и к переключению темы
+отношения не имеют. Юнит-стражи — `AiRpaStudio.Tests\WfDesignerSurfaceTests.cs`.
+

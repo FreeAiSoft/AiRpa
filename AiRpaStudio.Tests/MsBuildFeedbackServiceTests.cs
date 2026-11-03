@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using RPA.Chat.Services;
+using RPA.VsTemplate;
 
 namespace RPA.Chat.Tests
 {
@@ -35,6 +36,90 @@ namespace RPA.Chat.Tests
             var errors = MsBuildFeedbackService.ParseBuildErrors(output);
 
             Assert.That(errors.Count, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void MsBuildToolchain_DefaultsToAuto_AndCanBePinned()
+        {
+            var service = new MsBuildFeedbackService(() => "C:\\foo\\test.sln");
+
+            Assert.That(service.MsBuildToolchain, Is.EqualTo("auto"));
+
+            service.MsBuildToolchain = "vs2022";
+
+            Assert.That(service.MsBuildToolchain, Is.EqualTo("vs2022"));
+            Assert.That(service.DescribeToolchain(), Does.Contain("MSBuild"));
+        }
+
+        [Test]
+        public void DescribeToolchain_ResolvesRealMachineMsBuild()
+        {
+            var service = new MsBuildFeedbackService(() => "C:\\foo\\test.sln");
+
+            var description = service.DescribeToolchain();
+
+            Assert.That(description, Does.Contain("MSBuild"));
+            Assert.That(description, Does.Not.Contain("not found"));
+        }
+
+        [Test]
+        public void BuildAsync_MissingSolutionPath_Throws()
+        {
+            var service = new MsBuildFeedbackService(() => "C:\\no\\such\\solution.sln");
+
+            Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildAsync("Debug"));
+        }
+
+        [Test]
+        public void BuildAsync_RealProject_WritesToolchainLineAndSucceeds()
+        {
+            string output = Path.Combine(Path.GetTempPath(), "chat_build_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var template = VsTemplateParser.Parse(Path.Combine(TemplateRoot, "ActivityLibrary2010", "ActivityLibrary.vstemplate"));
+                VsTemplateInstantiator.Instantiate(template, new VsTemplateInstantiationRequest
+                {
+                    ProjectName = "ChatBuildTest",
+                    SafeProjectName = "ChatBuildTest",
+                    RootNamespace = "ChatBuildTest",
+                    TargetFrameworkVersion = "4.8",
+                    OutputDirectory = output
+                });
+
+                var project = Path.Combine(output, "ChatBuildTest.csproj");
+                var service = new MsBuildFeedbackService(() => project);
+
+                service.BuildAsync("Debug").GetAwaiter().GetResult();
+
+                var buildOutput = service.GetOutputWindowTextAsync().GetAwaiter().GetResult();
+                Assert.That(buildOutput, Does.StartWith("MSBuild"));
+                Assert.That(buildOutput, Does.Contain(service.DescribeToolchain().Split(':')[0]));
+                Assert.That(File.Exists(Path.Combine(output, "bin", "Debug", "ChatBuildTest.dll")), Is.True);
+            }
+            finally
+            {
+                if (Directory.Exists(output))
+                    Directory.Delete(output, true);
+            }
+        }
+
+        private static string TemplateRoot
+        {
+            get
+            {
+                string dir = AppDomain.CurrentDomain.BaseDirectory;
+                while (dir != null)
+                {
+                    string candidate = Path.Combine(dir, "AiRpaStudio", "VSTemplates", "ActivityLibrary2010", "ActivityLibrary.vstemplate");
+                    if (File.Exists(candidate))
+                        return Path.Combine(dir, "AiRpaStudio", "VSTemplates");
+
+                    dir = Path.GetDirectoryName(dir);
+                }
+
+                Assert.Fail("Could not locate the VSTemplates source folder.");
+                return null;
+            }
         }
 
         [Test]

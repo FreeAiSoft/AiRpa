@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Activities.Core.Presentation;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -14,6 +14,7 @@ using RPA.Helpers;
 using RPA.ViewModels;
 using RPA.Views;
 using RPA.VsProject;
+using VibeCoder.Core.Services;
 using RpaCommon;
 
 namespace RPA.Models
@@ -511,6 +512,15 @@ namespace RPA.Models
         /// </summary>
         public void CmdVsBuild(string path)
         {
+            CmdVsBuild(path, MsBuildLocator.ParseToolchain(Properties.Settings.Default.MsBuildToolchain));
+        }
+
+        /// <summary>
+        /// Builds a .sln/.csproj project with an explicitly chosen MSBuild toolchain and logs the selected
+        /// MSBuild.exe, its version and any fallback, so "which Visual Studio built this" is always visible.
+        /// </summary>
+        public void CmdVsBuild(string path, MsBuildToolchain toolchain)
+        {
             if (string.IsNullOrWhiteSpace(path))
             {
                 OnSendMessage(LocalizeHelper.Get("lang_msg_specify_path"));
@@ -519,9 +529,10 @@ namespace RPA.Models
 
             CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_build_started", path), (int)RpaCommon.Enums.LogLevel.Info);
 
-            VsBuildResult result = VsProjectBuilder.Build(
+            VsBuildResult result = VsProjectBuilder.BuildWithToolchain(
                 path,
                 "Debug",
+                toolchain,
                 message => CustomWfDesigner.Log(message));
 
             if (result.Success)

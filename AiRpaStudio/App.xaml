@@ -9,7 +9,7 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <!--
-                    Базовая тема — тёмная: она же дефолт настроек (ChatViewModel.IsDarkTheme → UseDarkTheme ?? true),
+                    Базовая тема — тёмная: она же дефолт (StudioTheme.Dark = 0 и SettingsData.Theme = "Dark"),
                     иначе первый кадр окна был светлым, а затем перекрашивался (M-04 плана).
                     Primary нейтральный: акцентные цвета пробивались в фокус, выделение и
                     скроллбары стандартных контролов. Точные цвета темы задаёт AppSettings.ApplyMaterialDesignTheme

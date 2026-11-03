@@ -614,6 +614,11 @@
       <Project>{b6a2c9e4-1d5f-4e7a-9c3b-8f2d6a1e4b7c}</Project>
       <Name>RPA.NuGet</Name>
     </ProjectReference>
+    <ProjectReference Include="..\VibeCoder.Core\VibeCoder.Core.csproj">
+      <Project>{609357CB-88DB-4FB8-A3C9-586E3D4BBD27}</Project>
+      <Name>VibeCoder.Core</Name>
+    </ProjectReference>
+
   </ItemGroup>
   <ItemGroup>
     <Analyzer Include="..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\analyzers\dotnet\cs\Microsoft.CodeAnalysis.Analyzers.dll" />

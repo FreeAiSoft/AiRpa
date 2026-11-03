@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -214,7 +214,7 @@ namespace RPA.Helpers
                 return;
             }
 
-            Apply(menu, StudioPalette.Detect(Application.Current?.Resources), explicitPalette: false);
+            Apply(menu, StudioPalette.Active, explicitPalette: false);
         }
 
         /// <summary>Подключён ли к меню общий проход (по какой палитре оформлено).</summary>
@@ -240,7 +240,7 @@ namespace RPA.Helpers
                 return;
             }
 
-            StudioThemeColors palette = StudioPalette.Detect(Application.Current?.Resources);
+            StudioThemeColors palette = StudioPalette.Active;
 
             if (Applied.TryGetValue(menu, out PaletteMark mark)
                 && mark.ExplicitPalette

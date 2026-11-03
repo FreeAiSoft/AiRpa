@@ -50,5 +50,17 @@ namespace RPA.VsProject
         public string ProjectPath { get; set; }
         public string Output { get; set; }
         public List<string> Errors { get; set; } = new List<string>();
+
+        /// <summary>Full path to the MSBuild.exe that was used (null when the lookup failed).</summary>
+        public string MsBuildPath { get; set; }
+
+        /// <summary>Toolchain name, e.g. "Visual Studio 2026".</summary>
+        public string ToolchainName { get; set; }
+
+        /// <summary>MSBuild.exe file version, e.g. "18.10.1.42706".</summary>
+        public string ToolchainVersion { get; set; }
+
+        /// <summary>True when the requested toolchain is not installed and another one was used instead.</summary>
+        public bool ToolchainFallback { get; set; }
     }
 }

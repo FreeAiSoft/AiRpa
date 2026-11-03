@@ -112,6 +112,20 @@ namespace VibeCoder.Core.Contracts
     }
 
     /// <summary>
+    /// Optional capability of <see cref="IBuildFeedbackService"/>: let the caller pin the Visual Studio
+    /// toolchain (MSBuild 17.x vs 18.x) instead of relying on "newest installed".
+    /// </summary>
+    public interface IBuildToolchainAware
+    {
+        /// <summary>Requested toolchain: "auto", "vs2022" or "vs2026".</summary>
+        string MsBuildToolchain { get; set; }
+
+        /// <summary>Which MSBuild.exe was used by the last build (or would be used now).</summary>
+        string DescribeToolchain();
+    }
+
+
+    /// <summary>
     /// Raised by providers instead of a bare transport exception, so the agent
     /// loop can react to the failure class (e.g. compact and retry on context overflow).
     /// </summary>

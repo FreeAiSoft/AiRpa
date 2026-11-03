@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.IO;
 using Newtonsoft.Json;
+using VibeCoder.Core.Models;
 
 namespace RPA.Chat.Services
 {
@@ -17,8 +18,27 @@ namespace RPA.Chat.Services
         /// <summary>Directory containing skills (each skill is a subdirectory with a SKILL.md).</summary>
         public string SkillsPath { get; set; } = "";
 
-        /// <summary>Chat panel appearance: true = dark (VibeCoder look), false = light. Scoped to the chat control only.</summary>
-        public bool UseDarkTheme { get; set; } = true;
+        /// <summary>
+        /// Тема продукта (студия и чат): <c>"Dark"</c> или <c>"Light"</c>.
+        /// <para>
+        /// Хранится строкой имени перечисления <see cref="StudioTheme"/>, а не <c>bool</c>: в файле должно
+        /// лежать то же значение, что и в коде, иначе появляется второй источник истины по теме.
+        /// </para>
+        /// <para>
+        /// <c>null</c> означает «поля в файле не было» — так выглядит первый запуск и файл старого
+        /// формата, поэтому дефолт подставляет <see cref="SettingsStore"/> при загрузке, а не инициализатор:
+        /// иначе отличить «тема не сохранена» от «сохранена тёмная» невозможно и миграция не сработает.
+        /// </para>
+        /// </summary>
+        [JsonProperty("Theme", NullValueHandling = NullValueHandling.Ignore)]
+        public string Theme { get; set; }
+
+        /// <summary>
+        /// Легаси-поле старого формата (<c>true</c> = тёмная). Только для миграции: <see cref="SettingsStore"/>
+        /// переносит его в <see cref="Theme"/> и обнуляет, поэтому в файл оно больше не попадает.
+        /// </summary>
+        [JsonProperty("UseDarkTheme", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? LegacyUseDarkTheme { get; set; }
 
         public int ContextWindowSize { get; set; } = 409600;
 
@@ -154,6 +174,7 @@ namespace RPA.Chat.Services
         private static void EnsureDefaults(SettingsData settings)
         {
             if (settings == null) return;
+            MigrateTheme(settings);
             if (settings.ContextWindowSize <= 0)
                 settings.ContextWindowSize = 409600;
             if (double.IsNaN(settings.Temperature) || settings.Temperature < 0.0 || settings.Temperature > 1.0)
@@ -208,6 +229,23 @@ namespace RPA.Chat.Services
                 settings.SpeechToTextLanguage = "ru";
             if (settings.ProxyPort <= 0 || settings.ProxyPort > 65535)
                 settings.ProxyPort = 8080;
+        }
+
+        /// <summary>
+        /// Приводит тему к перечислению <see cref="StudioTheme"/> и переносит старый формат
+        /// (<c>{"UseDarkTheme": false}</c>) в строку <see cref="SettingsData.Theme"/>.
+        /// Неизвестное значение — тёмная тема: она же дефолт студии.
+        /// </summary>
+        private static void MigrateTheme(SettingsData settings)
+        {
+            if (!StudioThemes.TryParse(settings.Theme, out StudioTheme theme))
+            {
+                // bool? — null означает «поля в файле не было», и тогда остаётся дефолт (тёмная).
+                theme = settings.LegacyUseDarkTheme == false ? StudioTheme.Light : StudioTheme.Dark;
+            }
+
+            settings.Theme = theme.ToName();
+            settings.LegacyUseDarkTheme = null;
         }
     }
 }

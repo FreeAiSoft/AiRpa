@@ -192,6 +192,19 @@
   `WfThemeTests.PropertyHelper_StylesButtonsByName`, `.PropertyHelper_SearchClearButton_IsFramelessWithSmallerGlyph`,
   `.EditModeButton_IsFlatWithoutCornerRadiusAndShadow`,
   `.EditModeButton_WithoutBorderChrome_GetsFlatTemplateAndKeepsGlyph`, `.PropertyHelper_FlattensEditModeButtons`.
+- Тема — перечисление `VibeCoder.Core.Models.StudioTheme` (`Dark`/`Light`), единственный источник истины.
+  Активное значение хранит `StudioPalette.Current` (палитра темы — `StudioPalette.Active`); ставится только
+  из `AppSettings.ApplyTheme(StudioTheme)` и **до** пересборки кистей (`StudioPalette.ApplyCurrent`).
+  `bool dark` в API темы и «угадывание» темы по яркости кисти MaterialDesign в рабочих путях запрещены:
+  `StudioPalette.Detect` удалён, остались `StudioPalette.DetectTheme` (чужой словарь: изолированные
+  ресурсы плавающих окон, отдельный STA-поток окна ошибки) и `DetectDark` (распознавание в тестах).
+  Перечисление лежит в `VibeCoder.Core`, потому что тема нужна сразу двум сборкам — студии и `RPA.Chat`;
+  `AiRpaStudio.csproj` ссылается на проект напрямую. Персист темы чата — строка `"Dark"`/`"Light"`
+  (`SettingsData.Theme`), старый `{"UseDarkTheme": bool}` переносится при загрузке и больше не пишется;
+  `ChatViewModel.Theme` — источник истины, `IsDarkTheme` — проекция для двухпозиционного тумблера,
+  `ThemeApplying` — `Action<StudioTheme>`. Стражи — `AiRpaStudio.Tests\ThemeApiGuardTests.cs`,
+  `StudioThemeTests.cs`, `ChatThemeSettingsTests.cs`.
+
 - Поверхность дизайнера WF (F-04…F-06): `Helpers\WfDesignerTheme.cs` — объявляет ключи
   `DesignerViewBackground`/`DesignerViewForeground` (на первый ссылается
   `CSharpExpressionEditor\RoslynExpressionEditor.xaml`) и ключи шаблонов WF (поверхность, элементы
@@ -230,6 +243,21 @@
   Ручной чеклист приёмки и карта тестов — разделы «Ручной чеклист приёмки» и «Тесты» этого документа.
   Вызовы: `DocGroupHelper.DesignerView_Loaded`, `MainView.ReapplyWorkflowControlThemes`,
   `App.Application_Startup`, `AppSettings.ApplyTheme`.
+  Полоса поверхности вокруг активностей (`designerViewGrid`, хосты таблиц, `designerPresenterBorder`)
+  перекрашивается отдельным последним проходом `WfDesignerTheme.RepaintSurfaceBand`. Причина: у полосы
+  несколько «хозяев» (хост таблиц `WfDataGridTheme.PaintHost`, общий `WfVisualTreeThemer`, плиты
+  `WfActivityTheme`), и в режиме кэша словаря WF ни один из них не узнавал белый в тёмной теме — в тёмной
+  палитре чистый белый объявлен как `CloseHoverForeground`, поэтому проверка «цвет входит в активную
+  палитру» отбрасывала его (regress: light → dark оставлял белую полосу вокруг активностей, хотя сами
+  активности перекрашивались). Признак прохода — «цвет противоположной палитры»
+  (`WfThemeStyles.TryMapStalePaletteColour`, сверяется только с токенами площади и текста —
+  `WfThemeStyles.BackgroundTokens`), поэтому пользовательские кисти и цвета активной темы не трогаются;
+  внутрь `WorkflowViewElement` и `AdornerLayer` проход не заходит (там связанные кисти
+  `WfColorResourcesOverride` и адаптеры ошибок). Стражи — `WfDesignerSurfaceTests`
+  (`Apply_AfterLightAndBack_RepaintsTheBandAroundActivities`, `.Apply_KeepsPaletteStatesAndTransparentBands`,
+  `.SurfacePass_DoesNotEnterActivitiesOrAdornerLayer`); сквозная проверка — пробник
+  `tools\designer-ui-diagnostics` с аргументом `cache` (см. `README.md` рядом).
+
   Хлебные крошки (`breadCrumbListBox` — имена активностей `Main › Sequence › Assign`) темизируются
   отдельным проходом `ThemeBreadCrumb`: контейнеры получают `ItemContainerStyle` палитры, содержимое
   уже созданных крошек перекрашивается, а новые (появляются при «провале» в активность) достраиваются

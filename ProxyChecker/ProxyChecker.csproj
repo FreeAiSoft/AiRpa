@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\EasyMvvm\EasyMvvm.csproj" />
     <ProjectReference Include="..\IpApiClient\IpApiClient.csproj" />
     <ProjectReference Include="..\Shared\Shared.csproj" />
   </ItemGroup>

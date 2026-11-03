@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Activities.Presentation;
 using System.Collections.Generic;
 using System.Globalization;
@@ -10,6 +10,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using VibeCoder.Core.Models;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 
@@ -73,7 +74,7 @@ namespace RPA.Helpers
         /// <summary>Кладёт ключи дизайнера в ресурсы приложения (вызывать при старте и после смены темы).</summary>
         public static void ApplyToApplication()
         {
-            ApplyToApplication(Application.Current?.Resources, StudioPalette.Detect(Application.Current?.Resources));
+            ApplyToApplication(Application.Current?.Resources, StudioPalette.Active);
         }
 
         /// <summary>
@@ -110,7 +111,7 @@ namespace RPA.Helpers
         /// <summary>Темизирует поверхность дизайнера (палитра определяется по ресурсам приложения).</summary>
         public static void Apply(FrameworkElement root)
         {
-            Apply(root, StudioPalette.Detect(Application.Current?.Resources));
+            Apply(root, StudioPalette.Active);
         }
 
         /// <summary>Темизирует поверхность дизайнера заданной палитрой (безопасно вызывать многократно).</summary>
@@ -207,6 +208,11 @@ namespace RPA.Helpers
             //     ячейки и панели-контейнеры. Проход идёт после общего темизатора WF: иначе он вернул бы
             //     светлые кисти шаблона Aero2 поверх палитры, а строки виртуализованы.
             WfDataGridTheme.Apply(root, palette);
+
+            // 5в) Поверхность дизайнера: полоса вокруг активностей. Идёт последней, потому что её красят
+            //     несколько подпроходов с разными признаками «своё/чужое» — и после light → dark ни один
+            //     из них не узнавал белый (см. RepaintSurfaceBand).
+            RepaintSurfaceBand(root, palette);
 
             // 6) Адаптер ошибки: единственное место, где допустим красный.
             ControlTemplate errorTemplate = CreateValidationErrorTemplate(palette);
@@ -537,7 +543,7 @@ namespace RPA.Helpers
                 return defaults;
             }
 
-            StudioThemeColors previous = palette.IsDark ? StudioPalette.Light : StudioPalette.Dark;
+            StudioThemeColors previous = StudioPalette.For(palette.Theme.Other());
             if (!previous.Tokens.TryGetValue(tokenName, out Color stale)
                 || stale.A != 0xFF
                 || Array.IndexOf(defaults, stale) >= 0)
@@ -578,6 +584,110 @@ namespace RPA.Helpers
             else if (element is Border border)
             {
                 border.Background = brush;
+            }
+        }
+
+        /// <summary>
+        /// Возвращает поверхность дизайнера в палитру активной темы — «белая полоса вокруг активностей»
+        /// после перехода light → dark.
+        /// <para>
+        /// Почему баг был односторонним. Полосу красят разные проходы (<see cref="WfDataGridTheme"/> —
+        /// хост таблиц, <see cref="WfVisualTreeThemer"/> — корень документа, <see cref="WfActivityTheme"/> —
+        /// плиты), и каждый узнаёт «своё» значение по своему признаку. В сторону светлой темы все они
+        /// срабатывают (тёмная плашка палитры — не «светлая»), а в сторону тёмной белый не узнавался:
+        /// <see cref="WfThemeStyles.TryMapStalePaletteColour"/> отбрасывал цвета, входящие в активную
+        /// палитру, а в тёмной палитре чистый белый объявлен как <c>CloseHoverForeground</c>. В результате
+        /// активности перекрашивались (у них свои связанные кисти), а полоса вокруг оставалась белой.
+        /// </para>
+        /// <para>
+        /// Признак прохода — «это цвет противоположной палитры», а не «это не наш цвет»: пользовательские
+        /// кисти (не токены палитры) остаются нетронутыми. Проход идемпотентен: его собственная работа
+        /// (поверхность активной темы) уже входит в токены и не переписывается. Внутрь
+        /// <see cref="WorkflowViewElement"/> и в <see cref="System.Windows.Documents.AdornerLayer"/> не
+        /// заходим: там живые связанные кисти <see cref="WfColorResourcesOverride"/> и адаптеры ошибок, и
+        /// локальное значение сломало бы и то, и другое.
+        /// </para>
+        /// </summary>
+        private static void RepaintSurfaceBand(DependencyObject root, StudioThemeColors palette)
+        {
+            if (root == null || palette == null)
+            {
+                return;
+            }
+
+            SolidColorBrush surface = WfThemeStyles.Brush(palette.Surface);
+
+            foreach (DependencyObject element in SurfaceBandElements(root))
+            {
+                DependencyProperty property;
+                Brush current;
+
+                if (element is Panel panel)
+                {
+                    property = Panel.BackgroundProperty;
+                    current = panel.Background;
+                }
+                else if (element is Border border)
+                {
+                    property = Border.BackgroundProperty;
+                    current = border.Background;
+                }
+                else if (element is Control control)
+                {
+                    property = Control.BackgroundProperty;
+                    current = control.Background;
+                }
+                else
+                {
+                    continue;
+                }
+
+                // Привязку не разрываем: фон может приходить из модели активности.
+                if (System.Windows.Data.BindingOperations.IsDataBound(element, property))
+                {
+                    continue;
+                }
+
+                // Меняем только собственную работу предыдущей темы: цвет её палитры. Прозрачность,
+                // градиенты, цвета активной темы и пользовательские кисти (не токены палитры) не трогаем.
+                if (!WfThemeStyles.TryMapStalePaletteColour(current, palette, out _))
+                {
+                    continue;
+                }
+
+                element.SetValue(property, surface);
+            }
+        }
+
+        /// <summary>
+        /// Элементы поверхности дизайнера: поддерево <paramref name="root"/> без содержимого активностей
+        /// (у активностей своя темизация и связанные кисти) и без слоя адорнеров (адаптеры ошибок).
+        /// </summary>
+        private static IEnumerable<DependencyObject> SurfaceBandElements(DependencyObject root)
+        {
+            if (root == null)
+            {
+                yield break;
+            }
+
+            var pending = new Stack<DependencyObject>();
+            pending.Push(root);
+
+            while (pending.Count > 0)
+            {
+                DependencyObject element = pending.Pop();
+
+                if (element is WorkflowViewElement || element is System.Windows.Documents.AdornerLayer)
+                {
+                    continue;
+                }
+
+                yield return element;
+
+                foreach (DependencyObject child in EnumerateChildren(element))
+                {
+                    pending.Push(child);
+                }
             }
         }
 

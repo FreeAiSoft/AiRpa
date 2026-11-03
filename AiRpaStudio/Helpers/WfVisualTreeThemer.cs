@@ -102,7 +102,7 @@ namespace RPA.Helpers
         /// <summary>Применяет палитру, определённую по ресурсам приложения (тёмная, если определить не удалось).</summary>
         public static void Apply(DependencyObject root)
         {
-            Apply(root, StudioPalette.Detect(Application.Current?.Resources));
+            Apply(root, StudioPalette.Active);
         }
 
         /// <summary>Применяет конкретную палитру к дереву (безопасно вызывать многократно).</summary>
@@ -164,7 +164,7 @@ namespace RPA.Helpers
         /// </summary>
         public static void ApplyWhenLoaded(FrameworkElement element)
         {
-            ApplyWhenLoaded(element, StudioPalette.Detect(Application.Current?.Resources));
+            ApplyWhenLoaded(element, StudioPalette.Active);
         }
 
         /// <summary>То же, но с явной палитрой.</summary>

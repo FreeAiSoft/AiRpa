@@ -54,12 +54,6 @@
     </XamlAppDef>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Activities.WinUI\Activities.WinUI\Activities.WinUI.csproj">
-      <Project>{ceaf728c-75c5-48d9-922d-24b5d30d4bdb}</Project>
-      <Name>Activities.WinUI</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <None Include="app.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

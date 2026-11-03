@@ -1,7 +1,8 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Media;
 using RPA.Helpers;
+using VibeCoder.Core.Models;
 
 namespace AiRpaStudio.Tests;
 
@@ -14,27 +15,6 @@ namespace AiRpaStudio.Tests;
 [Apartment(ApartmentState.STA)]
 public class StudioBrushesTests
 {
-    private static ResourceDictionary MaterialDesignSource(bool dark = true)
-    {
-        byte background = dark ? (byte)0x2D : (byte)0xFF;
-        byte toolbar = dark ? (byte)0x33 : (byte)0xF0;
-
-        return new ResourceDictionary
-        {
-            ["MaterialDesign.Brush.Background"] = new SolidColorBrush(Color.FromRgb(background, background, background)),
-            ["MaterialDesign.Brush.Foreground"] = new SolidColorBrush(Color.FromRgb(0xF1, 0xF1, 0xF1)),
-            ["MaterialDesign.Brush.Card.Background"] = new SolidColorBrush(Color.FromRgb(0x25, 0x25, 0x25)),
-            ["MaterialDesign.Brush.Card.Border"] = new SolidColorBrush(Color.FromRgb(0x3F, 0x3F, 0x46)),
-            ["MaterialDesign.Brush.Primary"] = new SolidColorBrush(Color.FromRgb(0x67, 0x3A, 0xB7)),
-            ["MaterialDesign.Brush.Primary.Foreground"] = new SolidColorBrush(Colors.White),
-            ["MaterialDesign.Brush.ToolBar.Background"] = new SolidColorBrush(Color.FromRgb(toolbar, toolbar, toolbar)),
-            ["MaterialDesign.Brush.ToolBar.Item.Background"] = new SolidColorBrush(Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF)),
-            ["MaterialDesign.Brush.ToolBar.Item.Foreground"] = new SolidColorBrush(Color.FromRgb(0xF1, 0xF1, 0xF1)),
-            ["MaterialDesign.Brush.ToggleButton.Background"] = new SolidColorBrush(Color.FromRgb(0x33, 0x64, 0xB5)),
-            ["MaterialDesign.Brush.ListBoxItem.Selected"] = new SolidColorBrush(Color.FromRgb(0x4A, 0x2C, 0x82))
-        };
-    }
-
     [Test]
     public void AliasKeys_AreDeclared()
     {
@@ -48,7 +28,7 @@ public class StudioBrushesTests
     {
         var target = new ResourceDictionary();
 
-        StudioBrushes.Apply(target, MaterialDesignSource());
+        StudioBrushes.ApplyPalette(target, StudioPalette.For(StudioTheme.Dark));
 
         foreach (string key in StudioBrushes.AliasKeys)
         {
@@ -63,7 +43,7 @@ public class StudioBrushesTests
     {
         var target = new ResourceDictionary();
 
-        StudioBrushes.Apply(target, MaterialDesignSource());
+        StudioBrushes.ApplyPalette(target, StudioPalette.For(StudioTheme.Dark));
 
         foreach (object key in target.Keys)
         {
@@ -79,7 +59,7 @@ public class StudioBrushesTests
     {
         var target = new ResourceDictionary();
 
-        StudioBrushes.Apply(target, MaterialDesignSource());
+        StudioBrushes.ApplyPalette(target, StudioPalette.For(StudioTheme.Dark));
 
         foreach (object key in StudioBrushes.SystemBrushKeys)
         {
@@ -97,7 +77,7 @@ public class StudioBrushesTests
         // раньше в тёмной теме из-за них появлялись светлые плашки (заголовок категории панели «Активности»).
         var target = new ResourceDictionary();
 
-        StudioBrushes.Apply(target, MaterialDesignSource(dark: true));
+        StudioBrushes.ApplyPalette(target, StudioPalette.For(StudioTheme.Dark));
 
         foreach (object key in StudioBrushes.SystemBrushKeys)
         {
@@ -126,10 +106,10 @@ public class StudioBrushesTests
     {
         var target = new ResourceDictionary();
 
-        StudioBrushes.Apply(target, MaterialDesignSource(dark: false));
+        StudioBrushes.ApplyPalette(target, StudioPalette.For(StudioTheme.Light));
         Color before = ((SolidColorBrush)target[StudioBrushes.MenuBackgroundKey]).Color;
 
-        StudioBrushes.Apply(target, MaterialDesignSource(dark: true));
+        StudioBrushes.ApplyPalette(target, StudioPalette.For(StudioTheme.Dark));
         Color after = ((SolidColorBrush)target[StudioBrushes.MenuBackgroundKey]).Color;
 
         Assert.That(after, Is.Not.EqualTo(before));
@@ -141,7 +121,7 @@ public class StudioBrushesTests
     {
         var target = new ResourceDictionary();
 
-        StudioBrushes.Apply(target, null);
+        StudioBrushes.Apply(target);
 
         foreach (string key in StudioBrushes.AliasKeys)
         {
@@ -153,7 +133,7 @@ public class StudioBrushesTests
     [Test]
     public void Apply_NullTarget_DoesNotThrow()
     {
-        Assert.DoesNotThrow(() => StudioBrushes.Apply(null, MaterialDesignSource()));
+        Assert.DoesNotThrow(() => StudioBrushes.ApplyPalette(null, StudioPalette.For(StudioTheme.Dark)));
     }
 
     [Test]
@@ -182,7 +162,7 @@ public class StudioBrushesTests
     {
         var target = new ResourceDictionary();
 
-        StudioBrushes.Apply(target, MaterialDesignSource());
+        StudioBrushes.ApplyPalette(target, StudioPalette.For(StudioTheme.Dark));
 
         StudioThemeColors palette = StudioPalette.Dark;
 
@@ -224,7 +204,7 @@ public class StudioBrushesTests
     {
         var target = new ResourceDictionary();
 
-        StudioBrushes.Apply(target, MaterialDesignSource());
+        StudioBrushes.ApplyPalette(target, StudioPalette.For(StudioTheme.Dark));
 
         Color highlight = ColorOf(target, SystemColors.HighlightBrushKey);
 
@@ -241,7 +221,7 @@ public class StudioBrushesTests
     {
         var target = new ResourceDictionary();
 
-        StudioBrushes.Apply(target, MaterialDesignSource(dark: false));
+        StudioBrushes.ApplyPalette(target, StudioPalette.For(StudioTheme.Light));
 
         Assert.That(ColorOf(target, StudioBrushes.SurfaceKey), Is.EqualTo(StudioPalette.Light.Surface));
         Assert.That(ColorOf(target, StudioBrushes.ForegroundKey), Is.EqualTo(StudioPalette.Light.Foreground));
@@ -253,7 +233,7 @@ public class StudioBrushesTests
     {
         var target = new ResourceDictionary();
 
-        StudioBrushes.Apply(target, MaterialDesignSource());
+        StudioBrushes.ApplyPalette(target, StudioPalette.For(StudioTheme.Dark));
 
         Color fill = ColorOf(target, StudioBrushes.OverlayFillKey);
         Assert.That(fill.A, Is.EqualTo(StudioPalette.OverlayFillAlpha));

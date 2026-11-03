@@ -79,7 +79,7 @@ namespace RPA.Core.Services
         /// </summary>
         public static Brush ErrorBrush()
         {
-            return WfDesignerTheme.ErrorBrush(StudioPalette.Detect(System.Windows.Application.Current?.Resources));
+            return WfDesignerTheme.ErrorBrush(StudioPalette.Active);
         }
 
         /// <summary>

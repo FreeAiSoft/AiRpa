@@ -1,9 +1,10 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Media;
 using AvalonDock;
 using RPA.Helpers;
+using VibeCoder.Core.Models;
 using RPA.Models;
 
 namespace AiRpaStudio.Tests;
@@ -92,7 +93,7 @@ public class DockingThemeBrushesTests
     {
         var target = new ResourceDictionary();
 
-        DockingThemeBrushes.Apply(target, dark: true, MaterialDesignSource(dark: true));
+        DockingThemeBrushes.Apply(target, StudioTheme.Dark, MaterialDesignSource(dark: true));
 
         Color tab = ColorOf(target, DockingThemeBrushes.TabBackgroundKey);
         Color active = ColorOf(target, DockingThemeBrushes.TabActiveKey);
@@ -112,7 +113,7 @@ public class DockingThemeBrushesTests
     {
         var target = new ResourceDictionary();
 
-        DockingThemeBrushes.Apply(target, dark: false, MaterialDesignSource(dark: false));
+        DockingThemeBrushes.Apply(target, StudioTheme.Light, MaterialDesignSource(dark: false));
 
         Color tab = ColorOf(target, DockingThemeBrushes.TabBackgroundKey);
         Color active = ColorOf(target, DockingThemeBrushes.TabActiveKey);
@@ -129,13 +130,13 @@ public class DockingThemeBrushesTests
     public void Apply_WithoutPalette_UsesFallbacks()
     {
         var dark = new ResourceDictionary();
-        DockingThemeBrushes.Apply(dark, dark: true, paletteSource: null);
+        DockingThemeBrushes.Apply(dark, StudioTheme.Dark, paletteSource: null);
 
         Assert.That(ColorOf(dark, DockingThemeBrushes.TabBackgroundKey), Is.EqualTo(ExpectedDarkTab));
         Assert.That(ColorOf(dark, DockingThemeBrushes.TabActiveKey), Is.EqualTo(ExpectedDarkActive));
 
         var light = new ResourceDictionary();
-        DockingThemeBrushes.Apply(light, dark: false, paletteSource: null);
+        DockingThemeBrushes.Apply(light, StudioTheme.Light, paletteSource: null);
 
         Assert.That(ColorOf(light, DockingThemeBrushes.TabBackgroundKey), Is.EqualTo(ExpectedLightTab));
         Assert.That(ColorOf(light, DockingThemeBrushes.TabActiveKey), Is.EqualTo(ExpectedLightActive));
@@ -146,7 +147,7 @@ public class DockingThemeBrushesTests
     {
         var target = MaterialDesignSource(dark: true);
 
-        DockingThemeBrushes.Apply(target, dark: true);
+        DockingThemeBrushes.Apply(target, StudioTheme.Dark);
 
         Assert.That(ColorOf(target, DockingThemeBrushes.TabBackgroundKey), Is.EqualTo(ExpectedDarkTab));
     }
@@ -161,7 +162,7 @@ public class DockingThemeBrushesTests
             ["MaterialDesign.Brush.Background"] = new SolidColorBrush(Colors.Magenta)
         };
 
-        DockingThemeBrushes.Apply(target, dark: true, MaterialDesignSource(dark: true));
+        DockingThemeBrushes.Apply(target, StudioTheme.Dark, MaterialDesignSource(dark: true));
 
         Assert.That(ColorOf(target, DockingThemeBrushes.TabBackgroundKey), Is.EqualTo(ExpectedDarkTab));
         Assert.That(ColorOf(target, DockingThemeBrushes.TabActiveKey), Is.EqualTo(ExpectedDarkActive));
@@ -172,10 +173,10 @@ public class DockingThemeBrushesTests
     {
         var target = new ResourceDictionary();
 
-        DockingThemeBrushes.Apply(target, dark: true, MaterialDesignSource(dark: true));
+        DockingThemeBrushes.Apply(target, StudioTheme.Dark, MaterialDesignSource(dark: true));
         Brush darkBrush = (Brush)target[DockingThemeBrushes.TabBackgroundKey];
 
-        DockingThemeBrushes.Apply(target, dark: false, MaterialDesignSource(dark: false));
+        DockingThemeBrushes.Apply(target, StudioTheme.Light, MaterialDesignSource(dark: false));
         Brush lightBrush = (Brush)target[DockingThemeBrushes.TabBackgroundKey];
 
         // Замена экземпляра кисти гарантирует, что DynamicResource-ссылки перерисуются.
@@ -188,7 +189,7 @@ public class DockingThemeBrushesTests
     {
         var target = new ResourceDictionary();
 
-        DockingThemeBrushes.Apply(target, dark: true, MaterialDesignSource(dark: true));
+        DockingThemeBrushes.Apply(target, StudioTheme.Dark, MaterialDesignSource(dark: true));
 
         foreach (object key in target.Keys)
         {
@@ -202,7 +203,7 @@ public class DockingThemeBrushesTests
     [Test]
     public void Apply_NullTarget_DoesNotThrow()
     {
-        Assert.DoesNotThrow(() => DockingThemeBrushes.Apply(null, dark: true, MaterialDesignSource(dark: true)));
+        Assert.DoesNotThrow(() => DockingThemeBrushes.Apply(null, StudioTheme.Dark, MaterialDesignSource(dark: true)));
     }
 
     /// <summary>
@@ -258,7 +259,7 @@ public class DockingThemeBrushesTests
     {
         var target = new ResourceDictionary();
 
-        DockingThemeBrushes.Apply(target, dark: true);
+        DockingThemeBrushes.Apply(target, StudioTheme.Dark);
 
         Assert.That(DockingThemeBrushes.AllKeys, Is.Unique);
         foreach (string key in DockingThemeBrushes.AllKeys)
@@ -274,7 +275,7 @@ public class DockingThemeBrushesTests
     {
         var target = new ResourceDictionary();
 
-        DockingThemeBrushes.Apply(target, dark: true);
+        DockingThemeBrushes.Apply(target, StudioTheme.Dark);
 
         StudioThemeColors palette = StudioPalette.Dark;
 
@@ -310,7 +311,7 @@ public class DockingThemeBrushesTests
     {
         var target = new ResourceDictionary();
 
-        DockingThemeBrushes.Apply(target, dark: false);
+        DockingThemeBrushes.Apply(target, StudioTheme.Light);
 
         Assert.That(ColorOf(target, DockingThemeBrushes.SurfaceKey), Is.EqualTo(StudioPalette.Light.Surface));
         Assert.That(ColorOf(target, DockingThemeBrushes.ForegroundKey), Is.EqualTo(StudioPalette.Light.Foreground));

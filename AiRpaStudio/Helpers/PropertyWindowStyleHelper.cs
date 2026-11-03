@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Activities.Presentation.PropertyEditing;
 using System.Collections.Generic;
 using System.Linq;
@@ -79,7 +79,7 @@ namespace RPA.Helpers
         /// <summary>Применяет палитру, определённую по ресурсам приложения.</summary>
         public void SetPropertyStyles(UIElement propertyInspector)
         {
-            SetPropertyStyles(propertyInspector, StudioPalette.Detect(Application.Current?.Resources));
+            SetPropertyStyles(propertyInspector, StudioPalette.Active);
         }
 
         /// <summary>Применяет конкретную палитру (идемпотентно, без пересоздания контрола).</summary>

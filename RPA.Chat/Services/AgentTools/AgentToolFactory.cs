@@ -203,8 +203,8 @@ namespace RPA.Chat.Services.AgentTools
 
             registry.Register(new AgentTool(
                 "build",
-                "Build the open project/solution with the given configuration using MSBuild.",
-                "{\"configuration\":\"string\"}",
+                "Build the open project/solution with the given configuration using MSBuild. Optional toolchain: auto (newest installed, default), vs2022 or vs2026.",
+                "{\"configuration\":\"string\",\"toolchain\":\"string\"}",
                 true,
                 BuildAsync,
                 permission: AgentPermissions.ExecuteCommand));
@@ -449,6 +449,16 @@ namespace RPA.Chat.Services.AgentTools
             var configuration = (args["configuration"]?.Value<string>() ?? "Debug").Trim();
             if (string.IsNullOrWhiteSpace(configuration))
                 configuration = "Debug";
+            // Optional explicit toolchain (CP-04): the caller may pin VS 2022 or VS 2026 instead of "newest installed".
+            var requestedToolchain = args["toolchain"]?.Value<string>();
+            var toolchainInfo = "";
+            if (_buildFeedback is IBuildToolchainAware toolchainAware)
+            {
+                if (!string.IsNullOrWhiteSpace(requestedToolchain))
+                    toolchainAware.MsBuildToolchain = requestedToolchain.Trim();
+                toolchainInfo = " Toolchain: " + toolchainAware.DescribeToolchain();
+            }
+
 
             try
             {
@@ -456,8 +466,8 @@ namespace RPA.Chat.Services.AgentTools
                 var errors = await _buildFeedback.GetCompilationErrorsAsync(ct).ConfigureAwait(false);
                 var errorCount = (errors ?? new List<BuildError>()).Count(e => e != null && string.Equals(e.Severity, "Error", StringComparison.OrdinalIgnoreCase));
                 return errorCount == 0
-                    ? "Build succeeded (" + configuration + ")."
-                    : "Build finished with " + errorCount + " error(s) (" + configuration + "). Use read_errors to inspect them.";
+                    ? "Build succeeded (" + configuration + ")." + toolchainInfo
+                    : "Build finished with " + errorCount + " error(s) (" + configuration + "). Use read_errors to inspect them." + toolchainInfo;
             }
             catch (OperationCanceledException)
             {

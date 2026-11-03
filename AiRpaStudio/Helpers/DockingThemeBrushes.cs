@@ -1,6 +1,7 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
+using VibeCoder.Core.Models;
 
 namespace RPA.Helpers
 {
@@ -170,19 +171,19 @@ namespace RPA.Helpers
         /// Заполняет кисти AvalonDock в <paramref name="target"/> значениями палитры студии.
         /// </summary>
         /// <param name="target">Словарь, куда пишутся кисти (обычно <c>DockingManager.Resources</c>).</param>
-        /// <param name="dark">Текущая тема студии.</param>
+        /// <param name="theme">Текущая тема студии.</param>
         /// <param name="paletteSource">
         /// Не используется: значения берутся из <see cref="StudioPalette"/>. Параметр оставлен для
         /// совместимости с существующими вызовами (раньше палитра MaterialDesign читалась из него).
         /// </param>
-        public static void Apply(ResourceDictionary target, bool dark, ResourceDictionary paletteSource = null)
+        public static void Apply(ResourceDictionary target, StudioTheme theme, ResourceDictionary paletteSource = null)
         {
             if (target == null)
             {
                 return;
             }
 
-            ApplyPalette(target, StudioPalette.For(dark));
+            ApplyPalette(target, StudioPalette.For(theme));
         }
 
         /// <summary>Заполняет кисти AvalonDock значениями конкретной палитры.</summary>

@@ -1,4 +1,4 @@
-// Диагностический пробник темы дизайнера WF.
+﻿// Диагностический пробник темы дизайнера WF.
 //
 // Зачем: баги темы дизайнера WF видны только на НАСТОЯЩЕМ WorkflowDesigner — синтетическое дерево
 // в юнит-тестах не воспроизводит ни плитки, которые WF запекает через {StaticResource}, ни словари
@@ -32,6 +32,7 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
@@ -110,13 +111,29 @@ internal static class DesignerThemeProbe
 
         Log("студия: " + _studio.Location);
 
-        StartHostApp();
-        new DesignerMetadata().Register();
+        // Режим кэша словаря WF. Студия ставит его в App.xaml.cs (WfColorResourcesOverride.TryInstall)
+        // ДО первого WorkflowDesigner; пробник обязан воспроизводить именно этот путь, иначе он проверяет
+        // прежний режим (WfDesignerTheme) и не видит дефектов, которые видны только в студии.
+        bool cacheMode = Array.Exists(
+            Environment.GetCommandLineArgs(),
+            argument => string.Equals(argument, "cache", StringComparison.OrdinalIgnoreCase));
 
-        ReportHostResources();
+        StartHostApp();
 
         object light = Palette("Light");
         object dark = Palette("Dark");
+
+        Log("=== РЕЖИМ ТЕМИЗАЦИИ: "
+            + (cacheMode ? "кэш словаря WF (WfColorResourcesOverride)" : "прежний режим (WfDesignerTheme)") + " ===");
+
+        if (cacheMode)
+        {
+            InstallWfColourCache(dark);
+        }
+
+        new DesignerMetadata().Register();
+
+        ReportHostResources();
 
         RunScenario(apply, "ПУСТАЯ АКТИВНОСТЬ (ActivityBuilder)", new ActivityBuilder(), light, dark);
         RunScenario(apply, "WORKFLOW С АКТИВНОСТЯМИ (Sequence + WriteLine)", BuildWorkflow(), light, dark);
@@ -167,7 +184,7 @@ internal static class DesignerThemeProbe
     {
         try
         {
-            _applyTheme.Invoke(GetSettingsInstance(), new object[] { dark });
+            _applyTheme.Invoke(GetSettingsInstance(), new object[] { StudioThemeValue(dark) });
         }
         catch (TargetInvocationException ex)
         {
@@ -176,6 +193,140 @@ internal static class DesignerThemeProbe
                 : ex.InnerException.GetType().Name + ": " + ex.InnerException.Message;
             Log("  (тема хоста не применилась: " + reason + ")");
         }
+    }
+
+    /// <summary>Значение перечисления <c>VibeCoder.Core.Models.StudioTheme</c> для вызова по рефлексии.</summary>
+    private static object StudioThemeValue(bool dark)
+    {
+        Type theme = null;
+        Assembly[] loaded = AppDomain.CurrentDomain.GetAssemblies();
+        for (int i = 0; i < loaded.Length && theme == null; i++)
+        {
+            theme = loaded[i].GetType("VibeCoder.Core.Models.StudioTheme", throwOnError: false);
+        }
+
+        if (theme == null)
+        {
+            theme = Type.GetType("VibeCoder.Core.Models.StudioTheme, VibeCoder.Core", throwOnError: true);
+        }
+
+        return Enum.Parse(theme, dark ? "Dark" : "Light");
+    }
+
+    /// <summary>
+    /// Ставит словарь палитры в кэш шаблонов WF так же, как это делает App.xaml.cs студии.
+    /// </summary>
+    private static void InstallWfColourCache(object palette)
+    {
+        try
+        {
+            Type type = _studio.GetType("RPA.Helpers.WfColorResourcesOverride", throwOnError: true);
+            MethodInfo install = type.GetMethod(
+                "TryInstall",
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                new[] { _colorsType },
+                null);
+
+            if (install == null)
+            {
+                Log("  кэш цветов WF: метод TryInstall(StudioThemeColors) не найден");
+                return;
+            }
+
+            object result = install.Invoke(null, new[] { palette });
+            Log("  кэш цветов WF: TryInstall → " + result);
+        }
+        catch (TargetInvocationException ex)
+        {
+            Log("  кэш цветов WF: TryInstall упал — " + ex.InnerException);
+        }
+    }
+
+    /// <summary>
+    /// Кисти поверхности дизайнера по именам из Reference Source (DesignerView.xaml): именно тут видно,
+    /// почему «фон вокруг активностей» остаётся в палитре предыдущей темы.
+    /// <c>designerPresenterBorder</c> берёт цвет через <c>{StaticResource DesignerViewBackground}</c>,
+    /// поэтому связанная кисть (bound) — единственный способ перекрасить его без перезагрузки шаблона.
+    /// </summary>
+    private static void ReportSurface(FrameworkElement root)
+    {
+        foreach (string name in new[]
+                 {
+                     "designerPresenterBorder", "scrollableContent", "scrollViewerContent", "designerViewGrid"
+                 })
+        {
+            var element = FindByName(root, name);
+            if (element == null)
+            {
+                Log("  поверхность " + name + ": не найдена");
+                continue;
+            }
+
+            DependencyProperty property = BackgroundPropertyOf(element);
+            Log("  поверхность " + name + ": " + DescribeBrush(BackgroundOf(element))
+                + (property == null ? string.Empty : " [" + ValueSourceOf(element, property) + "]"));
+        }
+
+        // Цепочка предков: видно, на каком уровне «белая плашка» вошла в дерево и кто её держит.
+        var grid = FindByName(root, "designerViewGrid") as FrameworkElement;
+        for (var parent = (DependencyObject)grid; parent != null; parent = ParentOf(parent))
+        {
+            DependencyProperty property = BackgroundPropertyOf(parent);
+            Log("    предок " + parent.GetType().Name + NameOf(parent) + " " + Size(parent as FrameworkElement)
+                + " bg=" + DescribeBrush(BackgroundOf(parent))
+                + (property == null ? string.Empty : " [" + ValueSourceOf(parent, property) + "]"));
+        }
+    }
+
+    private static DependencyObject ParentOf(DependencyObject element)
+    {
+        return element is FrameworkElement fe && fe.Parent != null
+            ? fe.Parent
+            : (element is Visual || element is System.Windows.Media.Media3D.Visual3D
+                ? VisualTreeHelper.GetParent(element)
+                : LogicalTreeHelper.GetParent(element));
+    }
+
+    private static DependencyProperty BackgroundPropertyOf(DependencyObject element)
+    {
+        if (element is Border)
+        {
+            return Border.BackgroundProperty;
+        }
+
+        if (element is Panel)
+        {
+            return Panel.BackgroundProperty;
+        }
+
+        return element is Control ? Control.BackgroundProperty : null;
+    }
+
+    private static string ValueSourceOf(DependencyObject element, DependencyProperty property)
+    {
+        var source = DependencyPropertyHelper.GetValueSource(element, property);
+
+        return source.BaseValueSource.ToString()
+            + (source.IsExpression ? "/expression" : string.Empty)
+            + (source.IsCurrent ? "/current" : string.Empty);
+    }
+
+    private static string DescribeBrush(Brush brush)
+    {
+        if (brush == null)
+        {
+            return "(нет)";
+        }
+
+        if (!(brush is SolidColorBrush solid))
+        {
+            return brush.GetType().Name;
+        }
+
+        bool bound = BindingOperations.GetBindingExpressionBase(solid, SolidColorBrush.ColorProperty) != null;
+
+        return solid.Color + (solid.IsFrozen ? " frozen" : " not-frozen") + (bound ? " bound" : " static");
     }
 
     private static object GetSettingsInstance()
@@ -270,7 +421,9 @@ internal static class DesignerThemeProbe
 
             if (background == foreignSurface)
             {
-                staleSurface.Add(element.GetType().Name + " " + size);
+                DependencyProperty backgroundProperty = BackgroundPropertyOf(element);
+                staleSurface.Add(element.GetType().Name + NameOf(element) + " " + size
+                    + (backgroundProperty == null ? string.Empty : " [" + ValueSourceOf(element, backgroundProperty) + "]"));
             }
 
             if (border == foreignStrong)
@@ -293,6 +446,7 @@ internal static class DesignerThemeProbe
         Log("=== " + pass + " === (чужой цвет: Surface=" + foreignSurface
             + ", SeparatorStrong=" + foreignStrong + ", Foreground=" + foreignText + ")");
         Log("  плита: " + plate);
+        ReportSurface(root);
         LogItems("  фон чужой поверхности", staleSurface);
         LogItems("  рамка чужой палитры", staleBorder);
         ReportHeaderButtons(root);

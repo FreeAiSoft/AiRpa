@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Windows.Media;
+using VibeCoder.Core.Models;
 
 namespace RPA.Helpers
 {
@@ -122,16 +123,16 @@ namespace RPA.Helpers
             cdata: Rgb(0xA3, 0x15, 0x15),
             xmlDeclaration: Rgb(0x00, 0x00, 0xFF));
 
-        /// <summary>Палитра по признаку темы.</summary>
-        public static EditorThemeColors For(bool dark)
+        /// <summary>Палитра редакторов по теме студии.</summary>
+        public static EditorThemeColors For(StudioTheme theme)
         {
-            return dark ? Dark : Light;
+            return theme == StudioTheme.Light ? Light : Dark;
         }
 
         /// <summary>Палитра по словарю ресурсов приложения (тема определяется яркостью фона).</summary>
         public static EditorThemeColors Detect(System.Windows.ResourceDictionary resources)
         {
-            return For(StudioPalette.DetectDark(resources));
+            return For(StudioPalette.DetectTheme(resources));
         }
 
         /// <summary>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -10,6 +10,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Media;
+using VibeCoder.Core.Models;
 using System.Windows.Shapes;
 
 namespace RPA.Helpers
@@ -248,6 +249,38 @@ namespace RPA.Helpers
         }
 
         /// <summary>
+        /// Токены площади и текста активной палитры — то, чем реально красится фон, рамка и подпись.
+        /// Семантика сюда не входит (см. <see cref="TryMapStalePaletteColour"/>). Набор кэшируется по
+        /// палитре: проходы читают его на каждом элементе дерева.
+        /// </summary>
+        internal static HashSet<Color> BackgroundTokens(StudioThemeColors palette)
+        {
+            if (palette == null)
+            {
+                return new HashSet<Color>();
+            }
+
+            return BackgroundTokenCache.GetOrAdd(palette, key =>
+            {
+                HashSet<Color> colours = new HashSet<Color>();
+
+                foreach (string name in StudioPalette.NeutralTokenNames.Concat(StudioPalette.TextTokenNames))
+                {
+                    if (key.Tokens.TryGetValue(name, out Color colour))
+                    {
+                        colours.Add(colour);
+                    }
+                }
+
+                return colours;
+            });
+        }
+
+        /// <summary>Кэш наборов токенов площади: палитр в студии ровно две.</summary>
+        private static readonly ConcurrentDictionary<StudioThemeColors, HashSet<Color>> BackgroundTokenCache =
+            new ConcurrentDictionary<StudioThemeColors, HashSet<Color>>();
+
+        /// <summary>
         /// Свойства типа <see cref="Brush"/> элемента, включая унаследованные: рефлексия выполняется один
         /// раз на тип (<see cref="BrushPropertyCache"/>), а не на каждое применение темы.
         /// </summary>
@@ -352,12 +385,17 @@ namespace RPA.Helpers
             }
 
             Color colour = solid.Color;
-            if (palette.Tokens.Values.Contains(colour))
+
+            // «Уже в теме» проверяется только по токенам площади и текста. Семантика (CloseHover*,
+            // Overlay*) в набор не входит: её белый совпадает с белым шаблонов WF, и площадь, покрашенная
+            // белой палитрой предыдущей темы, считалась бы «своей» — отсюда белая полоса вокруг
+            // активностей после light → dark (в тёмной палитре чистый белый — это CloseHoverForeground).
+            if (BackgroundTokens(palette).Contains(colour))
             {
                 return false;
             }
 
-            StudioThemeColors other = palette.IsDark ? StudioPalette.Light : StudioPalette.Dark;
+            StudioThemeColors other = StudioPalette.For(palette.Theme.Other());
             foreach (KeyValuePair<string, Color> token in other.Tokens)
             {
                 if (token.Value == colour && palette.Tokens.TryGetValue(token.Key, out mapped) && mapped != colour)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -584,7 +584,7 @@ public class WfContextMenuThemeTests
 
     private static StudioThemeColors ExpectedPalette()
     {
-        return StudioPalette.Detect(Application.Current?.Resources);
+        return StudioPalette.Active;
     }
 
     private static Color ColorOf(Brush brush)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -321,26 +321,43 @@ namespace RPA.Chat.ViewModels
 
         public SettingsViewModel SettingsViewModel => _settingsViewModel;
 
-        /// <summary>Chat-control theme switch: true = dark, false = light. Persisted in <see cref="SettingsData.UseDarkTheme"/>.</summary>
-        public bool IsDarkTheme
+        /// <summary>
+        /// Тема продукта — перечисление <see cref="StudioTheme"/> (единственный источник истины, см.
+        /// <c>RPA.Helpers.StudioPalette.Current</c>). Персистится строкой <c>"Dark"</c>/<c>"Light"</c>
+        /// (<see cref="SettingsData.Theme"/>), а не <c>bool</c>.
+        /// </summary>
+        public StudioTheme Theme
         {
-            get => _settings?.UseDarkTheme ?? true;
+            get => StudioThemes.Parse(_settings?.Theme, StudioTheme.Dark);
             set
             {
                 if (_settings == null)
                     return;
-                if (_settings.UseDarkTheme != value)
-                {
-                    _settings.UseDarkTheme = value;
-                    // Порядок обязателен: сначала хост пересобирает палитру Studio.*, и только потом
-                    // контрол перекрывает свой словарь мостом (ChatStudioBridge.Apply). Иначе мост
-                    // прочитает кисти предыдущей темы, и чат отстанет на один переключатель.
-                    ThemeApplying?.Invoke(value);
-                    OnPropertyChanged();
-                    SettingsStore.Save(_settings);
-                    ThemeChanged?.Invoke();
-                }
+                if (Theme == value)
+                    return;
+
+                _settings.Theme = value.ToName();
+
+                // Порядок обязателен: сначала хост пересобирает палитру Studio.*, и только потом
+                // контрол перекрывает свой словарь мостом (ChatStudioBridge.Apply). Иначе мост
+                // прочитает кисти предыдущей темы, и чат отстанет на один переключатель.
+                ThemeApplying?.Invoke(value);
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsDarkTheme));
+                SettingsStore.Save(_settings);
+                ThemeChanged?.Invoke();
             }
+        }
+
+        /// <summary>
+        /// Проекция <see cref="Theme"/> для двухпозиционного переключателя в заголовке студии:
+        /// сам тумблер умеет только «вкл/выкл», поэтому <c>true</c> = <see cref="StudioTheme.Dark"/>.
+        /// Источник истины всё равно <see cref="Theme"/>.
+        /// </summary>
+        public bool IsDarkTheme
+        {
+            get => Theme == StudioTheme.Dark;
+            set => Theme = value ? StudioTheme.Dark : StudioTheme.Light;
         }
 
         // ------------------------------------------------------------------
@@ -437,9 +454,9 @@ namespace RPA.Chat.ViewModels
         /// того, как представление перекроет свой словарь через <c>ChatStudioBridge</c>: иначе мост
         /// скопирует кисти предыдущей темы и чат отстанет на один переключатель.
         /// </summary>
-        public Action<bool> ThemeApplying { get; set; }
+        public Action<StudioTheme> ThemeApplying { get; set; }
 
-        /// <summary>Raised when the chat-control theme (dark/light) changes, so the view can swap its palette.</summary>
+        /// <summary>Raised when the theme (<see cref="StudioTheme"/>) changes, so the view can swap its palette.</summary>
         public event Action ThemeChanged;
 
         // ------------------------------------------------------------------

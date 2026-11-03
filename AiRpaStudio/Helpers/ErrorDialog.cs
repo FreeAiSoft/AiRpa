@@ -247,7 +247,7 @@ namespace RPA.Helpers
                 return;
             }
 
-            StudioBrushes.ApplyPalette(window.Resources, StudioPalette.For(StudioPalette.DetectDark(applicationResources)));
+            StudioBrushes.ApplyPalette(window.Resources, StudioPalette.For(StudioPalette.DetectTheme(applicationResources)));
         }
 
         /// <summary>

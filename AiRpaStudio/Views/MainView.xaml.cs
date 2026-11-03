@@ -92,7 +92,7 @@ namespace RPA.Views
             chatPanel.ViewModel.ThemeApplying = Services.AppSettings.ApplyTheme;
 
             chatPanel.ViewModel.ThemeChanged += OnChatThemeChanged;
-            Services.AppSettings.ApplyTheme(chatPanel.ViewModel.IsDarkTheme);
+            Services.AppSettings.ApplyTheme(chatPanel.ViewModel.Theme);
             // Словарь чата собран в конструкторе из палитры по умолчанию, а сохранённая тема могла быть
             // светлой — перекрываем словарь актуальной палитрой студии до первого переключения.
             chatPanel.ReapplyTheme();

@@ -7,15 +7,17 @@ using System.Threading;
 using System.Threading.Tasks;
 using VibeCoder.Core.Contracts;
 using VibeCoder.Core.Models;
+using VibeCoder.Core.Services;
 
 namespace RPA.Chat.Services
 {
     /// <summary>
-    /// Studio-adapted build feedback: one-click build via MSBuild (mirroring
-    /// RPA.VsProject.VsProjectBuilder) plus compiler diagnostics parsed from the MSBuild
-    /// output. Replaces the Visual Studio DTE/Error List implementation.
+    /// Studio-adapted build feedback: one-click build via MSBuild plus compiler diagnostics parsed from the
+    /// MSBuild output. Replaces the Visual Studio DTE/Error List implementation.
+    /// MSBuild.exe is resolved by <see cref="MsBuildLocator"/> (the same lookup the studio build command
+    /// uses), so the toolchain can be pinned and is always reported in the build output.
     /// </summary>
-    public sealed class MsBuildFeedbackService : IBuildFeedbackService
+    public sealed class MsBuildFeedbackService : IBuildFeedbackService, IBuildToolchainAware
     {
         private static readonly Regex ErrorLineRegex = new Regex(
             @"^(?<file>.+?)\((?<line>\d+),(?<col>\d+)\):\s*(?<severity>error|warning)\s+(?<code>[A-Za-z]{2,}\d+)\s*:\s*(?<message>.*)$",
@@ -23,10 +25,23 @@ namespace RPA.Chat.Services
 
         private readonly Func<string> _getSolutionPath;
         private string _lastOutput = "";
+        private MsBuildLocation _lastLocation;
 
         public MsBuildFeedbackService(Func<string> getSolutionPath)
         {
             _getSolutionPath = getSolutionPath ?? throw new ArgumentNullException(nameof(getSolutionPath));
+        }
+
+        /// <summary>Requested toolchain: "auto" (newest installed), "vs2022" or "vs2026".</summary>
+        public string MsBuildToolchain { get; set; } = "auto";
+
+        /// <summary>Which MSBuild.exe the last build used, or which one a build would use now.</summary>
+        public string DescribeToolchain()
+        {
+            if (_lastLocation != null)
+                return _lastLocation.Describe();
+
+            return MsBuildLocator.Resolve(MsBuildLocator.ParseToolchain(MsBuildToolchain)).Describe();
         }
 
         public async Task BuildAsync(string configuration, CancellationToken cancellationToken = default)
@@ -34,15 +49,24 @@ namespace RPA.Chat.Services
             var path = ResolveSolutionPath();
             var config = string.IsNullOrWhiteSpace(configuration) ? "Debug" : configuration.Trim();
 
+            var location = MsBuildLocator.Resolve(MsBuildLocator.ParseToolchain(MsBuildToolchain));
+            _lastLocation = location;
+            if (!location.Found)
+                throw new InvalidOperationException(location.Describe());
+
             var psi = new ProcessStartInfo
             {
-                FileName = FindMSBuild(),
+                FileName = location.Path,
                 Arguments = BuildArguments(path, config),
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true
             };
+
+            // MSB4236 guard: SDK-style projects need a resolvable .NET SDK in the child process.
+            foreach (var pair in MsBuildLocator.GetEnvironmentOverrides(location))
+                psi.EnvironmentVariables[pair.Key] = pair.Value;
 
             try
             {
@@ -64,7 +88,10 @@ namespace RPA.Chat.Services
 
                     var stdout = await stdoutTask.ConfigureAwait(false);
                     var stderr = await stderrTask.ConfigureAwait(false);
-                    _lastOutput = stdout + stderr;
+
+                    // The toolchain line is part of the build output, so it is visible in the studio log
+                    // window and in read_build_output instead of being an invisible implementation detail.
+                    _lastOutput = location.Describe() + Environment.NewLine + stdout + stderr;
 
                     if (process.ExitCode != 0)
                         throw new InvalidOperationException("Build failed (exit code " + process.ExitCode + "). See the build output for details.");
@@ -143,84 +170,9 @@ namespace RPA.Chat.Services
             return result;
         }
 
-        /// <summary>Locates MSBuild.exe via vswhere, well-known install folders and PATH.</summary>
-        private static string FindMSBuild()
-        {
-            string vswhere = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-                "Microsoft Visual Studio", "Installer", "vswhere.exe");
-
-            if (File.Exists(vswhere))
-            {
-                string output = RunAndCapture(vswhere, "-latest -requires Microsoft.Component.MSBuild -find MSBuild\\**\\Bin\\MSBuild.exe");
-                if (!string.IsNullOrWhiteSpace(output))
-                {
-                    string candidate = output.Trim().Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)[0];
-                    if (File.Exists(candidate))
-                        return candidate;
-                }
-            }
-
-            foreach (var known in WellKnownMSBuildPaths())
-            {
-                if (File.Exists(known))
-                    return known;
-            }
-
-            return "MSBuild.exe";
-        }
-
         private static string BuildArguments(string path, string configuration)
         {
             return "\"" + path + "\" /nologo /m /v:minimal /p:Configuration=" + configuration;
-        }
-
-        private static IEnumerable<string> WellKnownMSBuildPaths()
-        {
-            string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-            string programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-
-            string[] editions = { "Enterprise", "Professional", "Community", "BuildTools" };
-            string[] years = { "18", "2022", "2019", "2017" };
-
-            foreach (string year in years)
-            {
-                foreach (string edition in editions)
-                {
-                    yield return Path.Combine(programFiles, "Microsoft Visual Studio", year, edition, "MSBuild", "Current", "Bin", "MSBuild.exe");
-                    yield return Path.Combine(programFilesX86, "Microsoft Visual Studio", year, edition, "MSBuild", "Current", "Bin", "MSBuild.exe");
-                }
-            }
-
-            string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-            yield return Path.Combine(windows, "Microsoft.NET", "Framework64", "v4.0.30319", "MSBuild.exe");
-            yield return Path.Combine(windows, "Microsoft.NET", "Framework", "v4.0.30319", "MSBuild.exe");
-        }
-
-        private static string RunAndCapture(string fileName, string arguments)
-        {
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = fileName,
-                    Arguments = arguments,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    CreateNoWindow = true
-                };
-
-                using (Process process = Process.Start(psi))
-                {
-                    string output = process.StandardOutput.ReadToEnd();
-                    process.WaitForExit();
-                    return output;
-                }
-            }
-            catch
-            {
-                return null;
-            }
         }
     }
 }

@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Media;
@@ -6,6 +6,7 @@ using RPA.Chat.Services;
 using RPA.Chat.Themes;
 using RPA.Chat.ViewModels;
 using RPA.Helpers;
+using VibeCoder.Core.Models;
 
 namespace AiRpaStudio.Tests;
 
@@ -142,10 +143,10 @@ public class ChatThemeBridgeTests
             // Хост делает то же, что MainView: пересобирает палитру Studio.* из новой темы.
             ResourceDictionary studio = StudioResources(dark: true);
             Color seenByChat = default;
-            viewModel.ThemeApplying = dark =>
+            viewModel.ThemeApplying = applied =>
             {
-                StudioBrushes.ApplyPalette(studio, StudioPalette.For(dark));
-                order.Add("applying:" + dark);
+                StudioBrushes.ApplyPalette(studio, StudioPalette.For(applied));
+                order.Add("applying:" + applied);
             };
             viewModel.ThemeChanged += () =>
             {
@@ -154,8 +155,8 @@ public class ChatThemeBridgeTests
                 order.Add("changed");
             };
 
-            bool target = !viewModel.IsDarkTheme;
-            viewModel.IsDarkTheme = target;
+            StudioTheme target = viewModel.Theme.Other();
+            viewModel.Theme = target;
 
             Assert.That(order, Is.EqualTo(new[] { "applying:" + target, "changed" }),
                 "палитра Studio.* должна пересобираться до свапа словаря чата: иначе ChatStudioBridge " +
@@ -183,7 +184,7 @@ public class ChatThemeBridgeTests
     private static ResourceDictionary StudioResources(bool dark)
     {
         ResourceDictionary studio = new();
-        StudioBrushes.ApplyPalette(studio, StudioPalette.For(dark));
+        StudioBrushes.ApplyPalette(studio, StudioPalette.For(dark ? StudioTheme.Dark : StudioTheme.Light));
         return studio;
     }
 

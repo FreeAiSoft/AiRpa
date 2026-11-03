@@ -1,6 +1,7 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Media;
 using RPA.Helpers;
+using VibeCoder.Core.Models;
 
 namespace AiRpaStudio.Tests;
 
@@ -138,10 +139,13 @@ public class StudioPaletteTests
     }
 
     [Test]
-    public void For_ReturnsPaletteByThemeFlag()
+    public void For_ReturnsPaletteByTheme()
     {
-        Assert.That(StudioPalette.For(dark: true), Is.SameAs(StudioPalette.Dark));
-        Assert.That(StudioPalette.For(dark: false), Is.SameAs(StudioPalette.Light));
+        Assert.That(StudioPalette.For(StudioTheme.Dark), Is.SameAs(StudioPalette.Dark));
+        Assert.That(StudioPalette.For(StudioTheme.Light), Is.SameAs(StudioPalette.Light));
+        Assert.That(StudioPalette.Dark.Theme, Is.EqualTo(StudioTheme.Dark),
+            "палитра обязана знать свою тему: иначе проходы темизации не найдут противоположную");
+        Assert.That(StudioPalette.Light.Theme, Is.EqualTo(StudioTheme.Light));
     }
 
     [Test]
@@ -158,7 +162,7 @@ public class StudioPaletteTests
     {
         Assert.That(StudioPalette.DetectDark(new ResourceDictionary()), Is.True, "по умолчанию студия стартует в dark");
         Assert.That(StudioPalette.DetectDark(null), Is.True);
-        Assert.That(StudioPalette.Detect(null), Is.SameAs(StudioPalette.Dark));
+        Assert.That(StudioPalette.DetectTheme(null), Is.EqualTo(StudioTheme.Dark));
     }
 
     [Test]

@@ -445,7 +445,7 @@ namespace RPA.Helpers
         private static void ApplyShellBarStyle(StatusBar shellBar)
         {
             // Цвета только из палитры: именованный серый не следовал теме (страж — WfDesignerThemeTests).
-            WfDesignerTheme.ThemeShellBar(shellBar, StudioPalette.Detect(Application.Current?.Resources));
+            WfDesignerTheme.ThemeShellBar(shellBar, StudioPalette.Active);
         }
 
         /// <summary>

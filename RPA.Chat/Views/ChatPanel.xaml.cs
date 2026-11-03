@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -20,8 +20,12 @@ namespace RPA.Chat.Views
         private ChatViewModel _viewModel;
         private bool _chatAutoScroll = true;
 
-        private static readonly Uri DarkThemeUri = new Uri("pack://application:,,,/RPA.Chat;component/Themes/ChatTheme.Dark.xaml", UriKind.Absolute);
-        private static readonly Uri LightThemeUri = new Uri("pack://application:,,,/RPA.Chat;component/Themes/ChatTheme.Light.xaml", UriKind.Absolute);
+        /// <summary>Словарь темы на каждое значение перечисления: третьей темы нет по определению.</summary>
+        private static readonly IReadOnlyDictionary<StudioTheme, Uri> ThemeDictionaries = new Dictionary<StudioTheme, Uri>
+        {
+            [StudioTheme.Dark] = new Uri("pack://application:,,,/RPA.Chat;component/Themes/ChatTheme.Dark.xaml", UriKind.Absolute),
+            [StudioTheme.Light] = new Uri("pack://application:,,,/RPA.Chat;component/Themes/ChatTheme.Light.xaml", UriKind.Absolute)
+        };
 
         public ChatPanel()
         {
@@ -41,7 +45,7 @@ namespace RPA.Chat.Views
 
             GalleryChatMessages.ItemsSource = BuildGalleryMessages();
 
-            ApplyTheme(_viewModel.IsDarkTheme);
+            ApplyTheme(_viewModel.Theme);
         }
 
         public ChatViewModel ViewModel => _viewModel;
@@ -53,7 +57,7 @@ namespace RPA.Chat.Views
         /// </summary>
         public void ReapplyTheme()
         {
-            ApplyTheme(_viewModel.IsDarkTheme);
+            ApplyTheme(_viewModel.Theme);
         }
 
         private void OnMessageAppended()
@@ -69,12 +73,12 @@ namespace RPA.Chat.Views
 
         private void OnThemeChanged()
         {
-            ApplyTheme(_viewModel.IsDarkTheme);
+            ApplyTheme(_viewModel.Theme);
         }
 
-        private void ApplyTheme(bool dark)
+        private void ApplyTheme(StudioTheme theme)
         {
-            var dictionary = new ResourceDictionary { Source = dark ? DarkThemeUri : LightThemeUri };
+            var dictionary = new ResourceDictionary { Source = ThemeDictionaries[theme] };
 
             // Кисти палитры студии перекрывают словарь чата (F-08, этап 8): RPA.Chat — отдельная сборка и не
             // ссылается на RPA.Helpers, поэтому ключи Studio.* читаются по строкам во время применения

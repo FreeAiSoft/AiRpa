@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -883,7 +883,7 @@ public class DesignerVariableContextMenuTests
 
     private static StudioThemeColors ExpectedPalette()
     {
-        return StudioPalette.Detect(Application.Current?.Resources);
+        return StudioPalette.Active;
     }
 
     private static Color ColorOf(object value)

@@ -8,6 +8,7 @@ using System.Xml;
 using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Highlighting.Xshd;
+using VibeCoder.Core.Models;
 
 namespace RPA.Helpers
 {
@@ -49,18 +50,18 @@ namespace RPA.Helpers
         /// <summary>Определение подсветки для языка под текущую тему приложения.</summary>
         public static IHighlightingDefinition GetDefinition(string language)
         {
-            return GetDefinition(language, StudioPalette.DetectDark(Application.Current?.Resources));
+            return GetDefinition(language, StudioPalette.Current);
         }
 
         /// <summary>Определение подсветки для языка под конкретную тему (кэшируется).</summary>
-        public static IHighlightingDefinition GetDefinition(string language, bool dark)
+        public static IHighlightingDefinition GetDefinition(string language, StudioTheme theme)
         {
             if (string.IsNullOrWhiteSpace(language))
             {
                 return null;
             }
 
-            string key = language + "|" + (dark ? "dark" : "light");
+            string key = language + "|" + theme;
 
             lock (Cache)
             {
@@ -70,7 +71,7 @@ namespace RPA.Helpers
                 }
             }
 
-            IHighlightingDefinition definition = CreateDefinition(language, dark);
+            IHighlightingDefinition definition = CreateDefinition(language, theme);
             if (definition == null)
             {
                 return null;
@@ -87,32 +88,32 @@ namespace RPA.Helpers
         /// <summary>Оформление редактора под текущую тему приложения.</summary>
         public static void Apply(TextEditor editor)
         {
-            Apply(editor, StudioPalette.DetectDark(Application.Current?.Resources));
+            Apply(editor, StudioPalette.Current);
         }
 
         /// <summary>Оформление редактора под конкретную тему (без подсветки синтаксиса).</summary>
-        public static void Apply(TextEditor editor, bool dark)
+        public static void Apply(TextEditor editor, StudioTheme theme)
         {
-            ApplyChrome(editor, dark);
+            ApplyChrome(editor, theme);
         }
 
         /// <summary>Оформление и подсветка редактора для языка.</summary>
         public static void Apply(TextEditor editor, string language)
         {
-            bool dark = StudioPalette.DetectDark(Application.Current?.Resources);
-            ApplyChrome(editor, dark);
-            editor.SyntaxHighlighting = GetDefinition(language, dark);
+            StudioTheme theme = StudioPalette.Current;
+            ApplyChrome(editor, theme);
+            editor.SyntaxHighlighting = GetDefinition(language, theme);
         }
 
         /// <summary>Фон, текст, шрифт, номера строк, выделение и текущая строка.</summary>
-        public static void ApplyChrome(TextEditor editor, bool dark)
+        public static void ApplyChrome(TextEditor editor, StudioTheme theme)
         {
             if (editor == null)
             {
                 return;
             }
 
-            EditorThemeColors colors = StudioEditorPalette.For(dark);
+            EditorThemeColors colors = StudioEditorPalette.For(theme);
 
             editor.Background = Brush(colors.Background);
             editor.Foreground = Brush(colors.Foreground);
@@ -144,13 +145,13 @@ namespace RPA.Helpers
         /// </summary>
         public static void ApplyLinkColor(TextEditor editor)
         {
-            ApplyLinkColor(editor, StudioPalette.DetectDark(Application.Current?.Resources));
+            ApplyLinkColor(editor, StudioPalette.Current);
         }
 
         /// <summary>Цвет гиперссылок редактора под конкретную тему.</summary>
-        public static void ApplyLinkColor(TextEditor editor, bool dark)
+        public static void ApplyLinkColor(TextEditor editor, StudioTheme theme)
         {
-            ApplyLinkColor(editor, StudioEditorPalette.For(dark));
+            ApplyLinkColor(editor, StudioEditorPalette.For(theme));
         }
 
         /// <summary>
@@ -168,11 +169,11 @@ namespace RPA.Helpers
             editor.TextArea.TextView.LinkTextForegroundBrush = Brush(colors.Link);
         }
 
-        private static IHighlightingDefinition CreateDefinition(string language, bool dark)
+        private static IHighlightingDefinition CreateDefinition(string language, StudioTheme theme)
         {
             if (ResourceNames.TryGetValue(language, out string resourceName))
             {
-                IHighlightingDefinition themed = TryLoadThemed(resourceName, StudioEditorPalette.For(dark));
+                IHighlightingDefinition themed = TryLoadThemed(resourceName, StudioEditorPalette.For(theme));
                 if (themed != null)
                 {
                     return themed;

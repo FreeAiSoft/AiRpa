@@ -142,5 +142,21 @@ namespace RPA.Properties {
                 this["ExpressionEditorHeight"] = value;
             }
         }
+        
+        /// <summary>
+        /// Which MSBuild toolchain builds projects and robots: "Auto" (newest installed), "Vs2022" or "Vs2026".
+        /// Read by the studio build command so a build never silently switches toolchains.
+        /// </summary>
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Auto")]
+        public string MsBuildToolchain {
+            get {
+                return ((string)(this["MsBuildToolchain"]));
+            }
+            set {
+                this["MsBuildToolchain"] = value;
+            }
+        }
     }
 }

@@ -7,6 +7,7 @@ using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Highlighting;
 
 using RPA.Helpers;
+using VibeCoder.Core.Models;
 
 namespace AiRpaStudio.Tests;
 
@@ -35,8 +36,8 @@ public class StudioEditorThemeTests
             }
 
             Assert.That(StudioEditorPalette.Dark.Background, Is.Not.EqualTo(StudioEditorPalette.Light.Background));
-            Assert.That(StudioEditorPalette.For(true), Is.SameAs(StudioEditorPalette.Dark));
-            Assert.That(StudioEditorPalette.For(false), Is.SameAs(StudioEditorPalette.Light));
+            Assert.That(StudioEditorPalette.For(StudioTheme.Dark), Is.SameAs(StudioEditorPalette.Dark));
+            Assert.That(StudioEditorPalette.For(StudioTheme.Light), Is.SameAs(StudioEditorPalette.Light));
         });
     }
 
@@ -109,8 +110,8 @@ public class StudioEditorThemeTests
     [Test]
     public void GetDefinition_RepaintsNamedColorsPerTheme()
     {
-        IHighlightingDefinition dark = StudioEditorTheme.GetDefinition("C#", dark: true);
-        IHighlightingDefinition light = StudioEditorTheme.GetDefinition("C#", dark: false);
+        IHighlightingDefinition dark = StudioEditorTheme.GetDefinition("C#", StudioTheme.Dark);
+        IHighlightingDefinition light = StudioEditorTheme.GetDefinition("C#", StudioTheme.Light);
 
         Assert.That(dark, Is.Not.Null);
         Assert.That(light, Is.Not.Null);
@@ -131,8 +132,8 @@ public class StudioEditorThemeTests
     [Test]
     public void GetDefinition_XamlIsThemedAndCached()
     {
-        IHighlightingDefinition first = StudioEditorTheme.GetDefinition(CodeLanguageProvider.XamlLanguage, dark: true);
-        IHighlightingDefinition second = StudioEditorTheme.GetDefinition(CodeLanguageProvider.XamlLanguage, dark: true);
+        IHighlightingDefinition first = StudioEditorTheme.GetDefinition(CodeLanguageProvider.XamlLanguage, StudioTheme.Dark);
+        IHighlightingDefinition second = StudioEditorTheme.GetDefinition(CodeLanguageProvider.XamlLanguage, StudioTheme.Dark);
 
         Assert.That(first, Is.Not.Null);
         Assert.That(first, Is.SameAs(second), "определение кэшируется по паре «язык + тема»");
@@ -152,7 +153,7 @@ public class StudioEditorThemeTests
     {
         var editor = new TextEditor();
 
-        StudioEditorTheme.ApplyChrome(editor, dark: true);
+        StudioEditorTheme.ApplyChrome(editor, StudioTheme.Dark);
 
         Assert.Multiple(() =>
         {
@@ -161,7 +162,7 @@ public class StudioEditorThemeTests
             Assert.That(ColorOf(editor.LineNumbersForeground), Is.EqualTo(StudioEditorPalette.Dark.LineNumber));
             Assert.That(editor.FontFamily.Source, Does.Contain("Roboto"));
             Assert.That(editor.Options.HighlightCurrentLine, Is.True);
-            Assert.DoesNotThrow(() => StudioEditorTheme.ApplyChrome(null, dark: true));
+            Assert.DoesNotThrow(() => StudioEditorTheme.ApplyChrome(null, StudioTheme.Dark));
         });
     }
 
@@ -188,7 +189,7 @@ public class StudioEditorThemeTests
         Assert.That(ColorOf(editor.TextArea.TextView.LinkTextForegroundBrush), Is.EqualTo(Colors.Blue),
             "AvalonEdit по умолчанию красит ссылки в синий #0000FF — именно это и было не видно в XAML");
 
-        StudioEditorTheme.ApplyChrome(editor, dark: true);
+        StudioEditorTheme.ApplyChrome(editor, StudioTheme.Dark);
 
         Assert.Multiple(() =>
         {

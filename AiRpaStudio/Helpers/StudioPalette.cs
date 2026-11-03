@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
+using VibeCoder.Core.Models;
 
 namespace RPA.Helpers
 {
@@ -97,7 +98,7 @@ namespace RPA.Helpers
 
         /// <summary>Тёмная палитра (тема по умолчанию).</summary>
         public static StudioThemeColors Dark { get; } = new StudioThemeColors(
-            isDark: true,
+            theme: StudioTheme.Dark,
             surface: Rgb(0x27, 0x27, 0x27),
             surfaceAlt: Rgb(0x2E, 0x2E, 0x2F),
             hover: Rgb(0x33, 0x36, 0x38),
@@ -112,7 +113,7 @@ namespace RPA.Helpers
 
         /// <summary>Светлая палитра.</summary>
         public static StudioThemeColors Light { get; } = new StudioThemeColors(
-            isDark: false,
+            theme: StudioTheme.Light,
             surface: Rgb(0xFF, 0xFF, 0xFF),
             surfaceAlt: Rgb(0xF3, 0xF3, 0xF3),
             hover: Rgb(0xEA, 0xEA, 0xEA),
@@ -125,16 +126,40 @@ namespace RPA.Helpers
             closeHoverBackground: Rgb(0xE8, 0x11, 0x23),
             closeHoverForeground: Rgb(0xFF, 0xFF, 0xFF));
 
-        /// <summary>Палитра по признаку темы.</summary>
-        public static StudioThemeColors For(bool dark)
+        /// <summary>
+        /// Активная тема студии — единственная точка правды по теме, к ней привязаны все подсистемы.
+        /// <para>
+        /// Ставится только из <c>AppSettings.ApplyTheme</c> (там же пересобирается палитра), до первой
+        /// смены — <see cref="StudioTheme.Dark"/>: в тёмной теме стартуют и <c>App.xaml</c>, и чат.
+        /// Никакая подсистема больше не «угадывает» тему по яркости кисти MaterialDesign: расхождение
+        /// означало бы, что кто-то читает не этот источник.
+        /// </para>
+        /// </summary>
+        public static StudioTheme Current { get; private set; } = StudioTheme.Dark;
+
+        /// <summary>Палитра активной темы — то, чем красится студия при старте и после смены темы.</summary>
+        public static StudioThemeColors Active => For(Current);
+
+        /// <summary>Палитра по теме.</summary>
+        public static StudioThemeColors For(StudioTheme theme)
         {
-            return dark ? Dark : Light;
+            return theme == StudioTheme.Light ? Light : Dark;
         }
 
-        /// <summary>Палитра по словарю ресурсов (тема определяется по яркости фона MaterialDesign).</summary>
-        public static StudioThemeColors Detect(ResourceDictionary resources)
+        /// <summary>Запоминает активную тему. Единственная точка вызова — <c>AppSettings.ApplyTheme</c>.</summary>
+        internal static void ApplyCurrent(StudioTheme theme)
         {
-            return For(DetectDark(resources));
+            Current = theme;
+        }
+
+        /// <summary>
+        /// Тема по яркости фона в словаре ресурсов. Нужна только для чужого словаря (изолированные
+        /// ресурсы плавающих окон, отдельный STA-поток окна ошибки) и для проверок распознавания —
+        /// рабочие проходы студии берут <see cref="Current"/>.
+        /// </summary>
+        public static StudioTheme DetectTheme(ResourceDictionary resources)
+        {
+            return DetectDark(resources) ? StudioTheme.Dark : StudioTheme.Light;
         }
 
         /// <summary>
@@ -214,7 +239,7 @@ namespace RPA.Helpers
         private readonly Dictionary<string, Color> _tokens;
 
         internal StudioThemeColors(
-            bool isDark,
+            StudioTheme theme,
             Color surface,
             Color surfaceAlt,
             Color hover,
@@ -227,7 +252,7 @@ namespace RPA.Helpers
             Color closeHoverBackground,
             Color closeHoverForeground)
         {
-            IsDark = isDark;
+            Theme = theme;
             _tokens = new Dictionary<string, Color>(StringComparer.Ordinal)
             {
                 [StudioPalette.SurfaceToken] = surface,
@@ -247,8 +272,11 @@ namespace RPA.Helpers
             };
         }
 
-        /// <summary>Признак тёмной темы.</summary>
-        public bool IsDark { get; }
+        /// <summary>Тема, которой принадлежит этот набор токенов.</summary>
+        public StudioTheme Theme { get; }
+
+        /// <summary>Признак тёмной темы — проекция <see cref="Theme"/> для сообщений и старых вызовов.</summary>
+        public bool IsDark => Theme == StudioTheme.Dark;
 
         /// <summary>Единственный фон всего: окно, панели, заголовки, вкладки, контент документов, дизайнер.</summary>
         public Color Surface => Get(StudioPalette.SurfaceToken);

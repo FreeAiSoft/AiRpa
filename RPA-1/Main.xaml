@@ -39,9 +39,14 @@
       <Variable x:TypeArguments="x:String" Name="output" />
     </Sequence.Variables>
     <Assign sap2010:WorkflowViewState.IdRef="Assign_1">
+      <Assign.To>
+        <OutArgument x:TypeArguments="x:String">
+          <mca:CSharpReference x:TypeArguments="x:String">output</mca:CSharpReference>
+        </OutArgument>
+      </Assign.To>
       <Assign.Value>
-        <InArgument x:TypeArguments="x:Object">
-          <mca:CSharpValue x:TypeArguments="x:Object">епрк</mca:CSharpValue>
+        <InArgument x:TypeArguments="x:String">
+          <mca:CSharpValue x:TypeArguments="x:String">"Hello from RPA-1"</mca:CSharpValue>
         </InArgument>
       </Assign.Value>
     </Assign>

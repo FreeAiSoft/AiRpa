@@ -1,46 +1,36 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using RPA.Helpers;
+using VibeCoder.Core.Services;
 
 namespace RPA.VsProject
 {
     /// <summary>Builds .sln/.csproj projects using MSBuild.</summary>
     public static class VsProjectBuilder
     {
-        /// <summary>Locates MSBuild.exe via vswhere, well-known install folders and the .NET Framework.</summary>
+        /// <summary>
+        /// Locates MSBuild.exe through <see cref="MsBuildLocator"/> (newest installed toolchain).
+        /// The lookup is shared with the chat/agent build path, so both always agree.
+        /// </summary>
         public static string FindMSBuild()
         {
-            // 1) vswhere (Visual Studio 2017+).
-            string vswhere = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-                "Microsoft Visual Studio", "Installer", "vswhere.exe");
+            return FindMSBuild(MsBuildToolchain.Auto).Path;
+        }
 
-            if (File.Exists(vswhere))
+        /// <summary>Locates MSBuild.exe for the requested toolchain; the result says how it was found.</summary>
+        public static MsBuildLocation FindMSBuild(MsBuildToolchain toolchain)
+        {
+            MsBuildLocation location = MsBuildLocator.Resolve(toolchain);
+            if (!location.Found)
             {
-                string output = RunAndCapture(vswhere,
-                    "-latest -requires Microsoft.Component.MSBuild -find MSBuild\\**\\Bin\\MSBuild.exe");
-                if (!string.IsNullOrWhiteSpace(output))
-                {
-                    string candidate = output.Trim().Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)[0];
-                    if (File.Exists(candidate))
-                    {
-                        return candidate;
-                    }
-                }
+                // Nothing found: keep the old behaviour and let the OS look MSBuild.exe up in PATH.
+                location.Path = "MSBuild.exe";
             }
 
-            // 2) Well-known install folders + .NET Framework MSBuild.
-            string known = VsProjectOpener.FindFirstExisting(WellKnownMSBuildPaths());
-            if (known != null)
-            {
-                return known;
-            }
-
-            // 3) Fallback: rely on PATH.
-            return "MSBuild.exe";
+            return location;
         }
 
         /// <summary>Builds the command-line arguments passed to MSBuild.exe.</summary>
@@ -53,7 +43,31 @@ namespace RPA.VsProject
         /// <summary>Builds a project or solution and returns the result. <paramref name="log"/> receives each output line.</summary>
         public static VsBuildResult Build(string path, string configuration = "Debug", Action<string> log = null)
         {
-            VsBuildResult result = new VsBuildResult { ProjectPath = path };
+            return BuildWithToolchain(path, configuration, MsBuildToolchain.Auto, log);
+        }
+
+        /// <summary>
+        /// Builds a project or solution with an explicitly chosen toolchain: the MSBuild.exe path, its
+        /// version and any fallback to another toolchain are written to the log, so the build is never
+        /// anonymous and "which Visual Studio built this" is answerable.
+        /// </summary>
+        public static VsBuildResult BuildWithToolchain(string path, string configuration, MsBuildToolchain toolchain, Action<string> log = null)
+        {
+            MsBuildLocation location = FindMSBuild(toolchain);
+
+            VsBuildResult result = new VsBuildResult
+            {
+                ProjectPath = path,
+                MsBuildPath = location.Found ? location.Path : null,
+                ToolchainName = location.DisplayName,
+                ToolchainVersion = location.Version,
+                ToolchainFallback = location.IsFallback
+            };
+
+            if (log != null)
+            {
+                log(location.Describe());
+            }
 
             if (string.IsNullOrWhiteSpace(path))
             {
@@ -71,13 +85,15 @@ namespace RPA.VsProject
 
             ProcessStartInfo psi = new ProcessStartInfo
             {
-                FileName = FindMSBuild(),
+                FileName = location.Path,
                 Arguments = BuildArguments(path, configuration),
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true
             };
+
+            ApplyEnvironmentOverrides(psi, location);
 
             try
             {
@@ -114,6 +130,18 @@ namespace RPA.VsProject
             return result;
         }
 
+        /// <summary>
+        /// Gives the child MSBuild process a resolvable .NET SDK, otherwise SDK-style projects fail with
+        /// MSB4236 ("SDK Microsoft.NET.Sdk.WindowsDesktop could not be found") when the SDK is not on PATH.
+        /// </summary>
+        private static void ApplyEnvironmentOverrides(ProcessStartInfo psi, MsBuildLocation location)
+        {
+            foreach (KeyValuePair<string, string> pair in MsBuildLocator.GetEnvironmentOverrides(location))
+            {
+                psi.EnvironmentVariables[pair.Key] = pair.Value;
+            }
+        }
+
         private static void ExtractErrors(VsBuildResult result)
         {
             if (string.IsNullOrWhiteSpace(result.Output))
@@ -127,53 +155,6 @@ namespace RPA.VsProject
                 {
                     result.Errors.Add(line);
                 }
-            }
-        }
-
-        private static IEnumerable<string> WellKnownMSBuildPaths()
-        {
-            string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-            string programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-
-            string[] editions = { "Enterprise", "Professional", "Community", "BuildTools" };
-            string[] years = { "18", "2022", "2019", "2017" };
-
-            foreach (string year in years)
-            {
-                foreach (string edition in editions)
-                {
-                    yield return Path.Combine(programFiles, "Microsoft Visual Studio", year, edition, "MSBuild", "Current", "Bin", "MSBuild.exe");
-                    yield return Path.Combine(programFilesX86, "Microsoft Visual Studio", year, edition, "MSBuild", "Current", "Bin", "MSBuild.exe");
-                }
-            }
-
-            // .NET Framework MSBuild (can build legacy net4x projects).
-            string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-            yield return Path.Combine(windows, "Microsoft.NET", "Framework64", "v4.0.30319", "MSBuild.exe");
-            yield return Path.Combine(windows, "Microsoft.NET", "Framework", "v4.0.30319", "MSBuild.exe");
-        }
-
-        private static string RunAndCapture(string fileName, string arguments)
-        {
-            try
-            {
-                ProcessStartInfo psi = new ProcessStartInfo
-                {
-                    FileName = fileName,
-                    Arguments = arguments,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    CreateNoWindow = true
-                };
-
-                using Process process = Process.Start(psi);
-                string output = process.StandardOutput.ReadToEnd();
-                process.WaitForExit();
-                return output;
-            }
-            catch
-            {
-                return null;
             }
         }
     }

@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 
 using System.Windows.Controls;
 
@@ -124,7 +124,7 @@ public class LoadActivityToDesignerHelperTests
 
         {
 
-            Assert.That(ColorOf(shellBar.Background), Is.EqualTo(StudioPalette.Detect(Application.Current?.Resources).Surface), "фон shell bar обязан приходить из палитры: Brushes.Gray не следовал теме");
+            Assert.That(ColorOf(shellBar.Background), Is.EqualTo(StudioPalette.Active.Surface), "фон shell bar обязан приходить из палитры: Brushes.Gray не следовал теме");
 
             Assert.That(shellBar.FontFamily.Source, Does.Contain("Roboto"));
 

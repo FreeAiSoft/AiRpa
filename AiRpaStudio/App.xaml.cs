@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
@@ -89,7 +89,7 @@ namespace RPA
             // Цвета WF — подменой словаря ColorResources.xaml в кэше шаблонов (F-05): установка обязана
             // пройти ДО первого WorkflowDesigner/DesignerMetadata().Register(), иначе первый кадр
             // активности рисуется дефолтами WF и видно мерцание (Helpers\WfColorResourcesOverride.cs).
-            WfColorResourcesOverride.TryInstall(StudioPalette.Detect(Application.Current?.Resources));
+            WfColorResourcesOverride.TryInstall(StudioPalette.Active);
 
             // Скругление окон AvalonDock (план §7 M-03, W-06…W-08): окна ядра не ссылаются на сборку
             // студии, поэтому механизм скругления подставляется в них через мост.

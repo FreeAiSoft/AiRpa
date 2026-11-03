@@ -8,13 +8,14 @@ using FW.EasyMvvm.Core;
 using MaterialDesignThemes.Wpf;
 using RPA.Helpers;
 using RPA.Logging;
+using VibeCoder.Core.Models;
 
 namespace RPA.Models
 {
     public class AppSettings : BaseModel
     {
         private DockingManager _dockManager;
-        private bool _currentDarkTheme = true;
+        private StudioTheme _currentTheme = StudioTheme.Dark;
 
         #region Singleton
 
@@ -65,9 +66,18 @@ namespace RPA.Models
             _dockManager = dockManager;
         }
 
-        internal void ApplyTheme(bool dark)
+        /// <summary>
+        /// Применяет тему студии. Единственная точка, где меняется <see cref="StudioPalette.Current"/>:
+        /// все подсистемы (кисти Studio.*, системные кисти, дизайнер WF, докинг, чат) читают тему оттуда,
+        /// а не угадывают её по яркости кисти MaterialDesign.
+        /// </summary>
+        internal void ApplyTheme(StudioTheme theme)
         {
-            ApplyMaterialDesignTheme(dark);
+            // Тема запоминается ДО первой пересборки кистей: иначе StudioBrushes/WfDesignerTheme
+            // соберут палитру предыдущей темы и студия отстанет на один переключатель.
+            StudioPalette.ApplyCurrent(theme);
+
+            ApplyMaterialDesignTheme(theme);
 
             // Алиасы Studio.* и системные кисти пересобираются из новой палитры: в словаре должны
             // лежать настоящие Brush, иначе WPF падает на Style-сеттерах (см. StudioBrushes).
@@ -78,10 +88,13 @@ namespace RPA.Models
             // поверхность дизайнера, PropertyInspector и контекстные меню без пересоздания документов.
             WfDesignerTheme.ApplyToApplication();
 
-            _currentDarkTheme = dark;
+            _currentTheme = theme;
 
             ReapplyDockManagerResources();
         }
+
+        /// <summary>Активная тема студии (ставится <see cref="ApplyTheme"/>).</summary>
+        internal StudioTheme CurrentTheme => _currentTheme;
 
         /// <summary>
         /// Раскладывает кисти AvalonDock по ресурсам DockingManager и плавающих окон.
@@ -95,11 +108,11 @@ namespace RPA.Models
                 return;
             }
 
-            bool dark = _currentDarkTheme;
+            StudioTheme theme = _currentTheme;
 
             // 1) Ресурсы приложения: из них кисти копирует ThemeBrushBridge в ядре AvalonDock
             //    (оверлей перетаскивания, Ctrl+Tab и плавающие окна получают тему в изолированные Resources).
-            DockingThemeBrushes.Apply(Application.Current?.Resources, dark);
+            DockingThemeBrushes.Apply(Application.Current?.Resources, theme);
 
             // 2) Ресурсы менеджера и уже созданных плавающих окон.
             ApplyDockManagerResources(_dockManager.Resources);
@@ -126,17 +139,17 @@ namespace RPA.Models
 
             // Значения берутся только из палитры студии (StudioPalette): акцент MaterialDesign
             // (Primary/Secondary) в кисти AvalonDock не попадает.
-            DockingThemeBrushes.Apply(target, _currentDarkTheme);
+            DockingThemeBrushes.Apply(target, _currentTheme);
         }
-        private static void ApplyMaterialDesignTheme(bool dark)
+        private static void ApplyMaterialDesignTheme(StudioTheme theme)
         {
             // M-04 плана: Primary/Secondary нейтральные и берутся из палитры студии — раньше здесь были
             // фиолетовый и лаймовый акцент, из-за чего он пробивался в фокус, выделение и скроллбары контролов.
-            StudioThemeColors palette = StudioPalette.For(dark);
+            StudioThemeColors palette = StudioPalette.For(theme);
 
             PaletteHelper paletteHelper = new PaletteHelper();
             Theme newTheme = Theme.Create(
-                dark ? BaseTheme.Dark : BaseTheme.Light,
+                theme == StudioTheme.Dark ? BaseTheme.Dark : BaseTheme.Light,
                 palette.SeparatorStrong,        // Primary: нейтральный серый (было фиолетовым)
                 palette.ForegroundMuted);       // Secondary: нейтральный серый (было лаймовым)
             paletteHelper.SetTheme(newTheme);

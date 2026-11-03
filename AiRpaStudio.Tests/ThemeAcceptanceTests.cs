@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Media;
@@ -186,7 +186,7 @@ public class ThemeAcceptanceTests
         Assert.That(StudioBrushes.SemanticKeys, Has.All.StartsWith("Studio.Semantic."));
 
         var target = new ResourceDictionary();
-        StudioBrushes.Apply(target, null);
+        StudioBrushes.Apply(target);
 
         foreach (string key in StudioBrushes.SemanticKeys)
         {
@@ -313,14 +313,15 @@ public class ThemeAcceptanceTests
     public void ApplyTheme_ReappliesEverySubsystem()
     {
         string code = Read(@"AiRpaStudio\Models\AppSettings.cs");
-        int start = code.IndexOf("internal void ApplyTheme(bool dark)", StringComparison.Ordinal);
+        int start = code.IndexOf("internal void ApplyTheme(StudioTheme theme)", StringComparison.Ordinal);
         Assert.That(start, Is.GreaterThanOrEqualTo(0), "не найден AppSettings.ApplyTheme");
 
         string body = code.Substring(start, Math.Min(1800, code.Length - start));
 
         foreach (string call in new[]
                  {
-                     "ApplyMaterialDesignTheme(dark)",
+                     "StudioPalette.ApplyCurrent(theme)",
+                     "ApplyMaterialDesignTheme(theme)",
                      "StudioBrushes.ApplyToApplication()",
                      "WfDesignerTheme.ApplyToApplication()",
                      "ReapplyDockManagerResources()"

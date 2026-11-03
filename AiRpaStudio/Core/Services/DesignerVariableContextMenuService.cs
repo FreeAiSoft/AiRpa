@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -307,7 +307,7 @@ namespace RPA.Core.Services
 
             // Палитра ставится перед показом меню: путь через PreparingCellForEdit не гарантирован
             // (шаблон правки может перекрыть кисти своими), а поле уже существует.
-            ApplyCellPalette(textBox, StudioPalette.Detect(Application.Current?.Resources));
+            ApplyCellPalette(textBox, StudioPalette.Active);
             _ = textBox.Focus();
 
             _ = textBox.Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
@@ -337,13 +337,13 @@ namespace RPA.Core.Services
                 return;
             }
 
-            ApplyEditorPalette(editingElement, StudioPalette.Detect(Application.Current?.Resources));
+            ApplyEditorPalette(editingElement, StudioPalette.Active);
 
             if (editingElement is FrameworkElement host && host.Dispatcher != null)
             {
                 // Отложенный проход: содержимое шаблона правки появляется после раскладки.
                 _ = host.Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
-                    ApplyEditorPalette(editingElement, StudioPalette.Detect(Application.Current?.Resources))));
+                    ApplyEditorPalette(editingElement, StudioPalette.Active)));
             }
         }
 
@@ -400,7 +400,7 @@ namespace RPA.Core.Services
         /// </summary>
         private ContextMenu CreateContextMenu(TextBox textBox)
         {
-            ContextMenu contextMenu = WfDesignerTheme.CreateEditingContextMenu(StudioPalette.Detect(Application.Current?.Resources));
+            ContextMenu contextMenu = WfDesignerTheme.CreateEditingContextMenu(StudioPalette.Active);
 
             foreach (MenuItem item in contextMenu.Items.OfType<MenuItem>())
             {
@@ -428,7 +428,7 @@ namespace RPA.Core.Services
 
             contextMenu.Opened += (s, args) =>
             {
-                WfDesignerTheme.RecolorEditingContextMenu(contextMenu, StudioPalette.Detect(Application.Current?.Resources));
+                WfDesignerTheme.RecolorEditingContextMenu(contextMenu, StudioPalette.Active);
                 _state.NotifyMenuOpened();
 
                 if (interactionRoot != null)

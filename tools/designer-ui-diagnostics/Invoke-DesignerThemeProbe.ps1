@@ -24,7 +24,8 @@
 [CmdletBinding()]
 param(
     [string]$BinDir,
-    [string]$Configuration = 'Release'
+    [string]$Configuration = 'Release',
+    [string[]]$ProbeArgs = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -150,7 +151,7 @@ if (-not (Test-Path $runtimeConfig)) {
 
 try {
     Push-Location $bin
-    & '.\DesignerThemeProbe.exe' $reportPath
+    & '.\DesignerThemeProbe.exe' (@($reportPath) + $ProbeArgs)
     Write-Host ''
     Write-Host ('Отчёт: ' + $reportPath)
     if (Test-Path $reportPath) { Get-Content $reportPath -Encoding UTF8 | Write-Host }

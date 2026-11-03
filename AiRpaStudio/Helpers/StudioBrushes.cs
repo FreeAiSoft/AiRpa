@@ -1,5 +1,6 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Windows;
+using VibeCoder.Core.Models;
 using System.Windows.Media;
 
 namespace RPA.Helpers
@@ -154,23 +155,7 @@ namespace RPA.Helpers
                 return;
             }
 
-            Apply(target, target);
-        }
-
-        /// <summary>
-        /// Заполняет алиасы <paramref name="target"/> кистями из палитры, определённой по
-        /// <paramref name="source"/> (обычно это <c>Application.Current.Resources</c> с кистями MaterialDesign).
-        /// Существующие значения заменяются, чтобы DynamicResource-ссылки получили уведомление
-        /// и перерисовались при смене темы.
-        /// </summary>
-        public static void Apply(ResourceDictionary target, ResourceDictionary source)
-        {
-            if (target == null)
-            {
-                return;
-            }
-
-            ApplyPalette(target, StudioPalette.Detect(source));
+            ApplyPalette(target, StudioPalette.Active);
         }
 
         /// <summary>Заполняет алиасы и системные кисти значениями конкретной палитры.</summary>
