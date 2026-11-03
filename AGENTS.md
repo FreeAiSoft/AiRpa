@@ -279,6 +279,15 @@
   `tools\designer-ui-diagnostics` (проход «DARK (первое включение)»: `фон чужой поверхности` = 0 и для
   пустой активности, и для workflow с вложенными активностями, и для кастомного дизайнера
   `Activities.Debug.Logger`). Стражи: `AiRpaStudio.Tests\WfActivityThemeTests.cs`.
+  Цвета WF ставятся **до первого кадра** — `Helpers\WfColorResourcesOverride.cs`: словарь
+  `ColorResources.xaml` подменяется в статическом кэше `CachedResourceDictionaryExtension.Cache` при старте
+  (`App.StartupCore`, до `new EntryPoint().Run()`), кисти — связанные (`Color` привязан к источнику токена,
+  поэтому смена темы не требует обхода дерева). Режимы взаимоисключающие: при успешной установке
+  `WfActivityTheme` плиту и рамку не красит (остаётся `ThemeStaleText` — синхронно в `LayoutUpdated`, потому
+  что подпись наследует чёрный `Foreground` темы WF; без отметки `Marks` раскладка зацикливается), при сбое
+  работает прежняя пост-покраска (аварийный switch `Studio.WfLegacyTheming`). Панель «Свойства» и Toolbox
+  подменой не покрыты. Стражи: `AiRpaStudio.Tests\WfColorResourcesOverrideTests.cs`, сквозной пробник
+  `tmp\cacheprobe\CacheOverrideProbe5.cs` (режимы `cache` / `legacy`).
   Тесты: `AiRpaStudio.Tests\WfDesignerThemeTests.cs`.
   Комбобоксы WF-поверхностей (в дизайнере — масштаб в shell bar, `zoomPicker`) темизируются
   `WfVisualTreeThemer.ThemeComboBoxes` (вызывается из `WfVisualTreeThemer.Apply` и из

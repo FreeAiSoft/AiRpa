@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -242,7 +242,7 @@ public class WfActivityThemeTests
         {
             Assert.That(source, Does.Contain("WfActivityTheme.Apply(root, palette);"),
                 "активности должны темизироваться общим проходом дизайнера");
-            Assert.That(source, Does.Contain("WfActivityTheme.UseNativeControlStyles(designerView.Resources);"),
+            Assert.That(source, Does.Contain("WfActivityTheme.UseNativeControlStyles(designerView.Resources, palette);"),
                 "кнопки шапки дизайнера (expandAll/collapseAll) тоже не должны получать стиль MaterialDesign");
         });
     }

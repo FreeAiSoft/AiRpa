@@ -86,6 +86,7 @@ $probes = @(
     @{ Name = 'probe2'; Source = (Join-Path $PSScriptRoot 'CacheOverrideProbe2.cs'); Modes = @('single') },
     @{ Name = 'probe3'; Source = (Join-Path $PSScriptRoot 'CacheOverrideProbe3.cs'); Modes = @('single') },
     @{ Name = 'probe4'; Source = (Join-Path $PSScriptRoot 'CacheOverrideProbe4.cs'); Modes = @('single') }
+    @{ Name = 'probe5'; Source = (Join-Path $PSScriptRoot 'CacheOverrideProbe5.cs'); Modes = @('cache', 'legacy') }
 )
 
 if ($Probe -ne 'all') {

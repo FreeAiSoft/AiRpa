@@ -92,6 +92,10 @@ namespace RPA.Helpers
                 return;
             }
 
+            // Связанные кисти словаря WF: смена темы = новое значение источников (без обхода дерева).
+            // Вызывается и при старте, и на каждой смене темы — до заполнения словаря приложения.
+            WfColorResourcesOverride.ApplyPalette(palette);
+
             ResourceDictionary theme = GetOrCreatePaletteDictionary(target);
             theme.Clear();
 
@@ -125,21 +129,28 @@ namespace RPA.Helpers
             // 1) Ключи: в корень документа (ExpressionTextBox, ErrorView) и в сам DesignerView —
             //    его собственные ColorResources иначе перекрывают словарь приложения.
             ApplyToApplication(root.Resources, palette);
-            WfActivityTheme.UseNativeControlStyles(root.Resources);
+            WfActivityTheme.UseNativeControlStyles(root.Resources, palette);
 
             FrameworkElement designerView = FindByName(root, DesignerViewElementName);
             if (designerView != null)
             {
                 ApplyToApplication(designerView.Resources, palette);
                 SetBackground(designerView, surface);
-                WfActivityTheme.UseNativeControlStyles(designerView.Resources);
+                WfActivityTheme.UseNativeControlStyles(designerView.Resources, palette);
             }
 
             // 2) Поверхность: один фон на всю площадь.
             SetBackground(root, surface);
 
             // 3) Дефолтные цвета WF, пришедшие через StaticResource (не пересчитываются при смене темы).
-            ReplaceWorkflowDefaultColors(root, palette);
+            //    В режиме кэша (WfColorResourcesOverride) их место заняли связанные кисти палитры на этапе
+            //    шаблона, поэтому подменять «запечённые» значения по значению больше не нужно.
+            // 3) Режим кэша: цвета элемента активности приходят из наших связанных кистей на этапе
+            //    шаблона, поэтому подменять «запечённые» дефолты WF по значению больше не нужно.
+            if (!WfColorResourcesOverride.IsInstalled)
+            {
+                ReplaceWorkflowDefaultColors(root, palette);
+            }
 
             // Активности: словари цветов WF, плита/рамка/подпись и нативные стили контролов внутри.
             WfActivityTheme.Apply(root, palette);

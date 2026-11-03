@@ -356,6 +356,7 @@
     <Compile Include="Helpers\TrackHandler.cs" />
     <Compile Include="Helpers\WFToolboxHelper.cs" />
     <Compile Include="Helpers\WfVisualTreeThemer.cs" />
+    <Compile Include="Helpers\WfColorResourcesOverride.cs" />
     <Compile Include="Helpers\WfThemeStyles.cs" />
     <Compile Include="Helpers\WfDesignerTheme.cs" />
     <Compile Include="Helpers\WfDataGridTheme.cs" />

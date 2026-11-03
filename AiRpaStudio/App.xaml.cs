@@ -86,6 +86,10 @@ namespace RPA
             // Ключи дизайнера WF (F-05): объявляются до создания первого WorkflowDesigner, иначе
             // RoslynExpressionEditor.xaml не находит DesignerViewBackground и поле остаётся прозрачным.
             WfDesignerTheme.ApplyToApplication();
+            // Цвета WF — подменой словаря ColorResources.xaml в кэше шаблонов (F-05): установка обязана
+            // пройти ДО первого WorkflowDesigner/DesignerMetadata().Register(), иначе первый кадр
+            // активности рисуется дефолтами WF и видно мерцание (Helpers\WfColorResourcesOverride.cs).
+            WfColorResourcesOverride.TryInstall(StudioPalette.Detect(Application.Current?.Resources));
 
             // Скругление окон AvalonDock (план §7 M-03, W-06…W-08): окна ядра не ссылаются на сборку
             // студии, поэтому механизм скругления подставляется в них через мост.

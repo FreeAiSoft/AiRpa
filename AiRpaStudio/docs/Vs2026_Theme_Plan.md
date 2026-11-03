@@ -762,3 +762,42 @@ Release-сборка `AiRpaStudio.csproj` проходит.
   `.EditModeButton_WithoutBorderChrome_GetsFlatTemplateAndKeepsGlyph`,
   `.PropertyHelper_FlattensEditModeButtons`.
 
+## F-07: цвета WF до первого кадра (кэш словаря цветов)
+
+**Симптом.** Тема применялась «вторым проходом»: первый кадр активности рисовался дефолтами WF
+(`#FFFFFF` плита, `#E9ECEE` плашка заголовка, `#D0D7E2` рамка), и только потом элемент перекрашивался —
+видимое мерцание при старте программы и при перетаскивании активности из панели.
+
+**Причина.** Шаблоны WF подмешивают `ColorResources.xaml` в собственные `ControlTemplate.Resources`
+через `{wf:CachedResourceDictionaryExtension}`, который раздаёт один и тот же экземпляр словаря из
+статического кэша `CachedResourceDictionaryExtension.Cache`. Любая покраска после построения элемента —
+это второй проход, и он попадает в отдельный кадр (локальные значения в `LayoutUpdated` ставятся на
+`DispatcherPriority.Background`, то есть после Render).
+
+**Решение.** `Helpers\WfColorResourcesOverride.cs` кладёт в кэш WF свой словарь **до** первого
+`WorkflowDesigner` / `DesignerMetadata().Register()`:
+* снимок WF-словаря уходит в `MergedDictionaries` — непереопределённые ключи остаются как есть;
+* переопределяются только ключи дизайнера (`OverrideTokens`): плита, рамка, подпись, выделение,
+  `DesignerViewBackground`, `DesignerViewStatusBarBackground`, `ParallelSpacerColor`,
+  `FlowchartConnectorColor`, shell bar / статус-бар, контекстные меню — цвета `StudioPalette`;
+* кисти **связанные**: `Color` привязан к источнику токена, такую кисть нельзя заморозить, WPF делает
+  клон на элемент и копирует выражение привязки — смена темы = новое значение источника, без обхода дерева;
+* пишутся оба ключа кэша: относительный `/System.Activities.Presentation;component/...` и абсолютный pack-URI.
+
+**Режимы взаимоисключающие.** Успешная установка включает режим кэша: `WfActivityTheme` плиту и рамку не
+красит, `ReplaceWorkflowDefaultColors` не выполняется. Остаётся текст: подпись наследует `Foreground` от
+`WorkflowViewElement`, а тот приходит из темы WF (чёрный), поэтому `ThemeStaleText` ставит цвет
+**синхронно** в `LayoutUpdated` (до Render) и помечает активность (`Marks`), иначе раскладка зацикливается.
+Любой сбой установки (нет поля кэша, не загрузился словарь WF) возвращает прежнюю пост-покраску;
+аварийный тумблер — switch `Studio.WfLegacyTheming` в `AiRpaStudio.exe.config`.
+
+**Границы.** Ключи `PropertyInspector*` живут в `FontAndColorResources` (инспектор остаётся на
+`WfDesignerTheme` / `PropertyWindowStyleHelper`), Toolbox `ColorResources` не использует,
+`DesignerViewForeground` в словаре WF отсутствует (остаётся в `Application.Resources`).
+
+**Проверка.** `AiRpaStudio.Tests\WfColorResourcesOverrideTests.cs` (глобальный кэш WF не трогается:
+установка проверяется на локальном словаре). Сквозная проверка на живом дизайнере — пробник
+`tmp\cacheprobe\CacheOverrideProbe5.cs` (`Run-Probe.ps1 -Probe probe5`, режимы `cache` / `legacy`): в тёмной
+теме первый кадр даёт `bg=#FF272727 border=#FF48484F` со связанными кистями и ноль остатков дефолтов WF,
+а тот же сценарий в режиме `legacy` — `bg=#FFFFFFFF border=#FFD0D7E2` (это и есть мерцание).
+
