@@ -1,7 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Media;
 using RPA.Helpers;
-using VibeCoder.Core.Models;
+using Agent.Core.Models;
 
 namespace AiRpaStudio.Tests;
 

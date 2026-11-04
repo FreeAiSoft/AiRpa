@@ -15,7 +15,7 @@
 | `CP-01` | Стража не было. **Реализован 03.11.2026**: `AiRpaStudio.Tests\TfmMatrixGuardTests.cs`, 4 теста | `vstest` по фильтру `FullyQualifiedName~TfmMatrixGuardTests` — 4/4 зелёные |
 | `CP-02` | `Rpa.Activities.Primitives` = `v4.8.1`. **На неё не ссылается ни один `.csproj` решения** → роботы от неё не зависят; блокером для Ц2 не является | `Select-String` по `ProjectReference` — 0 совпадений на `Rpa.Activities.Primitives`/`RPA.CodeEditor` |
 | `CP-03` | `RPA.CodeEditor` = `v4.8`, **никем не используется**, не компилируется: `GenericTools.cs` — порт из OpenRPA, нужны внешние типы `OpenRPA.Input`, `Log`, `AutomationHelper`, `IMainWindow` | `RPA.CodeEditor\GenericTools.cs:1`, ошибки сборки решения |
-| `CP-04` | **Закрыт 03.11.2026.** Дубль поиска устранён: `VibeCoder.Core\Services\MsBuildLocator.cs` — единый поиск (`Auto` / `Vs2022` / `Vs2026`), откат виден в логе, тулчейн пишется в `VsBuildResult`, защита от `MSB4236` | `MsBuildLocatorTests` — 39/39 зелёные, включая реальную сборку шаблонного проекта обоими тулчейнами; полный прогон 1182/1182 |
+| `CP-04` | **Закрыт 03.11.2026.** Дубль поиска устранён: `Agent.Core\Services\MsBuildLocator.cs` — единый поиск (`Auto` / `Vs2022` / `Vs2026`), откат виден в логе, тулчейн пишется в `VsBuildResult`, защита от `MSB4236` | `MsBuildLocatorTests` — 39/39 зелёные, включая реальную сборку шаблонного проекта обоими тулчейнами; полный прогон 1182/1182 |
 | `CP-09` | Есть только `AiRpaStudio\TestProcess\` — песочница студии (`project.json` + 3 `.xaml`, без `.csproj`); эталонных проектов `net472`/`net48` нет | `Get-ChildItem AiRpaStudio\TestProcess` — 6 файлов, `.csproj` отсутствует |
 | `TD-12` | **Закрыт 03.11.2026 (вариант A).** `ProxyChecker` починен; `RPA.CodeEditor` снят с сборки решения; 4 отсутствующих проекта + папка решения `Activities.WinUI` убраны из `.sln`; `RPA-1\Main.xaml` исправлен, висячий `ProjectReference` удалён | `MSBuild AiRpa.sln` Release и Debug → exit 0; `vstest` → 1136/1136 |
 | `AG-01` | `ActivityCatalog`, `activity_search`, `activity_describe` — только в роадмэпе, кода нет | поиск по репозиторию — 0 совпадений в коде |
@@ -40,7 +40,7 @@
 
 ### `CP-04` — явный выбор MSBuild (закрыт 03.11.2026)
 
-Новый файл `VibeCoder.Core\Services\MsBuildLocator.cs` (`netstandard2.0`, поэтому его сможет переиспользовать и
+Новый файл `Agent.Core\Services\MsBuildLocator.cs` (`netstandard2.0`, поэтому его сможет переиспользовать и
 4.7.2-раннер `OR-02`):
 
 1. `enum MsBuildToolchain { Auto, Vs2022, Vs2026 }` и `MsBuildLocation` — путь, версия `MSBuild.exe`, тулчейн, источник
@@ -65,7 +65,7 @@
 
 **Поправка к пункту 6 плана §5.1.** Гипотеза «MSBuild 2022 без VS-окружения падает с `MSB4236`» подтвердилась лишь частично:
 причина — **не** отсутствие VS-окружения, а недоступность .NET SDK. Проверено 03.11.2026: MSBuild 2022, запущенный напрямую
-(без `VsDevCmd`), собирает `AiRpaStudio.csproj`, `RPA.Chat.csproj`, `VibeCoder.Core.csproj` и SDK-style `net472` с `UseWPF` —
+(без `VsDevCmd`), собирает `AiRpaStudio.csproj`, `RPA.Chat.csproj`, `Agent.Core.csproj` и SDK-style `net472` с `UseWPF` —
 0 ошибок. Но если убрать `C:\Program Files\dotnet` из `PATH`, тот же MSBuild падает с `MSB4236`/`MSB4276`; с `DOTNET_ROOT`
 и `dotnet` в `PATH` (ровно то, что применяет локатор) restore и build проходят. Поэтому вместо подмешивания `VsDevCmd`
 локатор выставляет `DOTNET_ROOT` и дополняет `PATH` **только если SDK не виден**, не перетирая пользовательские значения.
@@ -135,7 +135,7 @@ TD-12 ✅ (03.11.2026) ──► CP-04 ✅ (03.11.2026) ──► CP-09 ──�
 2. Внутри: `vswhere` с `-version "[17.0,18.0)"` для 2022 и `-version "[18.0,19.0)"` для 2026, `-prerelease` для 2026;
    порядок «явная версия → Auto (`-latest`) → well-known пути → PATH»; понятная диагностика, если не найдено.
 3. `VsProjectBuilder.FindMSBuild()` делегирует в `MsBuildLocator`; `RPA.Chat\Services\MsBuildFeedbackService.FindMSBuild()`
-   удаляется и тоже вызывает локатор (либо локатор переезжает в `VibeCoder.Core`, чтобы 4.7.2-раннер мог его переиспользовать).
+   удаляется и тоже вызывает локатор (либо локатор переезжает в `Agent.Core`, чтобы 4.7.2-раннер мог его переиспользовать).
 4. `VsBuildResult` дополняется `MsBuildPath`/`ToolchainName`; выбранный тулчейн пишется в лог сборки и виден в UI (панель сборки).
 5. Тесты (`AiRpaStudio.Tests\MsBuildLocatorTests.cs`): путь существует и оканчивается на `MSBuild.exe`;
    `Auto` содержит `\18\` или `\17\`; явные режимы дают соответствующую ветку или `Found=false` с сообщением;

@@ -6,7 +6,7 @@ using System.Windows.Input;
 using RPA.Chat.Themes;
 
 using RPA.Chat.ViewModels;
-using VibeCoder.Core.Models;
+using Agent.Core.Models;
 
 namespace RPA.Chat.Views
 {

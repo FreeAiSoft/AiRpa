@@ -8,11 +8,11 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
-using VibeCoder.Core.Contracts;
-using VibeCoder.Core.Models;
-using VibeCoder.Core.Services;
+using Agent.Core.Contracts;
+using Agent.Core.Models;
+using Agent.Core.Services;
 
-namespace VibeCoder.Tests
+namespace AiRpaStudio.Tests
 {
     public class FakeHttpHandler : HttpMessageHandler
     {
@@ -284,7 +284,7 @@ namespace VibeCoder.Tests
         [Test]
         public async Task ReloadPromptsFromDisk_PicksUpEditedChatSystemPrompt()
         {
-            var dir = Path.Combine(Path.GetTempPath(), "vibecoder_prompts_" + Guid.NewGuid().ToString("N"));
+            var dir = Path.Combine(Path.GetTempPath(), "agent_prompts_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(Path.Combine(dir, "System"));
             try
             {

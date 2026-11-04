@@ -1,13 +1,13 @@
-﻿using System;
+using System;
 using System.Activities;
 using System.Activities.Core.Presentation;
 //using System.Activities;
 using System.Activities.Presentation.Toolbox;
-using System.Activities.Statements;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using RPA.Controls;
+using RPA.Core.Generation;
 
 namespace RPA.Helpers
 {
@@ -15,6 +15,12 @@ namespace RPA.Helpers
     {
         public static int ActivitiesCount { get; set; } = 0;
 
+        /// <summary>
+        /// Строит панель «Активности». Состав палитры берётся из <see cref="StudioActivityPalette"/> —
+        /// того же списка, из которого строится реестр инструментов <c>xaml.*</c>
+        /// (этап 4 плана docs\Valid_Xaml_Designer_Plan.md): иначе панель и инструменты разойдутся,
+        /// и агент не сможет добавить активность, которую видит пользователь.
+        /// </summary>
         internal ToolboxPanel Build()
         {
             ToolboxPanel toolboxPanel = new ToolboxPanel();
@@ -26,81 +32,27 @@ namespace RPA.Helpers
             _ = AppDomain.CurrentDomain.Load("Activities.Debug");
             _ = AppDomain.CurrentDomain.Load("Activities.OS");
 
-            Assembly activityLibraryAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                .First(a => a.GetName().Name == "System.Activities");
-            Assembly activityBrowserLibraryAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                .First(a => a.GetName().Name == "Activities.Browser");
-            Assembly activityFlowLibraryAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                .First(a => a.GetName().Name == "Activities.Flow");
-            Assembly activityDebugLibraryAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                .First(a => a.GetName().Name == "Activities.Debug");
-            Assembly activityOsLibraryAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                .First(a => a.GetName().Name == "Activities.OS");
-
-            List<Type> flowTypes = GetActivitiesTypes(activityFlowLibraryAssembly);
-            AddToolboxCategory(wfToolbox, flowTypes, LocalizeHelper.Get("lang_toolbox_flow"));
-
-            List<Type> debugTypes = GetActivitiesTypes(activityDebugLibraryAssembly);
-            AddToolboxCategory(wfToolbox, debugTypes, LocalizeHelper.Get("lang_main_debug"));
-
-            List<Type> controlFlowTypes = new List<Type>
+            var categories = new List<ActivityPaletteCategory>
             {
-                typeof(DoWhile),
-                typeof(ForEach<>),
-                typeof(If),
-                typeof(Sequence),
-                typeof(Switch<>),
-                typeof(While)
+                StudioActivityPalette.CategoryFromLoadedAssembly(StudioActivityPalette.FlowCategory, "Activities.Flow"),
+                StudioActivityPalette.CategoryFromLoadedAssembly(StudioActivityPalette.DebugCategory, "Activities.Debug")
             };
-            AddToolboxCategory(wfToolbox, controlFlowTypes, LocalizeHelper.Get("lang_toolbox_control_flow"));
 
-            List<Type> flowChartTypes = new List<Type>
+            categories.AddRange(StudioActivityPalette.BuiltinCategories());
+
+            categories.Add(StudioActivityPalette.CategoryFromLoadedAssembly(StudioActivityPalette.BrowserCategory, "Activities.Browser"));
+            categories.Add(StudioActivityPalette.CategoryFromLoadedAssembly(StudioActivityPalette.OsCategory, "Activities.OS"));
+
+            foreach (ActivityPaletteCategory category in categories)
             {
-                typeof(Flowchart),
-                typeof(FlowDecision),
-                typeof(FlowSwitch<>)
-            };
-            AddToolboxCategory(wfToolbox, flowChartTypes, LocalizeHelper.Get("lang_toolbox_flowchart"));
+                if (category == null)
+                {
+                    // Библиотека не загрузилась — категория пропускается, панель обязана построиться.
+                    continue;
+                }
 
-            List<Type> stateMachineTypes = new List<Type>
-            {
-                typeof(StateMachine),
-                typeof(State),
-                typeof(FinalState)
-            };
-            AddToolboxCategory(wfToolbox, stateMachineTypes, LocalizeHelper.Get("lang_toolbox_state_machine"));
-
-            List<Type> primitivesTypes = new List<Type>
-            {
-                typeof(Assign),
-                typeof(Delay),
-                typeof(InvokeMethod),
-                typeof(WriteLine)
-            };
-            AddToolboxCategory(wfToolbox, primitivesTypes, LocalizeHelper.Get("lang_toolbox_primitives"));
-
-            List<Type> collectionTypes = new List<Type>
-            {
-                typeof(AddToCollection<>),
-                typeof(ClearCollection<>),
-                typeof(ExistsInCollection<>),
-                typeof(RemoveFromCollection<>)
-            };
-            AddToolboxCategory(wfToolbox, collectionTypes, LocalizeHelper.Get("lang_toolbox_flowchart"));
-
-            List<Type> errorHandlingTypes = new List<Type>
-            {
-                typeof(Rethrow),
-                typeof(Throw),
-                typeof(TryCatch)
-            };
-            AddToolboxCategory(wfToolbox, errorHandlingTypes, LocalizeHelper.Get("lang_toolbox_error_handling"));
-
-            List<Type> browserTypes = GetActivitiesTypes(activityBrowserLibraryAssembly);
-            AddToolboxCategory(wfToolbox, browserTypes, LocalizeHelper.Get("lang_toolbox_browser"));
-
-            List<Type> osTypes = GetActivitiesTypes(activityOsLibraryAssembly);
-            AddToolboxCategory(wfToolbox, osTypes, LocalizeHelper.Get("lang_toolbox_os"));
+                AddToolboxCategory(wfToolbox, category.Types.ToList(), LocalizeHelper.Get(category.Key));
+            }
 
             toolboxPanel.SetToolboxControl(wfToolbox);
             return toolboxPanel;
@@ -193,16 +145,6 @@ namespace RPA.Helpers
             {
                 System.Diagnostics.Debug.WriteLine($"Failed to load netstandard assembly: {ex}");
             }
-        }
-
-        private List<Type> GetActivitiesTypes(Assembly assembly)
-        {
-            Type baseType = typeof(Activity);
-            List<Type> derivedTypes = assembly.GetTypes()
-                                       .Where(t => t.IsSubclassOf(baseType) && !t.IsAbstract)
-                                       .OrderBy(t => t.Name)
-                                       .ToList();
-            return derivedTypes;
         }
 
         private void AddToolboxCategory(ToolboxControl wfToolbox, List<Type> types, string categoryName)

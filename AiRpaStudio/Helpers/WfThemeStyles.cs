@@ -10,7 +10,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Media;
-using VibeCoder.Core.Models;
+using Agent.Core.Models;
 using System.Windows.Shapes;
 
 namespace RPA.Helpers

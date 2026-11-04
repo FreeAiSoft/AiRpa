@@ -5,9 +5,9 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
-using VibeCoder.Core.Services;
+using Agent.Core.Services;
 
-namespace VibeCoder.Tests
+namespace AiRpaStudio.Tests
 {
     [TestFixture]
     public class OpenAiWhisperSttServiceTests

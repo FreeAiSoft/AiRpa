@@ -9,12 +9,13 @@ using System.Linq;
 using System.Windows;
 using FW.EasyMvvm.Core;
 using RPA.Core;
+using RPA.Core.Generation;
 using RPA.Enums;
 using RPA.Helpers;
 using RPA.ViewModels;
 using RPA.Views;
 using RPA.VsProject;
-using VibeCoder.Core.Services;
+using Agent.Core.Services;
 using RpaCommon;
 
 namespace RPA.Models
@@ -236,7 +237,15 @@ namespace RPA.Models
                 return;
             }
 
-            CustomWfDesigner.ActiveWorkflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(filePath);
+            // Открытие — через DesignerOpenService (единственный путь показа вкладки, этап 3 плана):
+            // второй конструктор на уже открытый файл не создаётся, ошибка возвращается результатом.
+            DesignerOpenResult openResult = DesignerOpenService.ForStudio(message => CustomWfDesigner.Log(message)).OpenOrActivate(filePath);
+            if (!openResult.Ok)
+            {
+                CustomWfDesigner.Log(openResult.Describe(), (int)RpaCommon.Enums.LogLevel.Error);
+            }
+
+
             ProjectManager.AddFile(filePath);
 
             CallResult registerResult = ProjectManager.RegisterFileInVsProject(filePath);
@@ -274,7 +283,15 @@ namespace RPA.Models
             {
                 try
                 {
-                    CustomWfDesigner.ActiveWorkflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(filePath);
+                    DesignerOpenResult openResult = DesignerOpenService.ForStudio(message => CustomWfDesigner.Log(message)).OpenOrActivate(filePath);
+                    if (!openResult.Ok)
+                    {
+                        // Ошибка открытия — сообщение пользователю с полным текстом, а не исключение:
+                        // файл может быть занят, недоступен на запись или не быть процессом вовсе.
+                        string message = LocalizeHelper.Get("lang_msg_xaml_load_failed", string.Join(Environment.NewLine, openResult.Errors));
+                        CustomWfDesigner.Log(message, (int)RpaCommon.Enums.LogLevel.Error);
+                        OnSendMessage(message);
+                    }
                 }
                 catch (Exception ex)
                 {

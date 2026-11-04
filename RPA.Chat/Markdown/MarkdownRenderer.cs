@@ -12,7 +12,7 @@ using Markdig.Extensions.Tables;
 using Markdig.Extensions.TaskLists;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
-using VibeCoder.Core.Services;
+using Agent.Core.Services;
 using RPA.Chat.Converters;
 
 // WPF's System.Windows.Documents namespace also defines Block/Inline/Table/TableRow/TableCell,

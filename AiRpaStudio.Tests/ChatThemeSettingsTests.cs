@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using RPA.Chat.Services;
 using RPA.Chat.ViewModels;
-using VibeCoder.Core.Models;
+using Agent.Core.Models;
 
 namespace AiRpaStudio.Tests;
 

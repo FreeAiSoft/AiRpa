@@ -4,7 +4,7 @@ using System.Windows.Markup;
 using System.Windows.Media;
 using AvalonDock;
 using RPA.Helpers;
-using VibeCoder.Core.Models;
+using Agent.Core.Models;
 using RPA.Models;
 
 namespace AiRpaStudio.Tests;

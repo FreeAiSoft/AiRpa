@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
-using VibeCoder.Core.Models;
+using Agent.Core.Models;
 
 namespace RPA.Helpers
 {

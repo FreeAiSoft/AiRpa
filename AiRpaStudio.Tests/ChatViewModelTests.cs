@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using RPA.Chat.Services;
 using RPA.Chat.ViewModels;
-using VibeCoder.Core.Models;
+using Agent.Core.Models;
 
 namespace AiRpaStudio.Tests;
 

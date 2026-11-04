@@ -301,6 +301,34 @@
     <Compile Include="Converters\WorkflowStateToIsEnabledConverter.cs" />
     <Compile Include="Core\ActivityRunner.cs" />
     <Compile Include="Core\DebugValidationErrorService.cs" />
+    <!-- Генерация валидного XAML (docs\Valid_Xaml_Designer_Plan.md, этап 2): канонизация модели,
+         сериализация WF и гейт валидации — один конвейер для всех инструментов. -->
+    <Compile Include="Core\Generation\WorkflowCanonicalizationOptions.cs" />
+    <Compile Include="Core\Generation\WorkflowCanonicalizer.cs" />
+    <Compile Include="Core\Generation\WorkflowXamlSerializer.cs" />
+    <Compile Include="Core\Generation\WorkflowValidationGate.cs" />
+    <Compile Include="Core\Generation\WorkflowBuildService.cs" />
+    <Compile Include="Core\Generation\DesignerUiThread.cs" />
+    <Compile Include="Core\Generation\DesignerTab.cs" />
+    <Compile Include="Core\Generation\DesignerOpenService.cs" />
+    <Compile Include="Core\Generation\StudioWorkflowDesignerHost.cs" />
+    <Compile Include="Core\Generation\ActivityPaletteFactory.cs" />
+    <Compile Include="Core\Generation\ActivityPaletteRegistry.cs" />
+    <Compile Include="Core\Generation\DesignerModelSession.cs" />
+    <Compile Include="Core\Generation\PaletteWorkflowService.cs" />
+    <Compile Include="Core\Generation\WorkflowModelReader.cs" />
+    <Compile Include="Core\Generation\RoslynSandbox.cs" />
+    <Compile Include="Core\Generation\XamlExpressionPolicy.cs" />
+    <Compile Include="Core\Generation\CodeFirstWorkflowService.cs" />
+    <Compile Include="Core\Generation\GenerationTarget.cs" />
+    <Compile Include="Core\Generation\WorkflowJsonSchema.cs" />
+    <Compile Include="Core\Generation\WorkflowJsonValidator.cs" />
+    <Compile Include="Core\Generation\WorkflowJsonTranslator.cs" />
+    <Compile Include="Core\Generation\JsonWorkflowService.cs" />
+    <!-- Контракт для агента (docs\Valid_Xaml_Designer_Plan.md, этап 7): правила, выбор инструмента,
+         few-shot примеры и правило самокоррекции в одном месте — их отдаёт xaml.describe_contract. -->
+    <Compile Include="Core\Generation\WorkflowAgentContract.cs" />
+
     <Compile Include="CSharpExpressionEditor\DesignerValidator.cs" />
     <Compile Include="Core\Services\DesignerContextMenuState.cs" />
     <Compile Include="Core\Services\DesignerVariableContextMenuPolicy.cs" />
@@ -329,6 +357,8 @@
     <Compile Include="Enums\WorkflowState.cs" />
     <Compile Include="Helpers\AssembliesHelper.cs" />
     <Compile Include="Helpers\XamlHelper.cs" />
+    <!-- Среда rehosted-дизайнера WF: одна на студию и тестовый стенд (Valid_Xaml_Designer_Plan.md). -->
+    <Compile Include="Helpers\WfDesignerEnvironment.cs" />
     <Compile Include="Helpers\ProjectPathResolver.cs" />
     <Compile Include="Logging\Log.cs" />
     <Compile Include="Core\WorkflowDesignerEx.cs" />
@@ -381,6 +411,16 @@
     <Compile Include="Mcp\McpModels.cs" />
     <Compile Include="Mcp\RpaMcpServer.cs" />
     <Compile Include="Mcp\StdioMcpServerHost.cs" />
+    <Compile Include="Mcp\McpToolRegistry.cs" />
+    <Compile Include="Mcp\Tools\AddActivityTool.cs" />
+    <Compile Include="Mcp\Tools\CreateWorkflowTool.cs" />
+    <Compile Include="Mcp\Tools\CreateWorkflowFromCodeTool.cs" />
+    <Compile Include="Mcp\Tools\CreateWorkflowFromJsonTool.cs" />
+    <Compile Include="Mcp\Tools\DescribeWorkflowContractTool.cs" />
+    <Compile Include="Mcp\Tools\GetWorkflowTool.cs" />
+    <Compile Include="Mcp\Tools\PaletteToolBase.cs" />
+    <Compile Include="Mcp\Tools\SetArgumentTool.cs" />
+
     <Compile Include="Models\ActivityCreator.cs" />
     <Compile Include="Core\CustomWfDesigner.cs" />
     <Compile Include="CSharpExpressionEditor\QueryCompletionData.cs" />
@@ -541,7 +581,9 @@
     <None Include="Docs\Vs2026_Theme_Acceptance.md" />
     <None Include="Docs\Vs2026_Theme_Plan.md" />
     <None Include="Docs\Vs_Project_ContextMenu_Plan.md" />
+    <None Include="Docs\Workflow_Agent_Contract.md" />
     <None Include="Docs\WorkflowEditTracking_Architecture.md" />
+    <None Include="Docs\Workflow_Json_Ast_Schema.md" />
     <None Include="NLog.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -614,9 +656,9 @@
       <Project>{b6a2c9e4-1d5f-4e7a-9c3b-8f2d6a1e4b7c}</Project>
       <Name>RPA.NuGet</Name>
     </ProjectReference>
-    <ProjectReference Include="..\VibeCoder.Core\VibeCoder.Core.csproj">
+    <ProjectReference Include="..\Agent.Core\Agent.Core.csproj">
       <Project>{609357CB-88DB-4FB8-A3C9-586E3D4BBD27}</Project>
-      <Name>VibeCoder.Core</Name>
+      <Name>Agent.Core</Name>
     </ProjectReference>
 
   </ItemGroup>
@@ -684,7 +726,7 @@
   </ItemGroup>
   <ItemGroup>
     <!-- Built-in user documentation (RU/EN) shipped next to the assemblies and consumed
-         by the Plan/Help chat modes via VibeCoder.Core.Services.HelpDocumentation. Only the
+         by the Plan/Help chat modes via Agent.Core.Services.HelpDocumentation. Only the
          user-facing subset is shipped; the repo's developer docs (docs\*.md) stay out. -->
     <None Include="Docs\00-index.md">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

@@ -2,9 +2,9 @@ using System;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
-using VibeCoder.Core.Services;
+using Agent.Core.Services;
 
-namespace VibeCoder.Tests
+namespace AiRpaStudio.Tests
 {
     [TestFixture]
     public class CommitMessageBuilderTests
@@ -15,8 +15,8 @@ namespace VibeCoder.Tests
         public void FormatProjectLine_StripsTypePrefix()
         {
             Assert.That(
-                CommitMessageBuilder.FormatProjectLine("VibeCoder.Core", "fix: fix parser"),
-                Is.EqualTo("VibeCoder.Core: fix parser"));
+                CommitMessageBuilder.FormatProjectLine("Agent.Core", "fix: fix parser"),
+                Is.EqualTo("Agent.Core: fix parser"));
         }
 
         [Test]
@@ -55,18 +55,18 @@ namespace VibeCoder.Tests
             var root = CreateTempRoot();
             try
             {
-                Directory.CreateDirectory(Path.Combine(root, "VibeCoder.Core", "Services"));
-                Directory.CreateDirectory(Path.Combine(root, "VibeCoder"));
-                File.WriteAllText(Path.Combine(root, "VibeCoder.Core", "VibeCoder.Core.csproj"), "");
-                File.WriteAllText(Path.Combine(root, "VibeCoder", "VibeCoder.csproj"), "");
+                Directory.CreateDirectory(Path.Combine(root, "Agent.Core", "Services"));
+                Directory.CreateDirectory(Path.Combine(root, "Agent"));
+                File.WriteAllText(Path.Combine(root, "Agent.Core", "Agent.Core.csproj"), "");
+                File.WriteAllText(Path.Combine(root, "Agent", "Agent.csproj"), "");
 
                 var plan = CommitMessageBuilder.GroupChangedFiles(root, new[]
                 {
-                    "VibeCoder.Core/Services/A.cs",
-                    "VibeCoder/B.cs",
+                    "Agent.Core/Services/A.cs",
+                    "Agent/B.cs",
                 });
 
-                Assert.That(plan.Projects.Select(p => p.Name), Is.EquivalentTo(new[] { "VibeCoder.Core", "VibeCoder" }));
+                Assert.That(plan.Projects.Select(p => p.Name), Is.EquivalentTo(new[] { "Agent.Core", "Agent" }));
             }
             finally
             {
@@ -93,7 +93,7 @@ namespace VibeCoder.Tests
 
         private static string CreateTempRoot()
         {
-            var root = Path.Combine(Path.GetTempPath(), "vibecoder_commit_" + Guid.NewGuid().ToString("N"));
+            var root = Path.Combine(Path.GetTempPath(), "agent_commit_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(root);
             return root;
         }

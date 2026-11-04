@@ -29,6 +29,12 @@
 - Настройки сохраняются через `Properties.Settings` (метод `Save()`).
 - Логирование: `RPA.Logging.Log` (запись в `log.txt`) + просмотр через `LogControlLibrary`.
 - AI-интеграция: MCP-сервер (`RPA.Mcp`, stdio/http).
+- Ядро AI-агента — проект `Agent.Core` (`Agent.Core\Agent.Core.csproj`, `netstandard2.0`,
+  `RootNamespace`/`AssemblyName` = `Agent.Core`). Прежнее имя сборки — `VibeCoder.Core` — больше не используется;
+  оно осталось единственной легаси-константой `PromptPaths.LegacyAppDataFolderName` (чтение `%AppData%\VibeCoder\Prompts`
+  последним кандидатом, чтобы у существующих установок не пропали промпты). Страж — `AiRpaStudio.Tests\AgentCoreRenameGuardTests.cs`
+  (скан `.cs`/`.xaml`/`.csproj`/`.sln`: строковое имя сборки компилятор не проверяет, поэтому рефлексия и `assembly=` в XAML
+  ломаются молча).
 
 ## Ошибки и падения приложения
 - Любая ошибка в студии показывается окном `AiRpaStudio\Views\ErrorView.xaml` через
@@ -70,7 +76,7 @@
 ## Версии пакетов и привязка сборок
 - В решении должна быть **одна** версия каждой транзитивной зависимости. `System.Threading.Tasks.Extensions`
   закреплена на 4.5.4 (сборка 4.2.0.1): в legacy-проектах через `packages.config`, в SDK-проектах — явным
-  `PackageReference`. Пакет 4.5.2 даёт сборку 4.2.0.0 (её тянули транзитивно `RPA.Chat` и `VibeCoder.Core`).
+  `PackageReference`. Пакет 4.5.2 даёт сборку 4.2.0.0 (её тянули транзитивно `RPA.Chat` и `Agent.Core`).
 - Симптом нарушения: при загрузке проекта WF-панель «Пространства имён» (`ImportDesigner`) перечисляет типы
   сборок (`Assembly.GetExportedTypes`), привязка зависимости падает с `FileLoadException` / HRESULT 0x80131040,
   и дизайнер показывает модальное окно «Конструктор рабочих процессов», блокирующее студию.
@@ -192,13 +198,13 @@
   `WfThemeTests.PropertyHelper_StylesButtonsByName`, `.PropertyHelper_SearchClearButton_IsFramelessWithSmallerGlyph`,
   `.EditModeButton_IsFlatWithoutCornerRadiusAndShadow`,
   `.EditModeButton_WithoutBorderChrome_GetsFlatTemplateAndKeepsGlyph`, `.PropertyHelper_FlattensEditModeButtons`.
-- Тема — перечисление `VibeCoder.Core.Models.StudioTheme` (`Dark`/`Light`), единственный источник истины.
+- Тема — перечисление `Agent.Core.Models.StudioTheme` (`Dark`/`Light`), единственный источник истины.
   Активное значение хранит `StudioPalette.Current` (палитра темы — `StudioPalette.Active`); ставится только
   из `AppSettings.ApplyTheme(StudioTheme)` и **до** пересборки кистей (`StudioPalette.ApplyCurrent`).
   `bool dark` в API темы и «угадывание» темы по яркости кисти MaterialDesign в рабочих путях запрещены:
   `StudioPalette.Detect` удалён, остались `StudioPalette.DetectTheme` (чужой словарь: изолированные
   ресурсы плавающих окон, отдельный STA-поток окна ошибки) и `DetectDark` (распознавание в тестах).
-  Перечисление лежит в `VibeCoder.Core`, потому что тема нужна сразу двум сборкам — студии и `RPA.Chat`;
+  Перечисление лежит в `Agent.Core`, потому что тема нужна сразу двум сборкам — студии и `RPA.Chat`;
   `AiRpaStudio.csproj` ссылается на проект напрямую. Персист темы чата — строка `"Dark"`/`"Light"`
   (`SettingsData.Theme`), старый `{"UseDarkTheme": bool}` переносится при загрузке и больше не пишется;
   `ChatViewModel.Theme` — источник истины, `IsDarkTheme` — проекция для двухпозиционного тумблера,

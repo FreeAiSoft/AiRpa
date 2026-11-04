@@ -1,8 +1,8 @@
 using System.Linq;
 using NUnit.Framework;
-using VibeCoder.Core.Services;
+using Agent.Core.Services;
 
-namespace VibeCoder.Tests
+namespace AiRpaStudio.Tests
 {
     [TestFixture]
     public class CodeHighlightingTests

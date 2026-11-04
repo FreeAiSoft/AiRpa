@@ -5,9 +5,9 @@ using System.Text;
 using DocumentFormat.OpenXml.Packaging;
 using DWP = DocumentFormat.OpenXml.Drawing.Wordprocessing;
 using NUnit.Framework;
-using VibeCoder.Core.Services;
+using Agent.Core.Services;
 
-namespace VibeCoder.Tests
+namespace AiRpaStudio.Tests
 {
     [TestFixture]
     public class MarkdownToDocxConverterTests
@@ -18,7 +18,7 @@ namespace VibeCoder.Tests
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=");
 
         [SetUp]
-        public void SetUp() => _dir = Path.Combine(Path.GetTempPath(), "VibeCoder.Tests", Path.GetRandomFileName());
+        public void SetUp() => _dir = Path.Combine(Path.GetTempPath(), "AiRpaStudio.Tests", Path.GetRandomFileName());
 
         [TearDown]
         public void TearDown()

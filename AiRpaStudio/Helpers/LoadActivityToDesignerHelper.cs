@@ -43,13 +43,15 @@ namespace RPA.Helpers
 
             if (workflowDesignerEx == null)
             {
-                ExpressionTextBox.RegisterExpressionActivityEditor(new CSharpValue<string>().Language, typeof(RoslynExpressionEditor), CSharpExpressionHelper.CreateExpressionFromString);
-
                 workflowDesignerEx = new WorkflowDesignerEx();
-                workflowDesignerEx.Context.Services.GetService<DesignerConfigurationService>().TargetFrameworkName = new System.Runtime.Versioning.FrameworkName(".NETFramework", new Version(4, 5));
-                workflowDesignerEx.Context.Services.GetService<DesignerConfigurationService>().LoadingFromUntrustedSourceEnabled = true;
-                workflowDesignerEx.Context.Services.Publish<IExpressionEditorService>(new RoslynExpressionEditorService());
-                workflowDesignerEx.Context.Services.Publish<IValidationErrorService>(new DebugValidationErrorService());
+
+                // Среда дизайнера — одна на все пути открытия (студия, стенд конструктора, MCP):
+                // DesignerConfigurationService (.NET Framework 4.5 + LoadingFromUntrustedSourceEnabled),
+                // Roslyn-редактор выражений, IExpressionEditorService, IValidationErrorService.
+                // Дублировать эти установки нельзя: расхождение путей даёт «работает в одном
+                // инструменте, ломается в другом» (docs\Valid_Xaml_Designer_Plan.md, п. 2.3).
+                WfDesignerEnvironment.Configure(workflowDesignerEx);
+
                 //load Workflow Xaml
                 workflowDesignerEx.Load(sourceFile);
 #pragma warning disable IDE0004 // Remove Unnecessary Cast

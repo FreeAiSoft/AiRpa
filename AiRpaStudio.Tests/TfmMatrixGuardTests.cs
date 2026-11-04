@@ -35,7 +35,7 @@ public class TfmMatrixGuardTests
     {
         "net462",        // ветка ICSharpCode.AvalonEdit, которую использует 4.7.2
         "net472",        // эталон роботов
-        "netstandard2.0" // VibeCoder.Core и общие контракты (пойдёт и в .NET 8/9)
+        "netstandard2.0" // Agent.Core и общие контракты (пойдёт и в .NET 8/9)
     };
 
     /// <summary>Каталоги, содержимое которых не является исходниками решения.</summary>

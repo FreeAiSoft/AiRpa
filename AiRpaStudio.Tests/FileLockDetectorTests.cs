@@ -1,9 +1,9 @@
 using System;
 using System.IO;
 using NUnit.Framework;
-using VibeCoder.Core.Services;
+using Agent.Core.Services;
 
-namespace VibeCoder.Tests
+namespace AiRpaStudio.Tests
 {
     [TestFixture]
     public class FileLockDetectorTests
@@ -16,7 +16,7 @@ namespace VibeCoder.Tests
         [Test]
         public void IsFileLocked_ReturnsTrueWhenFileIsHeldByAnotherProcess()
         {
-            var path = Path.Combine(Path.GetTempPath(), "vibecoder_lock_" + Guid.NewGuid().ToString("N") + ".txt");
+            var path = Path.Combine(Path.GetTempPath(), "agent_lock_" + Guid.NewGuid().ToString("N") + ".txt");
             File.WriteAllText(path, "data");
             try
             {
@@ -34,7 +34,7 @@ namespace VibeCoder.Tests
         [Test]
         public void IsFileLocked_ReturnsFalseWhenFileIsFree()
         {
-            var path = Path.Combine(Path.GetTempPath(), "vibecoder_lock_" + Guid.NewGuid().ToString("N") + ".txt");
+            var path = Path.Combine(Path.GetTempPath(), "agent_lock_" + Guid.NewGuid().ToString("N") + ".txt");
             File.WriteAllText(path, "data");
             try
             {
@@ -49,7 +49,7 @@ namespace VibeCoder.Tests
         [Test]
         public void IsFileLocked_ReturnsFalseForMissingFile()
         {
-            var path = Path.Combine(Path.GetTempPath(), "vibecoder_missing_" + Guid.NewGuid().ToString("N") + ".txt");
+            var path = Path.Combine(Path.GetTempPath(), "agent_missing_" + Guid.NewGuid().ToString("N") + ".txt");
             Assert.That(FileLockDetector.IsFileLocked(path), Is.False);
         }
 

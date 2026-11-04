@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Threading;
 using System.Windows.Controls;
 using RPA.Chat.Converters;
-using VibeCoder.Core.Services;
+using Agent.Core.Services;
 
 namespace AiRpaStudio.Tests;
 

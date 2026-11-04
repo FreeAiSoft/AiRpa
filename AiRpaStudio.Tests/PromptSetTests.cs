@@ -1,8 +1,8 @@
 using System.IO;
 using NUnit.Framework;
-using VibeCoder.Core.Services;
+using Agent.Core.Services;
 
-namespace VibeCoder.Tests
+namespace AiRpaStudio.Tests
 {
     [TestFixture]
     public class PromptSetTests
@@ -10,7 +10,7 @@ namespace VibeCoder.Tests
         private string _dir;
 
         [SetUp]
-        public void SetUp() => _dir = Path.Combine(Path.GetTempPath(), "vibecoder_promptset_" + Path.GetRandomFileName());
+        public void SetUp() => _dir = Path.Combine(Path.GetTempPath(), "agent_promptset_" + Path.GetRandomFileName());
 
         [TearDown]
         public void TearDown()

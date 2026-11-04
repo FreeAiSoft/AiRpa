@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using VibeCoder.Core.Models;
+using Agent.Core.Models;
 
 namespace RPA.Chat.Services
 {

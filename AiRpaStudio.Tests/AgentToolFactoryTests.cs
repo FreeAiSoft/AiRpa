@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 using NUnit.Framework;
 using RPA.Chat.Services;
 using RPA.Chat.Services.AgentTools;
-using VibeCoder.Core.AgentTools;
-using VibeCoder.Core.Contracts;
-using VibeCoder.Core.Models;
-using VibeCoder.Core.Services;
+using Agent.Core.AgentTools;
+using Agent.Core.Contracts;
+using Agent.Core.Models;
+using Agent.Core.Services;
 
 namespace RPA.Chat.Tests
 {

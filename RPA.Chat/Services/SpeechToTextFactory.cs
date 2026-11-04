@@ -1,8 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using VibeCoder.Core.Contracts;
-using VibeCoder.Core.Services;
+using Agent.Core.Contracts;
+using Agent.Core.Services;
 
 namespace RPA.Chat.Services
 {

@@ -195,19 +195,19 @@ internal static class DesignerThemeProbe
         }
     }
 
-    /// <summary>Значение перечисления <c>VibeCoder.Core.Models.StudioTheme</c> для вызова по рефлексии.</summary>
+    /// <summary>Значение перечисления <c>Agent.Core.Models.StudioTheme</c> для вызова по рефлексии.</summary>
     private static object StudioThemeValue(bool dark)
     {
         Type theme = null;
         Assembly[] loaded = AppDomain.CurrentDomain.GetAssemblies();
         for (int i = 0; i < loaded.Length && theme == null; i++)
         {
-            theme = loaded[i].GetType("VibeCoder.Core.Models.StudioTheme", throwOnError: false);
+            theme = loaded[i].GetType("Agent.Core.Models.StudioTheme", throwOnError: false);
         }
 
         if (theme == null)
         {
-            theme = Type.GetType("VibeCoder.Core.Models.StudioTheme, VibeCoder.Core", throwOnError: true);
+            theme = Type.GetType("Agent.Core.Models.StudioTheme, Agent.Core", throwOnError: true);
         }
 
         return Enum.Parse(theme, dark ? "Dark" : "Light");

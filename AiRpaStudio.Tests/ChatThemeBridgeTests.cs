@@ -6,7 +6,7 @@ using RPA.Chat.Services;
 using RPA.Chat.Themes;
 using RPA.Chat.ViewModels;
 using RPA.Helpers;
-using VibeCoder.Core.Models;
+using Agent.Core.Models;
 
 namespace AiRpaStudio.Tests;
 

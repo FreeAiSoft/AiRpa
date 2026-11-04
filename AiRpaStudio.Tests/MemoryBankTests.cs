@@ -1,9 +1,9 @@
 using System;
 using System.IO;
 using NUnit.Framework;
-using VibeCoder.Core.Services;
+using Agent.Core.Services;
 
-namespace VibeCoder.Tests
+namespace AiRpaStudio.Tests
 {
     [TestFixture]
     public class MemoryBankTests
@@ -13,7 +13,7 @@ namespace VibeCoder.Tests
         [SetUp]
         public void SetUp()
         {
-            _root = Path.Combine(Path.GetTempPath(), "vibecoder_mb_" + Guid.NewGuid().ToString("N"));
+            _root = Path.Combine(Path.GetTempPath(), "agent_mb_" + Guid.NewGuid().ToString("N"));
         }
 
         [TearDown]

@@ -8,7 +8,7 @@ using FW.EasyMvvm.Core;
 using MaterialDesignThemes.Wpf;
 using RPA.Helpers;
 using RPA.Logging;
-using VibeCoder.Core.Models;
+using Agent.Core.Models;
 
 namespace RPA.Models
 {

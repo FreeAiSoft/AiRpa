@@ -7,7 +7,7 @@ using NUnit.Framework;
 using RPA.VsProject;
 using RPA.VsTemplate;
 
-using VibeCoder.Core.Services;
+using Agent.Core.Services;
 
 namespace AiRpaStudio.Tests;
 

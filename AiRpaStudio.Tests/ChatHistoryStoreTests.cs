@@ -1,7 +1,7 @@
 using System.Linq;
 using NUnit.Framework;
 using RPA.Chat.Services;
-using VibeCoder.Core.Models;
+using Agent.Core.Models;
 
 namespace RPA.Chat.Tests
 {

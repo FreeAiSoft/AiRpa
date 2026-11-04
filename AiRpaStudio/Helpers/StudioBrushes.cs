@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Windows;
-using VibeCoder.Core.Models;
+using Agent.Core.Models;
 using System.Windows.Media;
 
 namespace RPA.Helpers

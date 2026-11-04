@@ -7,7 +7,7 @@ using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Highlighting;
 
 using RPA.Helpers;
-using VibeCoder.Core.Models;
+using Agent.Core.Models;
 
 namespace AiRpaStudio.Tests;
 

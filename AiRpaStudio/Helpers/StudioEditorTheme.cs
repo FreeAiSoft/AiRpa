@@ -8,7 +8,7 @@ using System.Xml;
 using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Highlighting.Xshd;
-using VibeCoder.Core.Models;
+using Agent.Core.Models;
 
 namespace RPA.Helpers
 {

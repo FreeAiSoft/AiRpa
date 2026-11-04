@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using RPA.Helpers;
-using VibeCoder.Core.Services;
+using Agent.Core.Services;
 
 namespace RPA.VsProject
 {

@@ -1,4 +1,4 @@
-using VibeCoder.Core.Models;
+using Agent.Core.Models;
 
 namespace RPA.Chat
 {

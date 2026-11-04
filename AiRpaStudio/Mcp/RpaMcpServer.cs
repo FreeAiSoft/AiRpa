@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -14,17 +14,48 @@ namespace RPA.Mcp
     /// </summary>
     public class RpaMcpServer : IMcpServer
     {
-        private readonly Dictionary<string, IMcpTool> _tools;
+        private readonly McpToolRegistry _tools;
         private readonly CustomWfDesigner _designer;
         private readonly string _projectRoot;
 
         public RpaMcpServer()
+            : this(null, null)
         {
-            _designer = CustomWfDesigner.GetInstance();
+        }
+
+        /// <summary>
+        /// Сервер с заданным реестром инструментов (тесты). <paramref name="designer"/> можно не задавать:
+        /// статический синглтон студии (<c>CustomWfDesigner.GetInstance</c>) подтягивается только для лога,
+        /// иначе любой тест сервера тянул бы за собой WPF-состояние студии.
+        /// </summary>
+        internal RpaMcpServer(McpToolRegistry tools, CustomWfDesigner designer = null)
+        {
+            _designer = designer;
             _projectRoot = Directory.GetCurrentDirectory();
 
-            _tools = new Dictionary<string, IMcpTool>();
+            // Реестр инструментов: регистрация на старте сервера (палитра xaml.* — этап 4 плана
+            // docs\Valid_Xaml_Designer_Plan.md). Сервис палитры создаётся по первому вызову.
+            _tools = tools ?? McpToolRegistry.CreateDefault(Log);
         }
+
+        /// <summary>Лог студии: сообщения инструментов палитры попадают в общий log.txt.</summary>
+        private void Log(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return;
+            }
+
+            try
+            {
+                (_designer ?? CustomWfDesigner.GetInstance())?.Log(message);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Лог MCP недоступен: " + ErrorText.Of(ex));
+            }
+        }
+
 
         /// <summary>
         /// Initialize the MCP server
@@ -44,7 +75,7 @@ namespace RPA.Mcp
         /// </summary>
         public Task<IEnumerable<McpTool>> ListTools()
         {
-            List<McpTool> tools = _tools.Values.Select(tool => tool.GetSchema()).ToList();
+            List<McpTool> tools = _tools.Schemas().ToList();
             return Task.FromResult<IEnumerable<McpTool>>(tools);
         }
 
@@ -53,12 +84,12 @@ namespace RPA.Mcp
         /// </summary>
         public async Task<McpToolResult> CallTool(string name, object arguments)
         {
-            if (!_tools.TryGetValue(name, out IMcpTool tool))
+            if (!_tools.TryGet(name, out IMcpTool tool))
             {
                 return new McpToolResult
                 {
                     Success = false,
-                    Error = $"Tool '{name}' not found. Available tools: {string.Join(", ", _tools.Keys)}"
+                    Error = $"Tool '{name}' not found. Available tools: {string.Join(", ", _tools.Names)}"
                 };
             }
 

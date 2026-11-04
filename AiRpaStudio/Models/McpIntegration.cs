@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using RPA.Core;
+using RPA.Core.Generation;
 using RPA.Helpers;
 using RpaCommon;
 
@@ -15,7 +16,19 @@ namespace RPA.Models
                 activityCreator.Create();
                 if (activityCreator.IsCreate)
                 {
-                    CustomWfDesigner.GetInstance().ActiveWorkflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(activityCreator.FilePath);
+                    // MCP-вызов приходит из фонового потока: открытие вкладки обязано уйти на UI-поток
+                    // через DesignerOpenService, иначе WorkflowDesigner создаётся не в том потоке
+                    // (исключения WPF и «пустая» диаграмма), а второй конструктор на тот же файл —
+                    // дубликат вкладки. Ошибка открытия возвращается как результат инструмента.
+                    DesignerOpenResult openResult = DesignerOpenService
+                        .ForStudio(message => CustomWfDesigner.GetInstance().Log(message))
+                        .OpenOrActivate(activityCreator.FilePath);
+
+                    if (!openResult.Ok)
+                    {
+                        return new CallResult { Error = new Error(string.Join(Environment.NewLine, openResult.Errors)) };
+                    }
+
                     ProjectManager.GetInstance().AddFile(activityCreator.FilePath);
                 }
                 return new CallResult();

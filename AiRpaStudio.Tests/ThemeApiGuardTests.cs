@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 namespace AiRpaStudio.Tests;
 
 /// <summary>
-/// Стражи API темы: тема — это перечисление <see cref="VibeCoder.Core.Models.StudioTheme"/>, и никакая
+/// Стражи API темы: тема — это перечисление <see cref="Agent.Core.Models.StudioTheme"/>, и никакая
 /// подсистема не возвращает <c>bool dark</c> и не «угадывает» тему по словарю ресурсов.
 /// <para>
 /// Зачем отдельный страж: рассинхрон темы (студия в одной палитре, чат/дизайнер в другой) появлялся
@@ -23,11 +23,11 @@ public class ThemeApiGuardTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(File.Exists(Path.Combine(root, "VibeCoder.Core", "Models", "StudioTheme.cs")), Is.True,
+            Assert.That(File.Exists(Path.Combine(root, "Agent.Core", "Models", "StudioTheme.cs")), Is.True,
                 "перечисление темы обязано быть одно на всё решение");
-            Assert.That(Read(root, @"AiRpaStudio\AiRpaStudio.csproj"), Does.Contain(@"..\VibeCoder.Core\VibeCoder.Core.csproj"),
+            Assert.That(Read(root, @"AiRpaStudio\AiRpaStudio.csproj"), Does.Contain(@"..\Agent.Core\Agent.Core.csproj"),
                 "студия должна ссылаться на сборку с перечислением напрямую");
-            Assert.That(Read(root, @"RPA.Chat\RPA.Chat.csproj"), Does.Contain(@"..\VibeCoder.Core\VibeCoder.Core.csproj"),
+            Assert.That(Read(root, @"RPA.Chat\RPA.Chat.csproj"), Does.Contain(@"..\Agent.Core\Agent.Core.csproj"),
                 "чат использует то же перечисление, а не своё");
         });
     }

@@ -1,9 +1,9 @@
 using System;
 using System.IO;
 using NUnit.Framework;
-using VibeCoder.Core.Services;
+using Agent.Core.Services;
 
-namespace VibeCoder.Tests
+namespace AiRpaStudio.Tests
 {
     [TestFixture]
     public class PromptLibraryTests
@@ -11,14 +11,14 @@ namespace VibeCoder.Tests
         [Test]
         public void Load_ReturnsFallbackWhenFileMissing()
         {
-            var missing = Path.Combine(Path.GetTempPath(), "vibecoder_missing_" + Guid.NewGuid().ToString("N") + ".txt");
+            var missing = Path.Combine(Path.GetTempPath(), "agent_missing_" + Guid.NewGuid().ToString("N") + ".txt");
             Assert.That(PromptLibrary.Load(Path.GetTempPath(), "System", Path.GetFileName(missing), "FALLBACK"), Is.EqualTo("FALLBACK"));
         }
 
         [Test]
         public void Load_ReturnsTrimmedFileContentWhenPresent()
         {
-            var dir = Path.Combine(Path.GetTempPath(), "vibecoder_prompts_" + Guid.NewGuid().ToString("N"));
+            var dir = Path.Combine(Path.GetTempPath(), "agent_prompts_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(Path.Combine(dir, "System"));
             try
             {

@@ -23,7 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AiRpaStudio\AiRpaStudio.csproj" />
-    <ProjectReference Include="..\VibeCoder.Core\VibeCoder.Core.csproj" />
+    <ProjectReference Include="..\Agent.Core\Agent.Core.csproj" />
     <ProjectReference Include="..\RPA.Chat\RPA.Chat.csproj" />
     <!-- Панель документов: тесты темы материализуют меню списка документов (ContextMenuEx/MenuItemEx). -->
     <ProjectReference Include="..\AvalonDock\AvalonDock.csproj" />
@@ -38,6 +38,13 @@
     <Reference Include="System.Xaml" />
     <Reference Include="System.Activities" />
     <Reference Include="System.Activities.Presentation" />
+    <!-- Roslyn 3.6 (Microsoft.CodeAnalysis приходит через студию) грузит System.Reflection.Metadata:
+         без него RoslynExpressionEditorService падает при построении поверхности дизайнера.
+         Версия та же, что у студии, — одна версия зависимости на решение. -->
+    <Reference Include="System.Reflection.Metadata, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Reflection.Metadata.5.0.0\lib\net461\System.Reflection.Metadata.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System.Net.Http" />
   </ItemGroup>
 

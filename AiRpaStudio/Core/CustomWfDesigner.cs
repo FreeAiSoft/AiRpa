@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Activities.Presentation;
 using System.Activities.Presentation.Debug;
 using System.Collections.Generic;
@@ -14,6 +14,8 @@ using Microsoft.Win32;
 using Newtonsoft.Json;
 using RPA.Entities;
 using RPA.Enums;
+using RPA.Core.Generation;
+
 using RPA.Helpers;
 using RPA.Views;
 using RpaCommon;
@@ -43,7 +45,8 @@ namespace RPA.Core
             set
             {
                 _activeWorkflowDesigner = value;
-                DocGroupHelper.GetInstance().SetSelectedTab(_activeWorkflowDesigner);
+                // DocGroupHelper создаётся в MainView_Loaded: до этого вкладок ещё нет и выбирать нечего.
+                DocGroupHelper.GetInstance()?.SetSelectedTab(_activeWorkflowDesigner);
                 OnPropertyChanged();
                 UpdateCanSaveStates();
             }
@@ -337,7 +340,14 @@ namespace RPA.Core
                 // только после возврата из LoadActivityToDesigner, то есть уже после Save.
                 try
                 {
-                    ActiveWorkflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(dialogOpen.FileName);
+                    // Открытие — через DesignerOpenService: второй конструктор на уже открытый файл
+                    // не создаётся, вызов уходит на UI-поток, ошибка возвращается результатом
+                    // (этап 3 плана docs\Valid_Xaml_Designer_Plan.md).
+                    DesignerOpenResult openResult = DesignerOpenService.ForStudio(message => Log(message)).OpenOrActivate(dialogOpen.FileName);
+                    if (!openResult.Ok)
+                    {
+                        Log(openResult.Describe(), (int)RpaCommon.Enums.LogLevel.Error);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -494,6 +504,11 @@ namespace RPA.Core
 
             if (designer != null)
             {
+                // Фоновая валидация останавливается вместе с вкладкой: её таймер живёт на диспетчере
+                // и после закрытия продолжает проверять невидимый дизайнер (а при остановке
+                // приложения его тик пытается показать модальное окно конструктора).
+                designer.DetachValidation();
+
                 // Закрываем вкладку в UI перед удалением из коллекции
                 DocGroupHelper docGroupHelper = DocGroupHelper.GetInstance();
                 docGroupHelper?.CloseDocumentByPath(loadedFile);

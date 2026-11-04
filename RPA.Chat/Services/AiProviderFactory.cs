@@ -1,7 +1,7 @@
 using System;
-using VibeCoder.Core.Contracts;
-using VibeCoder.Core.Models;
-using VibeCoder.Core.Services;
+using Agent.Core.Contracts;
+using Agent.Core.Models;
+using Agent.Core.Services;
 
 namespace RPA.Chat.Services
 {

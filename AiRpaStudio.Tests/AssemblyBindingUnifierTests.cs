@@ -229,7 +229,7 @@ public class AssemblyBindingUnifierTests
         {
             string text = File.ReadAllText(project);
 
-            if (text.Contains("System.Threading.Tasks.Extensions.4.5.2", StringComparison.Ordinal))
+            if (text.IndexOf("System.Threading.Tasks.Extensions.4.5.2", StringComparison.Ordinal) >= 0)
             {
                 problems.Add($"{Relative(root, project)}: HintPath на пакет 4.5.2 (сборка 4.2.0.0)");
             }

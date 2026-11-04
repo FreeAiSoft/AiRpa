@@ -1,9 +1,9 @@
 using Markdig;
 using Markdig.Syntax;
 using NUnit.Framework;
-using VibeCoder.Core.Services;
+using Agent.Core.Services;
 
-namespace VibeCoder.Tests
+namespace AiRpaStudio.Tests
 {
     [TestFixture]
     public class MarkdownCodeBlockTextTests

@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using VibeCoder.Core.Models;
-using VibeCoder.Core.Services;
+using Agent.Core.Models;
+using Agent.Core.Services;
 
 namespace RPA.Chat
 {

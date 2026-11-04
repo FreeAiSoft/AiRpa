@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Activities.Debugger;
 using System.Activities.Presentation;
 using System.Collections.Generic;
@@ -40,15 +40,28 @@ namespace RPA.Core
 
         public SourceLocation LastBreakpoint { get; set; }
 
-#pragma warning disable IDE0052 // Remove unread private members
-        private readonly DesignerValidator _designerCustomValidationService;
-#pragma warning restore IDE0052 // Remove unread private members
+        private DesignerValidator _designerCustomValidationService;
 
         public WorkflowDesignerEx()
         {
             DesignerVariableContextMenuService = new DesignerVariableContextMenuService(this);
             ModelChanged += WorkflowDesignerEx_ModelChanged;
             _designerCustomValidationService = new DesignerValidator(this);
+        }
+
+        /// <summary>
+        /// Останавливает фоновую валидацию дизайнера и отписывается от изменений модели.
+        /// <para>
+        /// Вызывается при закрытии вкладки: таймер <see cref="DesignerValidator"/> живёт на диспетчере
+        /// и продолжает тикать после закрытия вкладки, хотя проверять уже нечего. При остановке
+        /// приложения такой «осиротевший» тик пытается показать модальное окно конструктора
+        /// (наблюдалось как падение при закрытии домена в тестах).
+        /// </para>
+        /// </summary>
+        public void DetachValidation()
+        {
+            _designerCustomValidationService?.Dispose();
+            _designerCustomValidationService = null;
         }
 
         private void WorkflowDesignerEx_ModelChanged(object sender, EventArgs e)

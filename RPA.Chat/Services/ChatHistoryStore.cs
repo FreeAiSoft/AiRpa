@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using Newtonsoft.Json;
-using VibeCoder.Core.Models;
+using Agent.Core.Models;
 
 namespace RPA.Chat.Services
 {
