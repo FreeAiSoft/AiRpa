@@ -1,4 +1,4 @@
-﻿namespace RPA.Enums
+namespace RPA.Enums
 {
     public enum FSNodeType
     {
@@ -6,6 +6,10 @@
         Dir,
         Project,
         Solution,
-        VsProject
+        VsProject,
+
+        /// <summary>Solution folder inside .sln (GUID {2150E333-...}): it has no project file (CP-06).</summary>
+        SolutionFolder
     }
 }
+

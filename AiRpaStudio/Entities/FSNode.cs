@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -99,6 +99,12 @@ namespace RPA.Entities
         }
 
         public ObservableCollection<FSNode> Childs { get; set; }
+
+        /// <summary>
+        /// True when the solution entry points to a project file that is missing on disk (CP-06):
+        /// the node stays in the tree and is reported instead of being silently dropped.
+        /// </summary>
+        public bool IsMissing { get; set; }
 
         public FSNode(string fullPath, FSNodeType fSNodeType = FSNodeType.Project)
         {

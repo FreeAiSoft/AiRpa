@@ -1,0 +1,73 @@
+<Activity x:Class="Net472Robot.Main"
+          xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+          xmlns:s="clr-namespace:System;assembly=mscorlib"
+          xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib">
+  <!-- CP-09: эталонный сценарий — Sequence -> If -> TryCatch -> WriteLine.
+       Входной аргумент InputText, выходной Result (верхний регистр входа). -->
+  <x:Members>
+    <x:Property Name="InputText" Type="InArgument(x:String)" />
+    <x:Property Name="Result" Type="OutArgument(x:String)" />
+  </x:Members>
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>System</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Linq</x:String>
+      <x:String>System.Text</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>mscorlib</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Core</AssemblyReference>
+      <AssemblyReference>System.Xml</AssemblyReference>
+      <AssemblyReference>System.Xml.Linq</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <Sequence DisplayName="Main sequence">
+    <WriteLine DisplayName="Log input" Text="[InputText]" />
+    <If DisplayName="Has input" Condition="[InputText IsNot Nothing AndAlso InputText.Length &gt; 0]">
+      <If.Then>
+        <Assign DisplayName="Build result">
+          <Assign.To>
+            <OutArgument x:TypeArguments="x:String">[Result]</OutArgument>
+          </Assign.To>
+          <Assign.Value>
+            <InArgument x:TypeArguments="x:String">[InputText.ToUpper()]</InArgument>
+          </Assign.Value>
+        </Assign>
+      </If.Then>
+      <If.Else>
+        <Assign DisplayName="Empty result">
+          <Assign.To>
+            <OutArgument x:TypeArguments="x:String">[Result]</OutArgument>
+          </Assign.To>
+          <Assign.Value>
+            <InArgument x:TypeArguments="x:String">[""]</InArgument>
+          </Assign.Value>
+        </Assign>
+      </If.Else>
+    </If>
+    <TryCatch DisplayName="Guarded write">
+      <TryCatch.Try>
+        <Sequence>
+          <WriteLine DisplayName="Log result" Text="[Result]" />
+        </Sequence>
+      </TryCatch.Try>
+      <TryCatch.Catches>
+        <Catch x:TypeArguments="s:Exception">
+          <ActivityAction x:TypeArguments="s:Exception">
+            <ActivityAction.Argument>
+              <DelegateInArgument x:TypeArguments="s:Exception" Name="error" />
+            </ActivityAction.Argument>
+            <Sequence>
+              <WriteLine DisplayName="Log error" Text="error caught" />
+            </Sequence>
+          </ActivityAction>
+        </Catch>
+      </TryCatch.Catches>
+    </TryCatch>
+  </Sequence>
+</Activity>

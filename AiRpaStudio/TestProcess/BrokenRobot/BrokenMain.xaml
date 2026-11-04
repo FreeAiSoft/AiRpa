@@ -1,0 +1,30 @@
+<Activity xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+          xmlns:s="clr-namespace:System;assembly=mscorlib"
+          xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib">
+  <!-- CP-09: фикстура «трипа» — сценарий намеренно падает.
+       Файл без x:Class, чтобы его можно было прогонять headless через ActivityXamlServices.Load. -->
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>System</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Linq</x:String>
+      <x:String>System.Text</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>mscorlib</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Core</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <Sequence DisplayName="Broken sequence">
+    <WriteLine DisplayName="Log before failure" Text="before failure" />
+    <Throw DisplayName="Throw boom">
+      <Throw.Exception>
+        <InArgument x:TypeArguments="s:Exception">[New Exception("boom")]</InArgument>
+      </Throw.Exception>
+    </Throw>
+  </Sequence>
+</Activity>

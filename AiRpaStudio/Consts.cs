@@ -22,7 +22,7 @@
         public const string vsTemplateFileFilter = "*.vstemplate";
 
         // Target framework versions
-        public const string defaultTargetFrameworkVersion = "4.8";
-        public static readonly string[] targetFrameworkVersions = new string[] { "4.7", "4.7.2", "4.8", "4.8.1" };
+        public const string defaultTargetFrameworkVersion = "4.7.2";
+        public static readonly string[] targetFrameworkVersions = new string[] { "4.7.2", "4.8", "4.8.1", "4.7" };
     }
 }

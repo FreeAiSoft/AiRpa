@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- CP-09: эталонный робот №2 — SDK-style проект на net48 с PackageReference.
+       Пара к Net472Robot (legacy + packages.config): проверяет второй формат проекта
+       и шаг restore перед сборкой (CP-05). -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Net48Robot</RootNamespace>
+    <AssemblyName>Net48Robot</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+</Project>

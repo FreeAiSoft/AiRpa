@@ -13,10 +13,10 @@
 | Пункт | Факт из кода | Доказательство |
 |---|---|---|
 | `CP-01` | Стража не было. **Реализован 03.11.2026**: `AiRpaStudio.Tests\TfmMatrixGuardTests.cs`, 4 теста | `vstest` по фильтру `FullyQualifiedName~TfmMatrixGuardTests` — 4/4 зелёные |
-| `CP-02` | `Rpa.Activities.Primitives` = `v4.8.1`. **На неё не ссылается ни один `.csproj` решения** → роботы от неё не зависят; блокером для Ц2 не является | `Select-String` по `ProjectReference` — 0 совпадений на `Rpa.Activities.Primitives`/`RPA.CodeEditor` |
-| `CP-03` | `RPA.CodeEditor` = `v4.8`, **никем не используется**, не компилируется: `GenericTools.cs` — порт из OpenRPA, нужны внешние типы `OpenRPA.Input`, `Log`, `AutomationHelper`, `IMainWindow` | `RPA.CodeEditor\GenericTools.cs:1`, ошибки сборки решения |
-| `CP-04` | **Закрыт 03.11.2026.** Дубль поиска устранён: `Agent.Core\Services\MsBuildLocator.cs` — единый поиск (`Auto` / `Vs2022` / `Vs2026`), откат виден в логе, тулчейн пишется в `VsBuildResult`, защита от `MSB4236` | `MsBuildLocatorTests` — 39/39 зелёные, включая реальную сборку шаблонного проекта обоими тулчейнами; полный прогон 1182/1182 |
-| `CP-09` | Есть только `AiRpaStudio\TestProcess\` — песочница студии (`project.json` + 3 `.xaml`, без `.csproj`); эталонных проектов `net472`/`net48` нет | `Get-ChildItem AiRpaStudio\TestProcess` — 6 файлов, `.csproj` отсутствует |
+| `CP-02` | **Закрыт 03.11.2026.** TFM `Rpa.Activities.Primitives` понижен `v4.8.1` → `v4.7.2`; проект собирается MSBuild VS 2026; запись из `TfmMatrixGuardTests.KnownProjects` удалена | `MSBuild Rpa.Activities.Primitives.csproj` → exit 0; `TfmMatrixGuardTests` 4/4 зелёные без записи |
+| `CP-03` | **Закрыт 03.11.2026 (вариант «а»).** TFM `v4.8` → `v4.7.2`, проект остаётся вне сборки решения, к роботам не подключается; запрет перенесён из белого списка в собственные тесты `AiRpaStudio.Tests\VsProjectLayoutGuardTests.cs` | `VsProjectLayoutGuardTests` 2/2 зелёные; негативная проверка (добавленная `.Build.0` строка валит тест) |
+| `CP-04` | **Закрыт 03.11.2026.** Дубль поиска устранён: `Agent.Core\Services\MsBuildLocator.cs` — единый поиск (`Auto` / `Vs2022` / `Vs2026`), откат виден в логе, тулчейн пишется в `VsBuildResult`, защита от `MSB4236` | `MsBuildLocatorTests` — 39/39 зелёные, включая реальную сборку шаблонного проекта обоими тулчейнами; полный прогон 1458/1458 |
+| `CP-09` | **Закрыт 03.11.2026.** `AiRpaStudio\TestProcess\Net472Robot` (legacy WF, `v4.7.2`) и `Net48Robot` (SDK-style `net48` + `PackageReference`) + фикстура трипа `BrokenRobot\BrokenMain.xaml`; проекты намеренно вне `AiRpa.sln` | `TestProcessRegressionTests` 5/5: открытие, сборка с restore, headless-прогон `WorkflowInvoker` (`Result = MAX`), «трип» с `boom` |
 | `TD-12` | **Закрыт 03.11.2026 (вариант A).** `ProxyChecker` починен; `RPA.CodeEditor` снят с сборки решения; 4 отсутствующих проекта + папка решения `Activities.WinUI` убраны из `.sln`; `RPA-1\Main.xaml` исправлен, висячий `ProjectReference` удалён | `MSBuild AiRpa.sln` Release и Debug → exit 0; `vstest` → 1136/1136 |
 | `AG-01` | `ActivityCatalog`, `activity_search`, `activity_describe` — только в роадмэпе, кода нет | поиск по репозиторию — 0 совпадений в коде |
 | `AG-02` | `IWorkflowEditingService` — кода нет; `ModelEditingScope` используется только внутри дизайнеров активностей | `Activities.Flow\Designers\RunScriptDesigner.xaml.cs`, `CSharpExpressionEditor\RoslynExpressionEditor.xaml.cs:256` |
@@ -145,7 +145,7 @@ TD-12 ✅ (03.11.2026) ──► CP-04 ✅ (03.11.2026) ──► CP-09 ──�
 
 **Приёмка:** тесты зелёные, сборка студии обеими VS, в логе видно, каким MSBuild собирали.
 
-### 5.2 `CP-02` — TFM `Rpa.Activities.Primitives` (P0)
+### 5.2 `CP-02` — TFM `Rpa.Activities.Primitives` (P0) --- ЗАКРЫТ 03.11.2026 (итог: §1, §5.10)
 
 Факт: ссылок на проект нет, роботы от него не зависят. Рекомендация — **понизить до `v4.7.2`**, чтобы матрица была однородной
 и проект можно было подключить к роботу, не переписывая TFM.
@@ -157,7 +157,7 @@ TD-12 ✅ (03.11.2026) ──► CP-04 ✅ (03.11.2026) ──► CP-09 ──�
 
 **Приёмка:** проект собирается на 4.7.2, стража зелёная без записи в белом списке.
 
-### 5.3 `CP-03` — судьба `RPA.CodeEditor` (P0)
+### 5.3 `CP-03` — судьба `RPA.CodeEditor` (P0) --- ЗАКРЫТ 03.11.2026 (итог: §1, §5.10)
 
 Факт: сборка не используется ни одним проектом, не компилируется без внешних `OpenRPA.*`.
 Варианты (по возрастанию цены): **(a)** снять с сборки решения (убрать `.Build.0` в `AiRpa.sln`, проект остаётся в VS, но не строится);
@@ -170,7 +170,7 @@ TD-12 ✅ (03.11.2026) ──► CP-04 ✅ (03.11.2026) ──► CP-09 ──�
 
 **Приёмка:** сборка решения не содержит ошибок `RPA.CodeEditor`; в VS проект виден, но не участвует в сборке.
 
-### 5.4 `CP-09` — эталонный регресс-набор (P0)
+### 5.4 `CP-09` — эталонный регресс-набор (P0) --- ЗАКРЫТ 03.11.2026 (итог: §1, §5.10)
 
 1. Создать `TestProcess\Net472Robot\` (legacy `csproj`, `v4.7.2`, `Main.xaml` с `Sequence` → `If` → `TryCatch` → `WriteLine`)
    и `TestProcess\Net48Robot\` (та же логика, `v4.8`).
@@ -231,6 +231,27 @@ TD-12 ✅ (03.11.2026) ──► CP-04 ✅ (03.11.2026) ──► CP-09 ──�
 1. Прочитать `AiRpaStudio\TODO.txt`, разбить на пункты.
 2. По каждому — поиск реализации в коде (`RPA.NuGet`, `GitService`, дизайнер, тема и т.д.).
 3. Результат — таблица в `ROADMAP.md` §12 с фактическим статусом; завести задачи только на реально отсутствующее.
+
+### 5.10 Итоги итерации 03.11.2026 — `CP-02`, `CP-03`, `CP-05`, `CP-06`, `CP-07`, `CP-09`
+
+Все шесть карточек колонки «В работе» доски `RPA - доска` закрыты подряд (сначала дешёвые P0-разблокираторы, затем формат/решение/эталон).
+
+| Карточка | Что изменено | Тесты |
+|---|---|---|
+| `CP-02` | `Rpa.Activities.Primitives.csproj`: `v4.8.1` → `v4.7.2`; запись из `TfmMatrixGuardTests.KnownProjects` удалена | `TfmMatrixGuardTests` 4/4 |
+| `CP-03` | `RPA.CodeEditor.csproj`: `v4.8` → `v4.7.2` + шапка «вне сборки, к роботам не подключать»; запись из белого списка удалена; запрет перенесён в `VsProjectLayoutGuardTests` | 2 новых теста (проверены негативом) |
+| `CP-05` | `VsProjectParser`: 3 формы SDK-style, `TargetFrameworks`, `packages.config`/`PackageReference`, центральные версии; `VsProjectBuilder.RestoreArguments` + двухпроходная сборка; `VsBuildResult.Restore*` | `VsProjectFormatsTests` 8/8 |
+| `CP-06` | `VsSolutionParser`: заголовок, поколение VS → тулчейн, конфигурации, папки решения, `NestedProjects`; отсутствующие проекты — предупреждение + узел `IsMissing`; `FSNodeType.SolutionFolder` | `VsSolutionLayoutTests` 6/6 |
+| `CP-07` | Шаблон `ActivityLibrary2010`: 6 недостающих ссылок WF/дизайнера; плейсхолдер TFM сохранён; `Consts.defaultTargetFrameworkVersion` = `4.7.2` (умолчание роботов, пересечение с `CP-10`) | `VsTemplateTfmGuardTests` 5/5 |
+| `CP-09` | `TestProcess\Net472Robot` (legacy WF 4.7.2), `TestProcess\Net48Robot` (SDK net48 + `PackageReference`), `TestProcess\BrokenRobot\BrokenMain.xaml`; известная запись `Net48Robot` в белом списке TFM (`CP-09`) | `TestProcessRegressionTests` 5/5 |
+
+Итог прогона: `MSBuild AiRpaStudio.Tests.csproj` (VS 2026, `Debug`) — 0 ошибок; `vstest.console.exe AiRpaStudio.Tests\bin\Debug\net48\AiRpaStudio.Tests.dll` — **1458 тестов, все зелёные**.
+
+Отклонение от плана (осознанное): эталонные роботы **не добавлены** в `AiRpa.sln` — иначе они попадают в сборку студии,
+а решение и без того строится только VS 2026 из-за `TD-14`. Открытие/сборка эталона проверяются тестами напрямую.
+Ограничение приёмки: полная сборка `AiRpa.sln` из **обеих** VS по-прежнему недостижима (`TD-14`: `AvalonEdit\global.json`),
+поэтому приёмка `CP-*` идёт по затронутым проектам и эталонам.
+
 
 ## 6. Definition of Done волны 1
 

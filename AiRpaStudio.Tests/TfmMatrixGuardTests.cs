@@ -65,10 +65,9 @@ public class TfmMatrixGuardTests
             "SDK-style net6.0-windows, вне 4.7.2-рантайма; сборка починена 03.11.2026 по TD-12: добавлена ссылка на EasyMvvm"),
         new KnownProject("EasyMvvm", "net6.0-windows", "CP-05",
             "отдельный от FW.EasyMvvm проект (net6), в решение не входит; используется ProxyChecker"),
-        new KnownProject("Rpa.Activities.Primitives", "net481", "CP-02",
-            "🔴 v4.8.1: проект на 4.7.2 не сможет на неё ссылаться. Проверено: пока никто не ссылается — либо понизить TFM, либо оставить осознанно"),
-        new KnownProject("RPA.CodeEditor", "net48", "CP-03",
-            "🔴 v4.8 плюс не собирается: тип OpenRPA.Input без ссылки на сборку (TD-12). К роботам не подключать")
+        new KnownProject("Net48Robot", "net48", "CP-09",
+            "эталонный робот SDK-style на net48 (AiRpaStudio\\TestProcess\\Net48Robot): проверяет второй формат проекта и restore, в поставку не входит; пара к Net472Robot")
+
     };
 
     private static readonly string[] KeyRobotProjects =

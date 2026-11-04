@@ -40,6 +40,20 @@ namespace RPA.VsProject
             return "\"" + path + "\" /nologo /m /v:minimal /p:Configuration=" + config;
         }
 
+        /// <summary>
+        /// Builds the arguments of the restore pass (CP-05). <c>RestorePackagesConfig=true</c> makes the
+        /// NuGet targets also download <c>packages.config</c> projects — without it a legacy project
+        /// fails with MSB3202/NU1101 on a clean machine.
+        /// </summary>
+        public static string RestoreArguments(string path, string configuration)
+        {
+            string config = string.IsNullOrWhiteSpace(configuration) ? "Debug" : configuration;
+
+            return "\"" + path + "\" /nologo /m /v:minimal /t:Restore"
+                   + " /p:Configuration=" + config
+                   + " /p:RestorePackagesConfig=true";
+        }
+
         /// <summary>Builds a project or solution and returns the result. <paramref name="log"/> receives each output line.</summary>
         public static VsBuildResult Build(string path, string configuration = "Debug", Action<string> log = null)
         {
@@ -52,6 +66,16 @@ namespace RPA.VsProject
         /// anonymous and "which Visual Studio built this" is answerable.
         /// </summary>
         public static VsBuildResult BuildWithToolchain(string path, string configuration, MsBuildToolchain toolchain, Action<string> log = null)
+        {
+            return BuildWithToolchain(path, configuration, toolchain, log, restore: false);
+        }
+
+        /// <summary>
+        /// Same as <see cref="BuildWithToolchain(string, string, MsBuildToolchain, Action{string})"/>, but with an
+        /// explicit restore pass before the build (CP-05): restore failures are reported as
+        /// <see cref="VsBuildResult.RestoreSucceeded"/> = false and never reach the compiler.
+        /// </summary>
+        public static VsBuildResult BuildWithToolchain(string path, string configuration, MsBuildToolchain toolchain, Action<string> log, bool restore)
         {
             MsBuildLocation location = FindMSBuild(toolchain);
 
@@ -83,10 +107,69 @@ namespace RPA.VsProject
                 return result;
             }
 
+            if (restore)
+            {
+                result.RestoreAttempted = true;
+
+                if (!Execute(location, RestoreArguments(path, configuration), result, out string restoreOutput, out int restoreExitCode))
+                {
+                    return result;
+                }
+
+                result.RestoreOutput = restoreOutput;
+                result.RestoreSucceeded = restoreExitCode == 0;
+
+                if (log != null)
+                {
+                    log("restore: " + (result.RestoreSucceeded ? "ok" : "failed"));
+                }
+
+                if (!result.RestoreSucceeded)
+                {
+                    result.ExitCode = restoreExitCode;
+                    result.Output = restoreOutput;
+                    ExtractErrors(result);
+                    LogOutput(result, log);
+                    return result;
+                }
+            }
+
+            if (!Execute(location, BuildArguments(path, configuration), result, out string stdout, out int exitCode))
+            {
+                return result;
+            }
+
+            result.ExitCode = exitCode;
+            result.Output = stdout;
+            result.Success = result.ExitCode == 0;
+            ExtractErrors(result);
+            LogOutput(result, log);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Gives the child MSBuild process a resolvable .NET SDK, otherwise SDK-style projects fail with
+        /// MSB4236 ("SDK Microsoft.NET.Sdk.WindowsDesktop could not be found") when the SDK is not on PATH.
+        /// </summary>
+        private static void ApplyEnvironmentOverrides(ProcessStartInfo psi, MsBuildLocation location)
+        {
+            foreach (KeyValuePair<string, string> pair in MsBuildLocator.GetEnvironmentOverrides(location))
+            {
+                psi.EnvironmentVariables[pair.Key] = pair.Value;
+            }
+        }
+
+        /// <summary>Runs one MSBuild.exe invocation; returns false when the process could not be started.</summary>
+        private static bool Execute(MsBuildLocation location, string arguments, VsBuildResult result, out string output, out int exitCode)
+        {
+            output = null;
+            exitCode = -1;
+
             ProcessStartInfo psi = new ProcessStartInfo
             {
                 FileName = location.Path,
-                Arguments = BuildArguments(path, configuration),
+                Arguments = arguments,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -106,39 +189,28 @@ namespace RPA.VsProject
                 string stderr = stderrTask.Result;
                 process.WaitForExit();
 
-                result.ExitCode = process.ExitCode;
-                result.Output = stdout + stderr;
+                exitCode = process.ExitCode;
+                output = stdout + stderr;
+                return true;
             }
             catch (Exception ex)
             {
                 result.ExitCode = -1;
                 result.Errors.Add("Failed to start MSBuild: " + ErrorText.Of(ex));
-                return result;
+                return false;
             }
-
-            result.Success = result.ExitCode == 0;
-            ExtractErrors(result);
-
-            if (log != null && !string.IsNullOrWhiteSpace(result.Output))
-            {
-                foreach (string line in result.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
-                {
-                    log(line);
-                }
-            }
-
-            return result;
         }
 
-        /// <summary>
-        /// Gives the child MSBuild process a resolvable .NET SDK, otherwise SDK-style projects fail with
-        /// MSB4236 ("SDK Microsoft.NET.Sdk.WindowsDesktop could not be found") when the SDK is not on PATH.
-        /// </summary>
-        private static void ApplyEnvironmentOverrides(ProcessStartInfo psi, MsBuildLocation location)
+        private static void LogOutput(VsBuildResult result, Action<string> log)
         {
-            foreach (KeyValuePair<string, string> pair in MsBuildLocator.GetEnvironmentOverrides(location))
+            if (log == null || string.IsNullOrWhiteSpace(result.Output))
             {
-                psi.EnvironmentVariables[pair.Key] = pair.Value;
+                return;
+            }
+
+            foreach (string line in result.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                log(line);
             }
         }
 

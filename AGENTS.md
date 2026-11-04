@@ -20,6 +20,14 @@
 - Целевая платформа: .NET Framework 4.8, WPF-приложение (`OutputType=WinExe`),
   `RootNamespace`/`AssemblyName` = `RPA`.
 - UI-стек: WPF + MahApps.Metro (`MetroWindow`), AvalonDock (докинг-панели),
+- Целевые платформы (правило, `CP-10`): **студия — .NET Framework 4.8**, а **всё, что попадает к роботу, — 4.7.2**
+  (`net472`). Новый проект, на который может ссылаться робот, обязан целиться в `net472`/`netstandard2.0`;
+  исключение допустимо только с записью в белом списке `AiRpaStudio.Tests\TfmMatrixGuardTests.cs` (ID задачи + причина).
+  Генерируемые студией роботы и библиотеки активностей по умолчанию создаются на **4.7.2**
+  (`Consts.defaultTargetFrameworkVersion`), шаблон VS подставляет TFM через `$targetframeworkversion$`.
+- Сборка: `MSBuild` из **VS 2026** (MSBuild 18) собирает решение полностью. Из VS 2022 полная сборка пока
+  недостижима (`TD-14`: `AvalonEdit\global.json` пиннит .NET SDK) — приёмка идёт по затронутым проектам.
+
   AvalonEdit (редактор кода), Material.Icons.WPF, LogControlLibrary (просмотр логов).
 - Дизайнер рабочих процессов: `System.Activities.Presentation.WorkflowDesigner`
   (Windows Workflow Foundation).
