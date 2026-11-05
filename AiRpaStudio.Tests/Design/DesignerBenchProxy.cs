@@ -5,6 +5,8 @@ using System.Windows;
 using System.Linq;
 using RPA.Core.Generation;
 using RPA.Helpers;
+using RPA.Chat.Services.Workflow;
+using RPA.Core.Workflow;
 using System.Activities.Presentation.Model;
 using System.Activities.Presentation.Services;
 using AiRpaStudio.Tests.Generation;
@@ -341,6 +343,813 @@ public sealed class DesignerBenchProxy : MarshalByRefObject
         return count;
     }
 
+    /// <summary>
+    /// Сценарий моста правок (карточка <c>AG-02</c>) на живом конструкторе: пачка вставок, <c>complete</c>,
+    /// <c>undo</c>/<c>redo</c>, откат пачки при ошибке, удаление и перенос, структура несохранённого документа.
+    /// <para>
+    /// Без живого дизайнера это не проверить: <c>ModelEditingScope</c>, история отмены и
+    /// <c>ModelService</c> существуют только внутри загруженной вкладки.
+    /// </para>
+    /// </summary>
+    public DesignerBenchEditReport WorkflowEditScenario(string xamlPath, string unopenedPath)
+    {
+        DesignerTestHost host = DesignerTestHost.Shared;
+
+        return host.Invoke(() =>
+        {
+            var designerHost = new BenchDesignerHost();
+            var report = new DesignerBenchEditReport { FilePath = xamlPath, UnopenedPath = unopenedPath };
+
+            try
+            {
+                var service = new StudioWorkflowEditingService(
+                    designerHost,
+                    designer => new DispatcherDesignerUiThread(host.Dispatcher));
+
+                report.OpenBeforeAnyTab = service.IsOpenInDesigner(xamlPath);
+
+                DesignerTab tab = designerHost.Open(xamlPath);
+                designerHost.Activate(tab);
+                host.Pump(TimeSpan.FromMilliseconds(200));
+
+                report.OpenInDesigner = service.IsOpenInDesigner(xamlPath);
+                report.ActivityCountBefore = CountActivities(service, xamlPath);
+
+                using (IWorkflowEditSession session = service.BeginEdit(xamlPath, "правка теста"))
+                {
+                    report.SessionActive = session.IsActive;
+                    report.InactiveReason = (session as UnavailableWorkflowEditSession)?.Reason;
+
+                    var start = session.Insert(new WorkflowInsertRequest { ActivityType = "WriteLine", Index = 0 });
+                    report.InsertStartOk = start.Ok;
+                    report.InsertStartId = start.NewElementId;
+                    report.InsertStartErrors = IssueTexts(start);
+
+                    var middle = session.Insert(new WorkflowInsertRequest { ActivityType = "WriteLine", Index = 1 });
+                    report.InsertMiddleOk = middle.Ok;
+                    report.InsertMiddleId = middle.NewElementId;
+
+                    var end = session.Insert(new WorkflowInsertRequest { ActivityType = "WriteLine" });
+                    report.InsertEndOk = end.Ok;
+                    report.InsertEndId = end.NewElementId;
+
+                    report.BatchActiveDuringEdits = session.IsActive;
+                    report.ActivityCountDuringBatch = CountActivities(service, xamlPath);
+                    report.OrderDuringBatch = OrderOf(service, xamlPath);
+
+                    var complete = session.Complete();
+                    report.CompleteOk = complete.Ok;
+                    report.SessionActiveAfterComplete = complete.SessionActive;
+                    report.CanUndoAfterComplete = complete.CanUndo;
+                    report.ActivityCountAfterComplete = complete.Outline?.ActivityCount ?? -1;
+                }
+
+                // Структура несохранённого документа: правки живут в модели, файл на диске не менялся.
+                report.LiveOutlineBeforeSave = CountActivities(service, xamlPath);
+
+                var undo = service.Undo(xamlPath);
+                report.UndoOk = undo.Ok;
+                report.CanRedoAfterUndo = undo.CanRedo;
+                host.Pump(TimeSpan.FromMilliseconds(100));
+                report.ActivityCountAfterUndo = CountActivities(service, xamlPath);
+
+                var redo = service.Redo(xamlPath);
+                report.RedoOk = redo.Ok;
+                host.Pump(TimeSpan.FromMilliseconds(100));
+                report.ActivityCountAfterRedo = CountActivities(service, xamlPath);
+
+                // Откат пачки: каждая правка — своя запись истории, поэтому revert отменяет их все.
+                report.ActivityCountBeforeRevert = CountActivities(service, xamlPath);
+
+                using (IWorkflowEditSession session = service.BeginEdit(xamlPath, "пачка на откат"))
+                {
+                    bool firstRevertInsert = session.Insert(new WorkflowInsertRequest { ActivityType = "WriteLine", Index = 0 }).Ok;
+                    bool secondRevertInsert = session.Insert(new WorkflowInsertRequest { ActivityType = "WriteLine", Index = 0 }).Ok;
+                    report.RevertInsertOk = firstRevertInsert && secondRevertInsert;
+                    report.ActivityCountDuringRevertBatch = CountActivities(service, xamlPath);
+
+                    var revert = session.Revert();
+                    report.RevertOk = revert.Ok;
+                    report.RevertSessionActive = revert.SessionActive;
+                    report.RevertErrors = IssueTexts(revert);
+                }
+
+                report.ActivityCountAfterRevert = CountActivities(service, xamlPath);
+
+                // Ошибка в пачке откатывает всю пачку: «половины правок» на диаграмме не остаётся.
+                report.ActivityCountBeforeFailure = CountActivities(service, xamlPath);
+
+                using (IWorkflowEditSession session = service.BeginEdit(xamlPath, "пачка с ошибкой"))
+                {
+                    var failed = session.Insert(new WorkflowInsertRequest
+                    {
+                        ActivityType = "WriteLine",
+                        ParentId = "root/NoSuchElement"
+                    });
+
+                    report.FailedInsertOk = failed.Ok;
+                    report.FailedInsertErrors = IssueTexts(failed);
+                    report.SessionActiveAfterFailure = session.IsActive;
+                }
+
+                report.ActivityCountAfterFailure = CountActivities(service, xamlPath);
+
+                using (IWorkflowEditSession session = service.BeginEdit(xamlPath, "удаление и перенос"))
+                {
+                    WorkflowOutline outline = session.Outline();
+                    string firstId = outline?.Root?.Children.FirstOrDefault()?.Id;
+                    report.DeletedId = firstId;
+
+                    var delete = session.Delete(firstId);
+                    report.DeleteOk = delete.Ok;
+                    report.DeleteErrors = IssueTexts(delete);
+                    report.ActivityCountAfterDelete = CountActivities(service, xamlPath);
+
+                    WorkflowOutline afterDelete = session.Outline();
+                    string moveId = afterDelete?.Root?.Children.LastOrDefault()?.Id;
+                    report.MovedId = moveId;
+                    report.OrderBeforeMove = OrderOf(service, xamlPath);
+
+                    var move = session.Move(new WorkflowMoveRequest { ElementId = moveId, ParentId = "root", Index = 0 });
+                    report.MoveOk = move.Ok;
+                    report.MoveNewId = move.NewElementId;
+                    report.MoveErrors = IssueTexts(move);
+                    report.OrderAfterMove = OrderOf(service, xamlPath);
+
+                    var missing = session.Delete("root/Activities[99]");
+                    report.DeleteMissingOk = missing.Ok;
+
+                    var complete = session.Complete();
+                    report.SecondBatchCompleteOk = complete.Ok;
+                    report.ActivityCountAfterSecondBatch = complete.Outline?.ActivityCount ?? -1;
+                }
+
+                // Файл, не открытый вкладкой: структурированный отказ, а не исключение.
+                using (IWorkflowEditSession session = service.BeginEdit(unopenedPath, "не открыт"))
+                {
+                    report.NotOpenSessionActive = session.IsActive;
+                    report.NotOpenReason = (session as UnavailableWorkflowEditSession)?.Reason;
+
+                    var insert = session.Insert(new WorkflowInsertRequest { ActivityType = "WriteLine" });
+                    report.NotOpenInsertOk = insert.Ok;
+                    report.NotOpenInsertErrors = IssueTexts(insert);
+                }
+
+                // AG-06: валидация несохранённого документа — тем же путём, что у workflow_validate в студии:
+                // служба структуры читает живую модель через LiveOutlineSource, как MainView в студии.
+                // Ошибку даёт активность без обязательного аргумента — Assign без To.
+                using (IWorkflowEditSession session = service.BeginEdit(xamlPath, "валидация"))
+                {
+                    // Тип уточнён явно: в этом файле уже есть RPA.Core.Generation.WorkflowEditResult
+                    // (результат правки через палитру), имена совпадают.
+                    RPA.Chat.Services.Workflow.WorkflowEditResult invalid =
+                        session.Insert(new WorkflowInsertRequest { ActivityType = "Assign", Index = 0 });
+                    report.ValidateInsertOk = invalid.Ok;
+                    report.ValidateInsertId = invalid.NewElementId;
+                    report.ValidateInsertCompleteOk = session.Complete().Ok;
+                }
+
+                StudioWorkflowOutlineService.LiveOutlineSource =
+                    (path, depth, includeArguments) => service.GetLiveOutline(path, depth, includeArguments);
+
+                try
+                {
+                    report.ValidateUndoDepthBefore = UndoDepthOf(designerHost);
+
+                    WorkflowOutline live = StudioWorkflowOutlineService.Default.GetOutline(xamlPath);
+
+                    // Полное имя намеренно: в этом файле есть ещё RPA.Core.Generation.WorkflowValidationReport
+                    // (отчёт гейта валидного XAML) — это разные сущности с разным назначением.
+                    var validate = RPA.Chat.Services.Workflow.WorkflowValidationReport.FromOutline(live);
+
+                    report.ValidateUndoDepthAfter = UndoDepthOf(designerHost);
+                    report.ValidateAvailable = validate.Available;
+                    report.ValidateSource = validate.SourceName;
+                    report.ValidateErrors = validate.Errors;
+                    report.ValidateAddresses = validate.Issues.Select(issue => issue.ElementId).ToList();
+                    report.ValidateText = WorkflowValidationText.Describe(validate);
+                }
+                finally
+                {
+                    StudioWorkflowOutlineService.LiveOutlineSource = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                report.Errors.Add(ErrorText.Describe("сценарий правок не выполнен", ex));
+            }
+            finally
+            {
+                // Уборка: закрываем вкладки стенда, иначе фоновая валидация продолжает тикать
+                // на диспетчере стенда и при выгрузке домена показывает модальное окно.
+                foreach (DesignerTab tab in designerHost.GetOpenTabs())
+                {
+                    designerHost.Close(tab);
+                }
+            }
+
+            report.Ok = report.Errors.Count == 0
+                        && !report.OpenBeforeAnyTab
+                        && report.OpenInDesigner
+                        && report.SessionActive
+                        && report.InsertStartOk
+                        && report.InsertMiddleOk
+                        && report.InsertEndOk
+                        && report.ActivityCountDuringBatch == report.ActivityCountBefore + 3
+                        && report.CompleteOk
+                        && !report.SessionActiveAfterComplete
+                        && report.CanUndoAfterComplete
+                        && report.ActivityCountAfterComplete == report.ActivityCountBefore + 3
+                        && report.LiveOutlineBeforeSave == report.ActivityCountBefore + 3
+                        && report.UndoOk
+                        && report.ActivityCountAfterUndo == report.ActivityCountBefore + 2
+                        && report.RedoOk
+                        && report.ActivityCountAfterRedo == report.ActivityCountBefore + 3
+                        && report.RevertInsertOk
+                        && report.ActivityCountDuringRevertBatch == report.ActivityCountBefore + 5
+                        && report.RevertOk
+                        && !report.RevertSessionActive
+                        && report.ActivityCountAfterRevert == report.ActivityCountBefore + 3
+                        && !report.FailedInsertOk
+                        && report.ActivityCountAfterFailure == report.ActivityCountBefore + 3
+                        && report.DeleteOk
+                        && report.MoveOk
+                        && !report.DeleteMissingOk
+                        && report.SecondBatchCompleteOk
+                        && !report.NotOpenSessionActive
+                        && !report.NotOpenInsertOk
+                        && report.ValidateInsertOk
+                        && report.ValidateAvailable
+                        && report.ValidateErrors > 0
+                        && report.ValidateUndoDepthBefore == report.ValidateUndoDepthAfter;
+
+            return report;
+        });
+    }
+
+    /// <summary>
+    /// Глубина истории отмены вкладки: сколько правок лежит в стеке <c>UndoEngine</c>. Нужна, чтобы
+    /// доказать, что чтение структуры и валидация не оставляют в модели ни одной правки.
+    /// </summary>
+    private static int UndoDepthOf(BenchDesignerHost host)
+    {
+        try
+        {
+            RPA.Core.WorkflowDesignerEx designer = host?.ActiveTab?.Designer;
+            var engine = designer?.Context?.Services
+                .GetService(typeof(System.Activities.Presentation.UndoEngine))
+                as System.Activities.Presentation.UndoEngine;
+
+            var actions = engine?.GetUndoActions();
+
+            return actions == null ? -1 : actions.Count();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("Глубина истории отмены не прочитана: " + ErrorText.Of(ex));
+            return -1;
+        }
+    }
+
+    /// <summary>
+    /// Сценарий обёртки активности (карточка <c>AG-04</c>) на живом конструкторе: обёртка занимает место
+    /// элемента, элемент становится её первым ребёнком, адреса совпадают с outline, неоднозначный и
+    /// несуществующий запросы отклоняются, <c>undo</c> возвращает структуру.
+    /// <para>
+    /// Без живого конструктора это не проверить: перестановка узлов идёт через <c>ModelItem</c>, а
+    /// «обёртка внутри обёртки» ломается именно на пересоздании узлов, а не на фейковой модели.
+    /// </para>
+    /// </summary>
+    public DesignerBenchWrapReport WorkflowWrapScenario(string xamlPath)
+    {
+        DesignerTestHost host = DesignerTestHost.Shared;
+
+        return host.Invoke(() =>
+        {
+            var designerHost = new BenchDesignerHost();
+            var report = new DesignerBenchWrapReport { FilePath = xamlPath };
+
+            try
+            {
+                var service = new StudioWorkflowEditingService(
+                    designerHost,
+                    designer => new DispatcherDesignerUiThread(host.Dispatcher));
+
+                DesignerTab tab = designerHost.Open(xamlPath);
+                designerHost.Activate(tab);
+                host.Pump(TimeSpan.FromMilliseconds(200));
+
+                report.OpenInDesigner = service.IsOpenInDesigner(xamlPath);
+                report.ActivityCountBefore = CountActivities(service, xamlPath);
+
+                using (IWorkflowEditSession session = service.BeginEdit(xamlPath, "обёртка теста"))
+                {
+                    report.SessionActive = session.IsActive;
+                    report.InactiveReason = (session as UnavailableWorkflowEditSession)?.Reason;
+
+                    var sequenceWrap = session.Wrap(new WorkflowWrapRequest
+                    {
+                        ElementId = "root/Activities[0]",
+                        WrapperType = "Sequence",
+                        DisplayName = "guarded"
+                    });
+
+                    report.WrapInSequenceOk = sequenceWrap.Ok;
+                    // NewElementId — адрес обёрнутой активности (по нему агент работает дальше),
+                    // адрес самой обёртки — первый в списке адресов.
+                    report.WrapInSequenceWrapperId = sequenceWrap.NewElementId;
+                    report.WrapInSequenceWrapperAddress = sequenceWrap.Addresses.FirstOrDefault();
+                    report.WrapInSequenceErrors = IssueTexts(sequenceWrap);
+                    report.ActivityCountAfterSequenceWrap = CountActivities(service, xamlPath);
+                    report.OrderAfterSequenceWrap = OrderOf(service, xamlPath);
+                    report.FirstChildOfWrapper = ChildrenOf(service, xamlPath, "root/Activities[0]");
+
+                    // У If несколько контейнеров: без container выбор не угадывается.
+                    var ambiguous = session.Wrap(new WorkflowWrapRequest
+                    {
+                        ElementId = "root/Activities[1]",
+                        WrapperType = "If"
+                    });
+
+                    report.WrapWithoutContainerOk = ambiguous.Ok;
+                    report.WrapWithoutContainerErrors = IssueTexts(ambiguous);
+
+                    var ifWrap = session.Wrap(new WorkflowWrapRequest
+                    {
+                        ElementId = "root/Activities[1]",
+                        WrapperType = "If",
+                        Container = "Then"
+                    });
+
+                    report.WrapInIfThenOk = ifWrap.Ok;
+                    report.WrapInIfWrapperId = ifWrap.NewElementId;
+                    report.WrapInIfWrapperAddress = ifWrap.Addresses.FirstOrDefault();
+                    report.WrapInIfThenErrors = IssueTexts(ifWrap);
+                    report.OrderAfterIfWrap = OrderOf(service, xamlPath);
+                    report.ThenChild = ChildrenOf(service, xamlPath, "root/Activities[1]");
+
+                    var unknown = session.Wrap(new WorkflowWrapRequest
+                    {
+                        ElementId = "root/Activities[0]",
+                        WrapperType = "NoSuchActivity"
+                    });
+
+                    report.WrapUnknownTypeOk = unknown.Ok;
+                    report.WrapUnknownTypeErrors = IssueTexts(unknown);
+
+                    var complete = session.Complete();
+                    report.CompleteOk = complete.Ok;
+                    report.ActivityCountAfterComplete = complete.Outline?.ActivityCount ?? -1;
+                }
+
+                var undo = service.Undo(xamlPath);
+                report.UndoOk = undo.Ok;
+                host.Pump(TimeSpan.FromMilliseconds(100));
+                report.ActivityCountAfterUndo = CountActivities(service, xamlPath);
+                report.OrderAfterUndo = OrderOf(service, xamlPath);
+            }
+            catch (Exception ex)
+            {
+                report.Errors.Add(ErrorText.Describe("сценарий обёртки не выполнен", ex));
+            }
+            finally
+            {
+                // Уборка: закрываем вкладки стенда, иначе фоновая валидация продолжает тикать
+                // на диспетчере стенда и при выгрузке домена показывает модальное окно.
+                foreach (DesignerTab tab in designerHost.GetOpenTabs())
+                {
+                    designerHost.Close(tab);
+                }
+            }
+
+            report.Ok = report.Errors.Count == 0
+                        && report.OpenInDesigner
+                        && report.SessionActive
+                        && report.WrapInSequenceOk
+                        && report.ActivityCountAfterSequenceWrap == report.ActivityCountBefore + 1
+                        && report.WrapWithoutContainerOk == false
+                        && report.WrapInIfThenOk
+                        && report.WrapInIfWrapperId == "root/Activities[1]"
+                        && report.WrapUnknownTypeOk == false
+                        && report.CompleteOk
+                        && report.ActivityCountAfterComplete == report.ActivityCountBefore + 2
+                        && report.UndoOk
+                        && report.ActivityCountAfterUndo == report.ActivityCountBefore + 1;
+
+            return report;
+        });
+    }
+
+    /// <summary>
+    /// Сценарий аргументов и переменных (карточка <c>AG-05</c>) на живом конструкторе: тип аргумента,
+    /// литерал и выражение, отказы на неизвестном аргументе, битом выражении и неверном типе значения,
+    /// объявление и удаление переменной.
+    /// <para>
+    /// Только живая модель показывает то, что важно здесь: <c>InArgument&lt;T&gt;</c> с
+    /// <c>CSharpValue&lt;T&gt;</c> принимается конструктором, тип аргумента берётся из реального
+    /// дескриптора, а переменная сразу появляется в коллекции <c>Variables</c> активности.
+    /// </para>
+    /// </summary>
+    public DesignerBenchArgumentReport WorkflowArgumentScenario(string xamlPath)
+    {
+        DesignerTestHost host = DesignerTestHost.Shared;
+
+        return host.Invoke(() =>
+        {
+            var designerHost = new BenchDesignerHost();
+            var report = new DesignerBenchArgumentReport { FilePath = xamlPath };
+
+            try
+            {
+                var service = new StudioWorkflowEditingService(
+                    designerHost,
+                    designer => new DispatcherDesignerUiThread(host.Dispatcher));
+
+                DesignerTab tab = designerHost.Open(xamlPath);
+                designerHost.Activate(tab);
+                host.Pump(TimeSpan.FromMilliseconds(200));
+
+                report.OpenInDesigner = service.IsOpenInDesigner(xamlPath);
+
+                using (IWorkflowEditSession session = service.BeginEdit(xamlPath, "аргументы теста"))
+                {
+                    report.SessionActive = session.IsActive;
+                    report.InactiveReason = (session as UnavailableWorkflowEditSession)?.Reason;
+
+                    // Литерал в WriteLine.Text: значение видно в структуре живой модели.
+                    var literal = session.SetArgument(new WorkflowArgumentSetRequest
+                    {
+                        ElementId = "root/Activities[0]",
+                        Argument = "Text"
+                    }.SetValue("hello from the agent"));
+
+                    report.LiteralOk = literal.Ok;
+                    report.LiteralMessage = literal.Message;
+                    report.LiteralErrors = IssueTexts(literal);
+                    report.TextAfterLiteral = ArgumentOf(service, xamlPath, "root/Activities[0]", "Text");
+
+                    // Выражение: CSharpValue<string> конструктор принимает так же, как палитра.
+                    var expression = session.SetArgument(new WorkflowArgumentSetRequest
+                    {
+                        ElementId = "root/Activities[0]",
+                        Argument = "Text",
+                        Expression = "\"a\" + \"b\""
+                    });
+
+                    report.ExpressionOk = expression.Ok;
+                    report.ExpressionMessage = expression.Message;
+                    report.ExpressionErrors = IssueTexts(expression);
+                    report.TextAfterExpression = ArgumentOf(service, xamlPath, "root/Activities[0]", "Text");
+
+                    // Неизвестный аргумент — отказ: имена даёт activity_describe.
+                    var unknown = session.SetArgument(new WorkflowArgumentSetRequest
+                    {
+                        ElementId = "root/Activities[0]",
+                        Argument = "NoSuchArgument"
+                    }.SetValue("x"));
+
+                    report.UnknownArgumentOk = unknown.Ok;
+                    report.UnknownArgumentErrors = IssueTexts(unknown);
+
+                    // Литерал и выражение одновременно — ошибка запроса, а не «последнее выиграло».
+                    var bothResult = session.SetArgument(new WorkflowArgumentSetRequest
+                    {
+                        ElementId = "root/Activities[0]",
+                        Argument = "Text",
+                        Expression = "1"
+                    }.SetValue("x"));
+
+                    report.BothOk = bothResult.Ok;
+                    report.BothErrors = IssueTexts(bothResult);
+
+                    // Битое выражение ловится до правки модели.
+                    var broken = session.SetArgument(new WorkflowArgumentSetRequest
+                    {
+                        ElementId = "root/Activities[0]",
+                        Argument = "Text",
+                        Expression = "if"
+                    });
+
+                    report.BrokenExpressionOk = broken.Ok;
+                    report.BrokenExpressionErrors = IssueTexts(broken);
+
+                    // Переменная в корне процесса: тип Int32 и значение по умолчанию 0.
+                    var variable = session.AddVariable(new WorkflowVariableAddRequest
+                    {
+                        ElementId = "root",
+                        Name = "counter",
+                        TypeName = "Int32"
+                    }.SetValue("0"));
+
+                    report.VariableAddOk = variable.Ok;
+                    report.VariableAddMessage = variable.Message;
+                    report.VariableAddErrors = IssueTexts(variable);
+                    report.VariablesAfterAdd = VariablesOf(service, xamlPath, "root");
+
+                    var duplicate = session.AddVariable(new WorkflowVariableAddRequest
+                    {
+                        ElementId = "root",
+                        Name = "counter",
+                        TypeName = "Int32"
+                    });
+
+                    report.DuplicateVariableOk = duplicate.Ok;
+                    report.DuplicateVariableErrors = IssueTexts(duplicate);
+
+                    var badType = session.AddVariable(new WorkflowVariableAddRequest
+                    {
+                        ElementId = "root",
+                        Name = "amount",
+                        TypeName = "Money"
+                    });
+
+                    report.UnknownTypeOk = badType.Ok;
+                    report.UnknownTypeErrors = IssueTexts(badType);
+
+                    var badValue = session.AddVariable(new WorkflowVariableAddRequest
+                    {
+                        ElementId = "root",
+                        Name = "amount",
+                        TypeName = "Int32"
+                    }.SetValue("не число"));
+
+                    report.BadValueOk = badValue.Ok;
+                    report.BadValueErrors = IssueTexts(badValue);
+
+                    // У активности без коллекции Variables объявлять переменную негде.
+                    var noVariables = session.AddVariable(new WorkflowVariableAddRequest
+                    {
+                        ElementId = "root/Activities[0]",
+                        Name = "innerCounter",
+                        TypeName = "Int32"
+                    });
+
+                    report.NoVariablesOk = noVariables.Ok;
+                    report.NoVariablesErrors = IssueTexts(noVariables);
+
+                    var remove = session.RemoveVariable(new WorkflowVariableRemoveRequest
+                    {
+                        ElementId = "root",
+                        Name = "counter"
+                    });
+
+                    report.VariableRemoveOk = remove.Ok;
+                    report.VariableRemoveErrors = IssueTexts(remove);
+                    report.VariablesAfterRemove = VariablesOf(service, xamlPath, "root");
+
+                    var removeMissing = session.RemoveVariable(new WorkflowVariableRemoveRequest
+                    {
+                        ElementId = "root",
+                        Name = "counter"
+                    });
+
+                    report.RemoveMissingOk = removeMissing.Ok;
+                    report.RemoveMissingErrors = IssueTexts(removeMissing);
+
+                    var complete = session.Complete();
+                    report.CompleteOk = complete.Ok;
+                }
+
+                var undo = service.Undo(xamlPath);
+                report.UndoOk = undo.Ok;
+                report.TextAfterUndo = ArgumentOf(service, xamlPath, "root/Activities[0]", "Text");
+            }
+            catch (Exception ex)
+            {
+                report.Errors.Add(ErrorText.Describe("сценарий аргументов не выполнен", ex));
+            }
+            finally
+            {
+                // Уборка: закрываем вкладки стенда, иначе фоновая валидация продолжает тикать
+                // на диспетчере стенда и при выгрузке домена показывает модальное окно.
+                foreach (DesignerTab tab in designerHost.GetOpenTabs())
+                {
+                    designerHost.Close(tab);
+                }
+            }
+
+            report.Ok = report.Errors.Count == 0
+                        && report.OpenInDesigner
+                        && report.SessionActive
+                        && report.LiteralOk
+                        && report.TextAfterLiteral != null
+                        && report.TextAfterLiteral.Contains("hello from the agent")
+                        && report.ExpressionOk
+                        && report.TextAfterExpression != null
+                        && report.TextAfterExpression.Contains("a")
+                        && !report.UnknownArgumentOk
+                        && !report.BothOk
+                        && !report.BrokenExpressionOk
+                        && report.VariableAddOk
+                        && report.VariablesAfterAdd.Contains("counter")
+                        && !report.DuplicateVariableOk
+                        && !report.UnknownTypeOk
+                        && !report.BadValueOk
+                        && !report.NoVariablesOk
+                        && report.VariableRemoveOk
+                        && !report.VariablesAfterRemove.Contains("counter")
+                        && !report.RemoveMissingOk
+                        && report.CompleteOk
+                        && report.UndoOk;
+
+            return report;
+        });
+    }
+
+    /// <summary>Значение аргумента в живой структуре процесса (по адресу и имени аргумента).</summary>
+    private static string ArgumentOf(IWorkflowEditingService service, string path, string elementId, string argument)
+    {
+        WorkflowOutline outline = service.GetLiveOutline(path);
+        WorkflowOutlineNode node = outline?.Find(elementId);
+
+        if (node == null)
+        {
+            return null;
+        }
+
+        foreach (WorkflowOutlineArgument item in node.Arguments)
+        {
+            if (string.Equals(item.Name, argument, StringComparison.OrdinalIgnoreCase))
+            {
+                return item.Expression;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Имена переменных, объявленных в активности (по адресу).</summary>
+    private static List<string> VariablesOf(IWorkflowEditingService service, string path, string elementId)
+    {
+        var names = new List<string>();
+        WorkflowOutline outline = service.GetLiveOutline(path);
+        WorkflowOutlineNode node = outline?.Find(elementId);
+
+        if (node == null)
+        {
+            return names;
+        }
+
+        foreach (WorkflowOutlineVariable variable in node.Variables)
+        {
+            names.Add(variable.Name);
+        }
+
+        return names;
+    }
+
+    /// <summary>Активностей в живой модели открытой вкладки (-1 — структура не прочитана).</summary>
+    private static int CountActivities(IWorkflowEditingService service, string path)
+    {
+        WorkflowOutline outline = service.GetLiveOutline(path);
+        return outline?.ActivityCount ?? -1;
+    }
+
+    /// <summary>Порядок детей корня: тип и подпись — так видно и вставку, и перенос.</summary>
+    private static string OrderOf(IWorkflowEditingService service, string path)
+    {
+        WorkflowOutline outline = service.GetLiveOutline(path);
+
+        if (outline?.Root == null)
+        {
+            return string.Empty;
+        }
+
+        return string.Join(
+            " | ",
+            outline.Root.Children.Select(child => child.ShortTypeName + ":" + child.DisplayName));
+    }
+
+    /// <summary>Дети узла по его адресу: «тип:подпись | …» — так видно и обёртку, и вложенный элемент.</summary>
+    private static string ChildrenOf(IWorkflowEditingService service, string path, string nodeId)
+    {
+        WorkflowOutline outline = service.GetLiveOutline(path);
+
+        if (outline?.Root == null)
+        {
+            return string.Empty;
+        }
+
+        WorkflowOutlineNode node = outline.All().FirstOrDefault(item =>
+            string.Equals(item.Id, nodeId, StringComparison.OrdinalIgnoreCase));
+
+        if (node == null)
+        {
+            return "(нет узла " + nodeId + ")";
+        }
+
+        return string.Join(
+            " | ",
+            node.Children.Select(child => child.ShortTypeName + ":" + child.DisplayName));
+    }
+
+    /// <summary>Замечания правки в виде строк — отчёт обязан быть сериализуемым.</summary>
+    private static List<string> IssueTexts(RPA.Chat.Services.Workflow.WorkflowEditResult result)
+    {
+        return result == null
+            ? new List<string>()
+            : result.Issues.Select(issue => issue.ToString()).ToList();
+    }
+
+    /// <summary>
+    /// Сценарий «текстовая правка XAML» (карточка <c>AG-07</c>) на живом конструкторе: инструмент
+    /// <c>editor</c> обязан отказать файлу, открытому вкладкой конструктора, и нормализовать +
+    /// провалидировать файл, который в конструкторе не открыт. Гейт валидации — настоящий студийный,
+    /// а не null-object: иначе тест доказывал бы работу заглушки.
+    /// </summary>
+    public AiRpaStudio.Tests.Workflow.DesignerBenchXamlReport WorkflowXamlScenario(string openPath, string unopenedPath)
+    {
+        DesignerTestHost host = DesignerTestHost.Shared;
+
+        return host.Invoke(() =>
+        {
+            var designerHost = new BenchDesignerHost();
+            var report = new AiRpaStudio.Tests.Workflow.DesignerBenchXamlReport { OpenPath = openPath, UnopenedPath = unopenedPath };
+
+            try
+            {
+                var editing = new StudioWorkflowEditingService(
+                    designerHost,
+                    designer => new DispatcherDesignerUiThread(host.Dispatcher));
+
+                RPA.Chat.Services.ChatEnvironment.WorkflowEditing = editing;
+                RPA.Chat.Services.ChatEnvironment.WorkflowXamlGate = StudioWorkflowXamlGate.Default;
+
+                DesignerTab tab = designerHost.Open(openPath);
+                designerHost.Activate(tab);
+                host.Pump(TimeSpan.FromMilliseconds(200));
+
+                report.OpenInDesigner = editing.IsOpenInDesigner(openPath);
+
+                var factory = new RPA.Chat.Services.AgentTools.AgentToolFactory(
+                    new Agent.Core.Services.StubAiProvider(),
+                    () => System.IO.Path.GetDirectoryName(openPath),
+                    RPA.Chat.Services.NullStudioDocumentService.Instance,
+                    new SilentWorkflowXamlBuildFeedback(),
+                    (question, options, ct) => System.Threading.Tasks.Task.FromResult("answer"),
+                    (systemPrompt, task, ct) => System.Threading.Tasks.Task.FromResult("result"),
+                    enableSubagents: false,
+                    subagentMaxDepth: 2);
+
+                Agent.Core.AgentTools.AgentToolRegistry registry = factory.CreateRegistry();
+
+                // 1. Файл открыт конструктором: текстовая запись отклоняется, файл на диске не меняется.
+                string before = System.IO.File.ReadAllText(openPath);
+                report.RefusedMessage = RunWorkflowXamlTool(registry, "editor", new Newtonsoft.Json.Linq.JObject
+                {
+                    ["path"] = openPath,
+                    ["content"] = before
+                });
+                report.OpenFileUnchanged = string.Equals(System.IO.File.ReadAllText(openPath), before, StringComparison.Ordinal);
+
+                // 2. Файл не открыт: запись проходит, нормализация и живая валидация видны в ответе.
+                string unopened = System.IO.File.ReadAllText(unopenedPath);
+                report.WriteMessage = RunWorkflowXamlTool(registry, "editor", new Newtonsoft.Json.Linq.JObject
+                {
+                    ["path"] = unopenedPath,
+                    ["content"] = unopened
+                });
+                report.WrittenXaml = System.IO.File.ReadAllText(unopenedPath);
+            }
+            catch (Exception ex)
+            {
+                report.Errors.Add(ex.ToString());
+            }
+
+            report.Ok = report.Errors.Count == 0;
+            return report;
+        });
+    }
+
+    private static string RunWorkflowXamlTool(
+        Agent.Core.AgentTools.AgentToolRegistry registry,
+        string name,
+        Newtonsoft.Json.Linq.JObject arguments)
+    {
+        Agent.Core.AgentTools.IAgentTool tool = registry.Find(name);
+        if (tool == null)
+        {
+            return "(no tool " + name + ")";
+        }
+
+        return tool.ExecuteAsync(arguments, CancellationToken.None).GetAwaiter().GetResult();
+    }
+
+    /// <summary>Сборка не нужна сценарию: инструменты XAML её не вызывают.</summary>
+    private sealed class SilentWorkflowXamlBuildFeedback : Agent.Core.Contracts.IBuildFeedbackService
+    {
+        public Task BuildAsync(string configuration, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<bool> HasSolutionConfigurationAsync(string configuration, CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
+
+        public Task<IReadOnlyList<Agent.Core.Models.BuildError>> GetCompilationErrorsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<Agent.Core.Models.BuildError>>(new List<Agent.Core.Models.BuildError>());
+
+        public Task<string> GetOutputWindowTextAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(string.Empty);
+    }
+
     public override object InitializeLifetimeService()
     {
         return null;
@@ -496,6 +1305,328 @@ public sealed class DesignerBenchOpenReport
 }
 
 /// <summary>
+/// Сериализуемый отчёт сценария моста правок (<c>WorkflowEditBridgeTests</c>, карточка <c>AG-02</c>):
+/// каждый флаг — отдельный пункт контракта «агент правит открытый процесс, отмена штатная».
+/// </summary>
+[Serializable]
+public sealed class DesignerBenchEditReport
+{
+    public string FilePath { get; set; }
+
+    /// <summary>Файл, который не открывается вкладкой (проверка структурированного отказа).</summary>
+    public string UnopenedPath { get; set; }
+
+    /// <summary>До открытия вкладки служба обязана считать файл неоткрытым.</summary>
+    public bool OpenBeforeAnyTab { get; set; }
+
+    public bool OpenInDesigner { get; set; }
+
+    public int ActivityCountBefore { get; set; }
+
+    public bool SessionActive { get; set; }
+
+    /// <summary>Причина неактивной пачки (если она не открылась).</summary>
+    public string InactiveReason { get; set; }
+
+    public bool InsertStartOk { get; set; }
+
+    public string InsertStartId { get; set; }
+
+    public List<string> InsertStartErrors { get; set; } = new List<string>();
+
+    public bool InsertMiddleOk { get; set; }
+
+    public string InsertMiddleId { get; set; }
+
+    public bool InsertEndOk { get; set; }
+
+    public string InsertEndId { get; set; }
+
+    /// <summary>Пачка ещё открыта до <c>complete</c>.</summary>
+    public bool BatchActiveDuringEdits { get; set; }
+
+    public int ActivityCountDuringBatch { get; set; }
+
+    public string OrderDuringBatch { get; set; }
+
+    public bool CompleteOk { get; set; }
+
+    public bool SessionActiveAfterComplete { get; set; }
+
+    /// <summary>После <c>complete</c> в конструкторе есть что отменить.</summary>
+    public bool CanUndoAfterComplete { get; set; }
+
+    public int ActivityCountAfterComplete { get; set; }
+
+    /// <summary>Структура несохранённого документа (правки ещё не в файле).</summary>
+    public int LiveOutlineBeforeSave { get; set; }
+
+    public bool UndoOk { get; set; }
+
+    public bool CanRedoAfterUndo { get; set; }
+
+    public int ActivityCountAfterUndo { get; set; }
+
+    public bool RedoOk { get; set; }
+
+    public int ActivityCountAfterRedo { get; set; }
+
+    public int ActivityCountBeforeRevert { get; set; }
+
+    /// <summary>Обе вставки пачки, которую затем отменяют целиком, применились.</summary>
+    public bool RevertInsertOk { get; set; }
+
+    public int ActivityCountDuringRevertBatch { get; set; }
+
+    public bool RevertOk { get; set; }
+
+    public bool RevertSessionActive { get; set; }
+
+    public List<string> RevertErrors { get; set; } = new List<string>();
+
+    public int ActivityCountAfterRevert { get; set; }
+
+    public int ActivityCountBeforeFailure { get; set; }
+
+    public bool FailedInsertOk { get; set; }
+
+    public List<string> FailedInsertErrors { get; set; } = new List<string>();
+
+    public bool SessionActiveAfterFailure { get; set; }
+
+    public int ActivityCountAfterFailure { get; set; }
+
+    public string DeletedId { get; set; }
+
+    public bool DeleteOk { get; set; }
+
+    public List<string> DeleteErrors { get; set; } = new List<string>();
+
+    public int ActivityCountAfterDelete { get; set; }
+
+    public string MovedId { get; set; }
+
+    public bool MoveOk { get; set; }
+
+    public string MoveNewId { get; set; }
+
+    public List<string> MoveErrors { get; set; } = new List<string>();
+
+    public string OrderBeforeMove { get; set; }
+
+    public string OrderAfterMove { get; set; }
+
+    /// <summary>Удаление несуществующего адреса — отказ, а не исключение.</summary>
+    public bool DeleteMissingOk { get; set; }
+
+    public bool SecondBatchCompleteOk { get; set; }
+
+    public int ActivityCountAfterSecondBatch { get; set; }
+
+    public bool NotOpenSessionActive { get; set; }
+
+    public string NotOpenReason { get; set; }
+
+    public bool NotOpenInsertOk { get; set; }
+
+    public List<string> NotOpenInsertErrors { get; set; } = new List<string>();
+
+    /// <summary>Вставка активности без обязательного аргумента (<c>Assign</c> без <c>To</c>) — материал для валидации.</summary>
+    public bool ValidateInsertOk { get; set; }
+
+    public string ValidateInsertId { get; set; }
+
+    public bool ValidateInsertCompleteOk { get; set; }
+
+    /// <summary>Валидация WF выполнена на живой модели конструктора (AG-06).</summary>
+    public bool ValidateAvailable { get; set; }
+
+    public string ValidateSource { get; set; }
+
+    public int ValidateErrors { get; set; }
+
+    /// <summary>Адреса замечаний валидации: те же, что отдаёт workflow_outline.</summary>
+    public List<string> ValidateAddresses { get; set; } = new List<string>();
+
+    /// <summary>Глубина истории отмены до и после валидации: чтение не должно менять модель.</summary>
+    public int ValidateUndoDepthBefore { get; set; }
+
+    public int ValidateUndoDepthAfter { get; set; }
+
+    public string ValidateText { get; set; }
+
+    public List<string> Errors { get; set; } = new List<string>();
+
+    /// <summary>Все пункты контракта выполнены.</summary>
+    public bool Ok { get; set; }
+
+    /// <summary>Текст отчёта для сообщения об ошибке теста.</summary>
+    public string Description
+    {
+        get
+        {
+            var text = new System.Text.StringBuilder();
+            text.AppendLine($"файл: {FilePath ?? "(нет)"}");
+            text.AppendLine($"открыт в конструкторе: {OpenInDesigner} (до открытия вкладки: {OpenBeforeAnyTab})");
+            text.AppendLine($"пачка открыта: {SessionActive}, причина: {InactiveReason ?? "нет"}");
+            text.AppendLine($"вставки: начало {InsertStartOk} ({InsertStartId ?? "-"}), середина {InsertMiddleOk} ({InsertMiddleId ?? "-"}), конец {InsertEndOk} ({InsertEndId ?? "-"})");
+            text.AppendLine($"активностей: было {ActivityCountBefore}, в пачке {ActivityCountDuringBatch}, после complete {ActivityCountAfterComplete}, в живой модели {LiveOutlineBeforeSave}");
+            text.AppendLine($"порядок в пачке: {OrderDuringBatch ?? "(нет)"}");
+            text.AppendLine($"complete: {CompleteOk}, пачка открыта после: {SessionActiveAfterComplete}, можно отменить: {CanUndoAfterComplete}");
+            text.AppendLine($"undo: {UndoOk} (активностей {ActivityCountAfterUndo}, можно вернуть: {CanRedoAfterUndo}), redo: {RedoOk} (активностей {ActivityCountAfterRedo})");
+            text.AppendLine($"откат пачки: вставки {RevertInsertOk}, активностей в пачке {ActivityCountDuringRevertBatch} (до {ActivityCountBeforeRevert}), revert {RevertOk}, после {ActivityCountAfterRevert}");
+            text.AppendLine($"ошибка в пачке: вставка {FailedInsertOk}, активностей до {ActivityCountBeforeFailure} / после {ActivityCountAfterFailure}");
+            text.AppendLine($"удаление: {DeleteOk} ({DeletedId ?? "-"}), активностей {ActivityCountAfterDelete}, несуществующий адрес: {DeleteMissingOk}");
+            text.AppendLine($"перенос: {MoveOk} ({MovedId ?? "-"} -> {MoveNewId ?? "-"})");
+            text.AppendLine($"порядок до переноса: {OrderBeforeMove ?? "(нет)"}");
+            text.AppendLine($"порядок после переноса: {OrderAfterMove ?? "(нет)"}");
+            text.AppendLine($"вторая пачка: complete {SecondBatchCompleteOk}, активностей {ActivityCountAfterSecondBatch}");
+            text.AppendLine($"не открыт в конструкторе: пачка {NotOpenSessionActive}, вставка {NotOpenInsertOk}, причина: {NotOpenReason ?? "нет"}");
+            text.AppendLine($"валидация: вставка {ValidateInsertOk} ({ValidateInsertId ?? "-"}), выполнена {ValidateAvailable}, источник {ValidateSource ?? "-"}, ошибок {ValidateErrors}");
+            text.AppendLine($"адреса замечаний: {(ValidateAddresses == null || ValidateAddresses.Count == 0 ? "(нет)" : string.Join(", ", ValidateAddresses))}");
+            text.AppendLine($"история отмены при валидации: до {ValidateUndoDepthBefore}, после {ValidateUndoDepthAfter}");
+
+            Append(text, "ошибка вставки", InsertStartErrors);
+            Append(text, "ошибка вставки в несуществующий родитель", FailedInsertErrors);
+            Append(text, "ошибка удаления", DeleteErrors);
+            Append(text, "ошибка переноса", MoveErrors);
+            Append(text, "ошибка вставки в неоткрытый файл", NotOpenInsertErrors);
+            Append(text, "ошибка сценария", Errors);
+
+            return text.ToString();
+        }
+    }
+
+    private static void Append(System.Text.StringBuilder text, string title, List<string> values)
+    {
+        if (values == null)
+        {
+            return;
+        }
+
+        foreach (string value in values)
+        {
+            text.AppendLine("  " + title + ": " + value);
+        }
+    }
+}
+
+/// <summary>
+/// Сериализуемый отчёт сценария обёртки (карточка <c>AG-04</c>): каждый флаг — отдельный пункт контракта
+/// (обёртка заняла место элемента, элемент внутри, адреса совпали с outline, ошибочные запросы отклонены,
+/// <c>undo</c> вернул структуру).
+/// </summary>
+[Serializable]
+public sealed class DesignerBenchWrapReport
+{
+    public string FilePath { get; set; }
+
+    public bool OpenInDesigner { get; set; }
+
+    public int ActivityCountBefore { get; set; }
+
+    public bool SessionActive { get; set; }
+
+    public string InactiveReason { get; set; }
+
+    public bool WrapInSequenceOk { get; set; }
+
+    public string WrapInSequenceWrapperId { get; set; }
+
+    /// <summary>Адрес самой обёртки (первый в списке адресов ответа).</summary>
+    public string WrapInSequenceWrapperAddress { get; set; }
+
+    public List<string> WrapInSequenceErrors { get; set; } = new List<string>();
+
+    public int ActivityCountAfterSequenceWrap { get; set; }
+
+    public string OrderAfterSequenceWrap { get; set; }
+
+    /// <summary>Дети обёртки: обёрнутая активность обязана быть внутри.</summary>
+    public string FirstChildOfWrapper { get; set; }
+
+    public bool WrapWithoutContainerOk { get; set; }
+
+    public List<string> WrapWithoutContainerErrors { get; set; } = new List<string>();
+
+    public bool WrapInIfThenOk { get; set; }
+
+    public string WrapInIfWrapperId { get; set; }
+
+    /// <summary>Адрес обёртки If.</summary>
+    public string WrapInIfWrapperAddress { get; set; }
+
+    public List<string> WrapInIfThenErrors { get; set; } = new List<string>();
+
+    public string OrderAfterIfWrap { get; set; }
+
+    /// <summary>Дети If: обёрнутая активность лежит в <c>Then</c>.</summary>
+    public string ThenChild { get; set; }
+
+    public bool WrapUnknownTypeOk { get; set; }
+
+    public List<string> WrapUnknownTypeErrors { get; set; } = new List<string>();
+
+    public bool CompleteOk { get; set; }
+
+    public int ActivityCountAfterComplete { get; set; }
+
+    public bool UndoOk { get; set; }
+
+    public int ActivityCountAfterUndo { get; set; }
+
+    public string OrderAfterUndo { get; set; }
+
+    public List<string> Errors { get; set; } = new List<string>();
+
+    /// <summary>Все пункты контракта выполнены.</summary>
+    public bool Ok { get; set; }
+
+    /// <summary>Текст отчёта для сообщения об ошибке теста.</summary>
+    public string Description
+    {
+        get
+        {
+            var text = new System.Text.StringBuilder();
+            text.AppendLine($"файл: {FilePath ?? "(нет)"}");
+            text.AppendLine($"открыт в конструкторе: {OpenInDesigner}, пачка открыта: {SessionActive} ({InactiveReason ?? "нет"})");
+            text.AppendLine($"обёртка в Sequence: {WrapInSequenceOk} ({WrapInSequenceWrapperId ?? "-"}), активностей {ActivityCountBefore} -> {ActivityCountAfterSequenceWrap}");
+            text.AppendLine($"порядок после обёртки: {OrderAfterSequenceWrap ?? "(нет)"}");
+            text.AppendLine($"дети обёртки: {FirstChildOfWrapper ?? "(нет)"}");
+            text.AppendLine($"If без container: {WrapWithoutContainerOk}");
+            text.AppendLine($"обёртка в If.Then: {WrapInIfThenOk} ({WrapInIfWrapperId ?? "-"})");
+            text.AppendLine($"порядок после If: {OrderAfterIfWrap ?? "(нет)"}");
+            text.AppendLine($"дети If: {ThenChild ?? "(нет)"}");
+            text.AppendLine($"неизвестная обёртка: {WrapUnknownTypeOk}");
+            text.AppendLine($"complete: {CompleteOk}, активностей {ActivityCountAfterComplete}");
+            text.AppendLine($"undo: {UndoOk}, активностей {ActivityCountAfterUndo}");
+            text.AppendLine($"порядок после undo: {OrderAfterUndo ?? "(нет)"}");
+
+            Append(text, "ошибка обёртки в Sequence", WrapInSequenceErrors);
+            Append(text, "ошибка обёртки без container", WrapWithoutContainerErrors);
+            Append(text, "ошибка обёртки в If.Then", WrapInIfThenErrors);
+            Append(text, "ошибка неизвестной обёртки", WrapUnknownTypeErrors);
+            Append(text, "ошибка сценария", Errors);
+
+            return text.ToString();
+        }
+    }
+
+    private static void Append(System.Text.StringBuilder text, string title, List<string> values)
+    {
+        if (values == null)
+        {
+            return;
+        }
+
+        foreach (string value in values)
+        {
+            text.AppendLine("  " + title + ": " + value);
+        }
+    }
+}
+
+/// <summary>
 /// Сериализуемый отчёт сценария палитры (<c>PaletteDesignerTests</c>): каждый флаг — отдельный пункт
 /// контракта п. 1.3 плана (вкладка открыта и активна, активность в дереве, гейт без ошибок).
 /// </summary>
@@ -585,3 +1716,175 @@ public sealed class DesignerBenchPaletteReport
     }
 }
 
+
+/// <summary>
+/// Отчёт сценария аргументов и переменных (<c>WorkflowArgumentBridgeTests</c>, карточка <c>AG-05</c>):
+/// каждый флаг — отдельный пункт контракта «агент задаёт аргументы и переменные в живой модели».
+/// </summary>
+[Serializable]
+public sealed class DesignerBenchArgumentReport
+{
+    public string FilePath { get; set; }
+
+    public bool OpenInDesigner { get; set; }
+
+    public bool SessionActive { get; set; }
+
+    public string InactiveReason { get; set; }
+
+    public bool LiteralOk { get; set; }
+
+    public string LiteralMessage { get; set; }
+
+    public List<string> LiteralErrors { get; set; } = new List<string>();
+
+    /// <summary>Значение аргумента в живой структуре после литерала.</summary>
+    public string TextAfterLiteral { get; set; }
+
+    public bool ExpressionOk { get; set; }
+
+    public string ExpressionMessage { get; set; }
+
+    public List<string> ExpressionErrors { get; set; } = new List<string>();
+
+    public string TextAfterExpression { get; set; }
+
+    public bool UnknownArgumentOk { get; set; }
+
+    public List<string> UnknownArgumentErrors { get; set; } = new List<string>();
+
+    public bool BothOk { get; set; }
+
+    public List<string> BothErrors { get; set; } = new List<string>();
+
+    public bool BrokenExpressionOk { get; set; }
+
+    public List<string> BrokenExpressionErrors { get; set; } = new List<string>();
+
+    public bool VariableAddOk { get; set; }
+
+    public string VariableAddMessage { get; set; }
+
+    public List<string> VariableAddErrors { get; set; } = new List<string>();
+
+    public List<string> VariablesAfterAdd { get; set; } = new List<string>();
+
+    public bool DuplicateVariableOk { get; set; }
+
+    public List<string> DuplicateVariableErrors { get; set; } = new List<string>();
+
+    public bool UnknownTypeOk { get; set; }
+
+    public List<string> UnknownTypeErrors { get; set; } = new List<string>();
+
+    public bool BadValueOk { get; set; }
+
+    public List<string> BadValueErrors { get; set; } = new List<string>();
+
+    public bool NoVariablesOk { get; set; }
+
+    public List<string> NoVariablesErrors { get; set; } = new List<string>();
+
+    public bool VariableRemoveOk { get; set; }
+
+    public List<string> VariableRemoveErrors { get; set; } = new List<string>();
+
+    public List<string> VariablesAfterRemove { get; set; } = new List<string>();
+
+    public bool RemoveMissingOk { get; set; }
+
+    public List<string> RemoveMissingErrors { get; set; } = new List<string>();
+
+    public bool CompleteOk { get; set; }
+
+    public bool UndoOk { get; set; }
+
+    public string TextAfterUndo { get; set; }
+
+    public bool Ok { get; set; }
+
+    public List<string> Errors { get; set; } = new List<string>();
+
+    public string Description
+    {
+        get
+        {
+            var text = new System.Text.StringBuilder();
+            text.AppendLine($"файл: {FilePath ?? "(нет)"}, открыт вкладкой: {OpenInDesigner}, пачка: {SessionActive}");
+            text.AppendLine($"литерал: {LiteralOk} → «{TextAfterLiteral}» ({LiteralMessage})");
+            text.AppendLine($"выражение: {ExpressionOk} → «{TextAfterExpression}» ({ExpressionMessage})");
+            text.AppendLine($"неизвестный аргумент отклонён: {!UnknownArgumentOk}; value+expression отклонены: {!BothOk}; битое выражение отклонено: {!BrokenExpressionOk}");
+            text.AppendLine($"переменные после добавления: [{string.Join(", ", VariablesAfterAdd)}] ({VariableAddMessage})");
+            text.AppendLine($"дубль отклонён: {!DuplicateVariableOk}; неизвестный тип отклонён: {!UnknownTypeOk}; неверное значение отклонено: {!BadValueOk}; без Variables отклонено: {!NoVariablesOk}");
+            text.AppendLine($"переменные после удаления: [{string.Join(", ", VariablesAfterRemove)}]; повторное удаление отклонено: {!RemoveMissingOk}");
+            text.AppendLine($"complete: {CompleteOk}, undo: {UndoOk}, значение после undo: «{TextAfterUndo}»");
+
+            foreach (string error in LiteralErrors)
+            {
+                text.AppendLine("  ошибка литерала: " + error);
+            }
+
+            foreach (string error in ExpressionErrors)
+            {
+                text.AppendLine("  ошибка выражения: " + error);
+            }
+
+            foreach (string error in UnknownArgumentErrors)
+            {
+                text.AppendLine("  ошибка неизвестного аргумента: " + error);
+            }
+
+            foreach (string error in BothErrors)
+            {
+                text.AppendLine("  ошибка value+expression: " + error);
+            }
+
+            foreach (string error in BrokenExpressionErrors)
+            {
+                text.AppendLine("  ошибка битого выражения: " + error);
+            }
+
+            foreach (string error in VariableAddErrors)
+            {
+                text.AppendLine("  ошибка добавления переменной: " + error);
+            }
+
+            foreach (string error in DuplicateVariableErrors)
+            {
+                text.AppendLine("  ошибка дубля переменной: " + error);
+            }
+
+            foreach (string error in UnknownTypeErrors)
+            {
+                text.AppendLine("  ошибка типа переменной: " + error);
+            }
+
+            foreach (string error in BadValueErrors)
+            {
+                text.AppendLine("  ошибка значения переменной: " + error);
+            }
+
+            foreach (string error in NoVariablesErrors)
+            {
+                text.AppendLine("  ошибка «нет Variables»: " + error);
+            }
+
+            foreach (string error in VariableRemoveErrors)
+            {
+                text.AppendLine("  ошибка удаления переменной: " + error);
+            }
+
+            foreach (string error in RemoveMissingErrors)
+            {
+                text.AppendLine("  ошибка повторного удаления: " + error);
+            }
+
+            foreach (string error in Errors)
+            {
+                text.AppendLine("  ошибка сценария: " + error);
+            }
+
+            return text.ToString();
+        }
+    }
+}

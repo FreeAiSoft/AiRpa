@@ -239,6 +239,14 @@ namespace RPA.Models
 
             // Открытие — через DesignerOpenService (единственный путь показа вкладки, этап 3 плана):
             // второй конструктор на уже открытый файл не создаётся, ошибка возвращается результатом.
+            // Создание активности (AG-08) пишет .cs + дизайнер и регистрирует их в .csproj: открывать
+            // дизайнер процесса для файла класса нельзя, а регистрировать файл повторно — не нужно.
+            if (!filePath.EndsWith(".xaml", StringComparison.OrdinalIgnoreCase))
+            {
+                CmdOpenInCodeEditor(filePath);
+                ProjectManager.AddFile(filePath);
+                return;
+            }
             DesignerOpenResult openResult = DesignerOpenService.ForStudio(message => CustomWfDesigner.Log(message)).OpenOrActivate(filePath);
             if (!openResult.Ok)
             {

@@ -20,11 +20,25 @@ namespace RPA.Core.Generation
     /// сериализацию и ломает отображение (п. 1.2 плана).
     /// </para>
     /// </summary>
+    /// <summary>
+    /// Язык текстового выражения (карточка <c>AG-05</c>): C# или Visual Basic. Документ, пришедший
+    /// с VB-выражениями, нельзя править C#-выражениями — конструктор такой узел не загрузит.
+    /// </summary>
+    internal enum PaletteExpressionLanguage
+    {
+        CSharp,
+
+        VisualBasic
+    }
+
     internal sealed class PaletteValue
     {
         private PaletteValue()
         {
         }
+
+        /// <summary>Язык выражения (<see cref="PaletteExpressionLanguage.CSharp"/> по умолчанию).</summary>
+        internal PaletteExpressionLanguage Language { get; private set; }
 
         /// <summary>Текст C#-выражения для <c>CSharpValue&lt;T&gt;</c>/<c>CSharpReference&lt;T&gt;</c>.</summary>
         internal string Expression { get; private set; }
@@ -43,12 +57,16 @@ namespace RPA.Core.Generation
 
         internal bool IsExpression => !string.IsNullOrWhiteSpace(Expression);
 
-        internal static PaletteValue FromExpression(string expression, string typeName = null)
+        internal static PaletteValue FromExpression(
+            string expression,
+            string typeName = null,
+            PaletteExpressionLanguage language = PaletteExpressionLanguage.CSharp)
         {
             return new PaletteValue
             {
                 Expression = expression?.Trim(),
-                TypeName = string.IsNullOrWhiteSpace(typeName) ? null : typeName.Trim()
+                TypeName = string.IsNullOrWhiteSpace(typeName) ? null : typeName.Trim(),
+                Language = language
             };
         }
 
@@ -647,12 +665,12 @@ namespace RPA.Core.Generation
                     return null;
                 }
 
-                return CreateReferenceArgument(argument, valueType, value.Expression, errors);
+                return CreateReferenceArgument(argument, valueType, value, errors);
             }
 
             if (value.IsExpression)
             {
-                return CreateValueArgument(argument, valueType, value.Expression, errors);
+                return CreateValueArgument(argument, valueType, value, errors);
             }
 
             if (!value.HasLiteral)
@@ -701,7 +719,7 @@ namespace RPA.Core.Generation
             {
                 if (value.IsExpression)
                 {
-                    return CreateCSharpValue(valueType, value.Expression);
+                    return CreateTextExpression(valueType, value.Expression, value.Language, reference: false);
                 }
 
                 object literal = ConvertLiteral(value.Literal, valueType, argument, errors);
@@ -724,12 +742,12 @@ namespace RPA.Core.Generation
         private static object CreateValueArgument(
             PaletteArgumentDescriptor argument,
             Type valueType,
-            string expression,
+            PaletteValue value,
             List<string> errors)
         {
             try
             {
-                object expressionActivity = CreateCSharpValue(valueType, expression);
+                object expressionActivity = CreateTextExpression(valueType, value.Expression, value.Language, reference: false);
                 return Activator.CreateInstance(typeof(InArgument<>).MakeGenericType(valueType), expressionActivity);
             }
             catch (Exception ex)
@@ -743,12 +761,12 @@ namespace RPA.Core.Generation
         private static object CreateReferenceArgument(
             PaletteArgumentDescriptor argument,
             Type valueType,
-            string expression,
+            PaletteValue value,
             List<string> errors)
         {
             try
             {
-                object reference = CreateCSharpReference(valueType, expression);
+                object reference = CreateTextExpression(valueType, value.Expression, value.Language, reference: true);
                 Type argumentType = argument.Direction == PaletteArgumentDirection.InOut
                     ? typeof(InOutArgument<>).MakeGenericType(valueType)
                     : typeof(OutArgument<>).MakeGenericType(valueType);
@@ -763,16 +781,35 @@ namespace RPA.Core.Generation
             }
         }
 
-        private static object CreateCSharpValue(Type valueType, string expression)
+        /// <summary>
+        /// Текстовое выражение на языке документа (карточка <c>AG-05</c>): C# или Visual Basic.
+        /// Ссылка (<c>Out</c>/<c>InOut</c>) — <c>CSharpReference&lt;T&gt;</c>/<c>VisualBasicReference&lt;T&gt;</c>.
+        /// </summary>
+        private static object CreateTextExpression(
+            Type valueType,
+            string expression,
+            PaletteExpressionLanguage language,
+            bool reference)
         {
-            Type expressionType = typeof(CSharpValue<>).MakeGenericType(valueType);
-            return Activator.CreateInstance(expressionType, expression);
+            Type openType;
+
+            if (language == PaletteExpressionLanguage.VisualBasic)
+            {
+                openType = reference
+                    ? typeof(Microsoft.VisualBasic.Activities.VisualBasicReference<>)
+                    : typeof(Microsoft.VisualBasic.Activities.VisualBasicValue<>);
+            }
+            else
+            {
+                openType = reference ? typeof(CSharpReference<>) : typeof(CSharpValue<>);
+            }
+
+            return Activator.CreateInstance(openType.MakeGenericType(valueType), expression);
         }
 
-        private static object CreateCSharpReference(Type valueType, string expression)
+        private static object CreateCSharpValue(Type valueType, string expression)
         {
-            Type referenceType = typeof(CSharpReference<>).MakeGenericType(valueType);
-            return Activator.CreateInstance(referenceType, expression);
+            return CreateTextExpression(valueType, expression, PaletteExpressionLanguage.CSharp, reference: false);
         }
 
         private static object CreatePlainValue(

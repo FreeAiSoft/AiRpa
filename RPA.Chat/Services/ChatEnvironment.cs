@@ -20,5 +20,47 @@ namespace RPA.Chat.Services
         /// until the studio host injects a real implementation.
         /// </summary>
         public static IStudioDocumentService DocumentService { get; set; } = NullStudioDocumentService.Instance;
+
+        /// <summary>
+        /// Machine-readable catalog of the studio workflow activities (card <c>AG-01</c>). Built by the
+        /// studio host from real WF activity types; defaults to the null object so the chat module
+        /// stays usable standalone. The <c>activity_search</c>/<c>activity_describe</c> tools read it.
+        /// </summary>
+        public static Workflow.IActivityCatalog ActivityCatalog { get; set; } = Workflow.NullActivityCatalog.Instance;
+
+        /// <summary>
+        /// Structure of a workflow process (card <c>AG-03</c>): activity tree with ids, types, arguments,
+        /// variables and validation issues. Implemented by the studio host (it owns WF loading and
+        /// validation); defaults to the null object, and the <c>workflow_outline</c> tool then explains
+        /// that the service is unavailable instead of throwing.
+        /// </summary>
+        public static Workflow.IWorkflowOutlineService WorkflowOutline { get; set; } =
+            Workflow.NullWorkflowOutlineService.Instance;
+
+        /// <summary>
+        /// Мост «агент ↔ открытый дизайнер» (карточка <c>AG-02</c>): пачки правок модели конструктора
+        /// с историей отмены. Реализацию даёт хост студии; по умолчанию — null-object, и инструменты
+        /// правки объясняют, что мост не подключён, вместо падения.
+        /// </summary>
+        public static Workflow.IWorkflowEditingService WorkflowEditing { get; set; } =
+            Workflow.NullWorkflowEditingService.Instance;
+
+        /// <summary>
+        /// Гейт валидации XAML (карточка <c>AG-07</c>): после записи <c>.xaml</c> инструмент <c>editor</c>
+        /// спрашивает у студии, примет ли файл конструктор. Реализацию даёт студия (у неё есть WF-загрузка
+        /// и валидация); по умолчанию — null-object, и инструмент отвечает «валидация не выполнена»,
+        /// а не «ошибок нет».
+        /// </summary>
+        public static Workflow.IWorkflowXamlGate WorkflowXamlGate { get; set; } =
+            Workflow.NullWorkflowXamlGate.Instance;
+
+        /// <summary>
+        /// Обновление палитры «Активности» после создания активности (карточка <c>AG-08</c>): студия
+        /// загружает собранную сборку в домен, добавляет её типы в палитру, сбрасывает кэши каталога и реестра
+        /// и пересобирает панель. По умолчанию — null-object: инструмент честно сообщает, что без хоста
+        /// тип появится только после перезапуска студии.
+        /// </summary>
+        public static Workflow.IActivityPaletteNotifier ActivityPaletteNotifier { get; set; } =
+            Workflow.NullActivityPaletteNotifier.Instance;
     }
 }

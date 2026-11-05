@@ -133,4 +133,66 @@ public class ChatViewModelTests
 
         Assert.That(vm.Messages.Any(m => m.Text.Contains("unavailable")), Is.True);
     }
+    // ---- AG-10: настройки → маска разрешений (одна точка правды, её же зовёт ChatViewModel) ----
+
+
+
+    [Test]
+    public void PermissionsPolicy_DefaultSettings_AllowReadAndEditOnly()
+    {
+        // Умолчания SettingsData: чтение и правка файлов включены, команды/сеть/подагенты — нет.
+        var allowed = AgentPermissionsPolicy.Resolve(new SettingsData());
+
+        Assert.That(allowed, Is.EqualTo(AgentPermissions.ReadFiles | AgentPermissions.EditFiles));
+    }
+
+    [Test]
+    public void PermissionsPolicy_FollowsEverySwitch()
+    {
+        var settings = new SettingsData
+        {
+            AllowReadFiles = false,
+            AllowEditFiles = true,
+            AllowExecuteCommand = true,
+            AllowWebFetch = true,
+            AllowSubagents = true
+        };
+
+        var allowed = AgentPermissionsPolicy.Resolve(settings);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(allowed, Is.EqualTo(
+                AgentPermissions.EditFiles
+                | AgentPermissions.ExecuteCommand
+                | AgentPermissions.WebFetch
+                | AgentPermissions.Subagents));
+            Assert.That(allowed & AgentPermissions.ReadFiles, Is.EqualTo((AgentPermissions)0),
+                "выключенный переключатель не должен оставлять категорию в маске");
+        });
+    }
+
+    [Test]
+    public void PermissionsPolicy_AllSwitchesOff_GivesEmptyMask()
+    {
+        var settings = new SettingsData
+        {
+            AllowReadFiles = false,
+            AllowEditFiles = false,
+            AllowExecuteCommand = false,
+            AllowWebFetch = false,
+            AllowSubagents = false
+        };
+
+        Assert.That(AgentPermissionsPolicy.Resolve(settings), Is.EqualTo((AgentPermissions)0));
+    }
+
+    [Test]
+    public void PermissionsPolicy_NullSettings_DoesNotThrow()
+    {
+        // Null приходит из ранней инициализации: отвечаем «ничего не разрешено»,
+        // чтобы отсутствие настроек не превращалось в полный доступ.
+        Assert.That(AgentPermissionsPolicy.Resolve(null), Is.EqualTo((AgentPermissions)0));
+    }
+
 }

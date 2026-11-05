@@ -1,0 +1,7 @@
+<Activity xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- AG-12: «битый» файл — незакрытый тег. Загрузка обязана бросить исключение,
+       а инструменты/outline — вернуть ошибку, а не упасть молча. -->
+  <Sequence DisplayName="Fixture: malformed">
+    <WriteLine DisplayName="Log" Text="broken"
+</Activity>

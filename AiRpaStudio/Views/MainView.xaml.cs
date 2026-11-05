@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Activities.Presentation;
 using System.Activities.Presentation.View;
 using System.Collections.Generic;
@@ -84,6 +84,21 @@ namespace RPA.Views
             Chat.Services.ChatLog.Sink = message => Log.Write(message);
             // The chat resolves the current project folder for agent tools + MSBuild feedback.
             Chat.Services.ChatEnvironment.SolutionPathProvider = () => ProjectManager.GetInstance().ProjectFolder;
+            // Каталог активностей для агента (AG-01): строится из тех же типов, что и панель «Активности».
+            Chat.Services.ChatEnvironment.ActivityCatalog = Core.Workflow.StudioActivityCatalog.Default;
+            // Структура процесса для агента (AG-03): дерево активностей с адресами, аргументами и ошибками WF.
+            Chat.Services.ChatEnvironment.WorkflowOutline = Core.Workflow.StudioWorkflowOutlineService.Default;
+            // Мост правок открытого процесса (AG-02): пачки правок модели конструктора с историей отмены.
+            Chat.Services.ChatEnvironment.WorkflowEditing = Core.Workflow.StudioWorkflowEditingService.Default;
+            // Гейт валидации XAML для агента (AG-07): editor проверяет записанный .xaml тем же гейтом, что и генерация.
+            Chat.Services.ChatEnvironment.WorkflowXamlGate = Core.Generation.StudioWorkflowXamlGate.Default;
+
+            // Обновление палитры после создания активности (AG-08): студия загружает собранную сборку в домен,
+            // добавляет её типы в палитру, сбрасывает кэши каталога и реестра и пересобирает панель «Активности».
+            Chat.Services.ChatEnvironment.ActivityPaletteNotifier = Core.Generation.StudioActivityPaletteNotifier.Create(RefreshActivityPalette);
+            // Структура открытого документа важнее файла: правки AG-02 живут в модели до сохранения.
+            Core.Workflow.StudioWorkflowOutlineService.LiveOutlineSource = (path, depth, includeArguments) =>
+                Chat.Services.ChatEnvironment.WorkflowEditing.GetLiveOutline(path, depth, includeArguments);
 
             // Theme: the studio window follows the chat theme (single source of truth).
             // Порядок смены темы задан явно: студия пересобирает палитру Studio.* (ThemeApplying)
@@ -226,6 +241,24 @@ namespace RPA.Views
             WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
         }
 
+        /// <summary>
+        /// Пересборка панели «Активности» после появления новой библиотеки (карточка <c>AG-08</c>).
+        /// Панель — элемент WPF, поэтому подмена содержимого идёт на UI-потоке; счётчик панели сбрасывает
+        /// сам <see cref="WFToolboxHelper.Build"/>. Сохранение скролла/выделения и кнопка «Обновить» — UI-08.
+        /// </summary>
+        private void RefreshActivityPalette()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(RefreshActivityPalette));
+                return;
+            }
+
+            _wfToolbox = new WFToolboxHelper().Build();
+            WfToolboxBorder.Child = _wfToolbox;
+            _wfToolbox.ApplyTheme();
+            Log.Write("Палитра «Активности» пересобрана: появилась новая библиотека активностей.");
+        }
         private void InitializeLayoutRoot()
         {
             // Try to load layout from saved settings

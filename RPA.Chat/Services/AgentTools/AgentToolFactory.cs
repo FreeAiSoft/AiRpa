@@ -12,6 +12,8 @@ using Agent.Core.AgentTools;
 using Agent.Core.Contracts;
 using Agent.Core.Models;
 using Agent.Core.Services;
+using RPA.Chat.Services.Workflow;
+
 
 namespace RPA.Chat.Services.AgentTools
 {
@@ -27,6 +29,9 @@ namespace RPA.Chat.Services.AgentTools
         private const int ReadFilesMaxChars = 48000;
         private const int SearchMaxCharsPerQuery = 48000;
         private const int ListFilesLimit = 1000;
+        private const int ActivitySearchDefaultLimit = 20;
+        private const int ActivitySearchMaxLimit = 200;
+
 
         private static readonly string[] SkippedDirectories =
         {
@@ -47,6 +52,11 @@ namespace RPA.Chat.Services.AgentTools
         private readonly GitService _git = new GitService();
         private readonly AsyncLocal<int> _subagentDepth = new AsyncLocal<int>();
         private readonly Func<string> _getDocsDirectory;
+        private readonly IActivityCatalog _activityCatalog;
+        private readonly IWorkflowOutlineService _workflowOutline;
+        private readonly IWorkflowEditingService _workflowEditing;
+        private readonly IWorkflowXamlGate _workflowXamlGate;
+
 
         public AgentToolFactory(
             IAiProvider ai,
@@ -57,7 +67,11 @@ namespace RPA.Chat.Services.AgentTools
             Func<string, string, CancellationToken, Task<string>> spawnSubAgentAsync,
             bool enableSubagents,
             int subagentMaxDepth,
-            Func<string> getDocsDirectory = null)
+            Func<string> getDocsDirectory = null,
+            IActivityCatalog activityCatalog = null,
+            IWorkflowOutlineService workflowOutline = null,
+            IWorkflowEditingService workflowEditing = null,
+            IWorkflowXamlGate workflowXamlGate = null)
         {
             _ai = ai ?? throw new ArgumentNullException(nameof(ai));
             _getSolutionDir = getSolutionDir ?? throw new ArgumentNullException(nameof(getSolutionDir));
@@ -68,6 +82,11 @@ namespace RPA.Chat.Services.AgentTools
             _enableSubagents = enableSubagents;
             _subagentMaxDepth = subagentMaxDepth > 0 ? subagentMaxDepth : 2;
             _getDocsDirectory = getDocsDirectory ?? HelpDocumentation.ResolveDocsDirectory;
+            _activityCatalog = activityCatalog;
+            _workflowOutline = workflowOutline;
+            _workflowEditing = workflowEditing;
+            _workflowXamlGate = workflowXamlGate;
+
         }
 
         public AgentToolRegistry CreateRegistry()
@@ -77,7 +96,7 @@ namespace RPA.Chat.Services.AgentTools
             // ---- Read-only tools ----
             registry.Register(new AgentTool(
                 "read_files",
-                "Read the content of text or image files at the provided absolute paths, or return only an inclusive one-based line range. Prefers the open editor tab content (unsaved changes) when the file is open.",
+                "Read the content of text or image files at the provided absolute paths, or return only an inclusive one-based line range. Prefers the open editor tab content (unsaved changes) when the file is open. For .xaml files a metadata header is added: root element, size, UTF-8 BOM, line endings, indentation, declared xmlns and whether the file is open in the studio designer — match that form when writing the file back with the editor tool.",
                 "{\"paths\":[\"string\"],\"start_line\":\"integer\",\"end_line\":\"integer\"}",
                 false,
                 ReadFilesAsync,
@@ -171,6 +190,39 @@ namespace RPA.Chat.Services.AgentTools
                 SubmitAndExitAsync,
                 completesRun: true));
 
+            registry.Register(new AgentTool(
+                "activity_search",
+                "Search the studio activity catalog (real Windows Workflow Foundation activity types available in the designer) by name, full type name, description or category. Returns machine-readable metadata per activity: type name, display name, category, arguments (name, direction, type, required) and child containers. Use it before writing or editing workflow XAML instead of guessing activity names.",
+                "{\"query\":\"string\",\"category\":\"string\",\"limit\":\"integer\"}",
+                false,
+                ActivitySearchAsync,
+                permission: AgentPermissions.ReadFiles));
+
+            registry.Register(new AgentTool(
+                "activity_describe",
+                "Describe one workflow activity from the studio activity catalog: full type name, category, arguments (name, direction, type, required, default value) and child containers (where nested activities can be placed). Call activity_search first to get the exact name.",
+                "{\"typeName\":\"string\"}",
+                false,
+                ActivityDescribeAsync,
+                permission: AgentPermissions.ReadFiles));
+            registry.Register(new AgentTool(
+                "workflow_outline",
+                "Read the structure of a workflow process (XAML file) as a tree instead of raw XAML: stable element ids (root, root/Activities[0], root/Then), activity types, display names, arguments with their expressions, variables and Windows Workflow Foundation validation issues bound to element ids. Read the outline before editing a workflow instead of guessing XAML; the same ids are the addresses the editing tools accept.",
+                "{\"path\":\"string\",\"depth\":\"integer\",\"include_arguments\":\"boolean\"}",
+                false,
+                WorkflowOutlineAsync,
+                permission: AgentPermissions.ReadFiles));
+
+            registry.Register(new AgentTool(
+                "workflow_validate",
+                "Validate a workflow process and get a structured report instead of raw XAML: how many errors and warnings, every issue with an element id (the same ids as workflow_outline and the editing tools), the activity property and the check code, and where the structure came from (the designer live model with unsaved edits, or the file on disk). Three states are reported explicitly: no errors, issues with addresses, and \"validation not performed\" (the file was not read or WF validation failed) — the last one is never reported as \"no errors\". Call it after every edit and before building, and repeat it until the answer says there are no errors.",
+                "{\"path\":\"string\",\"elementId\":\"string\",\"max_issues\":\"integer\"}",
+                false,
+                WorkflowValidateAsync,
+                permission: AgentPermissions.ReadFiles));
+
+
+
             if (_enableSubagents)
             {
                 registry.Register(new AgentTool(
@@ -195,8 +247,8 @@ namespace RPA.Chat.Services.AgentTools
 
             registry.Register(new AgentTool(
                 "editor",
-                "Edit a file: write full content (path + content), or replace an old string with a new string (path + old_text + new_text).",
-                "{\"path\":\"string\",\"content\":\"string\",\"old_text\":\"string\",\"new_text\":\"string\"}",
+                "Edit a file: write full content (path + content), or replace an old string with a new string (path + old_text + new_text). Workflow .xaml files are normalized to the studio form (CRLF, no XML declaration, xmlns:mc/sap/sap2010/mca, mc:Ignorable) and validated after writing; file indentation and expression text are preserved as they are. Writing is refused when the .xaml file is open in the studio designer (use workflow_outline + activity_*/argument_set there) and when the XAML is not well-formed.",
+                "{\"path\":\"string\",\"content\":\"string\",\"old_text\":\"string\",\"new_text\":\"string\",\"validate\":\"string\"}",
                 true,
                 EditorAsync,
                 permission: AgentPermissions.EditFiles));
@@ -224,6 +276,93 @@ namespace RPA.Chat.Services.AgentTools
                 true,
                 GitCommitAsync,
                 permission: AgentPermissions.ExecuteCommand));
+
+            // ---- Правка открытого процесса (AG-04, AG-09): модель конструктора, а не текст файла. ----
+            // Все четыре инструмента идут через пачку правок (AG-02) и ставят один адрес вида
+            // root/Activities[0] — тот же, что отдаёт workflow_outline.
+            registry.Register(new AgentTool(
+                "activity_insert",
+                "Insert one or more activities into the workflow open in the studio designer (live model, so Ctrl+Z works). Parent addresses are the ids from workflow_outline (root, root/Activities[0], root/Then). Pass several items in \"activities\" to build a block in one atomic call: if any insert fails, nothing is applied. Returns the addresses of the new elements, the validation summary and the updated structure.",
+                "{\"path\":\"string\",\"activityType\":\"string\",\"parent\":\"string\",\"container\":\"string\",\"index\":\"integer\",\"displayName\":\"string\",\"activities\":[{\"activityType\":\"string\",\"parent\":\"string\",\"container\":\"string\",\"index\":\"integer\",\"displayName\":\"string\"}],\"validate\":\"string\",\"include_outline\":\"boolean\"}",
+                true,
+                ActivityInsertAsync,
+                permission: AgentPermissions.EditFiles));
+
+            registry.Register(new AgentTool(
+                "activity_delete",
+                "Delete one or more activities from the workflow open in the studio designer by their workflow_outline ids. Atomic: if any address is not found, nothing is deleted.",
+                "{\"path\":\"string\",\"elementId\":\"string\",\"elementIds\":[\"string\"],\"validate\":\"string\",\"include_outline\":\"boolean\"}",
+                true,
+                ActivityDeleteAsync,
+                permission: AgentPermissions.EditFiles));
+
+            registry.Register(new AgentTool(
+                "activity_move",
+                "Move an activity into another container of the workflow open in the studio designer (arguments are kept). Addresses come from workflow_outline; returns the new address of the moved element.",
+                "{\"path\":\"string\",\"elementId\":\"string\",\"parent\":\"string\",\"container\":\"string\",\"index\":\"integer\",\"moves\":[{\"elementId\":\"string\",\"parent\":\"string\",\"container\":\"string\",\"index\":\"integer\"}],\"validate\":\"string\",\"include_outline\":\"boolean\"}",
+                true,
+                ActivityMoveAsync,
+                permission: AgentPermissions.EditFiles));
+
+            registry.Register(new AgentTool(
+                "activity_wrap",
+                "Wrap an existing activity in a new container activity (Sequence, If, TryCatch, While, ForEach): the wrapper takes the element's place and the element becomes its first child. Use it to put a step into an If/TryCatch without rebuilding it; set \"container\" when the wrapper has several containers (If has Then and Else). Returns the wrapper address and the new address of the wrapped activity.",
+                "{\"path\":\"string\",\"elementId\":\"string\",\"wrapperType\":\"string\",\"container\":\"string\",\"displayName\":\"string\",\"validate\":\"string\",\"include_outline\":\"boolean\"}",
+                true,
+                ActivityWrapAsync,
+                permission: AgentPermissions.EditFiles));
+
+            registry.Register(new AgentTool(
+                "activity_undo",
+                "Undo the last workflow edit in the studio designer (same as Ctrl+Z): removes exactly one edit made by the tools or by the user.",
+                "{\"path\":\"string\"}",
+                true,
+                ActivityUndoAsync,
+                permission: AgentPermissions.EditFiles));
+
+            registry.Register(new AgentTool(
+                "activity_redo",
+                "Redo the last undone workflow edit in the studio designer (same as Ctrl+Y).",
+                "{\"path\":\"string\"}",
+                true,
+                ActivityRedoAsync,
+                permission: AgentPermissions.EditFiles));
+
+            // ---- Аргументы и переменные (AG-05) ----
+            registry.Register(new AgentTool(
+                "argument_set",
+                "Set an activity argument in the workflow open in the studio designer: pass a literal in \"value\" or an expression in \"expression\" (never both). The argument name and its type come from activity_describe, the element id from workflow_outline. Type and expression syntax are checked before the edit (C# or Visual Basic, auto-detected from the document): a literal that does not convert to the argument type is rejected, so is a broken expression. Pass several items in \"arguments\" to fill a whole block in one atomic call.",
+                "{\"path\":\"string\",\"elementId\":\"string\",\"argument\":\"string\",\"value\":\"string\",\"expression\":\"string\",\"typeName\":\"string\",\"language\":\"string\",\"arguments\":[{\"elementId\":\"string\",\"argument\":\"string\",\"value\":\"string\",\"expression\":\"string\",\"typeName\":\"string\",\"language\":\"string\"}],\"validate\":\"string\",\"include_outline\":\"boolean\"}",
+                true,
+                ArgumentSetAsync,
+                permission: AgentPermissions.EditFiles));
+
+            registry.Register(new AgentTool(
+                "variable_add",
+                "Declare a variable in an activity that owns a Variables collection (Sequence, Flowchart, the workflow root): name, typeName from the studio type list (String, Int32, Boolean, ...) and an optional default in \"value\" or \"expression\". Duplicate or invalid names are rejected; shadowing an outer variable is reported. Pass several items in \"variables\" to declare a block of variables in one atomic call.",
+                "{\"path\":\"string\",\"elementId\":\"string\",\"name\":\"string\",\"typeName\":\"string\",\"value\":\"string\",\"expression\":\"string\",\"language\":\"string\",\"variables\":[{\"elementId\":\"string\",\"name\":\"string\",\"typeName\":\"string\",\"value\":\"string\",\"expression\":\"string\",\"language\":\"string\"}],\"validate\":\"string\",\"include_outline\":\"boolean\"}",
+                true,
+                VariableAddAsync,
+                permission: AgentPermissions.EditFiles));
+
+            registry.Register(new AgentTool(
+                "variable_remove",
+                "Remove a variable by name from an activity that owns a Variables collection (Sequence, Flowchart, the workflow root). Unknown names are rejected with the list of declared variables. Pass \"variables\" with names to remove several variables in one atomic call.",
+                "{\"path\":\"string\",\"elementId\":\"string\",\"name\":\"string\",\"variables\":[\"string\"],\"validate\":\"string\",\"include_outline\":\"boolean\"}",
+                true,
+                VariableRemoveAsync,
+                permission: AgentPermissions.EditFiles));
+
+            // ---- Создание активности в библиотеке активностей (AG-08) ----
+            // Файлы проекта правит служба (RPA.Chat), загрузку сборки в домен и обновление палитры делает
+            // хост студии через IActivityPaletteNotifier: без этого тип не виден ни каталогу, ни панели.
+            registry.Register(new AgentTool(
+                "activity_create",
+                "Create a new activity in an EXISTING activity library project (.csproj): writes the class file, an optional designer (Designer.xaml + code-behind) and registers both in the project file; with build=true the project is built first. Atomic: a wrong target framework (net472 is required), a duplicate name, a write error or failing build leaves nothing behind (created files are deleted, the .csproj is restored byte for byte). After a successful build the studio loads the assembly and refreshes the agent catalog and the Activities palette, so activity_search finds the new type without restarting. Creating a project from scratch is out of scope. Read the class file back with read_files to continue the implementation.",
+                "{\"projectPath\":\"string\",\"className\":\"string\",\"namespace\":\"string\",\"description\":\"string\",\"category\":\"string\",\"baseType\":\"string\",\"withDesigner\":\"boolean\",\"build\":\"boolean\",\"configuration\":\"string\",\"arguments\":[{\"name\":\"string\",\"typeName\":\"string\",\"direction\":\"string\",\"required\":\"boolean\",\"description\":\"string\",\"category\":\"string\"}]}",
+                true,
+                ActivityCreateAsync,
+                permission: AgentPermissions.EditFiles));
 
             return registry;
         }
@@ -347,6 +486,7 @@ namespace RPA.Chat.Services.AgentTools
                 if (buffer != null)
                 {
                     sb.AppendLine("=== " + MakeRelative(p) + " (open editor buffer) ===");
+                    AppendXamlHeader(sb, p, buffer, "буфер редактора");
                     sb.AppendLine(Truncate(ReadRange(buffer, startLine, endLine)));
                     continue;
                 }
@@ -360,7 +500,9 @@ namespace RPA.Chat.Services.AgentTools
                 sb.AppendLine("=== " + MakeRelative(p) + " ===");
                 try
                 {
-                    sb.AppendLine(Truncate(ReadRange(File.ReadAllText(p), startLine, endLine)));
+                    var text = File.ReadAllText(p);
+                    AppendXamlHeader(sb, p, text, "файл на диске");
+                    sb.AppendLine(Truncate(ReadRange(text, startLine, endLine)));
                 }
                 catch (Exception ex)
                 {
@@ -371,6 +513,18 @@ namespace RPA.Chat.Services.AgentTools
             return Task.FromResult(sb.ToString().TrimEnd());
         }
 
+        /// <summary>
+        /// Шапка метаданных для <c>.xaml</c> (карточка <c>AG-07</c>): кодировка/BOM, EOL, отступ, корень,
+        /// объявленные <c>xmlns</c> и «открыт в конструкторе». Без неё агент не знает, что файл с BOM или
+        /// с одиночными LF, и портит его первой же перезаписью.
+        /// </summary>
+        private void AppendXamlHeader(StringBuilder sb, string path, string text, string source)
+        {
+            if (!WorkflowXamlText.IsWorkflowXamlFile(path))
+                return;
+
+            sb.AppendLine(WorkflowXamlText.Describe(text, HasUtf8Bom(path), source, IsOpenInDesigner(path)));
+        }
 
         private async Task<string> ReadErrorsAsync(JObject args, CancellationToken ct)
         {
@@ -443,6 +597,897 @@ namespace RPA.Chat.Services.AgentTools
 
             return Task.FromResult(content);
         }
+
+        /// <summary>
+        /// Activity catalog used by <c>activity_search</c>/<c>activity_describe</c> (card <c>AG-01</c>).
+        /// The constructor argument wins over the ambient hub so tests can inject a fake catalog while the
+        /// studio injects the real one built from its activity libraries.
+        /// </summary>
+        private IActivityCatalog Catalog => _activityCatalog ?? ChatEnvironment.ActivityCatalog;
+
+        private const string CatalogUnavailableMessage =
+            "Activity catalog is unavailable: the studio host did not provide one. " +
+            "The catalog is built by the studio from its loaded activity libraries, so run the chat inside the studio.";
+
+        private Task<string> ActivitySearchAsync(JObject args, CancellationToken ct)
+        {
+            IActivityCatalog catalog = Catalog;
+            if (catalog == null || catalog.Count == 0)
+                return Task.FromResult(CatalogUnavailableMessage);
+
+            var query = (args["query"]?.Value<string>() ?? string.Empty).Trim();
+            var category = (args["category"]?.Value<string>() ?? string.Empty).Trim();
+
+            var limit = ActivitySearchDefaultLimit;
+            JToken limitToken = args["limit"];
+            if (limitToken != null && limitToken.Type != JTokenType.Null && !string.IsNullOrWhiteSpace(limitToken.ToString()))
+            {
+                if (!int.TryParse(limitToken.ToString(), out limit) || limit <= 0)
+                    return Task.FromResult("Invalid \"limit\" argument: expected a positive integer.");
+                if (limit > ActivitySearchMaxLimit)
+                    limit = ActivitySearchMaxLimit;
+            }
+
+            try
+            {
+                IReadOnlyList<ActivityInfo> found = catalog.Search(
+                    query,
+                    string.IsNullOrEmpty(category) ? null : category,
+                    limit);
+                return Task.FromResult(ActivityCatalogText.DescribeSearch(query, category, found, catalog.Count, limit));
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult($"activity_search failed: {ex}");
+            }
+        }
+
+        private Task<string> ActivityDescribeAsync(JObject args, CancellationToken ct)
+        {
+            IActivityCatalog catalog = Catalog;
+            if (catalog == null || catalog.Count == 0)
+                return Task.FromResult(CatalogUnavailableMessage);
+
+            var typeName = (args["typeName"]?.Value<string>() ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(typeName))
+                return Task.FromResult("Missing or empty \"typeName\" argument. Use activity_search(query) to find the exact name.");
+
+            try
+            {
+                ActivityInfo activity = catalog.Describe(typeName);
+                if (activity == null)
+                    return Task.FromResult(ActivityCatalogText.DescribeUnknown(typeName, catalog.Search(typeName, null, 5)));
+
+                return Task.FromResult(ActivityCatalogText.DescribeActivity(activity));
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult($"activity_describe failed: {ex}");
+            }
+        }
+
+
+        /// <summary>
+        /// Workflow outline service used by <c>workflow_outline</c> (card <c>AG-03</c>). The constructor
+        /// argument wins over the ambient hub so tests can inject a fake service while the studio injects
+        /// the real one built on top of WF loading and validation.
+        /// </summary>
+        private IWorkflowOutlineService OutlineService => _workflowOutline ?? ChatEnvironment.WorkflowOutline;
+
+        private const string OutlineUnavailableMessage =
+            "Workflow outline service is unavailable: the studio host did not provide one. " +
+            "The outline is built by the studio (it owns WF loading and validation), so run the chat inside the studio; " +
+            "as a fallback read the XAML file with read_files.";
+
+        private Task<string> WorkflowOutlineAsync(JObject args, CancellationToken ct)
+        {
+            var rawPath = (args["path"]?.Value<string>() ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(rawPath))
+                return Task.FromResult("Missing or empty \"path\" argument: pass the path of a workflow XAML file.");
+
+            IWorkflowOutlineService service = OutlineService;
+            if (service == null)
+                return Task.FromResult(OutlineUnavailableMessage);
+
+            var depth = 0;
+            JToken depthToken = args["depth"];
+            if (depthToken != null && depthToken.Type != JTokenType.Null && !string.IsNullOrWhiteSpace(depthToken.ToString()))
+            {
+                if (!int.TryParse(depthToken.ToString(), out depth) || depth < 0)
+                    return Task.FromResult("Invalid \"depth\" argument: expected a non-negative integer (0 = whole tree).");
+            }
+
+            var includeArguments = true;
+            JToken includeToken = args["include_arguments"];
+            if (includeToken != null && includeToken.Type != JTokenType.Null && !string.IsNullOrWhiteSpace(includeToken.ToString()))
+            {
+                if (!bool.TryParse(includeToken.ToString(), out includeArguments))
+                    return Task.FromResult("Invalid \"include_arguments\" argument: expected true or false.");
+            }
+
+            try
+            {
+                WorkflowOutline outline = service.GetOutline(ResolvePath(rawPath), depth, includeArguments);
+                if (outline == null)
+                    return Task.FromResult(OutlineUnavailableMessage);
+
+                return Task.FromResult(WorkflowOutlineText.Describe(outline));
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult($"workflow_outline failed: {ex}");
+            }
+        }
+
+        /// <summary>
+        /// Вердикт валидации процесса (карточка <c>AG-06</c>). Отдельной службы валидации нет намеренно:
+        /// отчёт строится над тем же <see cref="IWorkflowOutlineService"/>, что и <c>workflow_outline</c>,
+        /// поэтому адреса, тексты и свойства замечаний у чтения и у валидации всегда одни и те же.
+        /// </summary>
+        private Task<string> WorkflowValidateAsync(JObject args, CancellationToken ct)
+        {
+            var rawPath = ArgText(args, "path");
+            if (string.IsNullOrEmpty(rawPath))
+                return Task.FromResult("Missing or empty \"path\" argument: pass the path of a workflow XAML file.");
+
+            IWorkflowOutlineService service = OutlineService;
+            if (service == null)
+                return Task.FromResult(OutlineUnavailableMessage);
+
+            var maxIssues = WorkflowOutlineText.MaxIssues;
+            JToken maxToken = args["max_issues"] ?? args["maxIssues"];
+            if (maxToken != null && maxToken.Type != JTokenType.Null && !string.IsNullOrWhiteSpace(maxToken.ToString()))
+            {
+                if (!int.TryParse(maxToken.ToString().Trim(), out maxIssues) || maxIssues < 0)
+                    return Task.FromResult(
+                        "Invalid \"max_issues\" argument: expected a non-negative integer (0 = counts only).");
+            }
+
+            var elementId = ArgText(args, "elementId") ?? ArgText(args, "element_id");
+
+            try
+            {
+                // Аргументы не нужны: вердикт валидации от них не зависит, а ответ не должен занимать
+                // контекст модели. Дерево и адреса при этом те же, что у workflow_outline.
+                WorkflowOutline outline = service.GetOutline(ResolvePath(rawPath), 0, false);
+                if (outline == null)
+                    return Task.FromResult(OutlineUnavailableMessage);
+
+                WorkflowValidationReport report = WorkflowValidationReport.FromOutline(outline, elementId, maxIssues);
+
+                return Task.FromResult(WorkflowValidationText.Describe(report));
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult($"workflow_validate failed: {ex}");
+            }
+        }
+
+        // ---- Правка открытого процесса (AG-04, AG-09) ----
+
+        /// <summary>
+        /// Мост правок (AG-02). Аргумент конструктора важнее окружения: тесты подставляют фейковую сессию,
+        /// студия — живой конструктор.
+        /// </summary>
+        private IWorkflowEditingService Editing => _workflowEditing ?? ChatEnvironment.WorkflowEditing;
+
+        private const string EditingUnavailableMessage =
+            "Workflow editing service is unavailable: the studio host did not provide one. " +
+            "Edits go to the model of a workflow tab open in the designer (the studio owns it), so open the file " +
+            "in the studio designer and retry; as a fallback edit the XAML file with the editor tool.";
+
+        private Task<string> ActivityInsertAsync(JObject args, CancellationToken ct)
+        {
+            IWorkflowEditingService service = Editing;
+            if (service == null)
+                return Task.FromResult(EditingUnavailableMessage);
+
+            var path = ArgText(args, "path");
+            if (path == null)
+                return Task.FromResult("Missing or empty \"path\" argument: pass the path of the workflow XAML open in the designer.");
+
+            var requests = new List<WorkflowInsertRequest>();
+
+            if (args["activities"] is JArray activities)
+            {
+                foreach (JToken token in activities)
+                {
+                    if (!(token is JObject item))
+                        return Task.FromResult("Invalid \"activities\" argument: every item must be an object.");
+
+                    if (!TryArgIndex(item, "index", out int? itemIndex, out string itemIndexError))
+                        return Task.FromResult(itemIndexError);
+
+                    requests.Add(new WorkflowInsertRequest
+                    {
+                        ParentId = ArgText(item, "parent"),
+                        Container = ArgText(item, "container"),
+                        Index = itemIndex,
+                        ActivityType = ArgText(item, "activityType") ?? ArgText(item, "type"),
+                        DisplayName = ArgText(item, "displayName")
+                    });
+                }
+            }
+            else
+            {
+                if (!TryArgIndex(args, "index", out int? index, out string indexError))
+                    return Task.FromResult(indexError);
+
+                requests.Add(new WorkflowInsertRequest
+                {
+                    ParentId = ArgText(args, "parent"),
+                    Container = ArgText(args, "container"),
+                    Index = index,
+                    ActivityType = ArgText(args, "activityType") ?? ArgText(args, "type"),
+                    DisplayName = ArgText(args, "displayName")
+                });
+            }
+
+            if (requests.Count == 0)
+                return Task.FromResult("Missing \"activities\" argument: pass at least one activity to insert.");
+
+            if (requests.Any(request => string.IsNullOrWhiteSpace(request.ActivityType)))
+                return Task.FromResult(
+                    "Missing \"activityType\": every inserted activity needs a type. Use activity_search to find the exact name.");
+
+            if (!TryParseValidation(args, out WorkflowEditValidation validation, out string validationError))
+                return Task.FromResult(validationError);
+
+            try
+            {
+                var runner = new WorkflowEditRunner(service);
+                WorkflowEditResult result = runner.Insert(path, requests, validation, "activity_insert");
+
+                return Task.FromResult(WorkflowEditText.Describe(result, IncludeOutline(args)));
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult($"activity_insert failed: {ex}");
+            }
+        }
+
+        private Task<string> ActivityDeleteAsync(JObject args, CancellationToken ct)
+        {
+            IWorkflowEditingService service = Editing;
+            if (service == null)
+                return Task.FromResult(EditingUnavailableMessage);
+
+            var path = ArgText(args, "path");
+            if (path == null)
+                return Task.FromResult("Missing or empty \"path\" argument: pass the path of the workflow XAML open in the designer.");
+
+            var elementIds = new List<string>();
+            var single = ArgText(args, "elementId");
+            if (single != null)
+                elementIds.Add(single);
+
+            if (args["elementIds"] is JArray array)
+            {
+                foreach (JToken token in array)
+                {
+                    var id = token?.ToString().Trim();
+                    if (!string.IsNullOrEmpty(id))
+                        elementIds.Add(id);
+                }
+            }
+
+            if (elementIds.Count == 0)
+                return Task.FromResult("Missing \"elementId\" argument: pass a workflow_outline id such as root/Activities[0].");
+
+            if (!TryParseValidation(args, out WorkflowEditValidation validation, out string validationError))
+                return Task.FromResult(validationError);
+
+            try
+            {
+                var runner = new WorkflowEditRunner(service);
+                WorkflowEditResult result = runner.Delete(path, elementIds, validation, "activity_delete");
+
+                return Task.FromResult(WorkflowEditText.Describe(result, IncludeOutline(args)));
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult($"activity_delete failed: {ex}");
+            }
+        }
+
+        private Task<string> ActivityMoveAsync(JObject args, CancellationToken ct)
+        {
+            IWorkflowEditingService service = Editing;
+            if (service == null)
+                return Task.FromResult(EditingUnavailableMessage);
+
+            var path = ArgText(args, "path");
+            if (path == null)
+                return Task.FromResult("Missing or empty \"path\" argument: pass the path of the workflow XAML open in the designer.");
+
+            var requests = new List<WorkflowMoveRequest>();
+
+            if (args["moves"] is JArray moves)
+            {
+                foreach (JToken token in moves)
+                {
+                    if (!(token is JObject item))
+                        return Task.FromResult("Invalid \"moves\" argument: every item must be an object.");
+
+                    if (!TryArgIndex(item, "index", out int? itemIndex, out string itemIndexError))
+                        return Task.FromResult(itemIndexError);
+
+                    requests.Add(new WorkflowMoveRequest
+                    {
+                        ElementId = ArgText(item, "elementId"),
+                        ParentId = ArgText(item, "parent"),
+                        Container = ArgText(item, "container"),
+                        Index = itemIndex
+                    });
+                }
+            }
+            else
+            {
+                if (!TryArgIndex(args, "index", out int? index, out string indexError))
+                    return Task.FromResult(indexError);
+
+                requests.Add(new WorkflowMoveRequest
+                {
+                    ElementId = ArgText(args, "elementId"),
+                    ParentId = ArgText(args, "parent"),
+                    Container = ArgText(args, "container"),
+                    Index = index
+                });
+            }
+
+            if (requests.Count == 0 || requests.Any(request => string.IsNullOrWhiteSpace(request.ElementId)))
+                return Task.FromResult("Missing \"elementId\" argument: pass the address of the activity to move.");
+
+            if (!TryParseValidation(args, out WorkflowEditValidation validation, out string validationError))
+                return Task.FromResult(validationError);
+
+            try
+            {
+                var runner = new WorkflowEditRunner(service);
+                WorkflowEditResult result = runner.Move(path, requests, validation, "activity_move");
+
+                return Task.FromResult(WorkflowEditText.Describe(result, IncludeOutline(args)));
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult($"activity_move failed: {ex}");
+            }
+        }
+
+        private Task<string> ActivityWrapAsync(JObject args, CancellationToken ct)
+        {
+            IWorkflowEditingService service = Editing;
+            if (service == null)
+                return Task.FromResult(EditingUnavailableMessage);
+
+            var path = ArgText(args, "path");
+            if (path == null)
+                return Task.FromResult("Missing or empty \"path\" argument: pass the path of the workflow XAML open in the designer.");
+
+            var request = new WorkflowWrapRequest
+            {
+                ElementId = ArgText(args, "elementId"),
+                WrapperType = ArgText(args, "wrapperType") ?? ArgText(args, "activityType"),
+                Container = ArgText(args, "container"),
+                DisplayName = ArgText(args, "displayName")
+            };
+
+            if (string.IsNullOrWhiteSpace(request.ElementId))
+                return Task.FromResult("Missing \"elementId\" argument: pass the address of the activity to wrap.");
+
+            if (string.IsNullOrWhiteSpace(request.WrapperType))
+                return Task.FromResult("Missing \"wrapperType\" argument: pass the wrapper activity type (Sequence, If, TryCatch).");
+
+            if (!TryParseValidation(args, out WorkflowEditValidation validation, out string validationError))
+                return Task.FromResult(validationError);
+
+            try
+            {
+                var runner = new WorkflowEditRunner(service);
+                WorkflowEditResult result = runner.Wrap(path, new[] { request }, validation, "activity_wrap");
+
+                return Task.FromResult(WorkflowEditText.Describe(result, IncludeOutline(args)));
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult($"activity_wrap failed: {ex}");
+            }
+        }
+
+        private Task<string> ActivityUndoAsync(JObject args, CancellationToken ct)
+        {
+            IWorkflowEditingService service = Editing;
+            if (service == null)
+                return Task.FromResult(EditingUnavailableMessage);
+
+            var path = ArgText(args, "path");
+            if (path == null)
+                return Task.FromResult("Missing or empty \"path\" argument: pass the path of the workflow XAML open in the designer.");
+
+            try
+            {
+                var runner = new WorkflowEditRunner(service);
+                return Task.FromResult(WorkflowEditText.Describe(runner.Undo(path), IncludeOutline(args)));
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult($"activity_undo failed: {ex}");
+            }
+        }
+
+        private Task<string> ActivityRedoAsync(JObject args, CancellationToken ct)
+        {
+            IWorkflowEditingService service = Editing;
+            if (service == null)
+                return Task.FromResult(EditingUnavailableMessage);
+
+            var path = ArgText(args, "path");
+            if (path == null)
+                return Task.FromResult("Missing or empty \"path\" argument: pass the path of the workflow XAML open in the designer.");
+
+            try
+            {
+                var runner = new WorkflowEditRunner(service);
+                return Task.FromResult(WorkflowEditText.Describe(runner.Redo(path), IncludeOutline(args)));
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult($"activity_redo failed: {ex}");
+            }
+        }
+
+        // ---- Аргументы и переменные (AG-05) ----
+
+        private Task<string> ArgumentSetAsync(JObject args, CancellationToken ct)
+        {
+            IWorkflowEditingService service = Editing;
+            if (service == null)
+                return Task.FromResult(EditingUnavailableMessage);
+
+            var path = ArgText(args, "path");
+            if (path == null)
+                return Task.FromResult("Missing or empty \"path\" argument: pass the path of the workflow XAML open in the designer.");
+
+            var requests = new List<WorkflowArgumentSetRequest>();
+
+            if (args["arguments"] is JArray items)
+            {
+                foreach (JToken token in items)
+                {
+                    if (!(token is JObject item))
+                        return Task.FromResult("Invalid \"arguments\" argument: every item must be an object.");
+
+                    if (!TryParseArgumentRequest(item, requests, out string itemError))
+                        return Task.FromResult(itemError);
+                }
+            }
+            else if (!TryParseArgumentRequest(args, requests, out string error))
+            {
+                return Task.FromResult(error);
+            }
+
+            if (requests.Count == 0)
+                return Task.FromResult(
+                    "Missing \"argument\": pass an element id from workflow_outline and an argument name from activity_describe.");
+
+            if (!TryParseValidation(args, out WorkflowEditValidation validation, out string validationError))
+                return Task.FromResult(validationError);
+
+            try
+            {
+                var runner = new WorkflowEditRunner(service);
+                WorkflowEditResult result = runner.SetArgument(path, requests, validation, "argument_set");
+
+                return Task.FromResult(WorkflowEditText.Describe(result, IncludeOutline(args)));
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult($"argument_set failed: {ex}");
+            }
+        }
+
+        private Task<string> VariableAddAsync(JObject args, CancellationToken ct)
+        {
+            IWorkflowEditingService service = Editing;
+            if (service == null)
+                return Task.FromResult(EditingUnavailableMessage);
+
+            var path = ArgText(args, "path");
+            if (path == null)
+                return Task.FromResult("Missing or empty \"path\" argument: pass the path of the workflow XAML open in the designer.");
+
+            var requests = new List<WorkflowVariableAddRequest>();
+
+            if (args["variables"] is JArray items)
+            {
+                foreach (JToken token in items)
+                {
+                    if (!(token is JObject item))
+                        return Task.FromResult("Invalid \"variables\" argument: every item must be an object.");
+
+                    if (!TryParseVariableAddRequest(item, requests, out string itemError))
+                        return Task.FromResult(itemError);
+                }
+            }
+            else if (!TryParseVariableAddRequest(args, requests, out string error))
+            {
+                return Task.FromResult(error);
+            }
+
+            if (requests.Count == 0)
+                return Task.FromResult(
+                    "Missing \"name\": pass the variable name and its typeName (String, Int32, Boolean, ...).");
+
+            if (!TryParseValidation(args, out WorkflowEditValidation validation, out string validationError))
+                return Task.FromResult(validationError);
+
+            try
+            {
+                var runner = new WorkflowEditRunner(service);
+                WorkflowEditResult result = runner.AddVariable(path, requests, validation, "variable_add");
+
+                return Task.FromResult(WorkflowEditText.Describe(result, IncludeOutline(args)));
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult($"variable_add failed: {ex}");
+            }
+        }
+
+        private Task<string> VariableRemoveAsync(JObject args, CancellationToken ct)
+        {
+            IWorkflowEditingService service = Editing;
+            if (service == null)
+                return Task.FromResult(EditingUnavailableMessage);
+
+            var path = ArgText(args, "path");
+            if (path == null)
+                return Task.FromResult("Missing or empty \"path\" argument: pass the path of the workflow XAML open in the designer.");
+
+            var requests = new List<WorkflowVariableRemoveRequest>();
+
+            if (args["variables"] is JArray items)
+            {
+                foreach (JToken token in items)
+                {
+                    if (token is JObject item)
+                    {
+                        var itemName = ArgText(item, "name");
+                        if (itemName == null)
+                            return Task.FromResult("Invalid \"variables\" item: every object needs a name.");
+
+                        requests.Add(new WorkflowVariableRemoveRequest
+                        {
+                            ElementId = ArgText(item, "elementId") ?? ArgText(args, "elementId"),
+                            Name = itemName
+                        });
+
+                        continue;
+                    }
+
+                    // Список имён — короткая форма пачки: адрес владельца берётся из общего аргумента.
+                    var plainName = token?.ToString().Trim();
+                    if (!string.IsNullOrEmpty(plainName))
+                        requests.Add(new WorkflowVariableRemoveRequest
+                        {
+                            ElementId = ArgText(args, "elementId"),
+                            Name = plainName
+                        });
+                }
+            }
+            else
+            {
+                var name = ArgText(args, "name");
+                if (name == null)
+                    return Task.FromResult(
+                        "Missing \"name\": pass the variable name to remove (or \"variables\" for a batch).");
+
+                requests.Add(new WorkflowVariableRemoveRequest
+                {
+                    ElementId = ArgText(args, "elementId"),
+                    Name = name
+                });
+            }
+
+            if (requests.Count == 0)
+                return Task.FromResult(
+                    "Missing \"name\": pass the variable name to remove (or \"variables\" for a batch).");
+
+            if (!TryParseValidation(args, out WorkflowEditValidation validation, out string validationError))
+                return Task.FromResult(validationError);
+
+            try
+            {
+                var runner = new WorkflowEditRunner(service);
+                WorkflowEditResult result = runner.RemoveVariable(path, requests, validation, "variable_remove");
+
+                return Task.FromResult(WorkflowEditText.Describe(result, IncludeOutline(args)));
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult($"variable_remove failed: {ex}");
+            }
+        }
+
+        /// <summary>
+        /// Запрос «задай аргумент» из JSON. Литерал и выражение взаимоисключающие, но решает это сессия:
+        /// инструмент только передаёт то, что пришло, и объясняет, чего не хватает.
+        /// </summary>
+        private static bool TryParseArgumentRequest(
+            JObject source,
+            List<WorkflowArgumentSetRequest> requests,
+            out string error)
+        {
+            error = null;
+
+            var request = new WorkflowArgumentSetRequest
+            {
+                ElementId = ArgText(source, "elementId") ?? ArgText(source, "id"),
+                Argument = ArgText(source, "argument") ?? ArgText(source, "name"),
+                Expression = ArgText(source, "expression"),
+                TypeName = ArgText(source, "typeName") ?? ArgText(source, "type"),
+                Language = ArgText(source, "language")
+            };
+
+            if (!TryArgRawText(source, "value", out string literal))
+            {
+                error = "Invalid \"value\" argument: expected a string, number or boolean literal.";
+                return false;
+            }
+
+            if (literal != null)
+                request.SetValue(literal);
+
+            if (string.IsNullOrWhiteSpace(request.ElementId))
+            {
+                error = "Missing \"elementId\": pass a workflow_outline id such as root/Activities[0].";
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Argument))
+            {
+                error = "Missing \"argument\": activity_describe lists the argument names of the activity type.";
+                return false;
+            }
+
+            requests.Add(request);
+            return true;
+        }
+
+        private static bool TryParseVariableAddRequest(
+            JObject source,
+            List<WorkflowVariableAddRequest> requests,
+            out string error)
+        {
+            error = null;
+
+            var request = new WorkflowVariableAddRequest
+            {
+                ElementId = ArgText(source, "elementId") ?? ArgText(source, "parent"),
+                Name = ArgText(source, "name"),
+                TypeName = ArgText(source, "typeName") ?? ArgText(source, "type"),
+                Expression = ArgText(source, "expression"),
+                Language = ArgText(source, "language")
+            };
+
+            if (!TryArgRawText(source, "value", out string literal))
+            {
+                error = "Invalid \"value\" argument: expected a string, number or boolean literal.";
+                return false;
+            }
+
+            if (literal != null)
+                request.SetValue(literal);
+
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                error = "Missing \"name\": pass the variable name.";
+                return false;
+            }
+
+            requests.Add(request);
+            return true;
+        }
+
+        /// <summary>
+        /// Сырой текст аргумента: у литерала пустая строка — это значение, а не «не задан»,
+        /// поэтому общий <see cref="ArgText"/> здесь не годится.
+        /// </summary>
+        private static bool TryArgRawText(JObject args, string name, out string value)
+        {
+            value = null;
+
+            JToken token = args?[name];
+            if (token == null || token.Type == JTokenType.Null)
+                return true;
+
+            if (token.Type == JTokenType.Object || token.Type == JTokenType.Array)
+                return false;
+
+            value = token.Type == JTokenType.String ? token.Value<string>() : token.ToString();
+            return true;
+        }
+
+        /// <summary>Строковый аргумент; пустое значение — <c>null</c> (как «не задан»).</summary>
+        private static string ArgText(JObject args, string name)
+        {
+            JToken token = args?[name];
+            if (token == null || token.Type == JTokenType.Null || token.Type == JTokenType.Object || token.Type == JTokenType.Array)
+                return null;
+
+            var value = token.ToString().Trim();
+            return value.Length == 0 ? null : value;
+        }
+
+        /// <summary>Неотрицательный индекс; отсутствие аргумента — «в конец».</summary>
+        private static bool TryArgIndex(JObject args, string name, out int? index, out string error)
+        {
+            index = null;
+            error = null;
+
+            JToken token = args?[name];
+            if (token == null || token.Type == JTokenType.Null || string.IsNullOrWhiteSpace(token.ToString()))
+                return true;
+
+            if (!int.TryParse(token.ToString().Trim(), out int parsed) || parsed < 0)
+            {
+                error = "Invalid \"" + name + "\" argument: expected a non-negative integer.";
+                return false;
+            }
+
+            index = parsed;
+            return true;
+        }
+
+        /// <summary><c>validate</c>: <c>report</c> (по умолчанию), <c>off</c> или <c>strict</c>.</summary>
+        private static bool TryParseValidation(JObject args, out WorkflowEditValidation validation, out string error)
+        {
+            validation = WorkflowEditValidation.Report;
+            error = null;
+
+            var text = ArgText(args, "validate");
+            if (text == null)
+                return true;
+
+            switch (text.ToLowerInvariant())
+            {
+                case "off":
+                case "none":
+                case "false":
+                    validation = WorkflowEditValidation.Off;
+                    return true;
+                case "report":
+                case "true":
+                    validation = WorkflowEditValidation.Report;
+                    return true;
+                case "strict":
+                    validation = WorkflowEditValidation.Strict;
+                    return true;
+                default:
+                    error = "Invalid \"validate\" argument: expected report (default), off or strict.";
+                    return false;
+            }
+        }
+
+        /// <summary>Показывать структуру процесса в ответе (по умолчанию — да, чтобы не читать её повторно).</summary>
+        /// <summary>
+        /// Палитра «Активности» после создания активности (карточка <c>AG-08</c>). Берётся из окружения так же,
+        /// как каталог: студия владеет доменом сборок и панелью, чат — только контрактом.
+        /// </summary>
+        private static IActivityPaletteNotifier PaletteNotifier => ChatEnvironment.ActivityPaletteNotifier;
+
+        /// <summary>
+        /// Создание активности в существующем проекте библиотеки активностей (карточка <c>AG-08</c>).
+        /// Служба делает файлы, <c>.csproj</c> и откат; инструмент добавляет к ответу состояние палитры:
+        /// без загрузки сборки в домен тип не виден ни каталогу, ни панели «Активности».
+        /// </summary>
+        private async Task<string> ActivityCreateAsync(JObject args, CancellationToken ct)
+        {
+            var rawPath = ArgText(args, "projectPath") ?? ArgText(args, "project");
+            if (rawPath == null)
+                return "Missing \"projectPath\": pass the path of the activity library project (.csproj) where the activity is created.";
+
+            var request = new ActivityCreateRequest
+            {
+                ProjectPath = ResolvePath(rawPath),
+                ClassName = ArgText(args, "className") ?? ArgText(args, "name"),
+                Namespace = ArgText(args, "namespace"),
+                Description = ArgText(args, "description"),
+                Category = ArgText(args, "category"),
+                BaseType = ArgText(args, "baseType"),
+                Configuration = ArgText(args, "configuration")
+            };
+
+            if (!TryArgBool(args, "withDesigner", out bool? withDesigner, out string flagError))
+                return flagError;
+            if (withDesigner.HasValue)
+                request.WithDesigner = withDesigner.Value;
+
+            if (!TryArgBool(args, "build", out bool? build, out flagError))
+                return flagError;
+            if (build.HasValue)
+                request.Build = build.Value;
+
+            if (args["arguments"] is JArray items)
+            {
+                foreach (JToken token in items)
+                {
+                    if (!(token is JObject item))
+                        return "Invalid \"arguments\" item: every item must be an object with a \"name\".";
+
+                    request.Arguments.Add(new ActivityCreateArgument
+                    {
+                        Name = ArgText(item, "name"),
+                        TypeName = ArgText(item, "typeName") ?? ArgText(item, "type"),
+                        Direction = ArgText(item, "direction"),
+                        Required = item["required"] != null && item["required"].Type == JTokenType.Boolean && item["required"].Value<bool>(),
+                        Description = ArgText(item, "description"),
+                        Category = ArgText(item, "category")
+                    });
+                }
+            }
+
+            try
+            {
+                var service = new ActivityCreationService(_buildFeedback);
+                ActivityCreateResult result = await service.CreateAsync(request, ct).ConfigureAwait(false);
+
+                ActivityPaletteRefreshResult palette = null;
+                if (result.Succeeded && !string.IsNullOrWhiteSpace(result.AssemblyPath))
+                    palette = (PaletteNotifier ?? NullActivityPaletteNotifier.Instance).Notify(result.AssemblyPath);
+
+                return ActivityCreateText.Describe(result, palette);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return "activity_create failed: " + ex;
+            }
+        }
+
+        /// <summary>Логический аргумент инструмента: отсутствие — «не задан», мусор — ошибка запроса.</summary>
+        private static bool TryArgBool(JObject args, string name, out bool? value, out string error)
+        {
+            value = null;
+            error = null;
+
+            JToken token = args?[name];
+            if (token == null || token.Type == JTokenType.Null || token.Type == JTokenType.Object || token.Type == JTokenType.Array)
+                return true;
+
+            if (token.Type == JTokenType.Boolean)
+            {
+                value = token.Value<bool>();
+                return true;
+            }
+
+            var text = token.ToString().Trim();
+            if (text.Length == 0)
+                return true;
+
+            if (bool.TryParse(text, out bool parsed))
+            {
+                value = parsed;
+                return true;
+            }
+
+            error = "Invalid \"" + name + "\" argument: expected true or false.";
+            return false;
+        }
+
+        private static bool IncludeOutline(JObject args)
+        {
+            JToken token = args?["include_outline"];
+            if (token == null || token.Type == JTokenType.Null || string.IsNullOrWhiteSpace(token.ToString()))
+                return true;
+
+            return !bool.TryParse(token.ToString().Trim(), out bool value) || value;
+        }
+
+
 
         private async Task<string> BuildAsync(JObject args, CancellationToken ct)
         {
@@ -642,33 +1687,44 @@ namespace RPA.Chat.Services.AgentTools
                 var oldText = args["old_text"]?.Value<string>();
                 var newText = args["new_text"]?.Value<string>();
 
+                string text;
+                var replaced = false;
+
                 if (content != null && content.Type != JTokenType.Null)
                 {
-                    var directory = Path.GetDirectoryName(p);
-                    if (!string.IsNullOrEmpty(directory))
-                        Directory.CreateDirectory(directory);
-                    File.WriteAllText(p, content.Value<string>() ?? "", Encoding.UTF8);
-                    return Task.FromResult("File written: " + MakeRelative(p));
+                    text = content.Value<string>() ?? string.Empty;
                 }
-
-                if (oldText != null && newText != null)
+                else if (oldText != null && newText != null)
                 {
                     if (!File.Exists(p))
                         return Task.FromResult("File not found: " + p);
 
-                    var text = File.ReadAllText(p, Encoding.UTF8);
-                    var index = text.IndexOf(oldText, StringComparison.Ordinal);
+                    var current = File.ReadAllText(p, Encoding.UTF8);
+                    var index = current.IndexOf(oldText, StringComparison.Ordinal);
                     if (index < 0)
                         return Task.FromResult("The specified old_text was not found in the file.");
-                    if (text.IndexOf(oldText, index + 1, StringComparison.Ordinal) >= 0)
+                    if (current.IndexOf(oldText, index + 1, StringComparison.Ordinal) >= 0)
                         return Task.FromResult("The specified old_text was found more than once; make it unique before editing.");
 
-                    text = text.Remove(index, oldText.Length).Insert(index, newText);
-                    File.WriteAllText(p, text, Encoding.UTF8);
-                    return Task.FromResult("File edited: " + MakeRelative(p));
+                    text = current.Remove(index, oldText.Length).Insert(index, newText);
+                    replaced = true;
+                }
+                else
+                {
+                    return Task.FromResult("Provide either \"content\" (full write) or \"old_text\"+\"new_text\" (replace).");
                 }
 
-                return Task.FromResult("Provide either \"content\" (full write) or \"old_text\"+\"new_text\" (replace).");
+                // XAML рабочего процесса пишется по тем же правилам, что и у сериализатора студии (AG-07):
+                // отдельного xaml_write нет, поэтому нормализация встроена в единственный путь текстовой правки.
+                if (WorkflowXamlText.IsWorkflowXamlFile(p))
+                    return Task.FromResult(WriteWorkflowXaml(p, text, args, replaced));
+
+                var directory = Path.GetDirectoryName(p);
+                if (!string.IsNullOrEmpty(directory))
+                    Directory.CreateDirectory(directory);
+                File.WriteAllText(p, text, Encoding.UTF8);
+
+                return Task.FromResult((replaced ? "File edited: " : "File written: ") + MakeRelative(p));
             }
             catch (Exception ex)
             {
@@ -676,6 +1732,197 @@ namespace RPA.Chat.Services.AgentTools
             }
         }
 
+        /// <summary>Сколько замечаний валидации вернуть текстом; остальные — числом.</summary>
+        private const int XamlIssuesInResponse = 10;
+
+        /// <summary>
+        /// Запись <c>.xaml</c> (карточка <c>AG-07</c>): нормализация канонического вида, отказ при файле,
+        /// открытом конструктором, и валидация тем же гейтом, что у генерации процессов. Режимы
+        /// <c>validate</c>: <c>off</c> — не проверять, <c>report</c> (по умолчанию) — записать и вернуть
+        /// замечания, <c>strict</c> — откатить файл, если проверка не прошла или не выполнялась.
+        /// </summary>
+        private string WriteWorkflowXaml(string path, string text, JObject args, bool replaced)
+        {
+            var mode = (ArgText(args, "validate") ?? "report").Trim().ToLowerInvariant();
+            if (mode != "off" && mode != "report" && mode != "strict")
+                return "Invalid \"validate\" argument: expected \"off\", \"report\" (default) or \"strict\".";
+
+            if (IsOpenInDesigner(path))
+            {
+                return "File not written: " + MakeRelative(path) + " is open in the studio designer. " +
+                       "Edits live in the designer model and the file is saved from it, so a text write would be lost. " +
+                       "Use workflow_outline for addresses and activity_insert / activity_delete / activity_move / " +
+                       "activity_wrap / argument_set / variable_add for changes, then save the designer tab.";
+            }
+
+            WorkflowXamlNormalizeResult normalized = WorkflowXamlText.Normalize(text);
+            if (normalized.Kind == WorkflowXamlKind.Malformed)
+            {
+                return "File not written: the XAML is not well-formed XML (" + normalized.Error + "). " +
+                       "Nothing on disk was changed: fix the markup and write it again.";
+            }
+
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory))
+                Directory.CreateDirectory(directory);
+
+            var existed = File.Exists(path);
+            var previous = existed ? File.ReadAllBytes(path) : null;
+            var bom = existed && HasUtf8Bom(path);
+
+            File.WriteAllText(path, normalized.Text, new UTF8Encoding(bom));
+
+            var sb = new StringBuilder();
+            sb.Append(replaced ? "File edited: " : "File written: ").Append(MakeRelative(path));
+            sb.AppendLine();
+            sb.Append("xaml: ").Append(DescribeNormalization(normalized))
+              .Append(bom ? "; BOM preserved" : "; UTF-8 without BOM");
+
+            if (mode == "off")
+            {
+                sb.AppendLine();
+                sb.Append("validation: skipped (validate=off)");
+                return sb.ToString();
+            }
+
+            WorkflowXamlGateResult gate;
+            try
+            {
+                IWorkflowXamlGate xamlGate = XamlGate ?? NullWorkflowXamlGate.Instance;
+                gate = xamlGate.ValidateText(normalized.Text) ?? WorkflowXamlGateResult.NotPerformed("гейт не вернул результат");
+            }
+            catch (Exception ex)
+            {
+                gate = WorkflowXamlGateResult.NotPerformed("валидация упала: " + ex.Message);
+            }
+
+            if (!gate.Validated)
+            {
+                if (mode == "strict")
+                {
+                    RestoreFile(path, previous);
+                    sb.AppendLine();
+                    sb.Append("Write reverted: validation was not performed (").Append(gate.Reason)
+                      .Append("), so strict mode cannot confirm the XAML. ")
+                      .Append(previous == null ? "The created file was deleted." : "The file was restored to its previous content.");
+                    return sb.ToString();
+                }
+
+                sb.AppendLine();
+                sb.Append("validation: not performed — ").Append(gate.Reason).Append(" (this is not \"no errors\")");
+                return sb.ToString();
+            }
+
+            if (gate.Ok)
+            {
+                sb.AppendLine();
+                sb.Append("validation: ok (0 errors")
+                  .Append(gate.Warnings.Count > 0 ? ", " + gate.Warnings.Count + " warning(s)" : string.Empty)
+                  .Append(")");
+                return sb.ToString();
+            }
+
+            if (mode == "strict")
+            {
+                RestoreFile(path, previous);
+                sb.AppendLine();
+                sb.Append("Write reverted: XAML validation failed (").Append(gate.Errors.Count).Append(" error(s)); ")
+                  .Append(previous == null ? "the created file was deleted." : "the file was restored to its previous content.");
+                AppendGateIssues(sb, gate);
+                return sb.ToString();
+            }
+
+            sb.AppendLine();
+            sb.Append("validation: ").Append(gate.Errors.Count).Append(" error(s)");
+            AppendGateIssues(sb, gate);
+            sb.AppendLine();
+            sb.Append("hint: fix the issues and write again, or write with validate=\"strict\" to have rejected XAML reverted.");
+            return sb.ToString();
+        }
+
+        private static string DescribeNormalization(WorkflowXamlNormalizeResult normalized)
+        {
+            if (normalized.Kind == WorkflowXamlKind.OtherXml)
+                return "left as is (" + string.Join("; ", normalized.Notes) + ")";
+
+            if (!normalized.Changed)
+                return "already canonical";
+
+            return normalized.Notes.Count == 0
+                ? "normalized"
+                : "normalized (" + string.Join("; ", normalized.Notes) + ")";
+        }
+
+        private static void AppendGateIssues(StringBuilder sb, WorkflowXamlGateResult gate)
+        {
+            IReadOnlyList<string> errors = gate.Errors ?? new string[0];
+            foreach (var error in errors.Take(XamlIssuesInResponse))
+            {
+                sb.AppendLine();
+                sb.Append("  - ").Append(error);
+            }
+
+            if (errors.Count > XamlIssuesInResponse)
+            {
+                sb.AppendLine();
+                sb.Append("  … ").Append(errors.Count - XamlIssuesInResponse).Append(" more");
+            }
+        }
+
+        private static void RestoreFile(string path, byte[] previous)
+        {
+            if (previous != null)
+            {
+                File.WriteAllBytes(path, previous);
+                return;
+            }
+
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+
+        /// <summary>
+        /// Гейт валидации XAML (AG-07). Аргумент конструктора важнее окружения: тесты подставляют фейк,
+        /// студия — тот же гейт, которым валидируются генерируемые процессы.
+        /// </summary>
+        private IWorkflowXamlGate XamlGate => _workflowXamlGate ?? ChatEnvironment.WorkflowXamlGate;
+
+        /// <summary>Файл открыт вкладкой конструктора студии: правки живут в модели и перекроют текст файла.</summary>
+        private bool IsOpenInDesigner(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return false;
+
+            try
+            {
+                IWorkflowEditingService editing = Editing;
+                return editing != null && editing.IsOpenInDesigner(path);
+            }
+            catch (Exception)
+            {
+                // Сбой моста не должен блокировать запись: считаем файл не открытым.
+                return false;
+            }
+        }
+
+        /// <summary>Файл начинается с BOM UTF-8 (в файлах студии BOM нет, но у пользовательских он бывает).</summary>
+        private static bool HasUtf8Bom(string path)
+        {
+            try
+            {
+                if (!File.Exists(path))
+                    return false;
+
+                using (var stream = File.OpenRead(path))
+                {
+                    return stream.ReadByte() == 0xEF && stream.ReadByte() == 0xBB && stream.ReadByte() == 0xBF;
+                }
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
 
         private async Task<string> GitStatusAsync(JObject args, CancellationToken ct)
         {

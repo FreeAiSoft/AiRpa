@@ -16,6 +16,15 @@ namespace RPA.Helpers
         public static int ActivitiesCount { get; set; } = 0;
 
         /// <summary>
+        /// Сброс счётчика панели (карточка <c>AG-08</c>): <see cref="Build"/> вызывается не только при старте,
+        /// но и после появления новой библиотеки активностей, а счётчик статический и только прибавлялся.
+        /// </summary>
+        internal static void ResetActivitiesCount()
+        {
+            ActivitiesCount = 0;
+        }
+
+        /// <summary>
         /// Строит панель «Активности». Состав палитры берётся из <see cref="StudioActivityPalette"/> —
         /// того же списка, из которого строится реестр инструментов <c>xaml.*</c>
         /// (этап 4 плана docs\Valid_Xaml_Designer_Plan.md): иначе панель и инструменты разойдутся,
@@ -24,6 +33,7 @@ namespace RPA.Helpers
         internal ToolboxPanel Build()
         {
             ToolboxPanel toolboxPanel = new ToolboxPanel();
+            ResetActivitiesCount();
             ToolboxControl wfToolbox = new ToolboxControl();
 
             LoadPuppeteer();
@@ -42,6 +52,8 @@ namespace RPA.Helpers
 
             categories.Add(StudioActivityPalette.CategoryFromLoadedAssembly(StudioActivityPalette.BrowserCategory, "Activities.Browser"));
             categories.Add(StudioActivityPalette.CategoryFromLoadedAssembly(StudioActivityPalette.OsCategory, "Activities.OS"));
+            // Пользовательские библиотеки (AG-08): сборка, созданная агентом, и всё, что добавили после старта.
+            categories.AddRange(StudioActivityPalette.UserCategories());
 
             foreach (ActivityPaletteCategory category in categories)
             {

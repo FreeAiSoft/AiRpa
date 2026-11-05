@@ -300,12 +300,14 @@
     <Compile Include="Converters\TypeVisibilityCheck.cs" />
     <Compile Include="Converters\WorkflowStateToIsEnabledConverter.cs" />
     <Compile Include="Core\ActivityRunner.cs" />
+    <Compile Include="Core\WorkflowRunEngine.cs" />
     <Compile Include="Core\DebugValidationErrorService.cs" />
     <!-- Генерация валидного XAML (docs\Valid_Xaml_Designer_Plan.md, этап 2): канонизация модели,
          сериализация WF и гейт валидации — один конвейер для всех инструментов. -->
     <Compile Include="Core\Generation\WorkflowCanonicalizationOptions.cs" />
     <Compile Include="Core\Generation\WorkflowCanonicalizer.cs" />
     <Compile Include="Core\Generation\WorkflowXamlSerializer.cs" />
+    <Compile Include="Core\Generation\StudioWorkflowXamlGate.cs" />
     <Compile Include="Core\Generation\WorkflowValidationGate.cs" />
     <Compile Include="Core\Generation\WorkflowBuildService.cs" />
     <Compile Include="Core\Generation\DesignerUiThread.cs" />
@@ -314,6 +316,13 @@
     <Compile Include="Core\Generation\StudioWorkflowDesignerHost.cs" />
     <Compile Include="Core\Generation\ActivityPaletteFactory.cs" />
     <Compile Include="Core\Generation\ActivityPaletteRegistry.cs" />
+    <Compile Include="Core\Workflow\StudioActivityCatalog.cs" />
+    <Compile Include="Core\Workflow\StudioActivityPaletteNotifier.cs" />
+    <Compile Include="Core\Workflow\StudioWorkflowEditSession.cs" />
+    <Compile Include="Core\Workflow\StudioWorkflowEditingService.cs" />
+    <Compile Include="Core\Workflow\StudioWorkflowOutlineService.cs" />
+    <Compile Include="Core\Workflow\WorkflowExpressionSyntax.cs" />
+
     <Compile Include="Core\Generation\DesignerModelSession.cs" />
     <Compile Include="Core\Generation\PaletteWorkflowService.cs" />
     <Compile Include="Core\Generation\WorkflowModelReader.cs" />
@@ -398,6 +407,7 @@
     <Compile Include="Helpers\WindowCorner.cs" />
     <Compile Include="Helpers\WfDialogWindowTheme.cs" />
     <Compile Include="Helpers\AssemblyBindingUnifier.cs" />
+    <Compile Include="Helpers\RobotAssemblyResolver.cs" />
     <Compile Include="Helpers\StudioBrushes.cs" />
     <Compile Include="Helpers\StudioFonts.cs" />
     <Compile Include="Helpers\StudioEditorPalette.cs" />

@@ -19,16 +19,20 @@
 ## Соглашения проекта
 - Целевая платформа: .NET Framework 4.8, WPF-приложение (`OutputType=WinExe`),
   `RootNamespace`/`AssemblyName` = `RPA`.
-- UI-стек: WPF + MahApps.Metro (`MetroWindow`), AvalonDock (докинг-панели),
+- UI-стек: WPF + MahApps.Metro (`MetroWindow`), AvalonDock (докинг-панели), AvalonEdit (редактор кода),
+  Material.Icons.WPF, LogControlLibrary (просмотр логов).
+  Material.Icons.WPF, LogControlLibrary (просмотр логов).
 - Целевые платформы (правило, `CP-10`): **студия — .NET Framework 4.8**, а **всё, что попадает к роботу, — 4.7.2**
   (`net472`). Новый проект, на который может ссылаться робот, обязан целиться в `net472`/`netstandard2.0`;
   исключение допустимо только с записью в белом списке `AiRpaStudio.Tests\TfmMatrixGuardTests.cs` (ID задачи + причина).
   Генерируемые студией роботы и библиотеки активностей по умолчанию создаются на **4.7.2**
   (`Consts.defaultTargetFrameworkVersion`), шаблон VS подставляет TFM через `$targetframeworkversion$`.
-- Сборка: `MSBuild` из **VS 2026** (MSBuild 18) собирает решение полностью. Из VS 2022 полная сборка пока
-  недостижима (`TD-14`: `AvalonEdit\global.json` пиннит .NET SDK) — приёмка идёт по затронутым проектам.
-
-  AvalonEdit (редактор кода), Material.Icons.WPF, LogControlLibrary (просмотр логов).
+- Сборка: `MSBuild` из **VS 2026** (MSBuild 18) **и** из **VS 2022** (MSBuild 17.13) собирает решение полностью:
+  `MSBuild AiRpa.sln /p:Configuration=Release` → 0 ошибок (`TD-14` закрыт 04.11.2026; проверено `-t:Rebuild`
+  для `AvalonEdit` обоими тулчейнами). Пин .NET SDK — `AvalonEdit\global.json` = `9.0.100` + `rollForward: minor`
+  (SDK 10.x требует MSBuild 18 или новее и ломал сборку из VS 2022); страж — `AiRpaStudio.Tests\SdkPinGuardTests.cs`.
+  После смены TFM у `AvalonDock` (`TD-13`, закрыт 04.11.2026) сборку решения запускайте с `/restore`
+  (иначе `NETSDK1005`); параллельную сборку из VS 2022 не запускать — `/m:1`.
 - Дизайнер рабочих процессов: `System.Activities.Presentation.WorkflowDesigner`
   (Windows Workflow Foundation).
 - MVVM: модель-центричный шаблон на `FW.EasyMvvm` (см. раздел ниже).
@@ -43,6 +47,36 @@
   последним кандидатом, чтобы у существующих установок не пропали промпты). Страж — `AiRpaStudio.Tests\AgentCoreRenameGuardTests.cs`
   (скан `.cs`/`.xaml`/`.csproj`/`.sln`: строковое имя сборки компилятор не проверяет, поэтому рефлексия и `assembly=` в XAML
   ломаются молча).
+
+## 4.7.2-робот на 4.8-хосте (`CP-08`)
+
+- Студия (.NET Framework 4.8) запускает робота, собранного на **4.7.2**, в своём AppDomain: одна и та же
+  версия CLR (v4.0.30319), сборки 4.7.2 исполняются на 4.8-рантайме. Доказательство —
+  `AiRpaStudio.Tests\Net472OnNet48HostTests.cs`: эталон `TestProcess\Net472Robot` грузится через
+  `Activator.CreateInstanceFrom` и отдаёт события в `ActivitiesTracker` (тоже 4.7.2) — Sequence, If, TryCatch,
+  WriteLine, аргумент `InputText = max`, результат `Result = MAX`.
+- **Зависимости робота** (`Newtonsoft.Json` робота, его библиотеки активностей) ищутся в его выходном каталоге
+  `bin\<Config>` и `bin\<Config>\<TFM>`: `AiRpaStudio\Helpers\RobotAssemblyResolver.cs`. Правила: сборки хоста
+  (`System.*`, WF, `Activities*`, `ActivitiesTracker`, `RPA*`) из каталога робота **никогда** не обслуживаются,
+  понижение версии запрещено, чужой открытый ключ запрещён, обработчик не бросает исключений, подписка
+  идемпотентна. Порядок: сначала `AssemblyBindingUnifier` (сверка версий внутри домена), затем этот резолвер.
+  Тесты — `AiRpaStudio.Tests\RobotAssemblyResolverTests.cs` (проверены негативом).
+- **Прогон** — один движок на студию и на раннер: `AiRpaStudio\Core\WorkflowRunEngine.cs`
+  (`LoadActivityFromText`/`FromFile`/`FromAssembly`, `CreateApplication`, `Run`). Итог —
+  `WorkflowRunResult`: состояние (`Completed`/`Faulted`/`Aborted`/`Cancelled`), выходные аргументы,
+  ошибка со стеком (`ErrorText.Of`), `TimedOut`, `ExitCode` (0 — успех) и события трекера. Загрузка
+  идёт с `CompileExpressions = true` — как в студии. Движок обязан оставаться headless
+  (`System.Windows`, `MessageBox`, `DispatcherTimer`, `CustomWfDesigner` — запрещены), а
+  `ActivityRunner` не имеет права ни грузить XAML, ни создавать `WorkflowApplication` сам: оба
+  правила — стражи `AiRpaStudio.Tests\WorkflowRunEngineTests.cs`.
+- **Студийный путь прогона эталона** — `AiRpaStudio.Tests\LegacyRobotStudioRunTests.cs`: `Main.xaml`
+  робота 4.7.2 грузится движком и прогоняется (`InputText = max` → `Result = MAX`), проверены ветка
+  `If.Else` и негатив «в пустом каталоге сборка робота не находится». Вне автотестов остаётся
+  UI-состояние `ActivityRunner` (read-only дизайнера, точки останова, `Locals`): ему нужен живой
+  `CustomWfDesigner` и `TrackHandler` с окном — проверяется вручную отладкой в студии.
+- `WorkflowHost` — **устаревший прототип** (зашитый путь к `Main.xaml`, `MessageBox`, `Console.ReadKey()`,
+  `EnvDTE80`): собирается в решении, но никем не подключается — страж `AiRpaStudio.Tests\WorkflowHostLegacyGuardTests.cs`.
+  Роль раннера — `OR-02` (`RpaRunner.exe`).
 
 ## Ошибки и падения приложения
 - Любая ошибка в студии показывается окном `AiRpaStudio\Views\ErrorView.xaml` через
@@ -606,3 +640,124 @@
   `RoslynExpressionEditor.OnEditorLoadedForSize` (там же, где восстанавливается размер окна).
   Хелпер идемпотентен и никогда не бросает исключений. Стражи:
   `AiRpaStudio.Tests\WfDialogWindowThemeTests.cs`.
+
+## WF-инструменты агента: реестр, разрешения, режимы (`AG-10`)
+- **Новый WF-инструмент** (`activity_*`, `workflow_*`, `argument_*`, `variable_*`) появляется вместе со строкой
+  в таблице `AiRpaStudio.Tests\Workflow\WorkflowToolRegistryGuardTests.cs` (`имя → mutates → permission`).
+  Страж сверяет **множества** в обе стороны, поэтому «зарегистрировал и забыл описать» не проходит.
+- **Правила, которые держит страж:** read-only → `AgentPermissions.ReadFiles` и виден в Plan; мутирующий →
+  `EditFiles`, в Plan не виден (Plan = только чтение при `AgentPermissions.All`); категории MCP больше нет —
+  `RPA.Chat`/`Agent.Core` не ссылаются на `AiRpaStudio\Mcp`, упоминание MCP в имени или описании
+  WF-инструмента запрещено. Негативы — мета-тесты `Guard_*` в том же файле (подкладывают инструмент с
+  неверными флагами и требуют, чтобы проверка сработала).
+- **Маска разрешений — одна точка правды:** `RPA.Chat\Services\AgentPermissionsPolicy.cs`
+  (`Resolve(SettingsData)`); `ChatViewModel.BuildAllowedPermissions` только делегирует в неё. `null` настроек
+  даёт **пустую** маску: отсутствие настроек не превращается в полный доступ.
+- **Решение по режимам (`AG-10`):** при `AllowReadFiles=false` + `AllowEditFiles=true` правки разрешены
+  (мутирующие инструменты видны), чтение структуры запрещено — вместе с `workflow_outline`. Промпт (`AG-11`)
+  требует `workflow_outline` первым шагом, поэтому такой режим неудобен, но не запрещён — так и закреплено
+  тестом `SettingsWithoutReadFiles_RemoveEveryReadOnlyWorkflowTool`.
+
+## Текстовая правка XAML: `editor` и один набор правил канонического вида (`AG-07`)
+- **Отдельного `xaml_write`/`xaml_read` нет** (решение владельца): текст пишут `editor`/`read_files`.
+  Правила канонического вида живут в `RPA.Chat\Services\Workflow\WorkflowXamlText.cs` — один набор и для
+  `editor`, и для `WorkflowXamlSerializer`: UTF-8 без BOM, CRLF, без XML-декларации,
+  `xmlns:mc/sap/sap2010/mca` + `mc:Ignorable="sap sap2010"`. **Второй нормализатор не заводится:**
+  иначе один и тот же файл канонизируется двумя наборами правил.
+- **Отступы не переиндентируются — намеренно.** В XAML значимый текст лежит внутри элементов
+  (`mca:CSharpValue`, `TextExpression.NamespacesForImplementation`): переиндентация дописала бы отступ внутрь
+  выражения. Отступ только читается (`WorkflowXamlText.Describe`) и показывается агенту в шапке `read_files`;
+  писать надо в стиле файла.
+- **`editor` для `.xaml`:** нормализация перед записью; BOM берётся из фактического файла (новый файл — без BOM);
+  отказ без записи, если XML не разбирается или файл открыт в конструкторе (там правят `activity_*`/`argument_set`);
+  после записи — валидация через `IWorkflowXamlGate` (`off` / `report` по умолчанию / `strict` с откатом файла).
+  Чужой XML (корень не `Activity` рабочего процесса) не переписывается, не-`.xaml` не трогается вообще.
+- **«Валидация не выполнена» ≠ «ошибок нет»** и здесь: `WorkflowXamlGateResult.Validated == false` печатается
+  отдельной строкой, null-object (`NullWorkflowXamlGate`) называет причину. Хост студии подключает гейт в
+  `MainView` (`ChatEnvironment.WorkflowXamlGate = StudioWorkflowXamlGate.Default`), проверка идёт тем же
+  `WorkflowValidationGate`, что и у генерации процессов.
+- **Тесты-стражи:** `WorkflowXamlTextTests` (правила), `WorkflowEditorXamlTests` (файл, BOM, режимы, откат),
+  `WorkflowXamlBridgeTests` (живой конструктор: отказ открытому файлу, настоящий гейт). Негатив обязателен:
+  снятие любой проверки должно ронять тест — проверено для расширения, «открыт в конструкторе», CRLF,
+  «не выполнена» ≠ «нет ошибок», отката в `strict`, BOM и битого XML.
+
+## Создание активности агентом: служба, инструмент, видимость в палитре (`AG-08`)
+- **Создаём только в существующем проекте** библиотеки активностей (решение владельца): проект с нуля из
+  шаблона Visual Studio — карточка `UI-08`. Единственный обязательный вход — `projectPath` (`.csproj`);
+  пространство имён берётся из `RootNamespace`, конфигурация — из запроса.
+- **Служба — `RPA.Chat\Services\Workflow\ActivityCreationService.cs`** (+ DTO `ActivityCreation.cs`). Она не
+  зависит от WF/WPF: пишет текст, правит XML проекта, дергает `IBuildFeedbackService`. Шаблоны собираются в
+  коде, а не читаются из рабочего каталога: `ActivityCreator.CreateActivityFromTemplate` делал
+  `File.ReadAllText("Main.xaml")`, то есть искал файл в CWD процесса, и в студии это падало.
+- **`Designer.xaml` не тянет `ActivityLibraryBase`:** в новом проекте этой сборки нет, поэтому дизайнер
+  собирается только из `System.Activities.Presentation` (`sapv:ExpressionTextBox` +
+  `sapc:ArgumentToExpressionConverter`).
+- **`.csproj` правится текстовой вставкой, не перезаписью `XDocument`:** перезапись меняет форматирование
+  всего файла (BOM, CRLF, отступы) — это тот же вывод, что в `AG-07` про XAML. Вставка идёт в `ItemGroup`
+  с такими же элементами, в алфавитном порядке, с сохранением отступа и BOM; результат обязан разбираться
+  как XML (иначе откат).
+- **Атомарность — часть контракта:** перед первой записью запоминается `.csproj` побайтно и список созданных
+  файлов; исключение или ошибки компиляции при `build=true` → файлы удалены, `.csproj` восстановлен, в ответе
+  коды ошибок. «Полуготовой» активности в проекте не остаётся.
+- **TFM обязателен `net472`** (`v4.7.2` для legacy, `net472` для SDK-style): иначе робот на 4.7.2 не загрузит
+  библиотеку (правило `CP-10`). «Сборка прошла, но собранной сборки нет по ожидаемому пути» — отдельное
+  состояние (`RequiresDecision`), а не успех.
+- **Видимость результата (вариант B):** `AiRpaStudio\Core\Workflow\StudioActivityPaletteNotifier.cs` —
+  1) `Assembly.LoadFrom` со сверкой `assembly.GetName().Name` с именем файла, 2) `StudioActivityPalette.RegisterUserLibrary`
+  (список пользовательских категорий рядом с `LibraryAssemblyNames`), 3) сброс **обоих** кэшей:
+  `ActivityPaletteRegistry.InvalidateDefault()` и `StudioActivityCatalog.InvalidateDefault()` (оба были
+  `readonly Lazy` — до `AG-08` сброса не существовало), 4) пересборка панели на UI-потоке
+  (`MainView.RefreshActivityPalette` → `new WFToolboxHelper().Build()` + `ApplyTheme`). `WFToolboxHelper.Build`
+  теперь сбрасывает `ActivitiesCount` (было «только прибавляется»), а панель получает пользовательские
+  категории через `StudioActivityPalette.UserCategories()`.
+- **Инструмент `activity_create`** — 14-й WF-инструмент: `mutates`, `AgentPermissions.EditFiles`, в Plan не
+  виден; строка в таблице `WorkflowToolRegistryGuardTests` (правило `AG-10`). Ответ — `ActivityCreateText`:
+  создано/изменено, «сборка не запрашивалась» / «сборка прошла, файла нет» / «сборка ошиблась», состояние
+  палитры отдельной строкой, затем «требует решения».
+- **Тесты:** `ActivityCreationServiceTests` 17, `ActivityCreateToolTests` 9, `ActivityPaletteRefreshTests` 9.
+  В тесте видимости кэши **прогреваются до** создания активности: иначе `Lazy` инициализировался бы уже
+  после регистрации типов и сброс кэшей не проверялся бы вовсе (это поймал негатив: снятый
+  `InvalidateDefault` не ронял тест, пока кэш не стали прогревать заранее).
+- **Негативы (проверены снятием):** `RegisterUserLibrary` → 3 падения; сброс кэшей → 1; откат файлов → 1;
+  `activity_create` как read-only → 4.
+- **Граница с `UI-08` по панели «Активности»:** здесь механика «видно без перезапуска» (домен, кэши, подмена
+  содержимого); в `UI-08` остаётся UX — сохранение скролла/выделения/свёрнутости, кнопка «Обновить палитру»,
+  иконки (с `UI-05`), диалог создания активности и проект из шаблона.
+
+## Промпт агента: имена инструментов, блок про процесс, маркап в Native (`AG-11`)
+- **Имя инструмента в промпте обязано существовать в реестре.** Страж —
+  `AiRpaStudio.Tests\PromptGuidanceTests.cs`: он собирает все snake_case-токены из строк `PromptDefaults` и
+  требует, чтобы каждый был зарегистрированным инструментом `AgentToolFactory` (исключение — короткий
+  задокументированный список параметров и подстановок: `start_line`, `end_line`, `include_arguments`,
+  `old_text`, `new_text`, `tool_call`, `mode_instructions`). Отдельный тест запрещает «инструменты» VSIX-эпохи
+  `edit_open_document` / `apply_fix` / `write_file` и отклонённые владельцем `xaml_write` / `xaml_read`.
+  Правило: **новый инструмент описывается в промпте своим настоящим именем**, иначе сборка тестов краснеет.
+- **Промпты по умолчанию — только `Agent.Core\Services\PromptDefaults.cs`** (решение владельца): файлы
+  `%AppData%\Agent\Prompts\*.txt` не перезаписываются, `PromptLibrary.Load` перекрывает defaults. Следствие:
+  там, где такие файлы есть, правка defaults не подействует — известное ограничение, миграция пользовательских
+  промптов отдельной карточкой после волны 7.
+- **Блок про процесс добавляется только когда WF-инструменты реально есть в реестре** —
+  `AgentPromptBuilder.AppendWorkflowGuidance`: Plan получает `WorkflowReadInstructions`, Act —
+  `WorkflowReadInstructions` + `WorkflowEditInstructions` + примеры. Признак WF-инструмента — префикс имени
+  (`activity_`, `workflow_`, `argument_`, `variable_`), то же правило, что в страже реестра (`AG-10`). Промпт
+  не описывает то, что нельзя вызвать: реестр без WF-инструментов не получает ни блока, ни примеров.
+- **Две редакции примеров:** `WorkflowExamplesJson` и `WorkflowExamplesNative`. Нативный промпт не показывает
+  JSON action objects, JSON-промпт не показывает «call … with arguments». Примеры правятся вместе: тест
+  требует четыре примера и покрытие `activity_insert`, `argument_set`, `workflow_validate`, `activity_create`.
+- **Правила, которые промпт обязан повторять (они же в коде):** цикл `workflow_outline` → правки модели →
+  `workflow_validate` → `build` → `read_errors`; одни и те же адреса `root/Activities[0]` у чтения, правки и
+  валидации; «валидация не выполнена» ≠ «ошибок нет»; XAML руками — только через `editor`, только когда правок
+  модели не хватает (и `editor` откажется, если файл открыт в конструкторе, `AG-07`); `activity_create` — только
+  в существующем проекте (`AG-08`).
+- **Маркап в Native-режиме исполняется, а не показывается:** если модель вернула `<invoke>`/`<parameter>` вместо
+  нативного вызова, `AgentRunner` разбирает ответ через `AgentResponseParser` (внутри — `DsmlNormalizer`) и
+  выполняет восстановленные вызовы через `ExecuteJsonToolCallAsync` — значит проверки режима и разрешений те же,
+  что у обычного вызова. Лимит — `ProtocolRecoveryLimit` (2 попытки), после чего текст возвращается
+  пользователю как есть: выбрасывать ответ модели нельзя.
+- **Усечение структуры объясняет, как запросить меньше:** `TruncateToolResult` дописывает к `workflow_outline`
+  подсказку про меньший `depth` / `include_arguments` / один элемент. Молча укороченное дерево агент принимает
+  за полное и правит не в том месте.
+- **Тесты:** `PromptGuidanceTests` 13, `DsmlToleranceTests` 8, `NativeMarkupRecoveryTests` 4,
+  `WorkflowContextLoadTests` 2 (контекст на WF-нагрузке: большая история конденсируется, свежий outline
+  остаётся в окне целиком). Негативы — снятие 5 защит: `write_file` в промпте → 2 падения, блок WF не
+  добавляется → 4, WF-блок попал и в Plan → 3, Native без восстановления маркапа → 3, усечение без подсказки → 1.

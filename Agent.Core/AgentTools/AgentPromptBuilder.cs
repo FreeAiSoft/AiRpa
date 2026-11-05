@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Text;
 using Agent.Core.Models;
 using Agent.Core.Services;
@@ -7,6 +9,9 @@ namespace Agent.Core.AgentTools
     /// <summary>Builds the agent system prompt for a mode from the base prompt + tool list.</summary>
     public static class AgentPromptBuilder
     {
+        /// <summary>Prefixes that mark a tool as a workflow tool (AG-10/AG-11 rule).</summary>
+        private static readonly string[] WorkflowToolPrefixes = { "activity_", "workflow_", "argument_", "variable_" };
+
         /// <summary>Builds the JSON-over-chat system prompt (backward-compatible default).</summary>
         public static string Build(AgentMode mode, AgentToolRegistry registry)
         {
@@ -31,9 +36,11 @@ namespace Agent.Core.AgentTools
 
             if (toolCallingMode == ToolCallingMode.Native)
             {
-                return mode == AgentMode.Act
+                var nativePrompt = mode == AgentMode.Act
                     ? PromptLibrary.Load(PromptPaths.ResolvePromptsDirectory(), PromptLibrary.Categories.System, "agent-act-system-native.txt", PromptDefaults.AgentActSystemPromptNative)
                     : PromptLibrary.Load(PromptPaths.ResolvePromptsDirectory(), PromptLibrary.Categories.System, "agent-plan-system-native.txt", PromptDefaults.AgentPlanSystemPromptNative);
+
+                return AppendWorkflowGuidance(nativePrompt, mode, registry, toolCallingMode, allowed);
             }
 
             var basePrompt = PromptLibrary.Load(PromptPaths.ResolvePromptsDirectory(), PromptLibrary.Categories.System, "agent-json-base.txt", PromptDefaults.AgentJsonBaseSystemPrompt);
@@ -52,7 +59,8 @@ namespace Agent.Core.AgentTools
             if (string.IsNullOrWhiteSpace(toolList))
                 toolList = "(none)";
 
-            return basePrompt.Replace("{tools}", toolList).Replace("{mode_instructions}", modeInstructions);
+            var prompt = basePrompt.Replace("{tools}", toolList).Replace("{mode_instructions}", modeInstructions);
+            return AppendWorkflowGuidance(prompt, mode, registry, toolCallingMode, allowed);
         }
 
         /// <summary>
@@ -80,6 +88,55 @@ namespace Agent.Core.AgentTools
                 prompt = prompt + "\n\n" + PromptDefaults.MemoryBankConventionInstructions;
 
             return prompt;
+        }
+
+        /// <summary>
+        /// Appends the workflow guidance (AG-11) to a prompt, but only when the registry really exposes
+        /// workflow tools for this mode: a prompt must never describe tools that cannot be called.
+        /// PLAN gets the read-only part; ACT gets the editing part and the four worked examples.
+        /// The examples follow the active protocol, so a native prompt never shows JSON action objects.
+        /// </summary>
+        public static string AppendWorkflowGuidance(
+            string prompt,
+            AgentMode mode,
+            AgentToolRegistry registry,
+            ToolCallingMode toolCallingMode,
+            AgentPermissions allowed)
+        {
+            if (string.IsNullOrEmpty(prompt) || registry == null)
+                return prompt;
+
+            var hasWorkflowTools = registry.ForMode(mode, allowed).Any(tool => IsWorkflowTool(tool.Name));
+            if (!hasWorkflowTools)
+                return prompt;
+
+            var sb = new StringBuilder(prompt);
+            sb.Append("\n\n").Append(PromptDefaults.WorkflowReadInstructions);
+
+            if (mode == AgentMode.Act)
+            {
+                sb.Append("\n\n").Append(PromptDefaults.WorkflowEditInstructions);
+                sb.Append("\n\n").Append(toolCallingMode == ToolCallingMode.Native
+                    ? PromptDefaults.WorkflowExamplesNative
+                    : PromptDefaults.WorkflowExamplesJson);
+            }
+
+            return sb.ToString();
+        }
+
+        /// <summary>Workflow tools are recognised by name prefixes, the same rule as the registry guard.</summary>
+        private static bool IsWorkflowTool(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return false;
+
+            foreach (var prefix in WorkflowToolPrefixes)
+            {
+                if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>Builds the Help-mode support prompt: the support persona plus the bundled user documentation.</summary>

@@ -1,0 +1,25 @@
+<Activity xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+          xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib">
+  <!-- AG-03: фикстура «переменные» — проверяет, что структура процесса отдаёт переменные области
+       видимости (имя + тип), а не только активности. Значения по умолчанию намеренно не заданы:
+       фикстура должна читаться и сериализоваться без компиляции выражений. -->
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>System</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>mscorlib</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <Sequence DisplayName="Fixture: variables">
+    <Sequence.Variables>
+      <Variable x:TypeArguments="x:String" Name="userName" />
+      <Variable x:TypeArguments="x:Int32" Name="retries" />
+    </Sequence.Variables>
+    <WriteLine DisplayName="Log user" Text="user" />
+  </Sequence>
+</Activity>

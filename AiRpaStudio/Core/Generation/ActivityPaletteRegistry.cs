@@ -309,7 +309,7 @@ namespace RPA.Core.Generation
     /// </summary>
     internal sealed class ActivityPaletteRegistry
     {
-        private static readonly Lazy<ActivityPaletteRegistry> DefaultRegistry =
+        private static Lazy<ActivityPaletteRegistry> DefaultRegistry =
             new Lazy<ActivityPaletteRegistry>(() => new ActivityPaletteRegistry(StudioActivityPalette.Categories()));
 
         private readonly Dictionary<string, PaletteActivityDescriptor> _byKey =
@@ -341,6 +341,16 @@ namespace RPA.Core.Generation
 
         /// <summary>Реестр студии: встроенные активности WF плюс уже загруженные библиотеки активностей.</summary>
         internal static ActivityPaletteRegistry Default => DefaultRegistry.Value;
+
+        /// <summary>
+        /// Сброс кэша реестра (карточка <c>AG-08</c>): после создания активности и сборки состав палитры
+        /// изменился, а Lazy живёт на процесс — без сброса каталог и описание инструментов правки видели бы
+        /// прежний набор типов до перезапуска студии.
+        /// </summary>
+        internal static void InvalidateDefault()
+        {
+            DefaultRegistry = new Lazy<ActivityPaletteRegistry>(() => new ActivityPaletteRegistry(StudioActivityPalette.Categories()));
+        }
 
         /// <summary>Все активности палитры (по одной на имя, в порядке категорий).</summary>
         internal IReadOnlyList<PaletteActivityDescriptor> All => _descriptors;
@@ -767,7 +777,57 @@ namespace RPA.Core.Generation
             };
         }
 
-        /// <summary>Полный состав палитры: встроенные категории плюс уже загруженные библиотеки студии.</summary>
+        /// <summary>
+        /// Пользовательские библиотеки активностей (карточка <c>AG-08</c>): сюда попадает сборка, созданная
+        /// агентом и загруженная в домен. Список живёт рядом с <see cref="LibraryAssemblyNames"/>, потому что
+        /// это тот же состав палитры — второй список разошёлся бы с панелью «Активности».
+        /// </summary>
+        private static readonly List<ActivityPaletteCategory> UserLibraries = new List<ActivityPaletteCategory>();
+
+        /// <summary>
+        /// Добавляет типы собранной библиотеки в палитру. Возвращает число добавленных типов;
+        /// повторная регистрация того же типа дубля не создаёт (иначе панель показала бы две одинаковые строки).
+        /// </summary>
+        internal static int RegisterUserLibrary(string categoryKey, IEnumerable<Type> types)
+        {
+            Type[] activities = (types ?? Enumerable.Empty<Type>())
+                .Where(type => type != null && typeof(Activity).IsAssignableFrom(type) && !type.IsAbstract)
+                .ToArray();
+
+            if (activities.Length == 0)
+            {
+                return 0;
+            }
+
+            string key = string.IsNullOrWhiteSpace(categoryKey) ? FlowCategory : categoryKey;
+            ActivityPaletteCategory existing = UserLibraries
+                .FirstOrDefault(category => string.Equals(category.Key, key, StringComparison.Ordinal));
+
+            Type[] merged = activities;
+            if (existing != null)
+            {
+                UserLibraries.Remove(existing);
+                merged = existing.Types.Concat(activities).Distinct().ToArray();
+            }
+
+            int added = merged.Length - (existing?.Types.Count ?? 0);
+            UserLibraries.Add(new ActivityPaletteCategory(key, merged));
+
+            return added < 0 ? 0 : added;
+        }
+
+        /// <summary>Сброс пользовательских библиотек (тесты и перезагрузка проекта).</summary>
+        internal static void ResetUserLibraries()
+        {
+            UserLibraries.Clear();
+        }
+
+/// <summary>Полный состав палитры: встроенные категории плюс уже загруженные библиотеки студии.</summary>
+        /// <summary>Пользовательские категории палитры (для панели «Активности», карточка <c>AG-08</c>).</summary>
+        internal static IReadOnlyList<ActivityPaletteCategory> UserCategories()
+        {
+            return UserLibraries.ToArray();
+        }
         internal static IReadOnlyList<ActivityPaletteCategory> Categories()
         {
             var categories = new List<ActivityPaletteCategory>(BuiltinCategories());
@@ -780,6 +840,8 @@ namespace RPA.Core.Generation
                     categories.Add(category);
                 }
             }
+
+            categories.AddRange(UserLibraries);
 
             return categories;
         }

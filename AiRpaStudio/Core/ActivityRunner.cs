@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Activities;
 using System.Activities.Debugger;
 using System.Activities.Presentation.View;
@@ -73,6 +73,10 @@ namespace RPA.Core
                     // остановка потока в точках останова
                     _resumeRuntimeFromHost = new AutoResetEvent(false);
 
+                    // CP-08: зависимости робота ищутся в его выходном каталоге — до десериализации XAML,
+                    // иначе собственные пакеты робота (bin\<Config>[\<TFM>]) не находятся и WF падает.
+                    RobotAssemblyResolver.InstallForProject(CustomWfDesigner.GetInstance().Project?.ProjectDirPath);
+
                     // загрузка активности
                     _workflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(pathToXaml);
                     SetDesignerIsReadonly(true);
@@ -87,8 +91,9 @@ namespace RPA.Core
                     //LogBreakpoints(_workflowDesignerEx);
                     _workflowDesignerEx.LastBreakpoint = null;
 
-                    MemoryStream workflowStream = new MemoryStream(Encoding.UTF8.GetBytes(_workflowDesignerEx.Text));
-                    _activityExecute = ActivityXamlServices.Load(workflowStream, new ActivityXamlServicesSettings { CompileExpressions = true }) as DynamicActivity;
+                    // XAML грузится общим headless-движком: путь прогона один для студии и раннера (OR-02);
+                    // остальное — студийная обвязка: дизайнер, подсветка, точки останова.
+                    _activityExecute = WorkflowRunEngine.LoadActivityFromText(_workflowDesignerEx.Text) as DynamicActivity;
                     WorkflowState = WorkflowState.AwaitDesignerReady;
                 }
                 else
@@ -191,18 +196,12 @@ namespace RPA.Core
                     {
                         try
                         {
-                            //configure workflow application
-                            //Mapping between the Object and the Instance Id
-                            _trackingParticipant = new CustomTrackingParticipant();
+                            // приложение создаёт общий движок: тот же трекер и те же аргументы, что и у
+                            // headless-прогона, — здесь добавляется только студийное отображение
+                            _wfApp = WorkflowRunEngine.CreateApplication(_activityExecute, _arguments, out _trackingParticipant);
 
                             //As the tracking events are received
                             _trackingParticipant.TrackingEventArgsRecieved += TrackingParticipant_TrackingEventArgsRecieved;
-
-                            _wfApp = _arguments == null
-                                ? new WorkflowApplication(_activityExecute)
-                                : new WorkflowApplication(_activityExecute, _arguments);
-
-                            _wfApp.Extensions.Add(_trackingParticipant);
                             _wfApp.Completed = WfExecutionCompleted;
                             _wfApp.OnUnhandledException = WFOnUnhandledException;
 

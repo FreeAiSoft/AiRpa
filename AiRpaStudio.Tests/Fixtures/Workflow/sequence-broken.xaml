@@ -1,0 +1,31 @@
+<Activity xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+          xmlns:s="clr-namespace:System;assembly=mscorlib"
+          xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib">
+  <!-- AG-12: «сломанная» фикстура — загружается, но не проходит валидацию WF:
+       у Assign не задан обязательный To, у If не задано условие.
+       Нужна для негативных проверок outline/валидации (негатив не должен быть исключением загрузки). -->
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>System</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>mscorlib</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <Sequence DisplayName="Fixture: broken by validation">
+    <Assign DisplayName="Assign without To">
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">["value"]</InArgument>
+      </Assign.Value>
+    </Assign>
+    <If DisplayName="If without Condition">
+      <If.Then>
+        <WriteLine DisplayName="Log then" Text="then" />
+      </If.Then>
+    </If>
+  </Sequence>
+</Activity>

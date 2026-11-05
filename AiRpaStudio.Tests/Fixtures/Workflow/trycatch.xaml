@@ -1,0 +1,24 @@
+<Activity xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+          xmlns:s="clr-namespace:System;assembly=mscorlib">
+  <!-- AG-12: фикстура «TryCatch» с одним обработчиком Exception и без выражений. -->
+  <TryCatch DisplayName="Fixture: try catch">
+    <TryCatch.Try>
+      <Sequence DisplayName="Guarded body">
+        <WriteLine DisplayName="Log inside try" Text="inside" />
+      </Sequence>
+    </TryCatch.Try>
+    <TryCatch.Catches>
+      <Catch x:TypeArguments="s:Exception">
+        <ActivityAction x:TypeArguments="s:Exception">
+          <ActivityAction.Argument>
+            <DelegateInArgument x:TypeArguments="s:Exception" Name="error" />
+          </ActivityAction.Argument>
+          <Sequence DisplayName="Handler body">
+            <WriteLine DisplayName="Log inside catch" Text="caught" />
+          </Sequence>
+        </ActivityAction>
+      </Catch>
+    </TryCatch.Catches>
+  </TryCatch>
+</Activity>

@@ -176,7 +176,29 @@ namespace Agent.Core.AgentTools
                 {
                     var nativeCalls = response.ToolCalls;
                     if (nativeCalls == null || nativeCalls.Count == 0)
+                    {
+                        // AG-11: some models print tool-call markup (DSML/XML) instead of a native call.
+                        // Recover it and execute, so a recoverable call is not shown to the user as text;
+                        // when nothing can be recovered (or the recovery budget is spent) the text is returned.
+                        var recovered = AgentResponseParser.Parse(response.Answer);
+                        if (!recovered.IsFinal && recovered.ToolCalls.Count > 0 && protocolAttempts < ProtocolRecoveryLimit)
+                        {
+                            protocolAttempts++;
+                            messages.Add(new ChatMessageData { Role = "assistant", Content = response.Answer ?? "" });
+
+                            foreach (var call in recovered.ToolCalls)
+                            {
+                                cancellationToken.ThrowIfCancellationRequested();
+                                var recoveredFinal = await ExecuteJsonToolCallAsync(messages, call, mode, effectiveBudget, cancellationToken).ConfigureAwait(false);
+                                if (recoveredFinal != null)
+                                    return new AgentRunResult { FinalText = recoveredFinal, Reasoning = response.Reasoning };
+                            }
+
+                            continue;
+                        }
+
                         return new AgentRunResult { FinalText = response.Answer ?? "", Reasoning = response.Reasoning };
+                    }
 
                     // Record the assistant message that requested the tool calls.
                     messages.Add(new ChatMessageData { Role = "assistant", Content = response.Answer ?? "", ToolCalls = nativeCalls });
@@ -387,7 +409,7 @@ namespace Agent.Core.AgentTools
                 // Display text is best-effort; fall back to the full result below.
             }
 
-            var truncated = Truncate(resultText, budget.ToolResultMaxChars);
+            var truncated = TruncateToolResult(tool.Name, resultText, budget.ToolResultMaxChars);
             ToolExecuted?.Invoke(this, new AgentToolCall
             {
                 ToolName = tool.Name,
@@ -474,7 +496,7 @@ namespace Agent.Core.AgentTools
                 // Display text is best-effort; fall back to the full result below.
             }
 
-            var truncated = Truncate(resultText, budget.ToolResultMaxChars);
+            var truncated = TruncateToolResult(tool.Name, resultText, budget.ToolResultMaxChars);
             ToolExecuted?.Invoke(this, new AgentToolCall
             {
                 ToolName = tool.Name,
@@ -527,6 +549,24 @@ namespace Agent.Core.AgentTools
                 case AgentPermissions.Subagents: return "spawn sub-agents";
                 default: return "unknown";
             }
+        }
+
+        /// <summary>
+        /// Truncates a tool result and, for a workflow structure read, explains how to ask for less.
+        /// AG-11: a silently shortened outline looks like a complete tree, so the agent edits the wrong
+        /// place; the hint turns the truncation into an instruction (smaller depth, no arguments).
+        /// </summary>
+        private static string TruncateToolResult(string toolName, string text, int max)
+        {
+            var limit = max > 0 ? max : 12000;
+            var truncated = Truncate(text, limit);
+            if (text == null || text.Length <= limit)
+                return truncated;
+
+            if (string.Equals(toolName, "workflow_outline", StringComparison.OrdinalIgnoreCase))
+                return truncated + "\nThe outline was shortened at " + limit + " characters: call workflow_outline again with a smaller depth, with include_arguments false, or for one element only.";
+
+            return truncated;
         }
 
         private static string Truncate(string text, int max)

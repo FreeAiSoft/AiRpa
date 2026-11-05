@@ -18,10 +18,13 @@
 | `CP-04` | **Закрыт 03.11.2026.** Дубль поиска устранён: `Agent.Core\Services\MsBuildLocator.cs` — единый поиск (`Auto` / `Vs2022` / `Vs2026`), откат виден в логе, тулчейн пишется в `VsBuildResult`, защита от `MSB4236` | `MsBuildLocatorTests` — 39/39 зелёные, включая реальную сборку шаблонного проекта обоими тулчейнами; полный прогон 1458/1458 |
 | `CP-09` | **Закрыт 03.11.2026.** `AiRpaStudio\TestProcess\Net472Robot` (legacy WF, `v4.7.2`) и `Net48Robot` (SDK-style `net48` + `PackageReference`) + фикстура трипа `BrokenRobot\BrokenMain.xaml`; проекты намеренно вне `AiRpa.sln` | `TestProcessRegressionTests` 5/5: открытие, сборка с restore, headless-прогон `WorkflowInvoker` (`Result = MAX`), «трип» с `boom` |
 | `TD-12` | **Закрыт 03.11.2026 (вариант A).** `ProxyChecker` починен; `RPA.CodeEditor` снят с сборки решения; 4 отсутствующих проекта + папка решения `Activities.WinUI` убраны из `.sln`; `RPA-1\Main.xaml` исправлен, висячий `ProjectReference` удалён | `MSBuild AiRpa.sln` Release и Debug → exit 0; `vstest` → 1136/1136 |
-| `AG-01` | `ActivityCatalog`, `activity_search`, `activity_describe` — только в роадмэпе, кода нет | поиск по репозиторию — 0 совпадений в коде |
-| `AG-02` | `IWorkflowEditingService` — кода нет; `ModelEditingScope` используется только внутри дизайнеров активностей | `Activities.Flow\Designers\RunScriptDesigner.xaml.cs`, `CSharpExpressionEditor\RoslynExpressionEditor.xaml.cs:256` |
-| `AG-03` | `workflow_outline` — кода нет | поиск — 0 совпадений |
-| `AG-12` | Фикстур XAML для workflow и реестра WF-инструментов нет | в `AiRpaStudio.Tests` нет каталога фикстур workflow |
+| `AG-01` | **Закрыт 04.11.2026 (кроме иконок).** `RPA.Chat\Services\Workflow\` — DTO (`ActivityInfo`/`ActivityArgumentInfo`/`ActivityContainerInfo`), контракт `IActivityCatalog` + `NullActivityCatalog`, формат ответов `ActivityCatalogText`; реализация `AiRpaStudio\Core\Workflow\StudioActivityCatalog.cs` поверх `ActivityPaletteRegistry` (тот же источник, что панель «Активности»); точка подключения хоста — `ChatEnvironment.ActivityCatalog` (`MainView`); инструменты `activity_search`/`activity_describe` в `AgentToolFactory` (read-only, `ReadFiles`, видны в Plan). Иконки не отдаются: в палитре нет источника иконок | `ActivityCatalogTests` 28 + `ActivityToolsTests` 13 зелёные; негатив проверен (отключённое имя категории → 4 теста падают); полный прогон 1574/1574 |
+| `AG-02` | **Закрыт 05.11.2026.** Контракт и DTO — `RPA.Chat\Services\Workflow\` (`IWorkflowEditingService`, `IWorkflowEditSession`, `WorkflowInsertRequest`, `WorkflowMoveRequest`, `WorkflowEditResult`, `WorkflowEditText`, `NullWorkflowEditingService` + `UnavailableWorkflowEditSession`); реализации `AiRpaStudio\Core\Workflow\StudioWorkflowEditingService.cs` (вкладка по пути через `IWorkflowDesignerHost`, `undo`/`redo` через `UndoEngine`, структура несохранённого документа) и `StudioWorkflowEditSession.cs` (вставка/удаление/перенос через `ModelService`/`ModelItem`, каждая правка — свой `ModelEditingScope`, пачка `Complete`/`Revert`); маршалинг на UI-поток дизайнера через `IDesignerUiThread`; хост подключает мост через `ChatEnvironment.WorkflowEditing`, а `MainView` связывает `StudioWorkflowOutlineService.LiveOutlineSource` с живой моделью (структура несохранённого документа — остаток `AG-03`). Не сделано: `Select` (визуальное выделение агенту не нужно, адресация — по `id`); инструменты `activity_*` — карточка `AG-04` | `WorkflowEditingTests` 23 (headless) + `WorkflowEditBridgeTests` 7 (живой конструктор: вставка в начало/середину/конец, адреса, `complete`, `undo`/`redo`, `revert` пачки, удаление/перенос, отказ «файл не открыт») зелёные; негатив проверен (`AddressFor` → `[0]` роняет тест адресов); полный прогон 1641/1641; `MSBuild AiRpa.sln` Release — 0 ошибок из VS 2022 и VS 2026 |
+| `AG-03` | **Закрыт 04.11.2026.** Контракт и DTO — `RPA.Chat\Services\Workflow\` (`WorkflowOutline`, `WorkflowOutlineNode`, `WorkflowOutlineArgument`, `WorkflowOutlineVariable`, `WorkflowOutlineIssue`, `IWorkflowOutlineService` + `NullWorkflowOutlineService`, `WorkflowOutlineText`); реализация `AiRpaStudio\Core\Workflow\StudioWorkflowOutlineService.cs` поверх `WorkflowModelReader` (адреса узлов те же, что у `xaml.*`), ошибки WF привязываются к узлам по `ValidationError.Source`; ридер доучен читать переменные, литеральные значения и граф блок-схемы; инструмент `workflow_outline` (`path`, `depth`, `include_arguments`) — read-only, `ReadFiles`, виден в Plan; хост отдаёт службу через `ChatEnvironment.WorkflowOutline`. Не сделано: структура несохранённого открытого документа (придёт с `AG-02`) | `WorkflowOutlineServiceTests` 21 + `WorkflowOutlineToolTests` 12 зелёные; негатив проверен (снятая привязка ошибки к узлу роняет тест); полный прогон 1610/1610 |
+| `AG-04` | **Закрыт 06.11.2026.** Инструменты `activity_insert`/`activity_delete`/`activity_move`/`activity_wrap` (+`activity_undo`/`activity_redo`) в `AgentToolFactory`: `mutates: true`, `AgentPermissions.EditFiles`, в Plan не видны; оркестрация вынесена из инструментов в `RPA.Chat\Services\Workflow\WorkflowEditRunner.cs` (BeginEdit → правки → валидация → Complete/Revert), поэтому проверяется без конструктора; контракт расширен `WorkflowWrapRequest` + `IWorkflowEditSession.Wrap`, реализация — `StudioWorkflowEditSession.WrapCore` (обёртка занимает место элемента, элемент становится её первым ребёнком, `If` требует `container`); пачка `activities`/`elementIds`/`moves` = одна атомарная правка. Не сделано: пакет `wrap` (одна обёртка за вызов) | `WorkflowEditToolTests` 25 (фейковая сессия: атомарность, strict/report/off, отказы, undo/redo) + `WorkflowWrapBridgeTests` 6 (живой конструктор: обёртка в Sequence и If.Then, адреса, неоднозначный контейнер, неизвестный тип, `undo`) зелёные; негатив проверен (`Strict && false` роняет тест strict-отката); полный прогон 1672/1672 |
+| `AG-05` | **Закрыт 06.11.2026.** Контракт и DTO — `RPA.Chat\Services\Workflow\WorkflowArguments.cs`: `WorkflowArgumentSetRequest` (литерал `value` **или** `expression`, плюс `typeName`/`language`), `WorkflowVariableAddRequest`, `WorkflowVariableRemoveRequest`, `WorkflowExpressionLanguage` и чистая политика `WorkflowExpressionPolicy` (пустое выражение, незакрытые скобки/кавычки, обрыв на операторе, лямбды, путаница C#/VB). Контракт сессии расширен `SetArgument`/`AddVariable`/`RemoveVariable`, оркестрация — `WorkflowEditRunner` (`argument_set`/`variable_add`/`variable_remove`: пачка = одна атомарная правка, `validate=report/strict/off`, адреса в ответе). Реализация `StudioWorkflowEditSession`: тип и направление аргумента берутся из дескриптора палитры, литерал приводится к типу в `ActivityPaletteFactory` (`PaletteValue`, добавлен `PaletteExpressionLanguage` → `CSharpValue`/`VisualBasicValue`), выражение проверяется политикой и разбором Roslyn (`AiRpaStudio\Core\Workflow\WorkflowExpressionSyntax.cs`, C# 7.3 и VB 15.5), язык документа определяется по XAML (`WorkflowExpressionLanguageDetector`); переменные: тип из списка студии (`PaletteTypeNames`), значение по умолчанию литералом или выражением, проверка идентификатора и дубля, предупреждение о перекрытии внешней области. Инструменты `argument_set`/`variable_add`/`variable_remove` — `mutates: true`, `AgentPermissions.EditFiles`, в Plan не видны | `WorkflowArgumentToolTests` 13 (реестр, разбор JSON, пачка, атомарность, `validate=off`) + `WorkflowExpressionTests` 19 (политика, Roslyn C#/VB, определение языка) + `WorkflowArgumentBridgeTests` 7 (живой конструктор: литерал и выражение в `WriteLine.Text`, неизвестный аргумент, `value`+`expression`, битое выражение, объявление/удаление переменной, дубль, неизвестный тип, неверное значение, активность без `Variables`) зелёные; негатив проверен дважды (снятая проверка синтаксиса и снятая проверка дубля валят bridge-тесты); полный прогон 1711/1711; `MSBuild AiRpa.sln -t:Rebuild` Release — 0 ошибок из VS 2022 и VS 2026 |
+| `AG-09` | **Закрыт 06.11.2026.** Один вызов инструмента = одна атомарная пачка: отказ любой правки откатывает всю пачку и модель возвращается к состоянию до вызова (`WorkflowEditRunner.Abort` + `Dispose` незакрытой пачки); валидация после правки — `WorkflowValidationDelta.Compare` (сравнение ошибок **по тексту**, потому что вставка сдвигает индексы адресов) отдаёт только новые ошибки; режимы `validate=report` (по умолчанию: правка остаётся, ошибки приходят с адресами), `strict` (правка откатывается при новой ошибке), `off`; короткая сводка `правок: N; валидация: ошибок X, новых Y` в ответе инструмента вместе со структурой процесса | Тесты: `WorkflowEditToolTests` — `Insert_BatchSecondFails_NothingApplied`, `Strict_RevertsWhenNewValidationErrorAppears`, `Report_KeepsEditAndListsOnlyNewErrors`, `Report_ExistingErrorIsNotCountedAsNew`, `Validation_Off_SkipsValidation`, `ValidationDelta_*`; негатив проверен; полный прогон 1672/1672 |
+| `AG-12` | **Начат 04.11.2026 (часть 1 — каркас):** фикстуры `AiRpaStudio.Tests\Fixtures\Workflow\` (`sequence`, `if`, `trycatch`, `flowchart`, `variables`, `sequence-broken`, `malformed`), `WorkflowFixtureTests` (загрузка WF, корень, чтение модель-ридером, round-trip через `WorkflowXamlSerializer` + `WorkflowCanonicalizer`, негативы валидации и битого XML), `ActivityToolsTests` — страж реестра WF-инструментов (read-only, Plan, нет MCP), негативы волны 2 в `WorkflowOutlineServiceTests`/`WorkflowOutlineToolTests`. Осталось: негативы волн 5–8, реестр инструментов целиком | `WorkflowFixtureTests` 25 + `WorkflowEditingTests` 23 + `WorkflowEditBridgeTests` 7 + `WorkflowEditToolTests` 25 + `WorkflowWrapBridgeTests` 6 зелёные; полный прогон 1672/1672 (Debug + `vstest`, как в `AGENTS.md`) |
 | `TD-08` | Аудит `TODO.txt` не начат | — |
 
 ## 2. Что закрыто/сдвинуто в этой итерации
@@ -105,7 +108,7 @@
 | В репозитории валяется `ProxyChecker\ProxyChecker_a5dbcita_wpftmp.csproj` | мусор от прерванной WPF-сборки (в `.gitignore` шаблон есть, файл остался) | гигиена |
 | Поиск MSBuild продублирован в двух сборках | ✅ устранено 03.11.2026: оба места используют `MsBuildLocator` | `CP-04` |
 | Прямой `MSBuild.exe` из VS 2022 без VS-окружения → `MSB4236` (`Microsoft.NET.Sdk.WindowsDesktop`) на SDK-style проектах; MSBuild 2026 в тех же условиях собирает | ✅ уточнено 03.11.2026: причина — недоступность .NET SDK (`dotnet` не в `PATH`), а не VS-окружение; лечится `DOTNET_ROOT` + `PATH`, что и делает локатор | `CP-04` |
-| `AvalonEdit\global.json` пиннит .NET SDK `10.0.100` (`rollForward: major` → `10.0.401`), а он требует MSBuild ≥ 18 | MSBuild VS 2022 (17.13) не собирает `ICSharpCode.AvalonEdit` → сборка студии из VS 2022 падает (замерено 03.11.2026; файл из первого коммита) | `TD-14` |
+| `AvalonEdit\global.json` пиннил .NET SDK `10.0.100` (`rollForward: major` → `10.0.401`), а он требует MSBuild 18 или новее | ✅ **устранено 04.11.2026**: пин → `9.0.100` + `rollForward: minor` (резолвится в `9.0.200`); `ICSharpCode.AvalonEdit` собирается `-t:Rebuild` обоими тулчейнами, `AiRpa.sln` Release — 0 ошибок из VS 2022 и VS 2026; страж — `SdkPinGuardTests` (5 тестов, проверены негативом) | `TD-14` |
 
 
 
@@ -248,10 +251,33 @@ TD-12 ✅ (03.11.2026) ──► CP-04 ✅ (03.11.2026) ──► CP-09 ──�
 Итог прогона: `MSBuild AiRpaStudio.Tests.csproj` (VS 2026, `Debug`) — 0 ошибок; `vstest.console.exe AiRpaStudio.Tests\bin\Debug\net48\AiRpaStudio.Tests.dll` — **1458 тестов, все зелёные**.
 
 Отклонение от плана (осознанное): эталонные роботы **не добавлены** в `AiRpa.sln` — иначе они попадают в сборку студии,
-а решение и без того строится только VS 2026 из-за `TD-14`. Открытие/сборка эталона проверяются тестами напрямую.
-Ограничение приёмки: полная сборка `AiRpa.sln` из **обеих** VS по-прежнему недостижима (`TD-14`: `AvalonEdit\global.json`),
-поэтому приёмка `CP-*` идёт по затронутым проектам и эталонам.
+а на момент той итерации решение строилось только VS 2026 из-за `TD-14` (снят 04.11.2026). Открытие/сборка эталона проверяются тестами напрямую.
+Ограничение приёмки снято 04.11.2026: `TD-14` закрыт (пин .NET SDK `9.0.100` + `rollForward: minor`), поэтому
+полная сборка `AiRpa.sln` из **обеих** VS достижима и проверена; приёмка `CP-*` больше не сужается до затронутых проектов.
 
+
+### 5.11 Итерация 04.11.2026 — `TD-14`, `TD-13`, `CP-08` (закрыт)
+
+| Карточка | Что изменено | Тесты |
+|---|---|---|
+| `TD-14` | `AvalonEdit\global.json`: `10.0.100`/`rollForward: major` → `9.0.100`/`rollForward: minor`; резолвится установленный SDK `9.0.200`, который понимает MSBuild 17.13 (VS 2022) | `SdkPinGuardTests` 5/5 (негатив: возврат `10.0.100` валит 2 теста) |
+| `TD-13` | `AvalonDock`/`AvalonDock.Themes.Metro`: `net5.0-windows` → `net5.0-windows7.0`; `NU1012` в `NuGet.Build.Tasks.Pack` больше не воспроизводится | `MSBuild AiRpa.sln /restore` Release: VS 2022 `/m:1` и VS 2026 `/m` — exit 0 |
+| `CP-08` (A, B) | Паспорт совместимости и трекинг: `Net472OnNet48HostTests` — робот `v4.7.2` и `ActivitiesTracker` `v4.7.2` в net48-процессе, события Sequence/If/TryCatch/WriteLine, `InputText = max`, `Result = MAX` | 3 теста |
+| `CP-08` (C) | `AiRpaStudio\Helpers\RobotAssemblyResolver.cs`: зависимости робота из `bin\<Config>[\<TFM>]`; сборки хоста (`System.*`, WF, `Activities*`, `ActivitiesTracker`, `RPA*`) не подменяются, понижение версии и чужой ключ запрещены, обработчик не бросает, подписка идемпотентна; проводка в `ActivityRunner` до десериализации XAML | `RobotAssemblyResolverTests` 30/30 (негатив: снятие запрета валит 12 тестов, комментарий вместо вызова валит сторож проводки) |
+| `CP-08` (F) | `WorkflowHost` объявлен устаревшим прототипом (зашитый путь, `MessageBox`, `Console.ReadKey()`, `EnvDTE80`): собирается в решении и никем не подключается; роль раннера — `OR-02` | `WorkflowHostLegacyGuardTests` 2/2 |
+| `CP-08` (D) | Головной движок `AiRpaStudio\Core\WorkflowRunEngine.cs`: `LoadActivityFromText`/`FromFile`/`FromAssembly`, `CreateApplication`, `Run` → `WorkflowRunResult` (состояние, выходные аргументы, ошибка со стеком, `TimedOut`, `ExitCode`, события трекера), `CompileExpressions = true` как в студии, предел времени с отменой и прерыванием; `ActivityRunner` грузит XAML и создаёт `WorkflowApplication` только через движок | `WorkflowRunEngineTests` 11/11: успех/падение/таймаут/отмена, битый XAML, страж «движок без UI», страж «`ActivityRunner` ходит через движок» |
+| `CP-08` (E) | Прогон эталона штатным путём: `Main.xaml` робота 4.7.2 грузится движком при установленном `RobotAssemblyResolver` и прогоняется на 4.8-хосте | `LegacyRobotStudioRunTests` 3/3: `Result = MAX` + трекинг Sequence/If/TryCatch/WriteLine/Assign, ветка `If.Else`, негатив «в пустом каталоге сборка робота не находится» |
+
+Итог прогона 04.11.2026: `MSBuild AiRpaStudio.Tests.csproj` (VS 2026, `Debug`) — 0 ошибок;
+`vstest.console.exe` — **1512 тестов, все зелёные** (было 1458; +14 в этой итерации — 11 `WorkflowRunEngineTests` и 3 `LegacyRobotStudioRunTests`). Сборка `AiRpa.sln` Release: VS 2026 — exit 0;
+VS 2022 — exit 0. После смены TFM у `AvalonDock` (`TD-13`) сборку решения запускать с `/restore` — иначе `NETSDK1005`.
+
+`CP-08` закрыт 04.11.2026: головной движок выделен (`WorkflowRunEngine`) и эталон прогоняется штатным путём
+(`LegacyRobotStudioRunTests`). Вне автотестов остаётся UI-состояние `ActivityRunner` (read-only дизайнера,
+точки останова, окно `Locals`): ему нужен живой `CustomWfDesigner` и `TrackHandler` с окном — проверяется
+вручную отладкой в студии (в колонке «В работе» карточки больше нет, ссылка — `ROADMAP.md` §5).
+
+Движок `WorkflowRunEngine` — основа раннера `OR-02`: ему останется только хост (аргументы, лог, код возврата).
 
 ## 6. Definition of Done волны 1
 
@@ -289,3 +315,195 @@ $vstest = & $vswhere -latest -find 'Common7\IDE\CommonExtensions\Microsoft\TestW
 # только стража матрицы TFM
 & $vstest 'AiRpaStudio.Tests\bin\Debug\net48\AiRpaStudio.Tests.dll' /TestCaseFilter:"FullyQualifiedName~TfmMatrixGuardTests"
 ```
+
+## 9. Отклонения от плана (`AG-01`, `AG-03`, `AG-12`) — 04.11.2026
+
+1. **Каталог активностей реализован в студии, а не в `RPA.Chat`.** В плане (§5.5) предполагался
+   `RPA.Chat\Services\Workflow\ActivityCatalog.cs`. Причина отклонения: данные обязаны совпадать
+   с панелью «Активности», то есть с `ActivityPaletteRegistry`/`StudioActivityPalette`
+   (`AiRpaStudio\Core\Generation\`), а у `RPA.Chat` нет ни WF-ссылок, ни библиотек активностей.
+   Итог: в `RPA.Chat` живут контракт и DTO (`IActivityCatalog`, `ActivityInfo`, `ActivityArgumentInfo`,
+   `ActivityContainerInfo`, `ActivityCatalogText`), реализация — `AiRpaStudio\Core\Workflow\StudioActivityCatalog.cs`,
+   точка подключения — `ChatEnvironment.ActivityCatalog` (по образцу `IStudioDocumentService`).
+   Плюс: инструменты тестируются без UI и без WF (фейковый каталог), а состав каталога не может
+   разойтись с Toolbox.
+2. **Иконки в каталог не попали.** В палитре нет источника иконок (их подставляет `WFToolboxHelper`
+   при построении Toolbox). Пункт карточки вынесен в отдельную задачу вместе с `AG-08`.
+3. **Фикстуры.** `FlowStep` — не `Activity` и не принимает `DisplayName`, поэтому узел блок-схемы
+   описывается только `x:Name` + вложенной активностью. Корень файла без `x:Class` грузится как
+   `DynamicActivity`, поэтому проверки сравнивают `DynamicActivity.Implementation`.
+4. **Проверки.** `AiRpaStudio.Tests\Workflow\`: `WorkflowFixtureTests` 21, `ActivityCatalogTests` 28,
+   `ActivityToolsTests` 13. Негатив проверен: отключение читаемого имени категории
+   (`StudioActivityCatalog.CategoryNameOf`) роняет 4 теста. Полный прогон — 1574/1574 (было 1512).
+   `MSBuild AiRpa.sln /p:Configuration=Release` — 0 ошибок из VS 2022 и из VS 2026.
+5. **Структура строится по файлу, а не по живому конструктору.** В плане (§5.6) предполагалось
+   `IStudioDocumentService.GetWorkflowOutline(документ)`. Причина: живая модель требует `ModelItem`-адресации
+   и UI-потока, то есть того самого моста `AG-02`, которого ещё нет. Итог: `workflow_outline` читает файл через
+   `WorkflowModelReader` (адреса совпадают с путями `ModelItem`, поэтому правки `AG-04` их примут), а структура
+   несохранённого документа появится вместе с `AG-02`.
+6. **`Ok` = «структура прочитана», а не «процесс валиден».** Ошибки WF возвращаются в `Issues` с адресом узла
+   (`WorkflowOutlineIssue.ElementId`), дерево отдаётся всегда: иначе цикл «правка → валидация → правка»
+   невозможен, а `AG-09` нечем откатывать.
+7. **Ридер модели расширен, хотя формально это не `AG-03`.** Без этого структура теряла шаги: добавлены переменные
+   (`Sequence.Variables`), литеральные значения аргументов (`Literal<T>` — иначе `Text="first"` выглядел
+   как «аргумент задан, значение неизвестно»), тело обработчиков (`Catch` → `root/Catches[0]/Action/Handler`)
+   и граф блок-схемы (`StartNode`/`Next`/`True`/`False`/`Cases` → `root/StartNode/Action`). Коллекция
+   `Flowchart.Nodes` намеренно не разворачивается отдельно: она ссылается на те же узлы и дала бы дубли адресов.
+8. **Текст ответа печатает только заданные аргументы.** Полный перечень (включая пустые служебные вроде
+   `WriteLine.TextWriter`) занимает контекст модели; его отдаёт `activity_describe` из `AG-01`.
+   Машинный DTO (`WorkflowOutlineNode.Arguments`) по-прежнему содержит все аргументы.
+9. **Проверки.** `WorkflowOutlineServiceTests` 21, `WorkflowOutlineToolTests` 12, `WorkflowFixtureTests` 25
+   (+ фикстура `variables.xaml`). Негатив проверен: снятая привязка ошибки к узлу (`IdOf` → пустая строка)
+   роняет `Outline_BrokenByValidation_KeepsTreeAndBindsIssuesToNodes`. Полный прогон — 1610/1610 (было 1574).
+   `MSBuild AiRpa.sln /p:Configuration=Release` — 0 ошибок из VS 2022 и из VS 2026.
+10. **Что осталось по волнам:** `AG-12` — негативы волн 3–8, реестр инструментов целиком, откаты;
+   далее `AG-02` (мост к дизайнеру в UI-потоке, требует `AG-03`-адресов — они готовы).
+
+## 10. Итерация 05.11.2026 — `AG-02` (мост «агент ↔ открытый дизайнер»)
+
+`AG-02` закрыт. Что появилось:
+
+1. **Контракт (`RPA.Chat\Services\Workflow\`)** — `IWorkflowEditingService` (`BeginEdit`, `Undo`, `Redo`,
+   `GetLiveOutline`, `IsOpenInDesigner`), `IWorkflowEditSession` (`Insert`, `Delete`, `Move`, `Complete`,
+   `Revert`, `Outline`), запросы `WorkflowInsertRequest`/`WorkflowMoveRequest`, ответ `WorkflowEditResult`
+   (адреса изменённого и появившегося элементов, состояние истории, структура процесса, замечания),
+   формат ответа `WorkflowEditText`, null-object `NullWorkflowEditingService` и неактивная сессия
+   `UnavailableWorkflowEditSession` (отказ с причиной и подсказкой — не исключение).
+2. **Реализация (`AiRpaStudio\Core\Workflow\`)** — `StudioWorkflowEditingService` (вкладка по пути через
+   `IWorkflowDesignerHost`, маршалинг на UI-поток через `IDesignerUiThread`, `undo`/`redo` через
+   `UndoEngine`, структура несохранённого документа) и `StudioWorkflowEditSession` (вставка, удаление,
+   перенос через `ModelService`/`ModelItem`; каждая правка — свой `ModelEditingScope`).
+3. **Подключение** — `ChatEnvironment.WorkflowEditing`, `MainView` также связывает
+   `StudioWorkflowOutlineService.LiveOutlineSource` с живой моделью: `workflow_outline` теперь видит
+   несохранённые правки (закрыт остаток `AG-03` «структура несохранённого документа»).
+4. **Проверки** — `WorkflowEditingTests` 23 (headless), `WorkflowEditBridgeTests` 7 (живой конструктор,
+   домен стенда): вставка в начало/середину/конец с проверкой адресов, `complete`, `undo`/`redo`,
+   `revert` пачки, отказ правки, удаление и перенос, отказ «файл не открыт». Полный прогон — 1641/1641
+   (было 1611). `MSBuild AiRpa.sln /p:Configuration=Release` — 0 ошибок из VS 2022 и из VS 2026.
+
+Отклонения от плана и решения, принятые по ходу:
+
+1. **Мост стоит на существующей правке модели.** В плане (§5.6) предполагался новый путь
+   `Insert/Delete/Move` поверх `ModelItem`. Причина отклонения: `DesignerModelSession` уже решает
+   подбор контейнера, `ActivityAction` (`ForEach.Body`) и запрет неподдерживаемых контейнеров, и это
+   проверено палитрой. Итог: `Insert` идёт через `DesignerModelSession.InsertActivity`, к нему добавлены
+   `Delete`, `Move`, `Complete`, `Revert`; `ResolveItem`/`ChooseContainer`/`CreateItemForContainer`
+   открыты как `internal`, чтобы адрес читался и правился одним кодом.
+2. **Один `ModelEditingScope` на правку, а не на пачку.** План (§5.6/`AG-09`) читался как «один scope
+   на пачку». Стенд показал, что до `Complete` конструктор держит изменения в буфере: вставки внутри
+   одного scope не появлялись ни в дереве, ни в адресах (`ActivityCount` не менялся), а удаление не
+   находило контейнер. Итог: правка = scope = одна запись истории (`Ctrl+Z` снимает ровно одну правку);
+   пачка группирует правки и умеет отменить их все (`Revert` — N шагов истории).
+3. **`Select` (визуальное выделение) не реализован.** Адресация правок — по `id` из `workflow_outline`;
+   выделение ничего не добавляет агенту, а `Selection`-сервис конструктора потянул бы UI-зависимость.
+4. **`DisplayName` при вставке — отдельная правка по адресу уже вставленного элемента.** В том же scope
+   конструктор не отдаёт дерево с новой активностью, поэтому подпись некуда приложить; зато вставка не
+   зависит от того, как конструктор назвал элемент.
+5. **Адрес появившегося элемента считается по контейнеру до вставки**, а не «диффом» идентификаторов
+   «до/после»: дифф ошибается, когда вставка сдвигает индексы соседей (проверено негативом —
+   `AddressFor` → `[0]` роняет `Insert_ReturnsAddressesThatAppearInOutline`). Формат адреса тот же,
+   что у `workflow_outline`: `parent/Container[индекс]`, `parent/Then`, `parent/Body/Handler`.
+6. **Отказ правки откатывает только её.** Пачка остаётся открытой, чтобы агент исправил адрес и
+   повторил правку; «половины правок» в модели не остаётся. `Revert` отменяет все правки пачки.
+7. **UI-поток берётся у `View` дизайнера.** У `WorkflowDesignerEx` нет свойства `Dispatcher`; если
+   поверхность не создана — это ошибка, а не тихая работа в потоке вызывающего.
+8. **Что осталось по волнам:** `AG-12` — негативы волн 4–8, реестр инструментов целиком; далее `AG-04`
+   (инструменты `activity_insert`/`activity_delete`/`activity_move`/`activity_wrap` поверх готового моста)
+   и `AG-06` (валидация с адресами узлов).
+
+
+## 11. Волна 4 — 06.11.2026: `AG-04` (инструменты правки) и `AG-09` (атомарность)
+
+`AG-04` и `AG-09` закрыты. Что появилось:
+
+1. **Инструменты (`RPA.Chat\Services\AgentTools\AgentToolFactory.cs`)** — `activity_insert`,
+   `activity_delete`, `activity_move`, `activity_wrap`, `activity_undo`, `activity_redo`: `mutates: true`,
+   `AgentPermissions.EditFiles`, в Plan не видны (фильтр `ForMode`), адреса — те же `id`, что у
+   `workflow_outline`. Пачка (`activities`, `elementIds`, `moves`) уходит одной правкой.
+2. **Оркестрация (`RPA.Chat\Services\Workflow\WorkflowEditRunner.cs`)** — `BeginEdit` → правки →
+   валидация → `Complete`/`Revert`. Логика вынесена из инструментов, поэтому проверяется на фейковой
+   сессии без конструктора: инвариант «отказ любой правки = модель не изменилась» держится в одном месте.
+3. **Валидация (`WorkflowValidation.cs`, карточка `AG-09`)** — `WorkflowValidationDelta.Compare` отдаёт
+   только новые ошибки; сравнение по тексту, а не по адресу: вставка сдвигает индексы, и
+   `root/Activities[2]` после правки — уже другой элемент.
+4. **Обёртка (`WorkflowWrapRequest`, `IWorkflowEditSession.Wrap`, `StudioWorkflowEditSession.WrapCore`)** —
+   обёртка занимает место элемента, элемент становится её первым ребёнком; всё в одном `ModelEditingScope`,
+   поэтому `Ctrl+Z` снимает обёртку целиком. `activity_wrap` возвращает два адреса: обёртки и обёрнутой
+   активности (первый — сама обёртка, второй — `NewElementId`, по нему агент работает дальше).
+5. **Проверки** — `WorkflowEditToolTests` 25 (headless) и `WorkflowWrapBridgeTests` 6 (живой конструктор:
+   обёртка в `Sequence`, обёртка в `If.Then`, адреса, неоднозначный контейнер, неизвестный тип, `undo`).
+   Полный прогон 1672/1672 (Debug + `vstest`, как в `AGENTS.md`). `MSBuild AiRpa.sln /t:Rebuild
+   /p:Configuration=Release` — 0 ошибок из VS 2022 и VS 2026. Негатив проверен: `Strict && false` роняет
+   `Strict_RevertsWhenNewValidationErrorAppears`, снятый `Revert` в `Abort` роняет проверку подсказки.
+
+Отклонения от плана и решения, принятые по ходу:
+
+1. **`validate=report` по умолчанию, а не «откат при любой ошибке валидации».** План (`AG-09`)
+   предполагал автоматический откат при ошибке валидации. На практике шаг, у которого ещё не заданы
+   аргументы (`argument_set` — карточка `AG-05`), валидацию не проходит всегда: откат сделал бы сборку
+   робота невозможной. Поэтому откат включается режимом `strict`, а по умолчанию правка остаётся, и агент
+   получает только новые ошибки с адресами — это и есть цикл «правка → валидация → правка».
+2. **Сравнение ошибок по тексту, а не по `(адрес, текст)`.** Адреса меняются от самой правки; сравнение
+   по адресу давало бы «новую» ошибку на каждом сдвиге индексов. Побочный эффект: правка, добавившая
+   ошибку с тем же текстом, что уже была, новой не считается — принято осознанно.
+3. **Оркестрация в `RPA.Chat`, а не в студийной сессии.** Валидация уже приходит в структуре
+   (`IWorkflowEditSession.Outline`), поэтому `strict`/`report` не требуют новых членов контракта и
+   тестируются без UI. Студийная сессия осталась механизмом правки модели.
+4. **`activity_wrap` — одна обёртка за вызов.** Пакетная обёртка отложена: у обёрнутого элемента меняется
+   адрес, и следующий запрос пачки ссылался бы на устаревший адрес. `insert`/`delete`/`move` пачкой идут —
+   их адреса не переезжают.
+5. **Разрешения — `AgentPermissions.EditFiles`.** Отдельная категория не вводилась: карточка `AG-10`
+   пересмотрит матрицу целиком, вместе с системным промптом (`AG-11`).
+6. **Полный прогон в Release падает по `StackOverflowException`** в `ToolboxDragContractTests` — так и до
+   этой волны: прогон без новых фикстур падает так же, а тот же набор без namespace `Workflow` проходит
+   (1487/1487). Основной прогон — Debug + `vstest` по `AGENTS.md` (1672/1672). Наблюдение внесено в риски:
+   накопительное состояние домена конструктора в одном процессе, к карточке не относится.
+7. **Не сделано:** `argument_set`/`variable_*` (`AG-05`), отдельный `workflow_validate` (`AG-06` —
+   частично закрыт здесь: новые ошибки приходят в сводке правки), `Select` (агенту не нужен).
+
+## 12. Волна 5 — 06.11.2026: `AG-05` (аргументы и переменные)
+
+`AG-05` закрыт. Что появилось:
+
+1. **Контракт** — `RPA.Chat\Services\Workflow\WorkflowArguments.cs`: `WorkflowArgumentSetRequest`
+   (литерал `value` **или** выражение `expression`; `typeName` для необобщённых `InArgument`/`OutArgument`;
+   `language` для явного языка), `WorkflowVariableAddRequest`, `WorkflowVariableRemoveRequest`,
+   `WorkflowExpressionLanguage` и чистая политика `WorkflowExpressionPolicy`.
+2. **Инструменты** — `argument_set`, `variable_add`, `variable_remove` в `AgentToolFactory`
+   (`mutates: true`, `AgentPermissions.EditFiles`, в Plan не видны); пачки `arguments`/`variables`,
+   `validate=report|strict|off`, `include_outline`.
+3. **Оркестрация** — `WorkflowEditRunner.SetArgument/AddVariable/RemoveVariable`: один вызов инструмента =
+   одна атомарная пачка (`AG-09`), отказ любой правки откатывает всю.
+4. **Реализация в студии** — `StudioWorkflowEditSession.SetArgumentCore/AddVariableCore/RemoveVariableCore`:
+   тип и направление аргумента из дескриптора палитры, литерал приводится к типу фабрикой палитры,
+   выражение проверяется политикой и разбором Roslyn, язык документа определяется по XAML;
+   переменные — тип из списка студии, значение по умолчанию, проверка идентификатора и дубля.
+5. **Язык выражения в фабрике** — `PaletteValue.Language` + `PaletteExpressionLanguage`: C# даёт
+   `CSharpValue<T>`/`CSharpReference<T>`, VB — `VisualBasicValue<T>`/`VisualBasicReference<T>`.
+
+Отклонения от плана:
+
+1. **Проверка выражения — синтаксис, а не семантика.** Разбор идёт Roslyn'ом (`WorkflowExpressionSyntax`)
+   без привязки имён: на момент правки переменные и аргументы процесса ещё не собраны, а неизвестные имена
+   и типы — это семантика `TextExpression`, которую реализует валидация WF. Её результат приходит
+   в сводке правки (`AG-09`), поэтому цикл «правка → ошибка → правка» замкнут без дублирования компилятора.
+   Граница зафиксирована тестом: `1 + * 2` разбор синтаксиса принимает (в грамматике Roslyn `*` —
+   разыменование указателя) и такая ошибка доходит до валидации, а не отбрасывается инструментом.
+2. **Язык выражения определяется по документу, явный `language` главнее.** XAML с `Microsoft.VisualBasic`/
+   `VisualBasicValue` считается VB-документом; иначе C#. Смешение языков ловится политикой до правки
+   («выражение записано в синтаксисе C#, а документ на Visual Basic»).
+3. **Переменные только там, где есть коллекция `Variables`** (`Sequence`, `Flowchart`, корень процесса).
+   Активность без неё — отказ с объяснением: «молча потерянная» переменная хуже отказа.
+4. **Типы переменных — из белого списка `PaletteTypeNames`** (`String`, `Int32`, `Boolean`, `Object`, …):
+   тип вне списка в XAML не попадает, поэтому агент получает отказ со списком известных имён.
+5. **Перекрытие имени — предупреждение, а не отказ.** WF разрешает тень во вложенной области; отказ запретил
+   бы законную конструкцию, поэтому агент получает предупреждение `shadowing` и знает, какую переменную правит.
+6. **`Variable<T>.Default` читается через `BindingFlags.DeclaredOnly`.** Свойство объявлено дважды
+   (`LocationReference.Default` типа `Activity` и `Variable<T>.Default` типа `Activity<T>`), и обычный
+   `GetProperty("Default")` бросает `AmbiguousMatchException` — поймано тестом на живом конструкторе.
+7. **Адрес результата у правок существующего элемента.** У `argument_set`/`variable_*` новых адресов нет,
+   поэтому `WorkflowEditRunner.Apply` получил флаг `addressFromElement`: в ответе виден сам элемент —
+   иначе агент не понимал, куда попала правка.
+8. **Не сделано:** `workflow_validate` как отдельный инструмент (`AG-06`), `xaml_read`/`xaml_write`
+   (`AG-07`), создание активностей (`AG-08`), отдельная категория разрешений (`AG-10`), системный промпт
+   (`AG-11`).

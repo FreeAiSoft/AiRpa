@@ -52,7 +52,7 @@ namespace Agent.Core.Services
             "In ACT mode you can read, analyze, plan AND perform real changes: write files, run builds.\n" +
             "Workflow:\n" +
             "1. Read before you change: call read_files and confirm the exact current content (it reads the open editor tab buffer, or disk when the file is closed).\n" +
-            "2. Make the change: use edit_open_document to edit an open editor tab in place, or apply_fix / write_file with the exact corrected content.\n" +
+            "2. Make the change: call editor with path + content for a whole file, or path + old_text + new_text for an exact replacement; call run_commands for shell commands in the workspace.\n" +
             "3. Verify: call build, then read_errors. Only when read_errors returns no errors answer with final.\n" +
             "4. If a tool returns an error or unexpected content, react to it: read again, fix again, or report the problem in final. Never guess file content.";
 
@@ -76,7 +76,55 @@ namespace Agent.Core.Services
             "Always answer in Russian unless the user writes in another language.\n" +
             "Always be polite, courteous and respectful in your replies.\n\n" +
             "Reading source files: use read_files to read one or more files. It reads from the open Visual Studio editor tab (including unsaved changes and crash-recovery buffers) when the file is open, and from disk otherwise. Pass several files in one call and use start_line/end_line to page through long files.\n\n" +
-            "Tools are provided as native function definitions. Invoke them directly as function calls - do not write any text-based tool-call format (no JSON action objects, no XML or DSML tags). Workflow: read before you change, make the change (edit_open_document for an open editor tab, or apply_fix / write_file), then verify with build and read_errors before answering the user in Russian. You may call several independent tools in one turn.";
+            "Tools are provided as native function definitions. Invoke them directly as function calls - do not write any text-based tool-call format (no JSON action objects, no XML or DSML tags). Workflow: read before you change, make the change (editor with path + content or path + old_text + new_text; run_commands for shell commands), then verify with build and read_errors before answering the user in Russian. You may call several independent tools in one turn.";
+
+        /// <summary>
+        /// Read-only part of the workflow guidance (<c>AG-11</c>): appended to PLAN <b>and</b> ACT prompts,
+        /// JSON and native, when the registry exposes workflow tools. Names the tools only — no tool calls —
+        /// so the Plan prompt still offers read-only work.
+        /// </summary>
+        public const string WorkflowReadInstructions =
+            "# Workflow (WF) processes\n\n" +
+            "A studio process is a Windows Workflow Foundation XAML file. Work with its structure, not with raw XAML:\n" +
+            "1. workflow_outline returns the tree: stable element ids (root, root/Activities[0], root/Then), activity types, display names, arguments with their expressions, variables and the validation issues bound to those ids. Read the outline before changing anything; never guess the tree.\n" +
+            "2. activity_search and activity_describe return real activity type names, argument names, directions and types from the studio catalog. Never invent an activity or an argument name: ask the catalog first.\n" +
+            "3. workflow_validate returns a structured report: an element id, an activity property and a check code per issue. It has three states: no errors, issues with addresses, and \"validation not performed\". \"Validation not performed\" is never \"no errors\" — never report success without a report.\n" +
+            "4. Start shallow: workflow_outline with depth 2 and include_arguments false, and go deeper only into the branch you are working on. A long outline comes back shortened, a shallow one does not.";
+
+        /// <summary>
+        /// Editing part of the workflow guidance (<c>AG-11</c>): appended to ACT prompts only, because it names
+        /// mutating tools and must not contradict the Plan promise of a read-only turn.
+        /// </summary>
+        public const string WorkflowEditInstructions =
+            "# Workflow: editing the model\n\n" +
+            "5. Edit the designer model, not the file text: activity_insert, activity_delete, activity_move and activity_wrap for the structure; argument_set, variable_add and variable_remove for arguments and variables. The element ids from workflow_outline are the addresses for reading, editing and validation at the same time. Pass several items in one call when the edit is a block: it is applied atomically.\n" +
+            "6. After every edit repeat workflow_validate until the report says there are no errors, then build and read_errors. activity_undo and activity_redo undo or redo exactly one edit in the designer (the same as Ctrl+Z and Ctrl+Y).\n" +
+            "7. Do not write process XAML by hand while the file is open in the designer: editor refuses such a file, because the model would silently overwrite your text. Hand-written XAML is the last resort, only when the model tools cannot express the change: then use editor, which normalizes the file to the studio form (CRLF, no XML declaration, xmlns:mc/sap/sap2010/mca) and validates the result, and rejects malformed XAML instead of writing it.\n" +
+            "8. A new activity is created with activity_create and only inside an EXISTING activity library project (.csproj): the tool writes the class file, an optional designer, registers both in the project, builds it and refreshes the activity catalog, so activity_search finds the type at once. Creating a project from scratch is not supported.";
+
+        /// <summary>Four worked examples for the JSON protocol (<c>AG-11</c>).</summary>
+        public const string WorkflowExamplesJson =
+            "# Workflow: examples (request -> tool call)\n\n" +
+            "Example 1 - \"insert a WriteLine into the Sequence\": read the outline first, then insert by address.\n" +
+            "{\"action\":\"tool_call\",\"tool\":\"workflow_outline\",\"arguments\":{\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"depth\":2,\"include_arguments\":false}}\n" +
+            "{\"action\":\"tool_call\",\"tool\":\"activity_insert\",\"arguments\":{\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"activityType\":\"System.Activities.Statements.WriteLine\",\"parent\":\"root/Activities[0]\",\"index\":1,\"displayName\":\"Log start\"}}\n\n" +
+            "Example 2 - \"the WriteLine must print a computed text\": set the argument with an expression instead of editing the file.\n" +
+            "{\"action\":\"tool_call\",\"tool\":\"argument_set\",\"arguments\":{\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"elementId\":\"root/Activities[0]/Activities[1]\",\"argument\":\"Text\",\"expression\":\"Environment.MachineName\"}}\n\n" +
+            "Example 3 - \"the validator pointed at one element\": validate that address, fix, then validate again.\n" +
+            "{\"action\":\"tool_call\",\"tool\":\"workflow_validate\",\"arguments\":{\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"elementId\":\"root/Then\"}}\n\n" +
+            "Example 4 - \"create MyActivity in the activity library\": an existing project; argument names and types come from activity_describe of a similar activity.\n" +
+            "{\"action\":\"tool_call\",\"tool\":\"activity_create\",\"arguments\":{\"projectPath\":\"C:\\\\robots\\\\RPA-1\\\\Activities\\\\Activities.csproj\",\"className\":\"MyActivity\",\"namespace\":\"Activities\",\"description\":\"Starts a robot by name\",\"category\":\"Custom\",\"baseType\":\"CodeActivity\",\"withDesigner\":true,\"build\":true,\"arguments\":[{\"name\":\"InputText\",\"typeName\":\"String\",\"direction\":\"In\",\"required\":true}]}}";
+
+        /// <summary>
+        /// The same four examples for the native protocol (<c>AG-11</c>): a native prompt must not show JSON
+        /// action objects — the model has to call the function, not print the protocol of the other mode.
+        /// </summary>
+        public const string WorkflowExamplesNative =
+            "# Workflow: examples (request -> tool call)\n\n" +
+            "Example 1 - \"insert a WriteLine into the Sequence\": call workflow_outline with arguments {\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"depth\":2,\"include_arguments\":false}, then call activity_insert with arguments {\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"activityType\":\"System.Activities.Statements.WriteLine\",\"parent\":\"root/Activities[0]\",\"index\":1,\"displayName\":\"Log start\"}.\n\n" +
+            "Example 2 - \"the WriteLine must print a computed text\": call argument_set with arguments {\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"elementId\":\"root/Activities[0]/Activities[1]\",\"argument\":\"Text\",\"expression\":\"Environment.MachineName\"} instead of editing the file.\n\n" +
+            "Example 3 - \"the validator pointed at one element\": call workflow_validate with arguments {\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"elementId\":\"root/Then\"}, fix the element, then validate again.\n\n" +
+            "Example 4 - \"create MyActivity in the activity library\": call activity_create with arguments {\"projectPath\":\"C:\\\\robots\\\\RPA-1\\\\Activities\\\\Activities.csproj\",\"className\":\"MyActivity\",\"namespace\":\"Activities\",\"description\":\"Starts a robot by name\",\"category\":\"Custom\",\"baseType\":\"CodeActivity\",\"withDesigner\":true,\"build\":true,\"arguments\":[{\"name\":\"InputText\",\"typeName\":\"String\",\"direction\":\"In\",\"required\":true}]}.";
 
         public const string MemoryBankConventionInstructions =
             "# Memory Bank convention\n\n" +

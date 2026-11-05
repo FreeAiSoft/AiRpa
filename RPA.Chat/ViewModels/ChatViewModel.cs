@@ -771,13 +771,7 @@ namespace RPA.Chat.ViewModels
 
         private AgentPermissions BuildAllowedPermissions()
         {
-            var allowed = (AgentPermissions)0;
-            if (_settings.AllowReadFiles) allowed |= AgentPermissions.ReadFiles;
-            if (_settings.AllowEditFiles) allowed |= AgentPermissions.EditFiles;
-            if (_settings.AllowExecuteCommand) allowed |= AgentPermissions.ExecuteCommand;
-            if (_settings.AllowWebFetch) allowed |= AgentPermissions.WebFetch;
-            if (_settings.AllowSubagents) allowed |= AgentPermissions.Subagents;
-            return allowed;
+            return AgentPermissionsPolicy.Resolve(_settings);
         }
 
         private MemoryBankMode ParseMemoryBankMode()

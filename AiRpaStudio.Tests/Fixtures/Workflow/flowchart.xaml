@@ -1,0 +1,12 @@
+<Activity xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+          xmlns:s="clr-namespace:System;assembly=mscorlib">
+  <!-- AG-12: фикстура «Flowchart» — узлы адресуются через FlowStep, а не коллекцией активностей. -->
+  <Flowchart DisplayName="Fixture: flowchart">
+    <Flowchart.StartNode>
+      <FlowStep x:Name="__ReferenceID0">
+        <WriteLine DisplayName="Log flowchart step" Text="step" />
+      </FlowStep>
+    </Flowchart.StartNode>
+  </Flowchart>
+</Activity>

@@ -250,7 +250,12 @@ namespace RPA.Core.Generation
         /// Корень процесса с <c>x:Class</c> — это <c>ActivityBuilder</c>, поэтому работа идёт с его
         /// <c>Implementation</c> (если реализации нет, создаётся пустой <see cref="System.Activities.Statements.Sequence"/>).
         /// </summary>
-        private static ModelItem ResolveItem(ModelItem rootItem, ModelTreeManager treeManager, string activityId)
+        /// <summary>
+        /// ModelItem по адресу из <c>workflow_outline</c> (<c>root/Activities[1]/Then</c>). Внутренний:
+        /// тем же разрешением адресов пользуется мост правок <c>AG-02</c>, иначе адрес читался бы одним
+        /// кодом, а правился другим.
+        /// </summary>
+        internal static ModelItem ResolveItem(ModelItem rootItem, ModelTreeManager treeManager, string activityId)
         {
             ModelItem current = ImplementationItem(rootItem, treeManager);
             if (current == null)
@@ -349,7 +354,7 @@ namespace RPA.Core.Generation
         /// Контейнер для вставки: явно названный (<c>container</c>) либо единственный подходящий.
         /// Если подходящих несколько, выбор не угадывается — возвращается ошибка со списком.
         /// </summary>
-        private static PaletteContainerDescriptor ChooseContainer(
+        internal static PaletteContainerDescriptor ChooseContainer(
             PaletteActivityDescriptor descriptor,
             string containerName,
             out string error)
@@ -400,7 +405,7 @@ namespace RPA.Core.Generation
         /// ModelItem для вставки. Для обработчиков (<c>ForEach.Body</c>) оборачиваем активность
         /// в <c>ActivityAction</c>: свойство ждёт обработчик, а не активность.
         /// </summary>
-        private static ModelItem CreateItemForContainer(
+        internal static ModelItem CreateItemForContainer(
             ModelTreeManager treeManager,
             PaletteContainerDescriptor container,
             Activity activity)
