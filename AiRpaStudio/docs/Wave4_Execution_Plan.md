@@ -7,7 +7,7 @@
 | План волны | `C:\Users\Maxxx\Documents\X-Project\X-Project\RPA\RPA - план волны 8.md` (Obsidian: [[RPA - план волны 8]]), доска — [[RPA - доска]], критерий — [[RPA - критерий готовности]] |
 | Область волны 8 | `TZ-01` (приём ТЗ, версии, диффы) + `TZ-02` (извлечение текста) + `TZ-03` (модель спецификации) + `TZ-04` (инструменты `spec_*` и панель «ТЗ») + `TZ-05` (декомпозиция) + `TZ-06` (трассировка) + `TZ-07` (генерация скелета) + `TZ-08` (тест-кейсы) + `TZ-09` (журнал неоднозначностей) |
 | Дата заведения | 08.11.2026 |
-| Статус | **не начата** — ни одна карточка не взята в работу |
+| Статус | **выполнена (ядро)** — 9 карточек `TZ-01`…`TZ-09` закрыты в headless-части (см. §17: прогон 1920/1920, Release 0 ошибок из VS 2022 и VS 2026); открытыми остались докпанель «ТЗ», метки через WF-аннотации и создание процесса с нуля — §17.3 |
 | Базовая линия на входе | полный прогон `AiRpaStudio.Tests` — **1855/1855** (Debug + `vstest.console.exe`, по `AGENTS.md`), Release 0 ошибок из VS 2022 и VS 2026 (закрытие волны 7, см. `Wave3_Execution_Plan.md`) |
 | Правило | Пункт закрывается только с тестом, полным зелёным прогоном `AiRpaStudio.Tests` (MSBuild из VS + `vstest.console.exe`, **не** `dotnet test`) и сборкой `AiRpa.sln` Release из VS 2022 **и** VS 2026 |
 
@@ -151,6 +151,47 @@
 Таблица заполняется по мере закрытия карточек: **снятая защита → упавшие тесты**.
 
 | # | Снятая защита | Карточка | Упавшие тесты | Дата |
+
+## 17. Журнал выполнения волны 8
+
+| Поле | Значение |
+|---|---|
+| Дата | 08.11.2026 |
+| Итог | 9 карточек `TZ-01`…`TZ-09` закрыты в **headless-части** (модель, хранилище, инструменты, тексты отчётов, прогон) |
+| Прогон тестов | **1920/1920** (было 1855 на входе: +65 новых тестов) — `MSBuild AiRpaStudio.Tests.csproj` + `vstest.console.exe`, по `AGENTS.md` |
+| Сборка решения | `MSBuild AiRpa.sln /p:Configuration=Release /restore` — VS 2026 (`/m`) exit 0, VS 2022 (`/m:1`) exit 0, **0 ошибок** |
+| Осталось (вне волны) | докпанель «ТЗ» (WPF) и метки через WF-аннотации — см. «Открытые хвосты» ниже |
+
+### 17.1 Что сделано по карточкам
+
+| ID | Артефакты | Тесты | Итог |
+|---|---|---|---|
+| `TZ-01` | `RPA.Chat\Services\Spec\SpecificationStore.cs` (`SpecLayout`, `ISpecificationStore`, `SpecificationStore`), `ChatEnvironment.SpecStore` | `SpecificationStoreTests` (12) | ✅ ТЗ живёт в проекте: `<проект>\docs\spec\<slug>\` (`spec.md`, `versions\vNNNN-<sha8>.md`, `source\`, `meta.json`); дедупликация по sha256, дифф версий через `TextDiff`, лимиты 20 МБ / 200 тыс. символов с явной пометкой, кодировки BOM/UTF-8/cp1251, кириллица в слаге; пустой корень проекта → отказ с причиной, в `%AppData%` не пишется |
+| `TZ-02` | `Agent.Core\Services\Documents\` (`DocumentText`, `PlainTextReader`, `OpenXmlWordReader`, `OpenXmlExcelReader`, `PdfTextReader`, `DocumentTextReaders`) | `DocumentReaderTests` (14) | ✅ Один reader на все точки: `docx` (заголовки → `#`, таблицы → markdown, списки), `xlsx` (листы → markdown, лимиты строк/столбцов названы), `pdf` (только текстовый слой, `FlateDecode`, без новых пакетов/лицензий), текст с определением кодировки; скан без текста → `NoTextLayer` («приложите страницы изображениями»); подключено в `spec_import`, вложения чата и `read_files` (`IsBinaryDocument` — `.xaml` идёт прежним путём с шапкой) |
+| `TZ-03` | `Rpa.Chat\Services\Spec\RpaSpecification.cs`, `SpecificationValidator.cs`, `SpecificationText.cs`, инструмент `spec_extract` | `SpecificationValidatorTests` (20), `SpecToolTests` (4) | ✅ Модель `schemaVersion 1` без WF-сущностей; JSON — источник правды, `specification.md` — производное; проверки с адресами (`goal`, `steps[i].expected`, `acceptanceCriteria[i].check`, дубли id, висячие `dataRefs`); блокирующие замечания не дают сохранить (`force=true` — черновик) |
+| `TZ-04` | `AgentTools\SpecToolHandlers.cs`, регистрация 12 инструментов в `AgentToolFactory`, `PromptDefaults.SpecReadInstructions`/`SpecEditInstructions`, `AgentPromptBuilder.AppendSpecGuidance`, префикс `spec_` в страже `PromptGuidanceTests` | `SpecToolTests` (реестр, `spec_show`, `spec_update`), `PromptGuidanceTests` (обновлён стражем) | 🟡 Инструменты `spec_import`/`spec_show`/`spec_update`/`spec_extract` + 8 остальных сделаны; **докпанель «ТЗ» не сделана** (WPF-часть, см. «Открытые хвосты») |
+| `TZ-05` | `SpecTask`/`SpecTaskStep`, `spec_decompose`, `SpecificationValidator.ValidateDecomposition` | `SpecificationValidatorTests` (6), `SpecToolTests` (2) | ✅ Каждая задача ссылается на существующий пункт, каждый шаг и критерий покрыт задачей; непокрытые адреса называются, декомпозиция без покрытия не сохраняется |
+| `TZ-06` | `SpecCoverage.cs`, `SpecLink`, инструменты `spec_link`/`spec_coverage`, покрытие в `spec_show(section=links)` | `SpecToolTests` (4) | 🟡 Трассировка и отчёт о покрытии есть; метки хранятся в модели ТЗ (`links`) и проверяются по реальной структуре процесса (адрес обязан существовать). **WF-аннотации (`sap:Annotation`) не подключены** — контракт `IWorkflowAnnotationService` не реализован |
+| `TZ-07` | `SpecGeneration.cs` (`SpecGenerationPlan`, `SpecGenerator.BuildPlan`/`Apply`), инструмент `spec_generate` | `SpecToolTests` (3) | ✅ План «что будет сделано / требует решения», применение пачками через `WorkflowEditRunner` (задача = одна запись Undo, валидация после пачки, откат пачки при ошибке), идемпотентность по `SpecTask.ElementIds`, честный отказ без открытого конструктора. Новый workflow с нуля — не создаётся (`UI-08`) |
+| `TZ-08` | `SpecTestRuns.cs` (`IWorkflowRunService`, `SpecTestRunner`, `SpecRunReport`), `AiRpaStudio\Core\Workflow\StudioWorkflowRunService.cs` + подключение в `MainView`, инструменты `spec_testcases`/`spec_run_tests` | `SpecToolTests` (2) | ✅ Кейсы из критериев, чек-лист «пройден / провален / не запускался», отчёт в `docs\spec\<slug>\runs\<stamp>.json|.md`; прогон за интерфейсом — движок `WorkflowRunEngine`, позже тот же контракт закроет `RpaRunner.exe` (`OR-02`) |
+| `TZ-09` | `SpecAmbiguity`, инструменты `spec_ask`/`spec_answer`, открытые вопросы в отчёте `spec_generate` | `SpecToolTests` (2) | ✅ Журнал вопросов, ответ с автором/временем, `status: resolved`, по `text` создаётся новая версия ТЗ (номер, sha, дифф); отложенные/открытые вопросы видны в плане генерации |
+
+### 17.2 Снятые защиты → упавшие тесты
+
+| Снятая защита | Упавший тест |
+|---|---|
+| дедупликация версии по sha256 в `SpecificationStore.Import` | `SpecificationStoreTests.Import_SameContent_DoesNotCreateVersion` |
+| подключение reader'а документов в `read_files` (`IsBinaryDocument`) | `SpecToolTests.ReadFiles_ExtractsDocxText` |
+| упоминание `spec_run_tests` в промпте (`SpecEditInstructions`) | `PromptGuidanceTests.PromptTexts_MentionEveryWorkflowTool` |
+
+### 17.3 Открытые хвосты (не закрываются этой волной)
+
+1. **Докпанель «ТЗ»** (`TZ-04`): WPF-панель с деревом пунктов и журналом вопросов. Модель и тексты для неё готовы (`SpecificationText.Show`, `SpecCoverageReport.Describe`), нужна только разметка на `{DynamicResource Studio.*}` и запись в `ThemeAcceptanceTests`.
+2. **Метки через WF-аннотации** (`TZ-06`): сейчас трассировка живёт в модели ТЗ (`links`), а не в `sap:Annotation` XAML. Нужен `IWorkflowAnnotationService` на `ModelItem` + `ModelEditingScope` и bridge-тест на живом конструкторе (по образцу `WorkflowEditBridgeTests`).
+3. **Создание процесса с нуля** в `spec_generate` (`TZ-07`): требует `PaletteWorkflowService.CreateWorkflow` и решения `UI-08` (проект из VS-шаблона).
+4. **Скан-PDF/скриншоты**: PDF без текстового слоя честно отказывает; рендер pdf→png (лицензии pdfium) — отдельная карточка.
+5. **`UI-02`** (P0, цикл «правка → валидация» в дизайнере) по-прежнему вне волны: генерация опирается на `WorkflowEditRunner` + `workflow_validate`.
+
 |---|---|---|---|---|
 | 1 | — | — | — | — |
 

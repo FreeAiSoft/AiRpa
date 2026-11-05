@@ -12,6 +12,7 @@ using Agent.Core.AgentTools;
 using Agent.Core.Contracts;
 using Agent.Core.Models;
 using Agent.Core.Services;
+using Agent.Core.Services.Documents;
 using RPA.Chat.Services.Workflow;
 
 
@@ -57,6 +58,9 @@ namespace RPA.Chat.Services.AgentTools
         private readonly IWorkflowEditingService _workflowEditing;
         private readonly IWorkflowXamlGate _workflowXamlGate;
 
+        /// <summary>Инструменты ТЗ (волна 8): выделены в отдельный класс, чтобы реестр оставался читаемым.</summary>
+        private readonly SpecToolHandlers _spec;
+
 
         public AgentToolFactory(
             IAiProvider ai,
@@ -86,6 +90,7 @@ namespace RPA.Chat.Services.AgentTools
             _workflowOutline = workflowOutline;
             _workflowEditing = workflowEditing;
             _workflowXamlGate = workflowXamlGate;
+            _spec = new SpecToolHandlers(() => _getSolutionDir());
 
         }
 
@@ -364,6 +369,105 @@ namespace RPA.Chat.Services.AgentTools
                 ActivityCreateAsync,
                 permission: AgentPermissions.EditFiles));
 
+            // ---- ТЗ (волна 8, TZ-01…TZ-09): приём, модель, декомпозиция, трассировка, генерация, тесты ----
+            // ТЗ живёт в проекте (<проект>\docs\spec\<slug>\), а не в %AppData%: версии и диффы достаются
+            // бесплатно, работа переживает переустановку студии. Каждый инструмент отвечает текстом с адресами.
+            registry.Register(new AgentTool(
+                "spec_import",
+                "Import a technical specification (ТЗ) into the open project: pass \"path\" to a md/txt/docx/pdf/xlsx file or \"text\" with the specification itself. The source is stored byte for byte under <project>\\docs\\spec\\<slug>\\source, every change creates a numbered version in versions\\vNNNN-<sha8>.md, the same sha256 does not create a version, and the answer contains the version, the sha, the converted length and a line diff against the previous version. Formats docx/xlsx/pdf are read into markdown; a scan without a text layer is reported honestly instead of being imported as garbage.",
+                "{\"path\":\"string\",\"text\":\"string\",\"name\":\"string\",\"slug\":\"string\",\"note\":\"string\"}",
+                true,
+                _spec.ImportAsync,
+                permission: AgentPermissions.EditFiles));
+
+            registry.Register(new AgentTool(
+                "spec_show",
+                "Show the imported specification: either the structured model (goal, preconditions, steps, data, exceptions, acceptance criteria, ambiguities, tasks, test cases, traceability) or the current text of the specification. Pass \"section\" to read one part only (all, goal, steps, data, exceptions, criteria, ambiguities, tasks, testcases, links) — use it for a long specification instead of loading everything into the context. The answer always ends with the model check state: ready, issues with addresses, or \"model not built\".",
+                "{\"slug\":\"string\",\"section\":\"string\",\"max_chars\":\"integer\"}",
+                false,
+                _spec.ShowAsync,
+                permission: AgentPermissions.ReadFiles));
+
+            registry.Register(new AgentTool(
+                "spec_extract",
+                "Save the structured specification model that YOU extracted from the specification text: pass \"model\" (object) or \"json\" (string) with goal, steps (id, text, expected, dataRefs, branches), data (id, name, type, source, example), exceptions, acceptanceCriteria (id, text, check), ambiguities. The tool does not parse the text itself: it validates the model (empty goal, step without expected result, criterion without a check, duplicate ids, dangling data references) and writes specification.json (source of truth) plus specification.md (derived). Blocking issues mean nothing is saved and the answer lists them with addresses like steps[2].expected; force=true saves a draft.",
+                "{\"slug\":\"string\",\"title\":\"string\",\"model\":{},\"json\":\"string\",\"force\":\"boolean\"}",
+                true,
+                _spec.ExtractAsync,
+                permission: AgentPermissions.EditFiles));
+
+            registry.Register(new AgentTool(
+                "spec_update",
+                "Patch the saved specification model without rewriting it: pass \"model\" (object) or \"json\" (string) with only the fields to change (arrays are replaced, objects are merged). Use it for corrections after spec_show, for filling acceptance criteria or for updating the source reference. Blocking validation issues keep the change out of the file and are reported with addresses; force=true saves a draft.",
+                "{\"slug\":\"string\",\"model\":{},\"json\":\"string\",\"force\":\"boolean\"}",
+                true,
+                _spec.UpdateAsync,
+                permission: AgentPermissions.EditFiles));
+
+            registry.Register(new AgentTool(
+                "spec_decompose",
+                "Save the task decomposition of the specification: pass \"tasks\" (array) or \"json\" with tasks (id, title, specRefs to step/criterion ids, status, activityHints, openQuestions, steps[{activityType, parent, container, argumentName, argumentValue}]). Validation is the point of the tool: every task must reference an existing item, every step and every acceptance criterion must be covered by at least one task, otherwise the answer names the uncovered addresses and (without force=true) nothing is saved.",
+                "{\"slug\":\"string\",\"tasks\":[],\"json\":\"string\",\"force\":\"boolean\"}",
+                true,
+                _spec.DecomposeAsync,
+                permission: AgentPermissions.EditFiles));
+
+            registry.Register(new AgentTool(
+                "spec_link",
+                "Trace one specification item to one workflow element: \"itemId\" (step or criterion id) and \"elementId\" (the same address workflow_outline returns, e.g. root/Activities[0]), plus \"path\" to the process. The item and the element are both checked against the model and the real process structure — a label to a deleted item or a deleted element is rejected instead of being stored. The answer contains the updated coverage report.",
+                "{\"slug\":\"string\",\"itemId\":\"string\",\"elementId\":\"string\",\"path\":\"string\",\"note\":\"string\"}",
+                true,
+                _spec.LinkAsync,
+                permission: AgentPermissions.EditFiles));
+
+            registry.Register(new AgentTool(
+                "spec_coverage",
+                "Report how much of the specification is covered by the workflow: which steps and acceptance criteria have traceability labels and which do not (with addresses), plus broken labels (item or element deleted). Three states are named explicitly: everything covered, uncovered items with addresses, and \"traceability not performed\" with the reason (no process, no model). Read the report before generating a robot so nothing is silently skipped.",
+                "{\"slug\":\"string\",\"path\":\"string\"}",
+                false,
+                _spec.CoverageAsync,
+                permission: AgentPermissions.ReadFiles));
+
+            registry.Register(new AgentTool(
+                "spec_generate",
+                "Generate the robot skeleton from the specification: without \"apply\" it only builds the plan (operations per task, what is skipped as already generated, what needs a decision: uncovered steps, tasks without steps, open questions, activity types missing in the studio catalog). With apply=true the plan is applied in atomic batches through WorkflowEditRunner (one task = one undo step) with workflow_validate after each batch; a failing batch stops the run and is reverted as a whole. Requires the process to be open in the designer: edits go to the live model, not to the file text.",
+                "{\"slug\":\"string\",\"path\":\"string\",\"apply\":\"boolean\"}",
+                true,
+                _spec.GenerateAsync,
+                permission: AgentPermissions.EditFiles));
+
+            registry.Register(new AgentTool(
+                "spec_ask",
+                "Record an ambiguity of the specification in its journal: \"question\", optional \"itemId\" it belongs to and \"options\". The agent still asks the user with ask_question (2-5 options) — this tool keeps the journal so the answer is not lost between turns and reaches the generation report.",
+                "{\"slug\":\"string\",\"id\":\"string\",\"itemId\":\"string\",\"question\":\"string\",\"options\":[\"string\"]}",
+                true,
+                _spec.AskAsync,
+                permission: AgentPermissions.EditFiles));
+
+            registry.Register(new AgentTool(
+                "spec_answer",
+                "Close an ambiguity from the journal: \"id\" of the question and \"answer\". The answer is stored with the author and timestamp and the item becomes resolved. Pass \"text\" with the revised specification text to create a new specification version — the version number, the sha and the diff come back in the answer.",
+                "{\"slug\":\"string\",\"id\":\"string\",\"answer\":\"string\",\"answered_by\":\"string\",\"text\":\"string\"}",
+                true,
+                _spec.AnswerAsync,
+                permission: AgentPermissions.EditFiles));
+
+            registry.Register(new AgentTool(
+                "spec_testcases",
+                "Save acceptance test cases built from the acceptance criteria: \"testCases\" (array) or \"json\" with cases (id, criterionId, inputs, expectedOutputs, negative, note). Every criterion must have at least one case and every case must reference an existing criterion, otherwise the answer names the uncovered criteria and nothing is saved (force=true saves a draft).",
+                "{\"slug\":\"string\",\"testCases\":[],\"json\":\"string\",\"force\":\"boolean\"}",
+                true,
+                _spec.TestCasesAsync,
+                permission: AgentPermissions.EditFiles));
+
+            registry.Register(new AgentTool(
+                "spec_run_tests",
+                "Run the specification test cases and produce the acceptance checklist: each case gets passed, failed or \"not run\" (never reported as passed), the details name the mismatching output arguments. The run goes through the workflow engine behind IWorkflowRunService; the report is written to <project>\\docs\\spec\\<slug>\\runs\\<stamp>.json and .md. Needs \"path\" to the workflow file that is executed.",
+                "{\"slug\":\"string\",\"path\":\"string\"}",
+                true,
+                _spec.RunTestsAsync,
+                permission: AgentPermissions.ExecuteCommand));
+
             return registry;
         }
 
@@ -500,6 +604,22 @@ namespace RPA.Chat.Services.AgentTools
                 sb.AppendLine("=== " + MakeRelative(p) + " ===");
                 try
                 {
+                    // ТЗ-02: docx/pdf/xlsx извлекаются общим reader'ом (одна логика с spec_import и вложениями чата),
+                    // а не читаются как текст: раньше zip-мусор docx попадал в контекст агента.
+                    var document = DocumentTextReaders.IsBinaryDocument(p)
+                        ? DocumentTextReaders.Read(p)
+                        : null;
+                    if (document != null)
+                    {
+                        sb.AppendLine(document.Describe());
+                        if (document.Ok)
+                        {
+                            sb.AppendLine(Truncate(ReadRange(document.Text, startLine, endLine)));
+                        }
+
+                        continue;
+                    }
+
                     var text = File.ReadAllText(p);
                     AppendXamlHeader(sb, p, text, "файл на диске");
                     sb.AppendLine(Truncate(ReadRange(text, startLine, endLine)));

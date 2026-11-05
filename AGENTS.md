@@ -78,6 +78,24 @@
   `EnvDTE80`): собирается в решении, но никем не подключается — страж `AiRpaStudio.Tests\WorkflowHostLegacyGuardTests.cs`.
   Роль раннера — `OR-02` (`RpaRunner.exe`).
 
+## ТЗ и спецификация (`spec_*`, волна 8)
+- ТЗ живёт **в проекте**: `<проект>\docs\spec\<slug>\` — `spec.md` (текущая версия), `versions\vNNNN-<sha8>.md`,
+  `source\` (исходник байт-в-байт), `meta.json`, `specification.json` (**источник правды**),
+  `specification.md` (производное, перегенерируется), `runs\` (прогоны тест-кейсов). В `%AppData%` ТЗ не пишется:
+  пустой корень проекта — это отказ с причиной (`SpecificationStore.Import`).
+- Извлечение текста `docx`/`xlsx`/`pdf` — только через `Agent.Core\Services\Documents\DocumentTextReaders`
+  (`IDocumentTextReader`). Вторых правил чтения одного формата не заводить: reader'ом пользуются `spec_import`,
+  вложения чата и `read_files` (`IsBinaryDocument` отличает контейнеры от текста, поэтому `.xaml` идёт прежним путём
+  с шапкой метаданных). Скан-PDF без текстового слоя — честный `NoTextLayer`, а не пустая строка.
+- Инструменты с префиксом `spec_` входят в тот же страж, что WF-инструменты: `PromptGuidanceTests.WorkflowPrefixes`
+  (Plan видит только `spec_show`/`spec_coverage`, мутирующие в Plan-промпт не попадают) и
+  `AgentPromptBuilder.AppendSpecGuidance` (`SpecReadInstructions` / `SpecEditInstructions`).
+- Отчёты печатают три состояния явно: «готово» / «есть замечания с адресами» / «не выполнено (причина)».
+  «Не запускался» никогда не выглядит как «пройден» (`SpecRunReport`, `SpecValidationReport.Describe`).
+- Прогон тест-кейсов — за контрактом `RPA.Chat\Services\Spec\IWorkflowRunService` (в студии —
+  `AiRpaStudio\Core\Workflow\StudioWorkflowRunService` поверх `WorkflowRunEngine`). Исполнитель робота один:
+  позже тот же контракт закроет `RpaRunner.exe` (`OR-02`), дублировать исполнение в UI запрещено.
+
 ## Ошибки и падения приложения
 - Любая ошибка в студии показывается окном `AiRpaStudio\Views\ErrorView.xaml` через
   `AiRpaStudio\Helpers\ErrorDialog.cs` (`Show` / `ShowException` / `ShowCrash`). `MessageBox` для ошибок

@@ -12,6 +12,9 @@ namespace Agent.Core.AgentTools
         /// <summary>Prefixes that mark a tool as a workflow tool (AG-10/AG-11 rule).</summary>
         private static readonly string[] WorkflowToolPrefixes = { "activity_", "workflow_", "argument_", "variable_" };
 
+        /// <summary>Prefix that marks a specification tool (волна 8, TZ-01…TZ-09).</summary>
+        private static readonly string[] SpecToolPrefixes = { "spec_" };
+
         /// <summary>Builds the JSON-over-chat system prompt (backward-compatible default).</summary>
         public static string Build(AgentMode mode, AgentToolRegistry registry)
         {
@@ -40,7 +43,7 @@ namespace Agent.Core.AgentTools
                     ? PromptLibrary.Load(PromptPaths.ResolvePromptsDirectory(), PromptLibrary.Categories.System, "agent-act-system-native.txt", PromptDefaults.AgentActSystemPromptNative)
                     : PromptLibrary.Load(PromptPaths.ResolvePromptsDirectory(), PromptLibrary.Categories.System, "agent-plan-system-native.txt", PromptDefaults.AgentPlanSystemPromptNative);
 
-                return AppendWorkflowGuidance(nativePrompt, mode, registry, toolCallingMode, allowed);
+                return AppendSpecGuidance(AppendWorkflowGuidance(nativePrompt, mode, registry, toolCallingMode, allowed), mode, registry, allowed);
             }
 
             var basePrompt = PromptLibrary.Load(PromptPaths.ResolvePromptsDirectory(), PromptLibrary.Categories.System, "agent-json-base.txt", PromptDefaults.AgentJsonBaseSystemPrompt);
@@ -60,7 +63,7 @@ namespace Agent.Core.AgentTools
                 toolList = "(none)";
 
             var prompt = basePrompt.Replace("{tools}", toolList).Replace("{mode_instructions}", modeInstructions);
-            return AppendWorkflowGuidance(prompt, mode, registry, toolCallingMode, allowed);
+            return AppendSpecGuidance(AppendWorkflowGuidance(prompt, mode, registry, toolCallingMode, allowed), mode, registry, allowed);
         }
 
         /// <summary>
@@ -122,6 +125,48 @@ namespace Agent.Core.AgentTools
             }
 
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// Appends the specification guidance (волна 8) to a prompt, but only when the registry really exposes
+        /// specification tools for this mode: a prompt must never describe tools that cannot be called.
+        /// PLAN gets the read-only part only; ACT gets the editing part as well.
+        /// </summary>
+        public static string AppendSpecGuidance(
+            string prompt,
+            AgentMode mode,
+            AgentToolRegistry registry,
+            AgentPermissions allowed)
+        {
+            if (string.IsNullOrEmpty(prompt) || registry == null)
+                return prompt;
+
+            var hasSpecTools = registry.ForMode(mode, allowed).Any(tool => IsSpecTool(tool.Name));
+            if (!hasSpecTools)
+                return prompt;
+
+            var sb = new StringBuilder(prompt);
+            sb.Append("\n\n").Append(PromptDefaults.SpecReadInstructions);
+
+            if (mode == AgentMode.Act)
+                sb.Append("\n\n").Append(PromptDefaults.SpecEditInstructions);
+
+            return sb.ToString();
+        }
+
+        /// <summary>Specification tools are recognised by the name prefix, the same rule as the registry guard.</summary>
+        private static bool IsSpecTool(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return false;
+
+            foreach (var prefix in SpecToolPrefixes)
+            {
+                if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>Workflow tools are recognised by name prefixes, the same rule as the registry guard.</summary>

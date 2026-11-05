@@ -321,6 +321,7 @@
     <Compile Include="Core\Workflow\StudioWorkflowEditSession.cs" />
     <Compile Include="Core\Workflow\StudioWorkflowEditingService.cs" />
     <Compile Include="Core\Workflow\StudioWorkflowOutlineService.cs" />
+    <Compile Include="Core\Workflow\StudioWorkflowRunService.cs" />
     <Compile Include="Core\Workflow\WorkflowExpressionSyntax.cs" />
 
     <Compile Include="Core\Generation\DesignerModelSession.cs" />

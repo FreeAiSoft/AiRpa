@@ -126,6 +126,28 @@ namespace Agent.Core.Services
             "Example 3 - \"the validator pointed at one element\": call workflow_validate with arguments {\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"elementId\":\"root/Then\"}, fix the element, then validate again.\n\n" +
             "Example 4 - \"create MyActivity in the activity library\": call activity_create with arguments {\"projectPath\":\"C:\\\\robots\\\\RPA-1\\\\Activities\\\\Activities.csproj\",\"className\":\"MyActivity\",\"namespace\":\"Activities\",\"description\":\"Starts a robot by name\",\"category\":\"Custom\",\"baseType\":\"CodeActivity\",\"withDesigner\":true,\"build\":true,\"arguments\":[{\"name\":\"InputText\",\"typeName\":\"String\",\"direction\":\"In\",\"required\":true}]}.";
 
+        /// <summary>
+        /// Read-only part of the specification guidance (волна 8): appended to PLAN <b>and</b> ACT prompts when the
+        /// registry exposes specification tools. Names read-only tools only, so the Plan prompt stays read-only.
+        /// </summary>
+        public const string SpecReadInstructions =
+            "# Technical specification (ТЗ)\n\n" +
+            "A specification lives inside the project, in the spec folder under docs, and is read as a model, not as raw text:\n" +
+            "1. spec_show returns the model (goal, steps with expected results, data, exceptions, acceptance criteria, ambiguities, tasks, test cases, traceability) or the current text, and always ends with the model check state: ready, issues with addresses, or \"model not built\". For a long specification read one section at a time instead of loading everything.\n" +
+            "2. spec_coverage reports which steps and acceptance criteria are traced to workflow elements, which are not (with addresses) and which labels are broken. Read it before generating a robot so nothing is skipped silently.\n" +
+            "3. Never invent specification items: the ids returned by spec_show are the addresses every other specification tool accepts.\n" +
+            "4. \"Model not built\" and \"no coverage\" are never \"no errors\": report the state you actually got.";
+
+        /// <summary>
+        /// Editing part of the specification guidance (волна 8): ACT only, because it names mutating tools.
+        /// </summary>
+        public const string SpecEditInstructions =
+            "# Technical specification (ТЗ): from text to robot\n\n" +
+            "5. spec_import accepts the specification itself (path to a md, txt, docx, pdf or xlsx file, or the text inline) and stores the source byte for byte plus a numbered version inside the project; the same content does not create a version. spec_extract saves the model you extracted from that text (goal, steps with expected results and data references, exceptions, acceptance criteria) and validates it: blocking issues come back with addresses like steps[2].expected and nothing is written.\n" +
+            "6. spec_update patches the saved model instead of rewriting it; spec_decompose saves the task breakdown and proves that every step and every acceptance criterion is covered by at least one task; spec_link traces one item to one workflow element (the same element ids workflow_outline returns).\n" +
+            "7. spec_generate builds the generation plan first (operations, already generated, what needs a decision) and applies it only with apply: batches go through the workflow editing tools, each batch is one undo step and is validated afterwards. spec_testcases saves test cases built from the acceptance criteria, and spec_run_tests runs them and reports passed, failed or \"not run\" — \"not run\" is never reported as passed.\n" +
+            "8. Ask the user with ask_question and keep the journal with spec_ask / spec_answer: open questions must reach the generation report instead of being decided silently.";
+
         public const string MemoryBankConventionInstructions =
             "# Memory Bank convention\n\n" +
             "This project keeps long-term context in a Memory Bank under the memory-bank directory. Follow these rules:\n" +

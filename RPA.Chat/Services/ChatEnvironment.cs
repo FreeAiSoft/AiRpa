@@ -62,5 +62,31 @@ namespace RPA.Chat.Services
         /// </summary>
         public static Workflow.IActivityPaletteNotifier ActivityPaletteNotifier { get; set; } =
             Workflow.NullActivityPaletteNotifier.Instance;
+
+        /// <summary>
+        /// Хранилище ТЗ проекта (волна 8, <c>TZ-01</c>): <c>&lt;проект&gt;\docs\spec\&lt;slug&gt;\</c>.
+        /// По умолчанию — файловая реализация поверх <see cref="SolutionPathProvider"/>; тесты и хосты
+        /// подменяют её своим корнем, чтобы не писать в настоящий проект.
+        /// </summary>
+        public static Spec.ISpecificationStore SpecStore
+        {
+            get => _specStore ?? (_specStore = new Spec.SpecificationStore(() => SolutionPathProvider()));
+            set => _specStore = value;
+        }
+
+        /// <summary>
+        /// Прогонщик робота для тест-кейсов ТЗ (волна 8, <c>TZ-08</c>). Реализацию даёт студия
+        /// (движок <c>WorkflowRunEngine</c>); позже за тем же контрактом встанет <c>RpaRunner.exe</c>
+        /// (<c>OR-02</c>). По умолчанию — null-object: инструмент отвечает «прогон не выполнен», а не падает.
+        /// </summary>
+        public static Spec.IWorkflowRunService WorkflowRun { get; set; } = Spec.NullWorkflowRunService.Instance;
+
+        /// <summary>Сбрасывает подменённое хранилище ТЗ к файловой реализации по умолчанию (тесты).</summary>
+        public static void ResetSpecStore()
+        {
+            _specStore = null;
+        }
+
+        private static Spec.ISpecificationStore _specStore;
     }
 }

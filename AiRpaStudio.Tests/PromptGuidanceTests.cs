@@ -32,7 +32,7 @@ namespace AiRpaStudio.Tests
     public class PromptGuidanceTests
     {
         /// <summary>Префиксы имён WF-инструментов (то же правило, что в <c>WorkflowToolRegistryGuardTests</c>).</summary>
-        private static readonly string[] WorkflowPrefixes = { "activity_", "workflow_", "argument_", "variable_" };
+        private static readonly string[] WorkflowPrefixes = { "activity_", "workflow_", "argument_", "variable_", "spec_" };
 
         /// <summary>
         /// Имена в стиле snake_case, которые в промптах не являются инструментами: параметры

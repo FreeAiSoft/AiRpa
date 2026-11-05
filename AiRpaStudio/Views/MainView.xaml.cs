@@ -96,6 +96,9 @@ namespace RPA.Views
             // Обновление палитры после создания активности (AG-08): студия загружает собранную сборку в домен,
             // добавляет её типы в палитру, сбрасывает кэши каталога и реестра и пересобирает панель «Активности».
             Chat.Services.ChatEnvironment.ActivityPaletteNotifier = Core.Generation.StudioActivityPaletteNotifier.Create(RefreshActivityPalette);
+            // Прогон тест-кейсов ТЗ (волна 8, TZ-08): прогонщик за контрактом IWorkflowRunService — движок студии,
+            // позже тот же контракт закроет RpaRunner.exe (OR-02) без правок карточки.
+            Chat.Services.ChatEnvironment.WorkflowRun = Core.Workflow.StudioWorkflowRunService.Default;
             // Структура открытого документа важнее файла: правки AG-02 живут в модели до сохранения.
             Core.Workflow.StudioWorkflowOutlineService.LiveOutlineSource = (path, depth, includeArguments) =>
                 Chat.Services.ChatEnvironment.WorkflowEditing.GetLiveOutline(path, depth, includeArguments);

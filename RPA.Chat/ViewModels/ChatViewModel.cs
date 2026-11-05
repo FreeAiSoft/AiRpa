@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -17,6 +17,7 @@ using Microsoft.Win32;
 using Agent.Core.AgentTools;
 using Agent.Core.Context;
 using Agent.Core.Contracts;
+using Agent.Core.Services.Documents;
 using Agent.Core.Models;
 using Agent.Core.Services;
 using RPA.Chat.Controls;
@@ -1035,7 +1036,19 @@ namespace RPA.Chat.ViewModels
                 }
                 else
                 {
-                    var text = File.ReadAllText(path);
+                    // ТЗ-02: docx/pdf/xlsx распознаются общим reader'ом (одна логика с spec_import и read_files).
+                    // Ошибка чтения — уведомление с причиной, а не zip-мусор в промпте и не молчание.
+                    var document = DocumentTextReaders.Read(path, DocumentTextReadOptions.Default.WithMaxChars(20000));
+                    if (!document.Ok && document.Status != DocumentTextStatus.Unsupported)
+                    {
+                        ShowNotice("Failed to attach " + Path.GetFileName(path) + ": " + document.Describe(),
+                            NotificationKind.Error);
+                        return;
+                    }
+
+                    var text = document.Status == DocumentTextStatus.Unsupported
+                        ? File.ReadAllText(path)
+                        : document.Text;
                     if (text.Length > 20000)
                         text = text.Substring(0, 20000) + "\n…(truncated)";
                     _attachments.Add(new ChatAttachment { FileName = Path.GetFileName(path), TextContent = text });
