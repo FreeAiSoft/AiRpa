@@ -58,6 +58,16 @@ namespace RPA.Core
         /// (наблюдалось как падение при закрытии домена в тестах).
         /// </para>
         /// </summary>
+        /// <summary>
+        /// Валидатор дизайнера (замеры прохода, поколения, отмена).
+        /// <para>
+        /// Нужен стенду и тестам фоновой валидации: иначе про то, что проход действительно выполнился
+        /// в фоне и доехал до иконок, можно судить только по визуальному дереву. <c>null</c> после
+        /// <see cref="DetachValidation"/>.
+        /// </para>
+        /// </summary>
+        internal DesignerValidator Validation => _designerCustomValidationService;
+
         public void DetachValidation()
         {
             _designerCustomValidationService?.Dispose();

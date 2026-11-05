@@ -366,6 +366,9 @@ MigrationBackup/
 FodyWeavers.xsd
 /MybotNew/log.txt
 
+# рабочий каталог отладки: скрипты проверок, логи прогонов, снимки UI (не часть продукта)
+/tmp/
+
 # local test proxy (credentials)
 proxy.local.json
 

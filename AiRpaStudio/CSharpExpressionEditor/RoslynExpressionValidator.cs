@@ -10,6 +10,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using PuppeteerSharp;
+using RPA.Core.Services;
 
 namespace RPA.CSharpExpressionEditor
 {
@@ -19,11 +20,20 @@ namespace RPA.CSharpExpressionEditor
 
         internal string UsingNamespaces { get; set; } = string.Empty;
 
-        private readonly CSharpCompilation _compilation;
+        /// <summary>
+        /// Ссылки для компиляции выражения. Создаются один раз и только читаются, поэтому безопасны
+        /// для параллельных вызовов: раньше компиляция была одна на синглтон (<c>_compilation</c>)
+        /// и в неё складывались синтаксические деревья всех вызовов сразу.
+        /// </summary>
+        private static readonly MetadataReference[] References = CreateReferences();
 
         private RoslynExpressionValidator()
         {
-            List<MetadataReference> references = new List<MetadataReference>
+        }
+
+        private static MetadataReference[] CreateReferences()
+        {
+            return new[]
             {
                 MetadataReference.CreateFromFile(typeof(object).GetTypeInfo().Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(Enumerable).GetTypeInfo().Assembly.Location),
@@ -31,55 +41,112 @@ namespace RPA.CSharpExpressionEditor
                 MetadataReference.CreateFromFile(typeof(DataTable).GetTypeInfo().Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(IBrowser).GetTypeInfo().Assembly.Location)
             };
-
-            _compilation = CSharpCompilation.Create("DynamicCompilation")
-                .WithOptions(new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-                .AddReferences(references);
         }
 
+        /// <summary>
+        /// Своя компиляция на вызов. Общий экземпляр <see cref="CSharpCompilation"/> нельзя держать
+        /// в поле синглтона: проверка выражений идёт в фоновой задаче дизайнера, и два прохода
+        /// (дизайнер и редактор выражения) писали бы в одну компиляцию одновременно.
+        /// </summary>
+        private static CSharpCompilation CreateCompilation()
+        {
+            return CSharpCompilation.Create("DynamicCompilation")
+                .WithOptions(new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddReferences(References);
+        }
+
+        /// <summary>
+        /// Имя типа в синтаксисе C#: <c>System.Int32</c>,
+        /// <c>System.Collections.Generic.List&lt;System.String&gt;</c>.
+        /// <para>
+        /// Раньше подставлялось <c>Type.Name</c> («Int32», «List`1»): первое работало только при
+        /// подходящем блоке <c>using</c>, второе не компилировалось вовсе — выражения с переменными
+        /// обобщённых типов давали ложную ошибку. Полное имя снимает обе проблемы и делает проверку
+        /// независимой от набора импортов документа.
+        /// </para>
+        /// </summary>
+        internal static string CSharpTypeName(Type type)
+        {
+            if (type == null)
+            {
+                return "object";
+            }
+
+            if (type.IsArray)
+            {
+                return CSharpTypeName(type.GetElementType()) + "[" + new string(',', type.GetArrayRank() - 1) + "]";
+            }
+
+            if (type.IsGenericType && !type.IsGenericTypeDefinition)
+            {
+                string definition = type.GetGenericTypeDefinition().FullName ?? type.Name;
+                int marker = definition.IndexOf('`');
+                if (marker > 0)
+                {
+                    definition = definition.Substring(0, marker);
+                }
+
+                string arguments = string.Join(", ", type.GetGenericArguments().Select(CSharpTypeName));
+
+                return definition.Replace('+', '.') + "<" + arguments + ">";
+            }
+
+            string fullName = type.FullName;
+            if (!string.IsNullOrEmpty(fullName))
+            {
+                return fullName.Replace('+', '.');
+            }
+
+            return type.Name;
+        }
+
+        /// <summary>
+        /// Параметры метода-обёртки: «Тип имя» для каждого имени окружения (аргументы процесса и
+        /// переменные в области видимости). Порядок — порядок объявления, как в прежнем коде.
+        /// </summary>
+        private static List<string> BuildParameterList(ExpressionEnvironment environment)
+        {
+            List<string> parameters = new List<string>();
+            if (environment == null)
+            {
+                return parameters;
+            }
+
+            foreach (KeyValuePair<string, Type> pair in environment.Names)
+            {
+                parameters.Add(CSharpTypeName(pair.Value) + " " + pair.Key);
+            }
+
+            return parameters;
+        }
+
+        /// <summary>
+        /// Проверка выражения в окружении активности. Вход для редактора выражений: он работает на
+        /// UI-потоке и передаёт сам <see cref="ModelItem"/>.
+        /// </summary>
         public (Type type, List<string> errors) CheckExpression(string expressionText, ModelItem ownerActivity)
         {
-            // Генерируем код сигнатуры метода из словаря (например: "RPA.Order orders, System.Int32 index")
-            Dictionary<string, Type> availableParameters = new Dictionary<string, Type>();
-            KeyedCollection<string, DynamicActivityProperty> declaredArguments = CSharpExpressionHelper.GetArguments(ownerActivity);
-            foreach (DynamicActivityProperty argItem in declaredArguments)
-            {
-                Type type = argItem.Type;
-                Type rightType = typeof(Argument).IsAssignableFrom(type) ? type.GenericTypeArguments[0] : type;
-                availableParameters.Add(argItem.Name, rightType);
-            }
+            ExpressionEnvironment environment = ModelExpressionEnvironment.FromModelItem(ownerActivity, UsingNamespaces);
+            return CheckExpression(expressionText, environment);
+        }
 
-            List<string> parametersList = availableParameters
-                .Select(kvp => $"{kvp.Value.Name} {kvp.Key}")
-                .ToList();
-
-            List<ModelItem> declaredVariables = CSharpExpressionHelper.GetVariablesInScope(ownerActivity);
-            Dictionary<string, Type> availableVariables = new Dictionary<string, Type>();
-            foreach (ModelItem modelItemVar in declaredVariables)
-            {
-                Type inferredType = ((LocationReference)modelItemVar.GetCurrentValue()).Type;
-                string varName = ((LocationReference)modelItemVar.GetCurrentValue()).Name;
-                availableVariables.Add(varName, inferredType);
-            }
-
-            List<string> variablesList = availableVariables
-                .Select(kvp => $"{kvp.Value.Name} {kvp.Key}")
-                .ToList();
-
-            // Combine parameters and variables, only adding comma if both lists have items
-            List<string> allParams = new List<string>();
-            if (parametersList.Count > 0)
-            {
-                allParams.AddRange(parametersList);
-            }
-            if (variablesList.Count > 0)
-            {
-                allParams.AddRange(variablesList);
-            }
-            string parametersCode = string.Join(", ", allParams);
+        /// <summary>
+        /// Компиляция выражения по снимку окружения — без <c>ModelItem</c> и без общего состояния.
+        /// <para>
+        /// Именно этот вход использует фоновая валидация дизайнера (<c>ExpressionErrorEvaluator</c>):
+        /// окружение снимается на UI-потоке один раз на активность, а компиляция идёт в фоновой задаче.
+        /// Метод статический и не читает ни одного изменяемого поля, поэтому вызывать его можно из
+        /// нескольких потоков сразу (раньше блок <c>using</c> и компиляция были полями синглтона).
+        /// </para>
+        /// </summary>
+        internal static (Type type, List<string> errors) CheckExpression(
+            string expressionText,
+            ExpressionEnvironment environment)
+        {
+            string parametersCode = string.Join(", ", BuildParameterList(environment));
 
             // Обертка: используем параметры метода
-            string code = UsingNamespaces +
+            string code = (environment?.UsingNamespaces ?? string.Empty) +
                 $@"class ExpressionValidator {{ 
                     // Компилятор Roslyn предполагает, что эти параметры будут предоставлены
                     public static object Evaluate({parametersCode}) {{ 
@@ -94,7 +161,7 @@ namespace RPA.CSharpExpressionEditor
             CSharpParseOptions parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.CSharp7_3); // Выберите поддерживаемую версию
 
             SyntaxTree tree = CSharpSyntaxTree.ParseText(code, parseOptions);
-            CSharpCompilation compilation = _compilation.AddSyntaxTrees(tree);
+            CSharpCompilation compilation = CreateCompilation().AddSyntaxTrees(tree);
 
             System.Collections.Immutable.ImmutableArray<Diagnostic> diagnostics = compilation.GetDiagnostics();
             List<Diagnostic> diagnosticErrors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
@@ -106,7 +173,6 @@ namespace RPA.CSharpExpressionEditor
                 {
                     errorMessages.Add(error.GetMessage());
                 }
-                _ = _compilation.RemoveAllSyntaxTrees();
                 return (type: null, errors: errorMessages);
             }
 
@@ -132,20 +198,17 @@ namespace RPA.CSharpExpressionEditor
                 if (actualType != null)
                 {
                     Type type_ = GetSystemTypeFromITypeSymbol(actualType, compilation);
-                    _ = _compilation.RemoveAllSyntaxTrees();
                     return (type: type_, errors: null);
                 }
                 else
                 {
                     // Это может случиться для void-вызовов, например Console.WriteLine()
-                    _ = _compilation.RemoveAllSyntaxTrees();
                 }
             }
-            _ = _compilation.RemoveAllSyntaxTrees();
             return (type: null, errors: null);
         }
 
-        private Type GetSystemTypeFromITypeSymbol(ITypeSymbol typeSymbol, CSharpCompilation compilation)
+        private static Type GetSystemTypeFromITypeSymbol(ITypeSymbol typeSymbol, CSharpCompilation compilation)
         {
             if (typeSymbol == null)
             {
@@ -196,7 +259,7 @@ namespace RPA.CSharpExpressionEditor
             return FindType(typeName, compilation);
         }
 
-        private string GetFullMetadataName(ITypeSymbol symbol)
+        private static string GetFullMetadataName(ITypeSymbol symbol)
         {
             if (symbol == null)
             {
@@ -211,7 +274,7 @@ namespace RPA.CSharpExpressionEditor
                 : $"{namespaceName}.{symbol.MetadataName}";
         }
 
-        private Type FindType(string fullName, CSharpCompilation compilation)
+        private static Type FindType(string fullName, CSharpCompilation compilation)
         {
             // Try to find in referenced assemblies from compilation
             foreach (MetadataReference reference in compilation.References)
@@ -238,7 +301,7 @@ namespace RPA.CSharpExpressionEditor
             return Type.GetType(fullName);
         }
 
-        private Type GetSpecialType(SpecialType specialType)
+        private static Type GetSpecialType(SpecialType specialType)
         {
             return specialType switch
             {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -120,9 +120,18 @@ public class ErrorStackTraceTests
     [Test]
     public void ProjectFile_CompilesErrorText()
     {
-        string csproj = ReadSource(@"AiRpaStudio\AiRpaStudio.csproj");
+        // OR-02: `ErrorText` переехал в общий headless-рантайм (`Rpa.Workflow.Runtime`), чтобы раннер
+        // печатал ошибки в том же формате со стеком. Проверяются оба конца связи: файл на месте
+        // и студия ссылается на рантайм — иначе формат ошибок студии и раннера разъедется.
+        string source = ReadSource(@"Rpa.Workflow.Runtime\Helpers\ErrorText.cs");
 
-        Assert.That(csproj, Does.Contain(@"Helpers\ErrorText.cs"), "хелпер формата ошибок не добавлен в проект");
+        Assert.That(source, Does.Contain("public static string Of(Exception ex)"),
+            "хелпер формата ошибок обязан остаться единственным источником текста ошибки со стеком");
+
+        string studio = ReadSource(@"AiRpaStudio\AiRpaStudio.csproj");
+
+        Assert.That(studio, Does.Contain(@"Rpa.Workflow.Runtime"),
+            "студия обязана ссылаться на общий рантайм прогона, иначе формат ошибок разъедется с раннером");
     }
 
     private static Exception CaptureException()

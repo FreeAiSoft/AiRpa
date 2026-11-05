@@ -61,7 +61,9 @@
   понижение версии запрещено, чужой открытый ключ запрещён, обработчик не бросает исключений, подписка
   идемпотентна. Порядок: сначала `AssemblyBindingUnifier` (сверка версий внутри домена), затем этот резолвер.
   Тесты — `AiRpaStudio.Tests\RobotAssemblyResolverTests.cs` (проверены негативом).
-- **Прогон** — один движок на студию и на раннер: `AiRpaStudio\Core\WorkflowRunEngine.cs`
+- **Прогон** — один движок на студию и на раннер: `Rpa.Workflow.Runtime\Engine\WorkflowRunEngine.cs`
+  (проект `Rpa.Workflow.Runtime`, `net472`; студия ссылается на него и своей копии не держит —
+  страж `AiRpaStudio.Tests\Runner\RunnerSourceGuardTests.cs`).
   (`LoadActivityFromText`/`FromFile`/`FromAssembly`, `CreateApplication`, `Run`). Итог —
   `WorkflowRunResult`: состояние (`Completed`/`Faulted`/`Aborted`/`Cancelled`), выходные аргументы,
   ошибка со стеком (`ErrorText.Of`), `TimedOut`, `ExitCode` (0 — успех) и события трекера. Загрузка
@@ -76,7 +78,32 @@
   `CustomWfDesigner` и `TrackHandler` с окном — проверяется вручную отладкой в студии.
 - `WorkflowHost` — **устаревший прототип** (зашитый путь к `Main.xaml`, `MessageBox`, `Console.ReadKey()`,
   `EnvDTE80`): собирается в решении, но никем не подключается — страж `AiRpaStudio.Tests\WorkflowHostLegacyGuardTests.cs`.
-  Роль раннера — `OR-02` (`RpaRunner.exe`).
+  Роль раннера исполняет `RpaRunner.exe` (`OR-02`, раздел ниже); `WorkflowHost` не воскрешать.
+
+## Headless-раннер `RpaRunner.exe` (`OR-02`)
+
+- **Раннер ничего не собирает.** Он находит уже собранного робота: `--project <csproj>` (сборка из
+  `bin\<Config>`, `bin\<Config>\<TFM>`, `bin\<Platform>\<Config>`, `bin\<Platform>\<Config>\<TFM>`;
+  имя сборки — `AssemblyName`, тип — `x:Class` из `Main.xaml`), `--workflow <xaml>` (без сборки),
+  `--assembly <dll> --type <Тип>` (готовый бинарник). Сборка — работа студии, упаковка — `OR-03`.
+  Из этого запрета следует остальное: в `RpaRunner` не может быть ссылок на `Microsoft.Build`,
+  `MsBuildLocator`, `AiRpaStudio`, `RPA.Chat`, `Agent.Core`, `EnvDTE` — страж
+  `AiRpaStudio.Tests\Runner\RunnerSourceGuardTests.cs` (он же держит «нет UI и нет ожидания ввода»,
+  «один `WorkflowRunEngine` на студию и раннер», `net472`).
+- **Коды возврата — контракт для оркестратора (`OR-05`) и запускатора (`LN-02`):** `0` успех,
+  `1` робот упал, `2` неверные аргументы, `3` отменён, `4` предел времени, `5` workflow не загрузился
+  или не прошёл проверку, `6` робот не найден / не собран. Таблица и справка (`RunnerUsage`) сверяются
+  тестом — менять код без правки справки нельзя.
+- **`--validate` — это WF-валидация**, а не прогон: ошибки, невидимые загрузке (например `Assign`
+  без `To`/`Value`), дают код 5 и называются словами. «Не выполнено» никогда не выглядит как «ошибок нет».
+- **Отмена и предел времени штатные:** первый и второй Ctrl+C отменяют прогон через
+  `CancellationToken` (процесс не умирает, отчёт успевает записаться), `--timeout` (по умолчанию 300 с)
+  даёт код 4. `result.json` пишется в `finally` — он нужен и при падении.
+- **Лог** — JSON-lines (`--log`), в каждой строке `runId`; отчёт — `result.json` (`--out`): `status`,
+  `exitCode`, `state`, `outputs`, `error`, источник и длительность.
+- **Запуск руками:** `RpaRunner\bin\Debug\net472\RpaRunner.exe --project <робот.csproj> --arg InputText=max --out result.json`.
+  В PowerShell кавычки внутри `--args {"InputText":"max"}` съедаются оболочкой — используйте `--arg имя=значение`.
+  Тесты — `AiRpaStudio.Tests\Runner\` (63 тест-случая), журнал волны — `AiRpaStudio\docs\Wave5_Execution_Plan.md`.
 
 ## ТЗ и спецификация (`spec_*`, волна 8)
 - ТЗ живёт **в проекте**: `<проект>\docs\spec\<slug>\` — `spec.md` (текущая версия), `versions\vNNNN-<sha8>.md`,

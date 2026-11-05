@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- OR-02 (`W2`): `RpaRunner.exe` — headless-раннер робота. Оболочка: разбор аргументов,
+       Ctrl+C и код возврата. Всё исполнение — в `Rpa.Workflow.Runtime`, поэтому здесь нет
+       ни ссылок на студию/агента, ни MSBuild: раннер ничего не собирает (страж `RunnerSourceGuardTests`).
+       Целевая платформа — net472 (`CP-10`): раннер живёт на чистой машине рядом с роботом. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>8.0</LangVersion>
+    <RootNamespace>RpaRunner</RootNamespace>
+    <AssemblyName>RpaRunner</AssemblyName>
+    <Deterministic>true</Deterministic>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+    <Description>Headless-раннер WF-робота: CLI, аргументы JSON, коды возврата, лог в файл (OR-02).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Rpa.Workflow.Runtime\Rpa.Workflow.Runtime.csproj" />
+  </ItemGroup>
+
+</Project>

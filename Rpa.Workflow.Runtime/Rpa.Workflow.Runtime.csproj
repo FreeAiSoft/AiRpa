@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- OR-02 (`W1`): общий headless-рантайм робота — один движок прогона для студии и для раннера.
+       Целится в net472 (`CP-10`): на этот проект опирается `RpaRunner.exe`, который кладётся рядом
+       с роботом на чистую машину, поэтому 4.8 быть не может. WPF здесь нет и быть не должно —
+       страж `RunnerSourceGuardTests.Runtime_HasNoUiDependencies`. -->
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>8.0</LangVersion>
+    <RootNamespace>RPA</RootNamespace>
+    <AssemblyName>Rpa.Workflow.Runtime</AssemblyName>
+    <Deterministic>true</Deterministic>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Description>Headless-прогон WF-роботов: движок прогона, формат ошибки и раннер (OR-02).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Activities" />
+    <Reference Include="System.Xaml" />
+    <!-- Аргументы прогона и result.json разбираются/пишутся JavaScriptSerializer: это зависимость
+         .NET Framework, а не пакет, поэтому раннеру не нужен собственный JSON-слой
+         и лишняя сборка в поставке. -->
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ActivitiesTracker\ActivitiesTracker.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -13,6 +13,11 @@ using AiRpaStudio.Tests.Generation;
 
 
 using System.Windows.Threading;
+using System.Diagnostics;
+using System.Windows.Controls;
+using RPA.Core;
+using RPA.Core.Services;
+using System.Activities.Statements;
 
 namespace AiRpaStudio.Tests.Design;
 
@@ -85,6 +90,242 @@ public sealed class DesignerBenchProxy : MarshalByRefObject
     }
 
     /// <summary>Прогоняет файл через конструктор на стенде.</summary>
+    /// <summary>
+    /// Шаги 0 и 5 плана <c>AiRpaStudio\docs\UI02_Background_Validation_Plan.md</c> на живом конструкторе:
+    /// открыть нагрузочный документ (100+ активностей, ошибки внутри <c>ActivityAction</c>,
+    /// <c>PickBranch</c> и <c>Then</c>), дождаться прохода валидации и снять цифры.
+    /// <para>
+    /// Что измеряется и проверяется:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>проход выполняется <b>сам, без правки</b> документа (баг «в покое ошибок нет»);</item>
+    /// <item>время каждой фазы: обход модели, снимок, <c>ValidateWorkflow()</c>, фоновая компиляция,
+    /// применение иконок — из этого складывается «было/стало» для UI-потока;</item>
+    /// <item>наибольшая пауза диспетчера за время прохода (отзывчивость конструктора);</item>
+    /// <item>на каких адресах иконка действительно видна — включая вложенные активности;</item>
+    /// <item>правка модели запускает новый проход, а закрытие вкладки прекращает тики.</item>
+    /// </list>
+    /// </summary>
+    public DesignerBenchValidationReport ValidationPassScenario(string xamlPath)
+    {
+        DesignerTestHost host = DesignerTestHost.Shared;
+
+        return host.Invoke(() =>
+        {
+            var report = new DesignerBenchValidationReport();
+            var designerHost = new BenchDesignerHost();
+            DesignerTab tab = null;
+
+            try
+            {
+                tab = designerHost.Open(xamlPath);
+                designerHost.Activate(tab);
+
+                WorkflowDesignerEx designer = tab.Designer;
+                DesignerValidator validator = designer.Validation;
+                if (validator == null)
+                {
+                    report.Errors.Add("у дизайнера нет валидатора: проход невозможен");
+                    return report;
+                }
+
+                report.InspectionActivityCount = designerHost.CountActiveActivities();
+
+                // Шаг 0: паузы диспетчера за время прохода (тик пробника — 10 мс).
+                using (var gap = new DispatcherGapProbe(host.Dispatcher, TimeSpan.FromMilliseconds(10)))
+                {
+                    gap.Start();
+                    report.FirstPassSeen = host.PumpUntil(
+                        () => validator.LastMetrics != null,
+                        TimeSpan.FromSeconds(60));
+                    gap.Stop();
+
+                    report.MaxDispatcherGapMs = gap.MaxGapMs;
+                    report.DispatcherTicks = gap.TickCount;
+                }
+
+                DesignerValidationMetrics metrics = validator.LastMetrics;
+                if (metrics == null)
+                {
+                    report.Description = "проход валидации не выполнился за 60 с; "
+                                         + designerHost.ActivityCountInfo + "; " + validator.PassState;
+                    return report;
+                }
+
+                report.Generation = metrics.Generation;
+                report.ScopeActivityCount = metrics.ActivityCount;
+                report.CheckCount = metrics.CheckCount;
+                report.ErrorCount = metrics.ErrorCount;
+                foreach (string errorAddress in metrics.ErrorAddresses)
+                {
+                    report.ErrorAddresses.Add(errorAddress);
+                }
+                report.ModelWalkMs = metrics.ModelWalkMs;
+                report.SnapshotMs = metrics.SnapshotMs;
+                report.ValidateWorkflowMs = metrics.ValidateWorkflowMs;
+                report.ExpressionsMs = metrics.ExpressionsMs;
+                report.ApplyMs = metrics.ApplyMs;
+                report.UiMs = metrics.UiMs;
+                report.OldUiMs = metrics.OldUiMs;
+                report.PassState = validator.PassState;
+
+                // Иконки: обход модели независимо от валидатора, состояние Border'а читается из вьюхи.
+                ModelService modelService = designer.Context.Services.GetService<ModelService>();
+                ModelItem implementation = modelService?.Root?.Properties["Implementation"]?.Value;
+                IReadOnlyList<DesignerScopeEntry> scope = implementation == null
+                    ? null
+                    : DesignerValidationScope.Collect(new ModelItemScopeNode(implementation));
+
+                if (scope != null)
+                {
+                    foreach (DesignerScopeEntry entry in scope)
+                    {
+                        ModelItem modelItem = (entry.Node as ModelItemScopeNode)?.ModelItem;
+                        if (modelItem == null)
+                        {
+                            continue;
+                        }
+
+                        FrameworkElement view = null;
+                        try
+                        {
+                            view = modelItem.View as FrameworkElement;
+                        }
+                        catch (Exception ex)
+                        {
+                            report.Errors.Add("View недоступен для " + entry.Address + ": " + ErrorText.Of(ex));
+                        }
+
+                        if (view == null)
+                        {
+                            report.NoViewAddresses.Add(entry.Address);
+                            continue;
+                        }
+
+                        var icon = XamlHelper.FindVisualChildByTypeAndName(
+                            view, "WorkflowDesignerIconBorder", "validationVisuals") as Border;
+
+                        if (icon == null)
+                        {
+                            report.NoIconAddresses.Add(entry.Address);
+                            continue;
+                        }
+
+                        string toolTip = icon.ToolTip as string;
+                        if (!string.IsNullOrEmpty(toolTip))
+                        {
+                            report.AddressToolTips[entry.Address] = toolTip;
+                        }
+
+                        if (icon.Visibility == Visibility.Visible)
+                        {
+                            report.IconVisibleAddresses.Add(entry.Address);
+                        }
+                    }
+                }
+
+                // Правка модели: «правка во время/после прохода → новый проход нового поколения».
+                int generationBeforeEdit = validator.PassGeneration;
+                report.ModelEdited = TryAppendActivity(designer.Context, modelService?.Root);
+                if (report.ModelEdited)
+                {
+                    report.EditStartedNewPass = host.PumpUntil(
+                        () => validator.PassGeneration > generationBeforeEdit
+                              && validator.LastMetrics != null
+                              && validator.LastMetrics.Generation == validator.PassGeneration,
+                        TimeSpan.FromSeconds(30));
+                }
+
+                report.GenerationAfterEdit = validator.PassGeneration;
+
+                // Закрытие вкладки: после DetachValidation тиков быть не должно.
+                designer.DetachValidation();
+                int generationAfterDetach = validator.PassGeneration;
+                host.Pump(TimeSpan.FromSeconds(3));
+
+                report.GenerationAfterDetach = validator.PassGeneration;
+                report.PassesAfterDetach = validator.PassGeneration - generationAfterDetach;
+
+                report.Ok = true;
+                report.Description = metrics.Describe()
+                                     + Environment.NewLine
+                                     + "документ: " + designerHost.ActivityCountInfo
+                                     + Environment.NewLine
+                                     + "пауза диспетчера: " + report.MaxDispatcherGapMs.ToString("0.0")
+                                     + " мс за " + report.DispatcherTicks + " тиков"
+                                     + Environment.NewLine
+                                     + "иконка видна на " + report.IconVisibleAddresses.Count
+                                     + " адрес(ах), без вьюхи " + report.NoViewAddresses.Count
+                                     + ", без validationVisuals " + report.NoIconAddresses.Count
+                                     + Environment.NewLine
+                                     + "правка модели: " + (report.ModelEdited ? "выполнена" : "не выполнена")
+                                     + ", новый проход: " + (report.EditStartedNewPass ? "запущен" : "не запущен")
+                                     + Environment.NewLine
+                                     + "после закрытия вкладки новых проходов: " + report.PassesAfterDetach;
+
+                // Журнал шага 0: цифры прохода сохраняются в файл, чтобы их можно было внести
+                // в план без повторного прогона стенда.
+                try
+                {
+                    System.IO.File.WriteAllText(
+                        System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AiRpaStudio-validation-baseline.txt"),
+                        report.Description);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("Журнал замеров не сохранён: " + ErrorText.Of(ex));
+                }
+
+                return report;
+            }
+            catch (Exception ex)
+            {
+                report.Errors.Add(ErrorText.Of(ex));
+                report.Description = "сценарий валидации на стенде не выполнен";
+                return report;
+            }
+            finally
+            {
+                // Уборка: закрытие вкладок останавливает таймер валидации (иначе его тик при выгрузке
+                // домена пытается показать модальное окно WF — AccessViolation при инициализации шрифтов).
+                foreach (DesignerTab openTab in designerHost.GetOpenTabs())
+                {
+                    designerHost.Close(openTab);
+                }
+            }
+        });
+    }
+
+    /// <summary>
+    /// Добавляет активность в корневую реализацию — настоящая правка модели, а не «дёрнуть событие»:
+    /// только она проверяет, что новый проход запускается по изменению документа.
+    /// </summary>
+    private static bool TryAppendActivity(System.Activities.Presentation.EditingContext editingContext, ModelItem root)
+    {
+        try
+        {
+            ModelItem implementation = root?.Properties["Implementation"]?.Value;
+            ModelItemCollection activities = implementation?.Properties["Activities"]?.Collection;
+            if (editingContext == null || implementation == null || activities == null)
+            {
+                return false;
+            }
+
+            using (ModelEditingScope edit = implementation.BeginEdit())
+            {
+                activities.Add(ModelFactory.CreateItem(editingContext, new WriteLine { DisplayName = "Правка стенда" }));
+                edit.Complete();
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("Правка модели стенда не выполнена: " + ErrorText.Of(ex));
+            return false;
+        }
+    }
+
     public DesignerBenchReport Render(string xamlPath)
     {
         DesignerRenderReport report = DesignerRenderProbe.Render(xamlPath);

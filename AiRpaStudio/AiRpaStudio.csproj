@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.props" Condition="Exists('..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
@@ -300,7 +300,6 @@
     <Compile Include="Converters\TypeVisibilityCheck.cs" />
     <Compile Include="Converters\WorkflowStateToIsEnabledConverter.cs" />
     <Compile Include="Core\ActivityRunner.cs" />
-    <Compile Include="Core\WorkflowRunEngine.cs" />
     <Compile Include="Core\DebugValidationErrorService.cs" />
     <!-- Генерация валидного XAML (docs\Valid_Xaml_Designer_Plan.md, этап 2): канонизация модели,
          сериализация WF и гейт валидации — один конвейер для всех инструментов. -->
@@ -348,7 +347,6 @@
     <Compile Include="CSharpExpressionEditor\ExpressionHelper.cs" />
     <Compile Include="CSharpExpressionEditor\ExpressionSelection.cs" />
     <Compile Include="CSharpExpressionEditor\ExpressionValidationContext.cs" />
-    <Compile Include="CSharpExpressionEditor\ExpressionValidator.cs" />
     <Compile Include="CSharpExpressionEditor\LineToHeightConverter.cs" />
     <Compile Include="CSharpExpressionEditor\ParserContext.cs" />
     <Compile Include="CSharpExpressionEditor\RoslynExpressionEditor.xaml.cs">
@@ -375,6 +373,14 @@
     <Compile Include="Core\ExpressionValidationTiming.cs" />
     <Compile Include="Core\ValidationSchedule.cs" />
     <Compile Include="Core\ValidationIconState.cs" />
+    <Compile Include="Core\Validation\DesignerValidationScope.cs" />
+    <Compile Include="Core\Validation\ModelItemScopeNode.cs" />
+    <Compile Include="Core\Validation\ExpressionEnvironment.cs" />
+    <Compile Include="Core\Validation\ActivityExpressionCheck.cs" />
+    <Compile Include="Core\Validation\ExpressionErrorEvaluator.cs" />
+    <Compile Include="Core\Validation\RoslynExpressionCompiler.cs" />
+    <Compile Include="Core\Validation\DesignerValidationPass.cs" />
+    <Compile Include="Core\Validation\DesignerValidationMetrics.cs" />
     <Compile Include="Core\WorkflowSessionState.cs" />
     <Compile Include="Extensions\SourceLocationExtensions.cs" />
     <Compile Include="Extensions\StringExtensions.cs" />
@@ -390,7 +396,6 @@
     <Compile Include="Helpers\LoadActivityToDesignerHelper.cs" />
     <Compile Include="Helpers\LocalizeHelper.cs" />
     <Compile Include="Helpers\ErrorDialog.cs" />
-    <Compile Include="Helpers\ErrorText.cs" />
     <Compile Include="Helpers\ObjectHelper.cs" />
     <Compile Include="Helpers\PropertyWindowStyleHelper.cs" />
     <Compile Include="Helpers\TrackHandler.cs" />
@@ -670,6 +675,12 @@
     <ProjectReference Include="..\Agent.Core\Agent.Core.csproj">
       <Project>{609357CB-88DB-4FB8-A3C9-586E3D4BBD27}</Project>
       <Name>Agent.Core</Name>
+    </ProjectReference>
+    <!-- OR-02: движок прогона и формат ошибки переехали в общий headless-рантайм (net472):
+         студия и RpaRunner.exe прогоняют робота одним и тем же кодом. -->
+    <ProjectReference Include="..\Rpa.Workflow.Runtime\Rpa.Workflow.Runtime.csproj">
+      <Project>{3C2A6F41-9D77-4C1E-8F52-6B0D4A7E1C93}</Project>
+      <Name>Rpa.Workflow.Runtime</Name>
     </ProjectReference>
 
   </ItemGroup>

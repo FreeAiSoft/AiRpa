@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -240,7 +240,7 @@ public class WorkflowRunEngineTests
     [Test]
     public void Engine_HasNoUiDependencies()
     {
-        string source = ReadSource("AiRpaStudio", "Core", "WorkflowRunEngine.cs");
+        string source = ReadSource("Rpa.Workflow.Runtime", "Engine", "WorkflowRunEngine.cs");
 
         Assert.Multiple(() =>
         {
