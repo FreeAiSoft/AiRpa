@@ -39,6 +39,15 @@ namespace RPA.Runner
         /// <summary>Путь к собранной сборке робота: прогон по сборке и типу.</summary>
         public string AssemblyPath { get; private set; }
 
+        /// <summary>
+        /// Путь к пакету робота (<c>robot.zip</c>) — прогон готового пакета, третий источник (`OR-03`).
+        /// Пакет самодостаточен: проект и студия на машине прогона не нужны.
+        /// </summary>
+        public string PackagePath { get; private set; }
+
+        /// <summary>Корень локального кэша пакетов; <c>null</c> — кэш по умолчанию (`OR-03`).</summary>
+        public string PackageCacheRoot { get; private set; }
+
         /// <summary>Имя типа активности в сборке; по умолчанию берётся из <c>x:Class</c> XAML.</summary>
         public string TypeName { get; private set; }
 
@@ -85,6 +94,11 @@ namespace RPA.Runner
         /// <summary>Однострочное описание источника — для лога и отчёта.</summary>
         public string DescribeSource()
         {
+            if (!string.IsNullOrWhiteSpace(PackagePath))
+            {
+                return "--package " + PackagePath;
+            }
+
             if (!string.IsNullOrWhiteSpace(ProjectPath))
             {
                 return "--project " + ProjectPath;
@@ -115,7 +129,7 @@ namespace RPA.Runner
 
             if (args == null || args.Count == 0)
             {
-                error = "не указан источник прогона: --project, --workflow или --assembly";
+                error = "не указан источник прогона: --project, --workflow, --assembly или --package";
                 return false;
             }
 
@@ -188,6 +202,24 @@ namespace RPA.Runner
                         }
 
                         options.BinDirectory = value;
+                        break;
+
+                    case "--package":
+                        if (!TakeValue(args, ref index, name, out value, out error))
+                        {
+                            return false;
+                        }
+
+                        options.PackagePath = value;
+                        break;
+
+                    case "--package-cache":
+                        if (!TakeValue(args, ref index, name, out value, out error))
+                        {
+                            return false;
+                        }
+
+                        options.PackageCacheRoot = value;
                         break;
 
                     case "--args":
@@ -285,16 +317,17 @@ namespace RPA.Runner
             sources += string.IsNullOrWhiteSpace(options.ProjectPath) ? 0 : 1;
             sources += string.IsNullOrWhiteSpace(options.WorkflowPath) ? 0 : 1;
             sources += string.IsNullOrWhiteSpace(options.AssemblyPath) ? 0 : 1;
+            sources += string.IsNullOrWhiteSpace(options.PackagePath) ? 0 : 1;
 
             if (sources == 0)
             {
-                error = "не указан источник прогона: --project, --workflow или --assembly";
+                error = "не указан источник прогона: --project, --workflow, --assembly или --package";
                 return false;
             }
 
             if (sources > 1)
             {
-                error = "источник прогона указывается один раз: --project, --workflow или --assembly";
+                error = "источник прогона указывается один раз: --project, --workflow, --assembly или --package";
                 return false;
             }
 

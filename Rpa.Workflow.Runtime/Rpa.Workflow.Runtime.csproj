@@ -25,6 +25,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ActivitiesTracker\ActivitiesTracker.csproj" />
+    <!-- OR-03: пакет робота (robot.zip + манифест) читается по общим контрактам: тот же разбор
+         манифеста применяют пакетировщик, раннер и будущий оркестратор. -->
+    <ProjectReference Include="..\Rpa.Orchestrator.Contracts\Rpa.Orchestrator.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

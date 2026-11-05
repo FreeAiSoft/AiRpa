@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- OR-03: контракты оркестратора. Здесь живёт **формат пакета робота** (`robot.zip` + `manifest.json`),
+       а не логика упаковки: пакет читает раннер (`RpaRunner`, параметр package), пишет пакетировщик
+       (`Rpa.RobotPackaging`), а позже — сервер (`OR-05`), запускатор (`LN-06`) и студия (`OR-14`).
+       Поэтому проект целится в `netstandard2.0` (`ROADMAP` §8.3): его подключают и 4.7.2-раннер,
+       и будущий Blazor-сервер, и WPF-студия. Зависимостей нет вообще — только BCL. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>8.0</LangVersion>
+    <RootNamespace>RPA.Orchestrator.Contracts</RootNamespace>
+    <AssemblyName>Rpa.Orchestrator.Contracts</AssemblyName>
+    <Deterministic>true</Deterministic>
+    <Description>Формат пакета робота, манифест, хэши и локальный кэш пакетов (OR-03).</Description>
+  </PropertyGroup>
+
+</Project>

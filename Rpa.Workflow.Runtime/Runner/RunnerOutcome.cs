@@ -62,6 +62,18 @@ namespace RPA.Runner
         /// <summary>Каталог зависимостей робота.</summary>
         public string BinDirectory { get; set; }
 
+        /// <summary>Пакет робота, если прогон шёл из пакета (`OR-03`).</summary>
+        public string PackagePath { get; set; }
+
+        /// <summary>Идентификатор робота из манифеста пакета.</summary>
+        public string PackageId { get; set; }
+
+        /// <summary>Версия пакета из манифеста.</summary>
+        public string PackageVersion { get; set; }
+
+        /// <summary>Хэш содержимого пакета: по нему оркестратор опознаёт байты версии.</summary>
+        public string PackageContentHash { get; set; }
+
         /// <summary>Когда прогон начался.</summary>
         public DateTimeOffset StartedAt { get; set; }
 
@@ -149,6 +161,10 @@ namespace RPA.Runner
                 { "workflow", WorkflowPath ?? string.Empty },
                 { "type", TypeName ?? string.Empty },
                 { "bin", BinDirectory ?? string.Empty },
+                { "package", PackagePath ?? string.Empty },
+                { "packageId", PackageId ?? string.Empty },
+                { "packageVersion", PackageVersion ?? string.Empty },
+                { "packageHash", PackageContentHash ?? string.Empty },
                 { "outputs", outputs },
                 { "error", ErrorText ?? string.Empty }
             };

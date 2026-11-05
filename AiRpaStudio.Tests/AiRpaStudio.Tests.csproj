@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
@@ -30,6 +30,13 @@
     <!-- OR-02: exe нужен только сквозному тесту процесса; ссылку на его сборку не берём,
          чтобы типы раннера не попали в тестовый процесс. -->
     <ProjectReference Include="..\RpaRunner\RpaRunner.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <!-- OR-03: формат пакета робота и упаковщик проверяются напрямую. -->
+    <ProjectReference Include="..\Rpa.Orchestrator.Contracts\Rpa.Orchestrator.Contracts.csproj" />
+    <ProjectReference Include="..\Rpa.RobotPackaging\Rpa.RobotPackaging.csproj" />
+    <!-- OR-03: exe упаковщика нужен только сквозному тесту процесса. -->
+    <ProjectReference Include="..\RpaPack\RpaPack.csproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
     <!-- Панель документов: тесты темы материализуют меню списка документов (ContextMenuEx/MenuItemEx). -->

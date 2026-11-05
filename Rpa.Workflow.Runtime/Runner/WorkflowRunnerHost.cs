@@ -53,9 +53,15 @@ namespace RPA.Runner
             {
                 journal.Info("прогон " + outcome.RunId + " начат; " + options.DescribeSource());
 
-                if (!RobotLocator.TryResolve(options, out RobotLocation location, out string locationError))
+                // Код отказа — из локатора: «пакета нет» (6) и «пакет битый» (5) требуют разных
+                // действий от оркестратора, поэтому раннер не сводит оба случая к одному коду.
+                if (!RobotLocator.TryResolve(
+                    options,
+                    out RobotLocation location,
+                    out string locationError,
+                    out RunnerExitCode locationCode))
                 {
-                    return Fail(outcome, journal, RunnerExitCode.RobotNotFound, locationError);
+                    return Fail(outcome, journal, locationCode, locationError);
                 }
 
                 ApplyLocation(outcome, location);
@@ -267,6 +273,10 @@ namespace RPA.Runner
             outcome.WorkflowPath = location.WorkflowPath;
             outcome.TypeName = location.TypeName;
             outcome.BinDirectory = location.BinDirectory;
+            outcome.PackagePath = location.PackagePath;
+            outcome.PackageId = location.PackageId;
+            outcome.PackageVersion = location.PackageVersion;
+            outcome.PackageContentHash = location.PackageContentHash;
         }
 
         private static string DescribeEvent(ActivitiesTracker.Entities.TrackingEventArgs args)

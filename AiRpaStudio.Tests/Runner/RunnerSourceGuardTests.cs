@@ -185,6 +185,78 @@ public class RunnerSourceGuardTests
         });
     }
 
+    [Test]
+    public void Solution_BuildsPackagingProjects()
+    {
+        string solution = File.ReadAllText(IOPath.Combine(FindRepositoryRoot(), "AiRpa.sln"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(solution, Does.Contain(@"Rpa.Orchestrator.Contracts\Rpa.Orchestrator.Contracts.csproj"),
+                "контракты пакета обязаны собираться решением — их читает и раннер, и сервер");
+            Assert.That(solution, Does.Contain(@"Rpa.RobotPackaging\Rpa.RobotPackaging.csproj"),
+                "упаковщик обязан собираться решением");
+            Assert.That(solution, Does.Contain(@"RpaPack\RpaPack.csproj"),
+                "инструмент упаковки обязан собираться решением: им собирают пакеты");
+        });
+    }
+
+    [Test]
+    public void RunnerAndRuntime_DoNotReferencePackaging()
+    {
+        string root = FindRepositoryRoot();
+
+        Assert.Multiple(() =>
+        {
+            foreach (string project in new[] { "RpaRunner", "Rpa.Workflow.Runtime" })
+            {
+                List<string> references = ProjectReferences(IOPath.Combine(root, project, project + ".csproj"));
+
+                Assert.That(references.Any(r => r.IndexOf("Rpa.RobotPackaging", StringComparison.OrdinalIgnoreCase) >= 0),
+                    Is.False,
+                    $"«{project}» не имеет права ссылаться на упаковщик: упаковка тянет MSBuild, а прогон — нет");
+            }
+        });
+    }
+
+    [Test]
+    public void Packaging_ReferencesNoStudioOrUi()
+    {
+        string root = FindRepositoryRoot();
+        List<string> references = ProjectReferences(
+            IOPath.Combine(root, "Rpa.RobotPackaging", "Rpa.RobotPackaging.csproj"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(references.Any(r => r.IndexOf("Rpa.Orchestrator.Contracts", StringComparison.OrdinalIgnoreCase) >= 0),
+                Is.True, "упаковщик обязан пользоваться общим форматом пакета, а не своим");
+
+            foreach (string forbidden in new[] { "AiRpaStudio", "RPA.Chat", "RPA.CodeEditor", "AvalonDock" })
+            {
+                Assert.That(references.Any(r => r.IndexOf(forbidden, StringComparison.OrdinalIgnoreCase) >= 0),
+                    Is.False,
+                    $"упаковщик не имеет права тянуть «{forbidden}»: он работает на агенте и в скрипте сборки");
+            }
+        });
+    }
+
+    [Test]
+    public void ContractsHaveNoDependencies()
+    {
+        string root = FindRepositoryRoot();
+        string csproj = File.ReadAllText(
+            IOPath.Combine(root, "Rpa.Orchestrator.Contracts", "Rpa.Orchestrator.Contracts.csproj"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ProjectReferences(IOPath.Combine(root, "Rpa.Orchestrator.Contracts", "Rpa.Orchestrator.Contracts.csproj")),
+                Is.Empty,
+                "контракты пакета обязаны обходиться одной BCL: иначе формат перестанет читаться на 4.7.2 и на сервере одинаково");
+            Assert.That(csproj, Does.Contain("<TargetFramework>netstandard2.0</TargetFramework>"),
+                "контракты обязаны целиться в netstandard2.0 (ROADMAP §8.3)");
+        });
+    }
+
     /// <summary>
     /// Оставляет только код: стражи ищут вызовы, а не упоминания.
     /// <para>

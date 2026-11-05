@@ -26,6 +26,7 @@ namespace RPA.Runner
                 text.AppendLine("  RpaRunner --project <файл.csproj> [параметры]");
                 text.AppendLine("  RpaRunner --workflow <файл.xaml> [параметры]");
                 text.AppendLine("  RpaRunner --assembly <робот.dll> --type <Тип> [--bin <каталог>] [параметры]");
+                text.AppendLine("  RpaRunner --package <robot.zip> [параметры]");
                 text.AppendLine();
                 text.AppendLine("Параметры:");
                 text.AppendLine("  --project <csproj>  проект робота: раннер сам найдёт собранную сборку в bin\\<Config>");
@@ -35,6 +36,10 @@ namespace RPA.Runner
                 text.AppendLine("  --assembly <dll>    собранный робот; обязателен --type");
                 text.AppendLine("  --type <Тип>        полное имя типа активности (по умолчанию из x:Class)");
                 text.AppendLine("  --bin <каталог>     каталог зависимостей робота (перекрывает автопоиск bin)");
+                text.AppendLine("  --package <zip>     пакет робота (robot.zip + манифест): проект и студия не нужны;");
+                text.AppendLine("                      содержимое сверяется с манифестом, пакет распаковывается в кэш");
+                text.AppendLine("  --package-cache <каталог>  корень кэша пакетов (по умолчанию %LOCALAPPDATA%\\RPA\\packages,");
+                text.AppendLine("                      переменная окружения RPA_PACKAGE_CACHE)");
                 text.AppendLine("  --args <json>       входные аргументы: {\"InputText\":\"max\"}");
                 text.AppendLine("  --arg <имя=знач.>   один аргумент без JSON: --arg InputText=max (можно повторять;");
                 text.AppendLine("                      удобно в PowerShell/cmd, где кавычки внутри --args съедает оболочка)");
