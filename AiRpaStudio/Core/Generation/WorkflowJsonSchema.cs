@@ -6,7 +6,7 @@ using Newtonsoft.Json.Linq;
 namespace RPA.Core.Generation
 {
     /// <summary>
-    /// JSON-схема процесса (этап 6 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// JSON-схема процесса (этап 6 конвейера генерации XAML).
     /// <para>
     /// Схема намеренно строгая и полностью описана здесь, в одном месте: валидатор
     /// (<see cref="WorkflowJsonValidator"/>) проверяет по этим спискам полей и whitelist'ам, а агент

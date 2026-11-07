@@ -6,7 +6,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 4 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: реестр палитры
+/// Этап 4 конвейера генерации XAML: реестр палитры
 /// (<c>ActivityPaletteRegistry</c>) — метаданные активностей по объектной модели WF.
 /// <para>
 /// Реестр — единственный источник правды о палитре: из него строится и панель «Активности», и описания

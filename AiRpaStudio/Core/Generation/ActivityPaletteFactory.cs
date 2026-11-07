@@ -13,7 +13,7 @@ namespace RPA.Core.Generation
 {
     /// <summary>
     /// Значение аргумента в запросе палитры: C#-выражение или литерал
-    /// (этап 4 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// (этап 4 конвейера генерации XAML).
     /// <para>
     /// Лямбд нет и быть не может: выражение всегда превращается в
     /// <see cref="CSharpValue{T}"/>/<see cref="CSharpReference{T}"/>, иначе узел не переживает
@@ -88,7 +88,7 @@ namespace RPA.Core.Generation
 
     /// <summary>
     /// Переменная процесса в описании активности (этап 6 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// конвейер генерации XAML).
     /// <para>
     /// Тип — имя из whitelist <see cref="PaletteTypeNames"/> (тип вне списка в XAML не попадает);
     /// значение по умолчанию подставляется в <c>Variable&lt;T&gt;.Default</c> как <c>CSharpValue&lt;T&gt;</c>
@@ -253,7 +253,7 @@ namespace RPA.Core.Generation
 
     /// <summary>
     /// Сборка <see cref="Activity"/> по описанию палитры: единственное место, где запрос агента
-    /// превращается в объектную модель WF (этап 4 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// превращается в объектную модель WF (этап 4 конвейера генерации XAML).
     /// <para>
     /// Значения аргументов становятся <see cref="CSharpValue{T}"/> (In) и <see cref="CSharpReference{T}"/>
     /// (Out/InOut) — тем, что конструктор показывает в редакторе выражений и что переживает сериализацию.

@@ -8,7 +8,7 @@ namespace RPA.Mcp.Tools
 {
     /// <summary>
     /// <c>xaml.create_workflow_from_json</c> — детерминированная сборка процесса по JSON AST
-    /// (этап 6 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// (этап 6 конвейера генерации XAML).
     /// <para>
     /// Агент присылает описание процесса (активности, переменные, аргументы как C#-выражения), а не XAML:
     /// описание проверяется по строгой схеме (whitelist активностей и типов), затем превращается

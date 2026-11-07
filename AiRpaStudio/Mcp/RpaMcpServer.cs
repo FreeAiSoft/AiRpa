@@ -34,7 +34,7 @@ namespace RPA.Mcp
             _projectRoot = Directory.GetCurrentDirectory();
 
             // Реестр инструментов: регистрация на старте сервера (палитра xaml.* — этап 4 плана
-            // docs\Valid_Xaml_Designer_Plan.md). Сервис палитры создаётся по первому вызову.
+            // `конвейер генерации XAML`). Сервис палитры создаётся по первому вызову.
             _tools = tools ?? McpToolRegistry.CreateDefault(Log);
         }
 

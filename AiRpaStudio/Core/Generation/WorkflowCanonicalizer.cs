@@ -12,7 +12,7 @@ namespace RPA.Core.Generation
 {
     /// <summary>
     /// Приводит объектную модель рабочего процесса к формату студии (этап 2 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>, п. 1.1).
+    /// конвейер генерации XAML, п. 1.1).
     /// <para>
     /// Канонизация работает <b>по объектной модели</b>, а не по тексту XAML: всё, что ниже, —
     /// присвоенные свойства (<c>ActivityBuilder.Name</c>, вложенные свойства <c>TextExpression.*</c>,

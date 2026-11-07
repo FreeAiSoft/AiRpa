@@ -7,7 +7,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 4 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: чтение модели процесса
+/// Этап 4 конвейера генерации XAML: чтение модели процесса
 /// (<c>WorkflowModelReader</c>, инструмент <c>xaml.get_workflow</c>).
 /// <para>
 /// Идентификаторы активностей — пути в дереве (<c>root/Activities[1]</c>). Именно эти строки агент

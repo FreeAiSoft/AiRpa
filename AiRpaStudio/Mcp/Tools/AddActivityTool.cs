@@ -7,7 +7,7 @@ namespace RPA.Mcp.Tools
 {
     /// <summary>
     /// <c>xaml.add_activity</c> — вставляет активность в открытый процесс (этап 4 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// конвейер генерации XAML).
     /// <para>
     /// Вставка идёт через <c>ModelService</c>/<c>ModelItem</c>: ViewState и IdRef проставляет сам
     /// конструктор, поэтому активность сразу видна на диаграмме (п. 3 этапа 4). После правки файл

@@ -12,7 +12,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 2 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: структурные стражи
+/// Этап 2 конвейера генерации XAML: структурные стражи
 /// сгенерированного XAML (по образцу <c>ThemeXamlTests</c>) и мутационный набор
 /// «сгенерированный XAML ≠ сломанный».
 /// <para>

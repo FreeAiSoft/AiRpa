@@ -4,7 +4,7 @@ using AiRpaStudio.Tests.Design;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 3 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c> на настоящем конструкторе:
+/// Этап 3 конвейера генерации XAML на настоящем конструкторе:
 /// <c>DesignerOpenService</c> открывает сгенерированный процесс в живом <c>WorkflowDesigner</c>
 /// (стенд этапа 1), повторный вызов переиспользует вкладку, а генерация в открытый файл отклоняется.
 /// <para>

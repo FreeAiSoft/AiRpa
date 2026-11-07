@@ -10,7 +10,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 2 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: канонизация объектной модели
+/// Этап 2 конвейера генерации XAML: канонизация объектной модели
 /// в формат студии (п. 1.1) — <c>x:Class</c>, <c>sap2010:ExpressionActivityEditor="C#"</c>,
 /// <c>TextExpression.NamespacesForImplementation</c>/<c>ReferencesForImplementation</c> со ссылкой на сборку
 /// проекта, <c>sap2010:WorkflowViewState.IdRef</c> на корне и на каждой активности.

@@ -172,7 +172,7 @@ namespace RPA.Core.Generation
 
     /// <summary>
     /// Трансляция «сборка кода → <c>Activity</c>» (этап 5 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// конвейер генерации XAML).
     /// <para>
     /// Вход процесса ищется по контракту, а не по договорённости «как-нибудь»:
     /// </para>
@@ -582,7 +582,7 @@ namespace RPA.Core.Generation
     }
 
     /// <summary>
-    /// Сервис Code-First (этап 5 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>):
+    /// Сервис Code-First (этап 5 конвейера генерации XAML):
     /// <code>
     /// код агента → RoslynSandbox → сборка → CodeFirstWorkflowTranslator (Activity)
     ///   → WorkflowBuildService (канонизация, сериализатор WF, временный файл, гейт)

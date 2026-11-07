@@ -4,7 +4,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 5 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c> на настоящем конструкторе:
+/// Этап 5 конвейера генерации XAML на настоящем конструкторе:
 /// процесс, собранный из кода агента (ветвление + цикл + вложенность), открывается в дизайнере
 /// без ошибок и без модальных окон.
 /// <para>

@@ -10,7 +10,7 @@ using System.Reflection;
 namespace RPA.Core.Generation
 {
     /// <summary>
-    /// Направление аргумента активности (этап 4 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// Направление аргумента активности (этап 4 конвейера генерации XAML).
     /// <see cref="Property"/> — обычное свойство активности (строка, число, перечисление), не аргумент WF.
     /// </summary>
     internal enum PaletteArgumentDirection
@@ -300,7 +300,7 @@ namespace RPA.Core.Generation
 
     /// <summary>
     /// Реестр палитры: метаданные активностей, построенные по объектной модели WF
-    /// (этап 4 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// (этап 4 конвейера генерации XAML).
     /// <para>
     /// Почему по рефлексии, а не вторым списком «как в палитре»: аргументы, направления и контейнеры
     /// обязаны совпадать с реальными типами активностей. Второй список рано или поздно разойдётся
@@ -988,7 +988,7 @@ namespace RPA.Core.Generation
         }
 
         /// <summary>
-        /// Whitelist типов переменных и аргументов типа (этап 6 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>):
+        /// Whitelist типов переменных и аргументов типа (этап 6 конвейера генерации XAML):
         /// строгая проверка JSON AST идёт до построения модели, поэтому тип вне списка в XAML не попадает.
         /// </summary>
         internal static IReadOnlyList<string> KnownNamesList =>

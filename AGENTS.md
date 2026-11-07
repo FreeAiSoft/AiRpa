@@ -19,8 +19,7 @@
 ## Соглашения проекта
 - Целевая платформа: .NET Framework 4.8, WPF-приложение (`OutputType=WinExe`),
   `RootNamespace`/`AssemblyName` = `RPA`.
-- UI-стек: WPF + MahApps.Metro (`MetroWindow`), AvalonDock (докинг-панели), AvalonEdit (редактор кода),
-  Material.Icons.WPF, LogControlLibrary (просмотр логов).
+- UI-стек: WPF (полоса заголовка своя — `Controls\StudioTitleBar.xaml`, MahApps.Metro в решении нет), AvalonDock (докинг-панели), AvalonEdit (редактор кода), MaterialDesignThemes.Wpf (база контролов),
   Material.Icons.WPF, LogControlLibrary (просмотр логов).
 - Целевые платформы (правило, `CP-10`): **студия — .NET Framework 4.8**, а **всё, что попадает к роботу, — 4.7.2**
   (`net472`). Новый проект, на который может ссылаться робот, обязан целиться в `net472`/`netstandard2.0`;
@@ -40,7 +39,7 @@
 - Локализация: RU/EN через `ResourceManager` + `Properties.Settings.Language` (см. `App.xaml.cs`).
 - Настройки сохраняются через `Properties.Settings` (метод `Save()`).
 - Логирование: `RPA.Logging.Log` (запись в `log.txt`) + просмотр через `LogControlLibrary`.
-- AI-интеграция: MCP-сервер (`RPA.Mcp`, stdio/http).
+- AI-интеграция: MCP-сервер — папка `AiRpaStudio\Mcp`, пространство имён `RPA.Mcp` (stdio/http).
 - Ядро AI-агента — проект `Agent.Core` (`Agent.Core\Agent.Core.csproj`, `netstandard2.0`,
   `RootNamespace`/`AssemblyName` = `Agent.Core`). Прежнее имя сборки — `VibeCoder.Core` — больше не используется;
   оно осталось единственной легаси-константой `PromptPaths.LegacyAppDataFolderName` (чтение `%AppData%\VibeCoder\Prompts`
@@ -83,6 +82,13 @@
 - Кнопки плашки списка: колонка **37px** (прежние 56px, суженные в 1,5 раза), кнопки 16×16, глифы 10×10;
   удаление — `MaterialIcon Kind="Close"` (крестик), установка/обновление — `Kind="Download"`; 16 + 16 + 5 = 37.
   Стражи: `NuGetPanelLayoutTests.RowIconButtons_AreSizedForNarrowColumn`, `...Panel_RowButtonsFitNarrowColumn`.
+
+- Фокус в поле поиска ставится **отложенно** (`FocusSearchBoxDeferred` → `DispatcherPriority.Input`) и только
+  при живом `PresentationSource`: синхронный `Focus()` в `Loaded` падал `NullReferenceException` в
+  `HwndKeyboardInputProvider.AcquireFocus`, потому что `Loaded` приходит из `HwndTarget.OnResize` (WM_SIZE —
+  разворачивание окна, восстановление раскладки доков). Автофокус однократный (переезд вкладки в боковой док
+  фокус пользователя не перебивает), Ctrl+L идёт через ту же защищённую точку.
+  Страж — `AiRpaStudio.Tests\NuGetPanelFocusTests.cs`.
 
 ## 4.7.2-робот на 4.8-хосте (`CP-08`)
 
@@ -190,14 +196,14 @@
   (`IDocumentTextReader`). Вторых правил чтения одного формата не заводить: reader'ом пользуются `spec_import`,
   вложения чата и `read_files` (`IsBinaryDocument` отличает контейнеры от текста, поэтому `.xaml` идёт прежним путём
   с шапкой метаданных). Скан-PDF без текстового слоя — честный `NoTextLayer`, а не пустая строка.
-- Инструменты с префиксом `spec_` входят в тот же страж, что WF-инструменты: `PromptGuidanceTests.WorkflowPrefixes`
+- Инструменты с префиксом `spec_` входят в **промпт-страж** WF-инструментов (`PromptGuidanceTests.WorkflowPrefixes`):
   (Plan видит только `spec_show`/`spec_coverage`, мутирующие в Plan-промпт не попадают) и
-  `AgentPromptBuilder.AppendSpecGuidance` (`SpecReadInstructions` / `SpecEditInstructions`).
+  `AgentPromptBuilder.AppendSpecGuidance` (`SpecReadInstructions` / `SpecEditInstructions`). Таблица «имя → mutates → permission» (`WorkflowToolRegistryGuardTests`) покрывает только четыре WF-префикса — `activity_`, `workflow_`, `argument_`, `variable_`; набор `spec_*` держат промпт-страж и `SpecToolTests`.
 - Отчёты печатают три состояния явно: «готово» / «есть замечания с адресами» / «не выполнено (причина)».
   «Не запускался» никогда не выглядит как «пройден» (`SpecRunReport`, `SpecValidationReport.Describe`).
 - Прогон тест-кейсов — за контрактом `RPA.Chat\Services\Spec\IWorkflowRunService` (в студии —
   `AiRpaStudio\Core\Workflow\StudioWorkflowRunService` поверх `WorkflowRunEngine`). Исполнитель робота один:
-  позже тот же контракт закроет `RpaRunner.exe` (`OR-02`), дублировать исполнение в UI запрещено.
+  контракт закрывает студия (`StudioWorkflowRunService`); `RpaRunner.exe` исполняет робота тем же `WorkflowRunEngine`, но `IWorkflowRunService` пока не реализует — отдельная карточка. Дублировать исполнение в UI запрещено.
 
 ## Ошибки и падения приложения
 - Любая ошибка в студии показывается окном `AiRpaStudio\Views\ErrorView.xaml` через
@@ -260,7 +266,7 @@
   `dotnet test` не собирает legacy WPF-проекты решения.
 - Полная сборка решения: MSBuild из Visual Studio.
 
-## Темы (MaterialDesign.Themes.Wpf) и хранилище исходников
+## Темы (MaterialDesignThemes.Wpf) и хранилище исходников
 - Темы студии строятся на `MaterialDesignThemes.Wpf` (`BundledTheme` + `MaterialDesign2.Defaults.xaml`
   + алиасы `Studio.*`, создаваемые в рантайме `Helpers\StudioBrushes.cs`); переключение Light/Dark — через
   `MaterialDesignThemes.Wpf.PaletteHelper`.
@@ -269,7 +275,8 @@
   и WPF падает с `XamlParseException` на Style-сеттерах (проверяется тестом
   `AiRpaStudio.Tests\StudioBrushesTests.cs`). Только кодом — `Helpers\StudioBrushes.cs`
   (`ApplyToApplication()` при старте приложения и после каждой смены темы).
-- План темизации всех визуальных контролов: `AiRpaStudio\docs\Theming_MaterialDesign_Plan.md`.
+- План темизации всех визуальных контролов (единственный актуальный): `AiRpaStudio\docs\Vs2026_Theme_Plan.md`
+  (этапы 1-10 и приложение A — пошаговый чеклист ручной приёмки).
 - Единая палитра студии (в стиле Visual Studio 2026): `AiRpaStudio\Helpers\StudioPalette.cs`
   (`Surface`/`SurfaceAlt`/`Hover`/`Selected`/`Separator`/`SeparatorStrong`/`Foreground`/`ForegroundMuted`,
   ровно две темы, ноль акцента, скругления 8/4/6). `StudioBrushes` и `DockingThemeBrushes` берут значения
@@ -483,8 +490,8 @@
   `WfActivityTheme` плиту и рамку не красит (остаётся `ThemeStaleText` — синхронно в `LayoutUpdated`, потому
   что подпись наследует чёрный `Foreground` темы WF; без отметки `Marks` раскладка зацикливается), при сбое
   работает прежняя пост-покраска (аварийный switch `Studio.WfLegacyTheming`). Панель «Свойства» и Toolbox
-  подменой не покрыты. Стражи: `AiRpaStudio.Tests\WfColorResourcesOverrideTests.cs`, сквозной пробник
-  `tmp\cacheprobe\CacheOverrideProbe5.cs` (режимы `cache` / `legacy`).
+  подменой не покрыты. Страж: `AiRpaStudio.Tests\WfColorResourcesOverrideTests.cs`; живая проверка обоих
+  режимов — пробник `tools\designer-ui-diagnostics` (аргумент `cache` / `legacy`).
   Тесты: `AiRpaStudio.Tests\WfDesignerThemeTests.cs`.
   Комбобоксы WF-поверхностей (в дизайнере — масштаб в shell bar, `zoomPicker`) темизируются
   `WfVisualTreeThemer.ThemeComboBoxes` (вызывается из `WfVisualTreeThemer.Apply` и из
@@ -620,7 +627,7 @@
   `C:\Users\Maxxx\source\repos\.NET-Framework-4.8-RTM-Reference-Source`
   (детали — `AiRpaStudio\docs\Reference_Source_Storage.md`).
 
-- Финальные правила темы (этап 9, чеклист — `AiRpaStudio\docs\Vs2026_Theme_Acceptance.md`):
+- Финальные правила темы (этап 9, чеклист — приложение A в `AiRpaStudio\docs\Vs2026_Theme_Plan.md`):
   * В темизируемых XAML (`Views`, `Controls`, `CSharpExpressionEditor`, `Themes\StudioTheme.xaml`,
     `AvalonDock.Themes.Metro\Theme.xaml`, `AvalonDock\Themes\generic.xaml`, `LogControlLibrary`, `RPA.Chat`)
     запрещены зашитые hex и named-цвета (`White`, `Gray`, `Orange`, …): только `{DynamicResource Studio.*}`.
@@ -628,7 +635,7 @@
   * В студии запрещён `MaterialDesign.Brush.*`: значения берутся из `StudioPalette`
     (`MaterialDesign` остаётся только базой контролов, его `Primary`/`Secondary` нейтральны, см. M-04).
   * Семантика (не акцент!) — `StudioBrushes.SemanticKeys`: `Studio.Semantic.Run`/`Pause`/`Stop`
-    (тулбар) и `Studio.Semantic.FolderIcon`/`XamlFileIcon`/`JsonFileIcon` (дерево проекта), `Studio.Semantic.Validation` (бейдж ошибки поля выражения). Значения
+    (тулбар), `Studio.Semantic.FolderIcon`/`XamlFileIcon`/`JsonFileIcon` (дерево проекта), `Studio.Semantic.Validation` (бейдж ошибки поля выражения) и `Studio.Semantic.Log.Debug`/`Info`/`Warning`/`Error`/`Fatal` (фильтры панели «Log») — всего 12 ключей. Значения
     фиксированы для обеих тем (`chroma > 6`), создаются кодом; декоративные иконки должны использовать
     `Studio.ToolbarForeground`, а не цвет.
   * «Третьих» палитр нет: `Themes\StudioTheme.Dark.xaml`, `Themes\StudioTheme.Light.xaml` и
@@ -702,7 +709,7 @@
   `Settings()`).
 - ViewModel (`BaseViewModel`) — тонкий адаптер: `Model` + `View`, pass-through свойства,
   без бизнес-логики; настройка в `InitializeViewModel()`.
-- View (`IView`) — `MetroWindow`/контрол с `Show`, `ShowDialog`, `OnSendMessage`, `Close`.
+- View (`IView`) — `Window`/контрол с `Show`, `ShowDialog`, `OnSendMessage`, `Close`.
 
 ### Команды отправляются особым образом (по имени метода, через reflection)
 - В XAML одна команда `Command="{Binding Cmd}"`, а `CommandParameter` — строка с именем
@@ -729,7 +736,7 @@
 - `BaseModel.OnPropertyChanged()` поднимает `PropertyChanged` и на модели, и на ViewModel —
   имена pass-through свойств ViewModel обязаны совпадать с именами свойств модели.
 - Сообщения «модель → представление»: `BaseModel.OnSendMessage(string)` →
-  `IView.OnSendMessage(string)` (обычно MahApps `ShowMessageAsync`), а не `MessageBox`.
+  `IView.OnSendMessage(string)` (MahApps в решении нет — сообщения рисует студия), а не `MessageBox`.
 
 ## Состояние вкладок, валидация WF и окна WF (три регресса одной задачи)
 - **Состояние вкладок** хранится в одном месте — `AiRpaStudio\Core\WorkflowSessionState.cs`

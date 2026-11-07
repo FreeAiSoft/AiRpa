@@ -7,7 +7,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 5 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: правило «нет лямбд в аргументах»
+/// Этап 5 конвейера генерации XAML: правило «нет лямбд в аргументах»
 /// (<c>XamlExpressionPolicy</c>).
 /// <para>
 /// Лямбда в аргументе (<c>new InArgument&lt;int&gt;(ctx =&gt; 5)</c>) становится

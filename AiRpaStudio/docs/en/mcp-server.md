@@ -2,7 +2,7 @@
 
 ## Overview
 
-The studio ships an MCP server (`RPA.Mcp`) that exposes tools to external clients
+The studio ships an MCP server (`AiRpaStudio\Mcp`, namespace `RPA.Mcp`) that exposes tools to external clients
 over the Model Context Protocol.
 
 ## Transport modes

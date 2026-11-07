@@ -947,7 +947,7 @@ public sealed class DesignerBenchProxy : MarshalByRefObject
     }
 
     /// <summary>
-    /// Сценарий этапа 3 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c> на живом дизайнере:
+    /// Сценарий этапа 3 конвейера генерации XAML на живом дизайнере:
     /// открытие файла сервисом (<c>DesignerOpenService</c>) → повторное открытие того же файла →
     /// проверка перезаписи открытого файла → попытка генерации в него через <c>WorkflowBuildService</c>.
     /// </summary>
@@ -1017,7 +1017,7 @@ public sealed class DesignerBenchProxy : MarshalByRefObject
 
     /// <summary>Домен не должен выгружаться по аренде, пока идёт прогон.</summary>
     /// <summary>
-    /// Сценарий этапа 4 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c> на живом дизайнере:
+    /// Сценарий этапа 4 конвейера генерации XAML на живом дизайнере:
     /// палитра открывает файл, вставляет активность через <c>ModelService</c>, сохраняет её штатным
     /// сериализатором конструктора и задаёт аргумент. Проверяется контракт п. 1.3: вкладка открыта
     /// и активна, активность видна в дереве, гейт валидации не нашёл ошибок.

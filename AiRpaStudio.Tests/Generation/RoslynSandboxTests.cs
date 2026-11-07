@@ -4,7 +4,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 5 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: песочница Roslyn
+/// Этап 5 конвейера генерации XAML: песочница Roslyn
 /// (<c>RoslynSandbox</c>).
 /// <para>
 /// Код агента приходит из недоверенного источника, поэтому проверяется не «компилируется ли он», а

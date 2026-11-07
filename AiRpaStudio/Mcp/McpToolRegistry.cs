@@ -7,7 +7,7 @@ using RPA.Mcp.Tools;
 namespace RPA.Mcp
 {
     /// <summary>
-    /// Реестр MCP-инструментов студии (этап 4 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// Реестр MCP-инструментов студии (этап 4 конвейера генерации XAML).
     /// <para>
     /// До этого этапа <c>RpaMcpServer._tools</c> был пустой коллекцией: каркас <see cref="IMcpTool"/>
     /// существовал, но зарегистрировать инструмент было негде. Реестр — единственное место регистрации:

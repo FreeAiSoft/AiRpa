@@ -69,7 +69,7 @@ namespace RPA.Core.Generation
 
     /// <summary>
     /// Правка модели открытой вкладки конструктора (этап 4 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// конвейер генерации XAML).
     /// <para>
     /// Отдельный интерфейс нужен ровно потому, что настоящая реализация (<see cref="DesignerModelSession"/>)
     /// работает с <c>ModelItem</c> и живёт только на UI-потоке. Порядок действий инструмента
@@ -285,7 +285,7 @@ namespace RPA.Core.Generation
     }
 
     /// <summary>
-    /// Палитра активностей (этап 4 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>, вариант 3):
+    /// Палитра активностей (этап 4 конвейера генерации XAML, вариант 3):
     /// создание процесса, вставка активности, установка аргумента и чтение модели.
     /// <para>
     /// Общий конвейер: проверка запроса по реестру → открытие вкладки (<see cref="DesignerOpenService"/>)

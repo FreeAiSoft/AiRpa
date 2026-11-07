@@ -10,7 +10,7 @@ namespace RPA.Mcp.Tools
 {
     /// <summary>
     /// Общая часть инструментов палитры (<c>xaml.*</c>, этап 4 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// конвейер генерации XAML).
     /// <para>
     /// Разбор аргументов, разбор описания активности и единый формат ответа
     /// <c>{ok, workflowId, filePath, activityId, xaml, errors[], warnings[], hints[]}</c> живут здесь,

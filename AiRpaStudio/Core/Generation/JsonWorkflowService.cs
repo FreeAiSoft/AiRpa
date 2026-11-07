@@ -102,7 +102,7 @@ namespace RPA.Core.Generation
     }
 
     /// <summary>
-    /// Сервис JSON AST (этап 6 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>):
+    /// Сервис JSON AST (этап 6 конвейера генерации XAML):
     /// <code>
     /// JSON AST → WorkflowJsonValidator (строгая схема, whitelist)
     ///   → WorkflowJsonTranslator (Activity/ActivityBuilder через ActivityPaletteFactory)

@@ -6,7 +6,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 5 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: Code-First через Roslyn
+/// Этап 5 конвейера генерации XAML: Code-First через Roslyn
 /// (<c>CodeFirstWorkflowService</c>).
 /// <para>
 /// Проверяется главное: код агента компилируется в песочнице, из сборки достаётся дерево активностей,

@@ -10,7 +10,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 7 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: контракт для агента
+/// Этап 7 конвейера генерации XAML: контракт для агента
 /// (<see cref="WorkflowAgentContract"/>).
 /// <para>
 /// Контракт — не «текст в документе», а исполняемое обещание: каждый few-shot пример проверен здесь

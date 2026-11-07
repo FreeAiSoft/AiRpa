@@ -6,7 +6,7 @@ namespace RPA.Mcp.Tools
 {
     /// <summary>
     /// <c>xaml.get_workflow</c> — дерево процесса для агента (этап 4 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>): идентификаторы активностей, типы,
+    /// конвейер генерации XAML): идентификаторы активностей, типы,
     /// подписи и заданные выражения аргументов.
     /// <para>
     /// Это источник идентификаторов для <c>xaml.add_activity</c> и <c>xaml.set_argument</c>:

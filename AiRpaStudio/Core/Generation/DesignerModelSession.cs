@@ -12,7 +12,7 @@ namespace RPA.Core.Generation
 {
     /// <summary>
     /// Правка модели в живом конструкторе через <c>ModelService</c>/<c>ModelItem</c>
-    /// (этап 4 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>, п. 3).
+    /// (этап 4 конвейера генерации XAML, п. 3).
     /// <para>
     /// Почему модель, а не текст XAML: ViewState и <c>sap2010:WorkflowViewState.IdRef</c> проставляет сам
     /// конструктор, поэтому вставленная активность сразу видна на диаграмме и остаётся редактируемой руками.

@@ -59,7 +59,7 @@ namespace RPA.Core.Generation
     }
 
     /// <summary>
-    /// Правило «нет лямбд в аргументах» (п. 1.2 и 5 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// Правило «нет лямбд в аргументах» (п. 1.2 и 5 конвейера генерации XAML).
     /// <para>
     /// <c>new InArgument&lt;int&gt;(ctx =&gt; 5)</c> создаёт <see cref="LambdaValue{T}"/>, а
     /// <c>new OutArgument&lt;int&gt;(new LambdaReference&lt;int&gt;(...))</c> — <see cref="LambdaReference{T}"/>.

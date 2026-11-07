@@ -6,7 +6,7 @@ namespace RPA.Core.Generation
 {
     /// <summary>
     /// Настоящая среда конструктора студии (этап 3 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>): вкладки — это
+    /// конвейер генерации XAML): вкладки — это
     /// <see cref="CustomWfDesigner.WorkflowDesigners"/>, открытие — единственный существующий путь
     /// <see cref="LoadActivityToDesignerHelper.LoadActivityToDesigner"/>, активация — свойство
     /// <see cref="CustomWfDesigner.ActiveWorkflowDesignerEx"/> (по нему <c>DocGroupHelper</c> выбирает

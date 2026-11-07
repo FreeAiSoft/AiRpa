@@ -17,7 +17,7 @@ namespace RPA.Core.Generation
 {
     /// <summary>
     /// Одно сообщение компилятора в машиночитаемом виде (этап 5 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>): код, строка, столбец, текст и подсказка.
+    /// конвейер генерации XAML): код, строка, столбец, текст и подсказка.
     /// <para>
     /// Формат нужен агенту для самокоррекции: «строка 12, столбец 5, CS0103» — это правка,
     /// а «компиляция не удалась» — это тупик.
@@ -241,7 +241,7 @@ namespace RPA.Core.Generation
     }
 
     /// <summary>
-    /// Параметры песочницы Roslyn (этап 5 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// Параметры песочницы Roslyn (этап 5 конвейера генерации XAML).
     /// </summary>
     internal sealed class RoslynSandboxOptions
     {
@@ -332,7 +332,7 @@ namespace RPA.Core.Generation
 
     /// <summary>
     /// Песочница для кода агента: компиляция Roslyn с whitelist сборок, запретом опасных пространств имён
-    /// и лимитами (этап 5 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// и лимитами (этап 5 конвейера генерации XAML).
     /// <para>
     /// Почему песочница, а не «просто <c>CSharpCompilation</c>»: код приходит от ИИ-агента, то есть из
     /// недоверенного источника. <c>System.IO</c>/<c>System.Reflection</c>/<c>System.Net</c>/

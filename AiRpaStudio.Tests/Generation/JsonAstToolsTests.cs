@@ -10,7 +10,7 @@ using RPA.Mcp.Tools;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 6 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: MCP-инструмент
+/// Этап 6 конвейера генерации XAML: MCP-инструмент
 /// <c>xaml.create_workflow_from_json</c>.
 /// <para>
 /// Контракт с агентом: инструмент зарегистрирован на старте сервера, требует <c>path</c> и <c>ast</c>,

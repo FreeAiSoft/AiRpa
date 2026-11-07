@@ -7,7 +7,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 7 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c> на настоящем конструкторе:
+/// Этап 7 конвейера генерации XAML на настоящем конструкторе:
 /// каждый few-shot пример контракта обязан не только собраться, но и **отрисоваться** — активности
 /// в дереве, валидация WF без ошибок, нераспознанных активностей и модальных окон нет.
 /// <para>

@@ -6,7 +6,7 @@ namespace RPA.Mcp.Tools
 {
     /// <summary>
     /// <c>xaml.set_argument</c> — задаёт аргумент существующей активности (этап 4 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// конвейер генерации XAML).
     /// <para>
     /// Значение становится <c>CSharpValue&lt;T&gt;</c> (In) или <c>CSharpReference&lt;T&gt;</c> (Out/InOut):
     /// именно такие выражения редактируются Roslyn-редактором студии и переживают сериализацию.

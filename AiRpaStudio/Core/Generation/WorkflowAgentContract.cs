@@ -88,7 +88,7 @@ namespace RPA.Core.Generation
 
     /// <summary>
     /// Контракт инструментов генерации процесса для ИИ-агента (этап 7 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// конвейер генерации XAML).
     /// <para>
     /// Одно место, где описано: (1) жёсткие правила генерации (только <c>CSharpValue&lt;T&gt;</c>/
     /// <c>CSharpReference&lt;T&gt;</c>, только активности и типы палитры, никакого «текста XAML»),

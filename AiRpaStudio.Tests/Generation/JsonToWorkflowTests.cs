@@ -9,7 +9,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 6 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: JSON AST → объектная модель WF →
+/// Этап 6 конвейера генерации XAML: JSON AST → объектная модель WF →
 /// общий конвейер этапов 2–3 (каноника, сериализатор WF, гейт, запись файла).
 /// <para>
 /// Проверяется, что описание процесса даёт тот же канонический XAML, что и палитра/Code-First:

@@ -1,7 +1,7 @@
 # Контракт генерации процесса для ИИ-агента (xaml.describe_contract)
 
 Документ для человека; машиночитаемую версию того же контракта отдаёт MCP-инструмент
-`xaml.describe_contract` (этап 7 плана `Valid_Xaml_Designer_Plan.md`). Источник правды один —
+`xaml.describe_contract` (этап 7 конвейера генерации XAML). Источник правды один —
 `AiRpaStudio\Core\Generation\WorkflowAgentContract.cs`: правила, матрица выбора инструмента, примеры и
 самокоррекция описаны там, а этот файл обязан совпадать с ним дословно (страж —
 `AiRpaStudio.Tests\Generation\AgentContractTests.cs`, тест `Doc_MirrorsContract`).
@@ -36,7 +36,7 @@
 | нужны правила, схема, whitelist или пример | `xaml.describe_contract` | контракт и примеры отдаются машиночитаемо: не нужно угадывать формат и имена аргументов |
 
 Полная схема JSON AST — `docs\Workflow_Json_Ast_Schema.md`; справочник инструментов палитры —
-`docs\MCP_Workflow_Tools_Guide.md`.
+схемы инструментов `xaml.*` в `AiRpaStudio\Mcp\Tools\` (регистрация — `McpToolRegistry.cs`).
 
 ## 3. Few-shot примеры
 

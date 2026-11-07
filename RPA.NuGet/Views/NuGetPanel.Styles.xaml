@@ -170,11 +170,6 @@
 
     <!-- ======================= Оверлей «Package sources» ======================= -->
 
-    <Style x:Key="NuGet.OverlayCheckBoxStyle" TargetType="CheckBox" BasedOn="{StaticResource NuGet.CheckBoxStyle}">
-        <Setter Property="HorizontalAlignment" Value="Center" />
-        <Setter Property="VerticalAlignment" Value="Center" />
-    </Style>
-
     <Style x:Key="NuGet.OverlayRowStyle" TargetType="ListBoxItem">
         <Setter Property="Padding" Value="0" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -304,6 +299,16 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- Галочка строки источника в оверлее «Package sources». Объявлена сразу после базы:
+         BasedOn — это StaticResource, а он разрешается по порядку разбора словаря. Ссылка на
+         NuGet.CheckBoxStyle, объявленный ниже, валила оверлей при первом рендере строки
+         («Не удается найти ресурс с именем "NuGet.CheckBoxStyle"»). Страх — тест
+         NuGetPanelThemeTests.StylesXaml_ResolvesStaticResourcesInDeclarationOrder. -->
+    <Style x:Key="NuGet.OverlayCheckBoxStyle" TargetType="CheckBox" BasedOn="{StaticResource NuGet.CheckBoxStyle}">
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
     <!-- ======================= ComboBox (источник, версия) ======================= -->

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.props" Condition="Exists('..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
@@ -301,7 +301,7 @@
     <Compile Include="Converters\WorkflowStateToIsEnabledConverter.cs" />
     <Compile Include="Core\ActivityRunner.cs" />
     <Compile Include="Core\DebugValidationErrorService.cs" />
-    <!-- Генерация валидного XAML (docs\Valid_Xaml_Designer_Plan.md, этап 2): канонизация модели,
+    <!-- Генерация валидного XAML (этап 2 конвейера): канонизация модели,
          сериализация WF и гейт валидации — один конвейер для всех инструментов. -->
     <Compile Include="Core\Generation\WorkflowCanonicalizationOptions.cs" />
     <Compile Include="Core\Generation\WorkflowCanonicalizer.cs" />
@@ -334,7 +334,7 @@
     <Compile Include="Core\Generation\WorkflowJsonValidator.cs" />
     <Compile Include="Core\Generation\WorkflowJsonTranslator.cs" />
     <Compile Include="Core\Generation\JsonWorkflowService.cs" />
-    <!-- Контракт для агента (docs\Valid_Xaml_Designer_Plan.md, этап 7): правила, выбор инструмента,
+    <!-- Контракт для агента (этап 7 конвейера): правила, выбор инструмента,
          few-shot примеры и правило самокоррекции в одном месте — их отдаёт xaml.describe_contract. -->
     <Compile Include="Core\Generation\WorkflowAgentContract.cs" />
 
@@ -365,7 +365,7 @@
     <Compile Include="Enums\WorkflowState.cs" />
     <Compile Include="Helpers\AssembliesHelper.cs" />
     <Compile Include="Helpers\XamlHelper.cs" />
-    <!-- Среда rehosted-дизайнера WF: одна на студию и тестовый стенд (Valid_Xaml_Designer_Plan.md). -->
+    <!-- Среда rehosted-дизайнера WF: одна на студию и тестовый стенд. -->
     <Compile Include="Helpers\WfDesignerEnvironment.cs" />
     <Compile Include="Helpers\ProjectPathResolver.cs" />
     <Compile Include="Helpers\ProjectTreeMenuRules.cs" />
@@ -570,38 +570,12 @@
     </EmbeddedResource>
     <None Include=".editorconfig" />
     <None Include="app.manifest" />
-    <None Include="Docs\AddActivityTool_Enhancement_Plan.md" />
-    <None Include="Docs\AddActivityTool_Usage_Guide.md" />
-    <None Include="Docs\AiAgent_DragDrop_Fix.md" />
-    <None Include="Docs\AI_Activity_Integration_Architecture.md" />
-    <None Include="Docs\AI_MCP_Integration_Guide.md" />
-    <None Include="Docs\Code_Tasks.md" />
     <None Include="Docs\Designer_Variable_ContextMenu_Principles.md" />
-    <None Include="Docs\Folder_ContextMenu_Plan.md" />
-    <None Include="Docs\Implementation_Guide.md" />
-    <None Include="Docs\MCP_Architecture.md" />
-    <None Include="Docs\MCP_Command_Format_Guide.md" />
-    <None Include="Docs\MCP_Validation_Architecture.md" />
-    <None Include="Docs\MCP_Validation_Usage_Guide.md" />
-    <None Include="Docs\MCP_Workflow_Tools_Guide.md" />
-    <None Include="Docs\OpenRouter_Integration_Architecture.md" />
-    <None Include="Docs\OpenRouter_Setup_Guide.md" />
     <None Include="Docs\ProjectManagerControl_Refactoring_Plan.md" />
-    <None Include="Docs\README.md" />
     <None Include="Docs\Reference_Source_Storage.md" />
     <None Include="Docs\ROADMAP.md" />
-    <None Include="Docs\RoslynExpressionEditor_ContextMenu_Solution.md" />
-    <None Include="Docs\RoslynExpressionEditor_IntelliSense_Enhancement.md" />
-    <None Include="Docs\RoslynExpressionEditor_IntelliSense_Implementation_Summary.md" />
-    <None Include="Docs\SearchableComboBox_Architecture.md" />
-    <None Include="Docs\SearchableComboBox_Implementation_Plan.md" />
-    <None Include="Docs\SearchableComboBox_Summary.md" />
-    <None Include="Docs\SendMessageAsync_Refactoring_Plan.md" />
-    <None Include="Docs\Theming_MaterialDesign_Plan.md" />
     <None Include="Docs\User_Guide_AI_Activities.md" />
-    <None Include="Docs\Vs2026_Theme_Acceptance.md" />
     <None Include="Docs\Vs2026_Theme_Plan.md" />
-    <None Include="Docs\Vs_Project_ContextMenu_Plan.md" />
     <None Include="Docs\Workflow_Agent_Contract.md" />
     <None Include="Docs\WorkflowEditTracking_Architecture.md" />
     <None Include="Docs\Workflow_Json_Ast_Schema.md" />

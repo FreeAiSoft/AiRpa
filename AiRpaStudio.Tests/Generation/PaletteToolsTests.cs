@@ -10,7 +10,7 @@ using RPA.Mcp.Tools;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 4 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: MCP-инструменты палитры
+/// Этап 4 конвейера генерации XAML: MCP-инструменты палитры
 /// (<c>xaml.create_workflow</c>, <c>xaml.add_activity</c>, <c>xaml.set_argument</c>, <c>xaml.get_workflow</c>).
 /// <para>
 /// Проверяется то, что видит агент: инструменты зарегистрированы на старте сервера, схема каждого

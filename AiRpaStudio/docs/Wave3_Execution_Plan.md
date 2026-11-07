@@ -171,7 +171,7 @@
 | Возврат дерева к базовой линии | `git diff` SHA256 совпадает, `robocopy /MIR /L` — 0 изменений |
 
 **Release-прогон тестов не делается намеренно:** он падает по известному `StackOverflowException`
-в `ToolboxDragContractTests` (см. `Wave1_Execution_Plan.md` §11 п.6). Приёмка — Release-**сборка**;
+в `ToolboxDragContractTests` (см. правило прогонов в `AGENTS.md`). Приёмка — Release-**сборка**;
 прогон — Debug + `vstest`, по правилу `AGENTS.md`.
 
 ## 8. Что осталось после волны 7

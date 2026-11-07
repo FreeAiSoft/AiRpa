@@ -4,7 +4,7 @@ namespace RPA.Core.Generation
 {
     /// <summary>
     /// Вкладка конструктора, открытая для файла процесса (этап 3 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// конвейер генерации XAML).
     /// <para>
     /// Снимок состояния вкладки: путь файла, признак несохранённых правок и сам дизайнер (нужен
     /// <see cref="StudioWorkflowDesignerHost"/>, чтобы активировать вкладку). Сервис открытия работает

@@ -22,7 +22,7 @@ namespace AiRpaStudio.Tests.Design;
 /// <summary>
 /// Проба отрисовки: загружает XAML в настоящий <c>WorkflowDesigner</c> на стенде и отвечает на вопросы,
 /// которые и означают «XAML открывается в конструкторе» (п. 1.3 плана
-/// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>):
+/// конвейер генерации XAML):
 /// <list type="number">
 /// <item>файл — корректный XML и загрузился в дизайнер (<see cref="DesignerRenderReport.LoadSucceeded"/>);</item>
 /// <item>поверхность дизайнера построена (<see cref="DesignerRenderReport.SurfaceReady"/>);</item>

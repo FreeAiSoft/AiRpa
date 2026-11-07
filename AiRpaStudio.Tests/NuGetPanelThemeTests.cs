@@ -221,6 +221,65 @@ public class NuGetPanelThemeTests
         });
     }
 
+    [Test]
+    public void StylesXaml_ResolvesStaticResourcesInDeclarationOrder()
+    {
+        // Регрессия: оверлей «Package sources» падал при первом же рендере строки источника.
+        // NuGet.OverlayCheckBoxStyle объявлялся ВЫШЕ своей базы NuGet.CheckBoxStyle, а BasedOn —
+        // это StaticResource, который WPF разрешает по порядку разбора словаря:
+        // «Не удается найти ресурс с именем "NuGet.CheckBoxStyle"». Ссылка жила внутри
+        // DataTemplate, поэтому исключение вылетало не при загрузке панели, а при её отрисовке.
+        string text = WithoutComments(Read(@"RPA.NuGet\Views\NuGetPanel.Styles.xaml"));
+
+        var declaredAt = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (Match key in Regex.Matches(text, "x:Key=\"(?<key>[^\"]+)\"", RegexOptions.None, TimeSpan.FromSeconds(2)))
+        {
+            string name = key.Groups["key"].Value;
+            if (!declaredAt.ContainsKey(name))
+            {
+                declaredAt[name] = key.Index;
+            }
+        }
+
+        var offenders = new List<string>();
+        foreach (Match reference in Regex.Matches(text, "\\{StaticResource\\s+(?<key>[^}\\s]+)\\s*\\}", RegexOptions.None, TimeSpan.FromSeconds(2)))
+        {
+            string name = reference.Groups["key"].Value;
+
+            // Ключ объявлен не в этом словаре (палитра студии, тема) — порядок здесь ни при чём.
+            if (!declaredAt.TryGetValue(name, out int declarationIndex))
+            {
+                continue;
+            }
+
+            if (declarationIndex > reference.Index)
+            {
+                offenders.Add($"{name} (ссылка: строка {LineOf(text, reference.Index)}, "
+                    + $"объявление: строка {LineOf(text, declarationIndex)})");
+            }
+        }
+
+        Assert.That(offenders, Is.Empty,
+            "StaticResource обязан ссылаться на ранее объявленный ключ того же словаря, иначе в рантайме "
+            + "«Не удается найти ресурс с именем …»: " + string.Join("; ", offenders));
+    }
+
+    /// <summary>Номер строки (с единицы) для позиции в тексте — для читаемых сообщений стража.</summary>
+    private static int LineOf(string text, int index)
+    {
+        int line = 1;
+        for (int i = 0; i < index && i < text.Length; i++)
+        {
+            if (text[i] == '\n')
+            {
+                line++;
+            }
+        }
+
+        return line;
+    }
+
+
     private static string WithoutComments(string text)
     {
         return Regex.Replace(text, "<!--.*?-->", string.Empty, RegexOptions.Singleline, TimeSpan.FromSeconds(2));

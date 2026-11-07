@@ -49,7 +49,7 @@ namespace RPA.Helpers
                 // DesignerConfigurationService (.NET Framework 4.5 + LoadingFromUntrustedSourceEnabled),
                 // Roslyn-редактор выражений, IExpressionEditorService, IValidationErrorService.
                 // Дублировать эти установки нельзя: расхождение путей даёт «работает в одном
-                // инструменте, ломается в другом» (docs\Valid_Xaml_Designer_Plan.md, п. 2.3).
+                // инструменте, ломается в другом» (`конвейер генерации XAML`, п. 2.3).
                 WfDesignerEnvironment.Configure(workflowDesignerEx);
 
                 //load Workflow Xaml

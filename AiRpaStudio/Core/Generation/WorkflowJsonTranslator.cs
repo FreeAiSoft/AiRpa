@@ -8,7 +8,7 @@ namespace RPA.Core.Generation
 {
     /// <summary>
     /// Результат транспатора «JSON AST → объектная модель WF» (этап 6 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// конвейер генерации XAML).
     /// </summary>
     internal sealed class WorkflowJsonTranslation
     {
@@ -91,7 +91,7 @@ namespace RPA.Core.Generation
 
     /// <summary>
     /// Транспатор JSON AST → <see cref="Activity"/> (этап 6 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// конвейер генерации XAML).
     /// <para>
     /// Своей логики сборки здесь нет и быть не должно: описание превращается в
     /// <see cref="PaletteActivitySpec"/> ещё на этапе валидации, а объектную модель собирает

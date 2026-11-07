@@ -6,7 +6,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 6 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: строгая JSON-схема процесса
+/// Этап 6 конвейера генерации XAML: строгая JSON-схема процесса
 /// и её проверка <b>до</b> построения модели WF.
 /// <para>
 /// Проверяется главное обещание этапа: неизвестное поле, неизвестная активность и неверный тип

@@ -8,7 +8,7 @@ namespace AiRpaStudio.Tests;
 
 /// <summary>
 /// Этап 9 плана (docs\Vs2026_Theme_Plan.md, §8 п.9 «Финал»): автоматическая часть чеклиста §9.
-/// Ручная часть (реальный запуск студии) описана в AiRpaStudio\docs\Vs2026_Theme_Acceptance.md.
+/// Ручная часть (реальный запуск студии) описана в приложении A к AiRpaStudio\docs\Vs2026_Theme_Plan.md.
 /// <para>
 /// Здесь собраны сквозные стражи по ВСЕМ темизируемым XAML сразу: отсутствие зашитых цветов и
 /// named-цветов, отсутствие «третьей» палитры, единственный источник семантических цветов и
@@ -367,17 +367,17 @@ public class ThemeAcceptanceTests
         Assert.That(plan, Does.Contain("этапы 1-10"), "статус плана должен фиксировать завершение этапов 1-10");
         Assert.That(plan, Does.Contain("| 10."), "в таблице этапов нет строки 10 (рамка докпанелей)");
         Assert.That(plan, Does.Contain("| 9."), "в таблице «Сделано по этапам» нет строки этапа 9");
-        Assert.That(plan, Does.Contain("Vs2026_Theme_Acceptance.md"), "план должен ссылаться на чеклист приёмки");
+        Assert.That(plan, Does.Contain("Приложение A"), "чеклист ручной приёмки должен жить в приложении A плана");
     }
 
     [Test]
-    public void AcceptanceChecklist_CoversEveryManualItem()
+    public void AcceptanceChecklist_LivesInThemePlanAppendix()
     {
-        string checklist = Read(@"AiRpaStudio\docs\Vs2026_Theme_Acceptance.md");
+        string checklist = Read(@"AiRpaStudio\docs\Vs2026_Theme_Plan.md");
 
-        for (int item = 1; item <= 8; item++)
+        for (int item = 1; item <= 12; item++)
         {
-            Assert.That(checklist, Does.Contain($"### {item}."), $"в чеклисте нет пункта §9.{item}");
+            Assert.That(checklist, Does.Contain($"### {item}."), $"в приложении A нет пункта {item} чеклиста приёмки");
         }
 
         Assert.That(checklist, Does.Contain("vstest.console.exe"), "в чеклисте должна быть команда прогона тестов");
@@ -390,19 +390,11 @@ public class ThemeAcceptanceTests
         string agents = Read("AGENTS.md");
 
         Assert.That(agents, Does.Contain("Studio.Semantic."), "AGENTS.md должен описывать семантические кисти");
-        Assert.That(agents, Does.Contain("Vs2026_Theme_Acceptance.md"), "AGENTS.md должен ссылаться на чеклист приёмки");
+        Assert.That(agents, Does.Contain("Vs2026_Theme_Plan.md"), "AGENTS.md должен ссылаться на план темы и чеклист приёмки");
         Assert.That(agents, Does.Contain("StudioTheme.Dark.xaml"),
             "AGENTS.md должен запрещать legacy-палитры (третью тему)");
     }
 
-    [Test]
-    public void MaterialDesignPlan_IsMarkedAsSuperseded()
-    {
-        string plan = Read(@"AiRpaStudio\docs\Theming_MaterialDesign_Plan.md");
-
-        Assert.That(plan, Does.Contain("Vs2026_Theme_Plan.md"), "старый план должен ссылаться на актуальный");
-        Assert.That(plan, Does.Contain("заменён"), "старый план должен быть помечен как заменённый");
-    }
 
     [Test]
     public void MetroThemeFallbacks_AreNeutral()

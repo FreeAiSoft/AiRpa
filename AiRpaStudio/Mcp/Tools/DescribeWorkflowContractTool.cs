@@ -8,7 +8,7 @@ namespace RPA.Mcp.Tools
 {
     /// <summary>
     /// <c>xaml.describe_contract</c> — контракт генерации процесса для агента (этап 7 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// конвейер генерации XAML).
     /// <para>
     /// Инструмент ничего не собирает и ни чего не пишет на диск: он отдаёт правила (только
     /// <c>CSharpValue&lt;T&gt;</c>/<c>CSharpReference&lt;T&gt;</c>, только whitelist палитры), матрицу выбора

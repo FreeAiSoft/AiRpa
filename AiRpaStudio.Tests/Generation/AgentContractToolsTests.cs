@@ -10,7 +10,7 @@ using RPA.Mcp.Tools;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 7 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: MCP-инструмент
+/// Этап 7 конвейера генерации XAML: MCP-инструмент
 /// <c>xaml.describe_contract</c>.
 /// <para>
 /// Контракт должен быть доступен агенту из студии, а не «из памяти модели»: инструмент отдаёт правила,

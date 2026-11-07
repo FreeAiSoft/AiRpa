@@ -11,7 +11,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 4 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: палитра активностей
+/// Этап 4 конвейера генерации XAML: палитра активностей
 /// (<c>PaletteWorkflowService</c>) — единственный конвейер инструментов <c>xaml.*</c>.
 /// <para>
 /// Проверяется контракт п. 1.3 и 4 плана: создание процесса пишется и открывается в конструкторе,

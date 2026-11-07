@@ -6,7 +6,7 @@ namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
 /// Маршалинг на UI-поток студии (<see cref="DispatcherDesignerUiThread"/>), этап 3 плана
-/// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>.
+/// конвейер генерации XAML.
 /// <para>
 /// Без этого <c>DesignerOpenService</c>, вызванный из MCP-потока, создавал бы
 /// <c>WorkflowDesigner</c> в фоновом потоке: WPF-исключения и «пустая» диаграмма.

@@ -20,7 +20,7 @@ namespace AiRpaStudio.Tests.Design;
 /// загружается на STA-потоке стенда.
 /// <para>
 /// Нужна, чтобы «файл открывается и вкладка активна» (этап 3 плана
-/// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>) проверялось на живом дизайнере, а не только
+/// конвейер генерации XAML) проверялось на живом дизайнере, а не только
 /// на поддельной среде <c>DesignerOpenServiceTests</c>.
 /// </para>
 /// <para>

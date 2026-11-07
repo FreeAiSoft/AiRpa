@@ -11,7 +11,7 @@ namespace RPA.Core.Generation
 {
     /// <summary>
     /// Запись рабочего процесса в XAML сериализатором WF (этап 2 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// конвейер генерации XAML).
     /// <para>
     /// Текст XAML не собирается конкатенацией строк: используется тот же сериализатор, которым
     /// сохраняет сама студия (<c>ActivityXamlServices.CreateBuilderWriter</c> + <c>XamlServices.Save</c>).

@@ -9,7 +9,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 4 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: сборка активности по описанию
+/// Этап 4 конвейера генерации XAML: сборка активности по описанию
 /// палитры (<c>ActivityPaletteFactory</c>).
 /// <para>
 /// Проверяется главное требование п. 1.2: значения аргументов становятся

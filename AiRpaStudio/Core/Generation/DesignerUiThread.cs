@@ -7,7 +7,7 @@ namespace RPA.Core.Generation
 {
     /// <summary>
     /// Поток, на котором разрешено работать с конструктором (этап 3 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// конвейер генерации XAML).
     /// <para>
     /// Абстракция нужна, чтобы <see cref="DesignerOpenService"/> не зависел от <c>Application.Current</c>:
     /// в тестах используется диспетчер стенда конструктора.

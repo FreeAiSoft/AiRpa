@@ -8,7 +8,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 2 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: гейт валидации
+/// Этап 2 конвейера генерации XAML: гейт валидации
 /// <c>WorkflowValidationGate</c> и конвейер сохранения <c>WorkflowBuildService</c>.
 /// <para>
 /// Гейт считается работающим, только если он «зелёный» на каноническом XAML и «красный» на каждом

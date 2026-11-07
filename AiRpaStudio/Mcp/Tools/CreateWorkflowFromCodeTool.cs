@@ -8,7 +8,7 @@ namespace RPA.Mcp.Tools
 {
     /// <summary>
     /// <c>xaml.create_workflow_from_code</c> — Code-First через Roslyn (этап 5 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// конвейер генерации XAML).
     /// <para>
     /// Агент присылает C#-код процесса; песочница компилирует его, транслятор достаёт дерево активностей,
     /// дальше работает общий конвейер: канонизация → сериализатор WF → гейт валидации → вкладка

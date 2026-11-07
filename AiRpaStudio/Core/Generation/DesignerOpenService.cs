@@ -10,7 +10,7 @@ namespace RPA.Core.Generation
 {
     /// <summary>
     /// Решение о записи файла процесса, открытого в конструкторе (этап 3 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// конвейер генерации XAML).
     /// <para>
     /// Студия открывает файл вкладкой, и вкладка держит его с <c>FileShare.Read</c>: перезапись даёт
     /// <see cref="IOException"/> уже после успешной валидации. Поэтому запрет формулируется заранее —
@@ -205,7 +205,7 @@ namespace RPA.Core.Generation
 
     /// <summary>
     /// Открытие процесса в конструкторе студии — единственный путь показа вкладки (этап 3 плана
-    /// <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>, п. 1.3).
+    /// конвейер генерации XAML, п. 1.3).
     /// <list type="bullet">
     /// <item>файл открывается один раз: повторный вызов активирует существующую вкладку
     /// (<see cref="IWorkflowDesignerHost.GetOpenTabs"/> вместо второго <c>WorkflowDesigner</c>);</item>

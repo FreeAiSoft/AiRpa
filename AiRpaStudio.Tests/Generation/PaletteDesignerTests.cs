@@ -4,7 +4,7 @@ using AiRpaStudio.Tests.Design;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 4 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c> на настоящем конструкторе:
+/// Этап 4 конвейера генерации XAML на настоящем конструкторе:
 /// палитра вставляет активность в живой <c>WorkflowDesigner</c> (стенд этапа 1), файл сохраняется
 /// сериализатором конструктора, гейт валидации зелёный, вкладка открыта и активна.
 /// <para>

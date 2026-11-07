@@ -11,7 +11,7 @@ namespace RPA.Core.Generation
     /// <summary>
     /// Результат генерации процесса: единый формат ответа инструмента
     /// <c>{ok, workflowId, filePath, xaml, errors[], warnings[], hints[]}</c>
-    /// (этап 2 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>).
+    /// (этап 2 конвейера генерации XAML).
     /// </summary>
     internal sealed class WorkflowBuildResult
     {
@@ -144,7 +144,7 @@ namespace RPA.Core.Generation
     }
 
     /// <summary>
-    /// Единый конвейер генерации процесса (этап 2 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>):
+    /// Единый конвейер генерации процесса (этап 2 конвейера генерации XAML):
     /// <code>
     /// Activity / ActivityBuilder
     ///   → WorkflowCanonicalizer (формат студии по объектной модели)

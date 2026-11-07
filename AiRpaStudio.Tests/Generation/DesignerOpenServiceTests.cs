@@ -5,7 +5,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Этап 3 плана <c>AiRpaStudio\docs\Valid_Xaml_Designer_Plan.md</c>: открытие процесса в конструкторе
+/// Этап 3 конвейера генерации XAML: открытие процесса в конструкторе
 /// (<c>DesignerOpenService</c>).
 /// <para>
 /// Проверяется контракт п. 1.3 плана: файл открывается и его вкладка активна, повторный вызов

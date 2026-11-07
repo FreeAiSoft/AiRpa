@@ -342,7 +342,7 @@ namespace RPA.Core
                 {
                     // Открытие — через DesignerOpenService: второй конструктор на уже открытый файл
                     // не создаётся, вызов уходит на UI-поток, ошибка возвращается результатом
-                    // (этап 3 плана docs\Valid_Xaml_Designer_Plan.md).
+                    // (этап 3 плана `конвейер генерации XAML`).
                     DesignerOpenResult openResult = DesignerOpenService.ForStudio(message => Log(message)).OpenOrActivate(dialogOpen.FileName);
                     if (!openResult.Ok)
                     {

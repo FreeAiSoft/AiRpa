@@ -25,7 +25,7 @@ namespace RPA.Helpers
     /// «работает в одном инструменте, ломается в другом».
     /// </para>
     /// <para>
-    /// Перечень требований (см. <c>docs\Valid_Xaml_Designer_Plan.md</c>, п. 2.3):
+    /// Перечень требований (см. <c>`конвейер генерации XAML`</c>, п. 2.3):
     /// <list type="bullet">
     /// <item><c>DesignerConfigurationService</c>: .NET Framework 4.5 + загрузка из недоверенного источника;</item>
     /// <item>метаданные дизайнера (<see cref="DesignerMetadata"/>) — иначе у стандартных активностей нет вьюх;</item>
