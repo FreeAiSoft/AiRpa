@@ -81,7 +81,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="56" />
+                        <ColumnDefinition Width="37" />
                     </Grid.ColumnDefinitions>
 
                     <Grid Grid.Column="0" Width="32" Height="32" Margin="0,1,10,0" VerticalAlignment="Top">
@@ -148,19 +148,20 @@
                                    Visibility="{Binding HasStateBadge, Converter={StaticResource BoolToVisibility}}" />
                     </StackPanel>
 
-                    <!-- Кнопки плашки: место под них выделено всегда (колонка 56px), поэтому появление
-                         по наведению не сдвигает ни имя, ни версию, ни описание. -->
+                    <!-- Кнопки плашки: место под них выделено всегда (колонка 37px — прежние 56px,
+                         суженные в 1.5 раза), поэтому появление по наведению не сдвигает ни имя,
+                         ни версию, ни описание. -->
                     <StackPanel Grid.Column="3"
                                 Orientation="Horizontal"
                                 VerticalAlignment="Top"
                                 HorizontalAlignment="Right"
-                                Margin="8,0,0,0">
+                                Margin="5,0,0,0">
                         <Button x:Name="RowActionButton"
                                 Style="{StaticResource NuGet.RowIconButtonStyle}"
                                 Command="{Binding DataContext.InstallItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                 CommandParameter="{Binding}"
                                 ToolTip="{Binding RowActionText}">
-                            <materialIcons:MaterialIcon Width="14" Height="14" Kind="Download"
+                            <materialIcons:MaterialIcon Width="10" Height="10" Kind="Download"
                                                         Foreground="{DynamicResource Studio.Foreground}" />
                         </Button>
                         <Button x:Name="RowUninstallButton"
@@ -168,7 +169,7 @@
                                 Command="{Binding DataContext.UninstallItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                 CommandParameter="{Binding}"
                                 ToolTip="Uninstall">
-                            <materialIcons:MaterialIcon Width="14" Height="14" Kind="Delete"
+                            <materialIcons:MaterialIcon Width="10" Height="10" Kind="Close"
                                                         Foreground="{DynamicResource Studio.Foreground}" />
                         </Button>
                     </StackPanel>
@@ -448,14 +449,14 @@
                                     BorderBrush="{DynamicResource Studio.Separator}"
                                     BorderThickness="1"
                                     CornerRadius="0" />
-                            <Image Source="{Binding Item.Icon}" Margin="3" Stretch="Uniform" />
-                            <TextBlock Text="{Binding Item.Monogram}"
+                            <Image x:Name="DetailsIcon" Source="{Binding PackageIcon}" Margin="3" Stretch="Uniform" />
+                            <TextBlock x:Name="DetailsMonogram" Text="{Binding PackageMonogram}"
                                        IsHitTestVisible="False"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center"
                                        FontSize="16"
                                        Foreground="{DynamicResource Studio.ForegroundMuted}"
-                                       Visibility="{Binding Item.HasIcon, Converter={StaticResource InverseBoolToVisibility}}" />
+                                       Visibility="{Binding HasPackageIcon, Converter={StaticResource InverseBoolToVisibility}}" />
                         </Grid>
 
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">

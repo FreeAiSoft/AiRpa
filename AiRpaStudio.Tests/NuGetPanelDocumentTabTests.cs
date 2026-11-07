@@ -333,6 +333,63 @@ public class NuGetPanelDocumentTabTests
         Assert.That(model.Details.Item.HasIcon, Is.True, "логотип в шапке деталей берётся из карточки");
     }
 
+    [Test, Apartment(ApartmentState.STA)]
+    public async Task Panel_DetailsHeaderShowsPackageIcon()
+    {
+        // Приёмка: картинка пакета (или фолбэк-монограмм) обязана быть и в правой колонке,
+        // а не только на плашке списка.
+        var icons = new StubIconService();
+        var model = new NuGetPanelViewModel(new NuGetSearchService("https://127.0.0.1:1/index.json"), icons: icons);
+
+        var withIcon = new NuGetPackageItemViewModel(new NuGetPackageInfo
+        {
+            Id = "Newtonsoft.Json",
+            Version = "13.0.4",
+            IconUrl = "https://example.org/json.png",
+            Authors = "James Newton-King"
+        }, icons.LoadAsync);
+
+        var withoutIcon = new NuGetPackageItemViewModel(new NuGetPackageInfo
+        {
+            Id = "Acme.Widgets",
+            Version = "1.0.0",
+            Authors = "Acme"
+        });
+
+        model.BrowseItems.Add(withIcon);
+        model.BrowseItems.Add(withoutIcon);
+        await withIcon.LoadIconAsync();
+
+        var panel = new NuGetPanel(model);
+        panel.Measure(new Size(1100, 700));
+        panel.Arrange(new Rect(0, 0, 1100, 700));
+        panel.UpdateLayout();
+
+        model.SelectedItem = withIcon;
+        panel.UpdateLayout();
+
+        var icon = panel.FindName("DetailsIcon") as Image;
+        var monogram = panel.FindName("DetailsMonogram") as TextBlock;
+        Assert.That(icon, Is.Not.Null, "в шапке деталей есть картинка пакета");
+        Assert.That(monogram, Is.Not.Null, "в шапке деталей есть фолбэк-монограмм");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(icon.Source, Is.Not.Null, "картинка пакета отображается в правой колонке");
+            Assert.That(monogram.Visibility, Is.EqualTo(Visibility.Collapsed), "при наличии иконки монограмм скрыт");
+        });
+
+        model.SelectedItem = withoutIcon;
+        panel.UpdateLayout();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(icon.Source, Is.Null, "без иконки картинки нет — шапка показывает фолбэк");
+            Assert.That(monogram.Text, Is.EqualTo("A"), "фолбэк — первая буква идентификатора");
+            Assert.That(monogram.Visibility, Is.EqualTo(Visibility.Visible), "монограмм виден");
+        });
+    }
+
     /// <summary>Загрузчик иконок без сети: отдаёт пустую картинку 1×1.</summary>
     private sealed class StubIconService : NuGetIconService
     {

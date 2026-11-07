@@ -1,5 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Windows.Media;
 using System.Linq;
 using RPA.NuGet.Models;
 using RPA.NuGet.Services;
@@ -22,6 +24,7 @@ namespace RPA.NuGet.ViewModels
         private bool _isReadmeSelected = true;
         private string _readme;
         private string _sourceName;
+        private NuGetPackageItemViewModel _item;
 
         public NuGetPackageDetailsViewModel()
         {
@@ -32,7 +35,69 @@ namespace RPA.NuGet.ViewModels
         public NuGetPackageDetails Details { get; private set; }
 
         /// <summary>Строка списка, из которой открыты детали (источник иконки, авторов и счётчика).</summary>
-        public NuGetPackageItemViewModel Item { get; private set; }
+        public NuGetPackageItemViewModel Item
+        {
+            get => _item;
+            private set
+            {
+                if (ReferenceEquals(_item, value))
+                    return;
+
+                // Смена строки обязана уведомлять шапку: картинка пакета приходит позже выбора
+                // (LoadIconAsync), а привязка к Item.Icon запоминала null навсегда — из-за этого
+                // правая колонка оставалась без логотипа и с «залипшим» монограммом.
+                if (_item != null)
+                    _item.PropertyChanged -= Item_PropertyChanged;
+
+                _item = value;
+
+                if (_item != null)
+                    _item.PropertyChanged += Item_PropertyChanged;
+
+                RaisePropertyChanged();
+                RaiseIconChanged();
+            }
+        }
+
+        /// <summary>Картинка пакета для шапки деталей; <c>null</c> — иконка ещё не загружена.</summary>
+        public ImageSource PackageIcon => _item?.Icon;
+
+        /// <summary>Иконка действительно есть: монограмм-заглушка показывается только без неё.</summary>
+        public bool HasPackageIcon => _item?.HasIcon == true;
+
+        /// <summary>Фолбэк шапки — та же монограмма, что и на плашке списка.</summary>
+        public string PackageMonogram
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(_item?.Monogram))
+                    return _item.Monogram;
+
+                string id = Id;
+                return string.IsNullOrWhiteSpace(id) ? string.Empty : id.Substring(0, 1).ToUpperInvariant();
+            }
+        }
+
+        private void Item_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(NuGetPackageItemViewModel.Icon)
+                || e.PropertyName == nameof(NuGetPackageItemViewModel.HasIcon))
+            {
+                RaiseIconChanged();
+            }
+            else if (e.PropertyName == nameof(NuGetPackageItemViewModel.Monogram))
+            {
+                RaisePropertyChanged(nameof(PackageMonogram));
+            }
+        }
+
+        /// <summary>Уведомления шапки об иконке — и при смене карточки, и при её загрузке.</summary>
+        private void RaiseIconChanged()
+        {
+            RaisePropertyChanged(nameof(PackageIcon));
+            RaisePropertyChanged(nameof(HasPackageIcon));
+            RaisePropertyChanged(nameof(PackageMonogram));
+        }
 
         public ObservableCollection<NuGetPackageVersionInfo> Versions { get; }
 
@@ -262,6 +327,9 @@ namespace RPA.NuGet.ViewModels
             RaisePropertyChanged(nameof(DownloadsText));
             RaisePropertyChanged(nameof(HasDownloads));
             RaisePropertyChanged(nameof(HasVersions));
+            RaisePropertyChanged(nameof(PackageIcon));
+            RaisePropertyChanged(nameof(HasPackageIcon));
+            RaisePropertyChanged(nameof(PackageMonogram));
             RaisePropertyChanged(nameof(ActionText));
         }
     }

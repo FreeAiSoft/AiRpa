@@ -40,6 +40,12 @@ the list and a back button returns to the list.
 - Installing updates `packages.config` or `<PackageReference>` in the `.csproj`;
   legacy projects also get the package extracted into `packages\`.
 
+- Package row buttons (shown on hover): **install/update** is an arrow,
+  **uninstall** is a cross. Their column is narrow (37px) and the buttons are
+  16×16, so revealing them never shifts the id, version or description.
+- The package logo is also shown in the details pane header; when a package has
+  no icon, a monogram (the first letter of the id) is used, as in the list row.
+
 ## See also
 
 - `en/project-management.md` — project management.

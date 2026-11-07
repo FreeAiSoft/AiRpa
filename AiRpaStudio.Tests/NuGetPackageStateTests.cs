@@ -363,4 +363,38 @@ public class NuGetPackageStateTests
 
         Assert.That(calls, Is.EqualTo(1), "после прихода IconUrl иконка загружается");
     }
+
+    [Test]
+    public async Task Details_HeaderShowsIconOrMonogramFallback()
+    {
+        // Замечание приёмки: в правой колонке не было картинки пакета. Причина — шапка деталей
+        // привязывалась к Item.Icon напрямую, а Item присваивался без уведомления (иконка вдобавок
+        // приходит позже вызова LoadIconAsync). Проверяем фолбэк и приход картинки.
+        var item = new NuGetPackageItemViewModel(
+            new NuGetPackageInfo { Id = "Newtonsoft.Json", Version = "13.0.4" },
+            _ => Task.FromResult<ImageSource>(new DrawingImage()));
+
+        var details = new NuGetPackageDetailsViewModel();
+        var changed = new System.Collections.Generic.List<string>();
+        details.PropertyChanged += (sender, args) => changed.Add(args.PropertyName);
+
+        details.Load(new NuGetPackageDetails { Id = "Newtonsoft.Json", Version = "13.0.4" }, item, null, "nuget.org");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(details.PackageIcon, Is.Null, "иконки ещё нет — шапка показывает монограмм");
+            Assert.That(details.HasPackageIcon, Is.False);
+            Assert.That(details.PackageMonogram, Is.EqualTo("N"), "фолбэк — первая буква идентификатора");
+        });
+
+        await item.LoadIconAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(details.PackageIcon, Is.Not.Null, "картинка из карточки доходит до шапки деталей");
+            Assert.That(details.HasPackageIcon, Is.True);
+            Assert.That(changed, Does.Contain(nameof(NuGetPackageDetailsViewModel.PackageIcon)),
+                "без уведомления привязка остаётся пустой — это и был дефект правой колонки");
+        });
+    }
 }

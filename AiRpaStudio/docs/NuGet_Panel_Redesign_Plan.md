@@ -1,4 +1,4 @@
-﻿# План: менеджер пакетов NuGet в стиле Visual Studio 2026 (дизайн без скруглений)
+# План: менеджер пакетов NuGet в стиле Visual Studio 2026 (дизайн без скруглений)
 
 ## Метаданные
 
@@ -442,3 +442,48 @@ Views\NuGetPanel.Styles.xaml
 | `...TryReadReadme_FallsBackToAnotherVersion` | удалённая версия → README берётся у запасной |
 | `...TryReadReadme_ReportsFailureReasonInsteadOfSilence` | причина неудачи видна в `LastReadmeError` |
 | `...Panel_ReadmeTabAppearsWhenReadmeLoaded` | после загрузки README вкладка «README» в разметке становится видимой |
+
+---
+
+## 11. Правки по замечаниям четвёртой приёмки (07.11.2026)
+
+### 11.1 Картинка пакета (или фолбэк) в правой колонке
+
+Причина «в правой колонке нет картинки» — не вёрстка. Разметка уже содержала `Image` и
+фолбэк-монограмм, но привязка шла напрямую к `Item.Icon`: панель деталей — один экземпляр
+`NuGetPackageDetailsViewModel` на всю панель (`Details` не пересоздаётся, уведомления о его смене
+нет), а `Item` присваивался без `RaisePropertyChanged`. Привязка запоминала `null` и больше не
+пересчитывалась; вдобавок иконка загружается асинхронно уже после выбора пакета.
+
+Исправление:
+
+- `Item` в `NuGetPackageDetailsViewModel` стало свойством с уведомлением; при смене строки подписка
+  на `PropertyChanged` карточки снимается и ставится заново (в `Clear` — снимается).
+- Добавлены `PackageIcon`, `HasPackageIcon`, `PackageMonogram` (фолбэк — первая буква
+  идентификатора). Они поднимаются и при смене карточки, и по событиям `Icon`/`HasIcon`/`Monogram` её
+  самой, поэтому картинка «доезжает» до шапки без повторного выбора пакета.
+- В шапке деталей привязки переведены на эти свойства; элементы получили имена `DetailsIcon` и
+  `DetailsMonogram` — для стражей.
+
+### 11.2 Кнопки плашки: узкая колонка и крестик
+
+| Что | Было | Стало |
+|---|---|---|
+| Колонка кнопок в `NuGet.PackageRowTemplate` | `56` | `37` (56 / 1,5) |
+| `NuGet.RowIconButtonStyle` | 24×24 | 16×16 |
+| Глифы кнопок | 14×14 | 10×10 |
+| Отступ панели кнопок | `8,0,0,0` | `5,0,0,0` |
+| Иконка удаления | `MaterialIcon Kind="Delete"` | `MaterialIcon Kind="Close"` (крестик) |
+
+Арифметика колонки: 16 + 16 + 5 = 37, поэтому обе кнопки укладываются ровно в колонку, и появление
+по наведению по-прежнему не сдвигает ни имя, ни версию, ни описание.
+
+### 11.3 Стражи четвёртой приёмки
+
+| Тест | Что держит |
+|---|---|
+| `NuGetPackageStateTests.Details_HeaderShowsIconOrMonogramFallback` | монограмм до прихода иконки; после `LoadIconAsync` приходит `PackageIcon` **и** уведомление |
+| `NuGetPanelDocumentTabTests.Panel_DetailsHeaderShowsPackageIcon` | в шапке деталей `Image` показывает иконку выбранного пакета, а без иконки виден монограмм |
+| `NuGetPanelLayoutTests.RowIconButtons_AreSizedForNarrowColumn` | кнопка плашки 16×16 (прежние 24×24 не влезают в колонку) |
+| `NuGetPanelLayoutTests.Panel_RowButtonsFitNarrowColumn` | обе кнопки по 16px укладываются в колонку 37px, крестик не выходит за край плашки |
+| `NuGetPanelLayoutTests.ComboBoxStyle_SizesToContentWithMaterialChevron` | колонка 37px, `Kind="Close"`, отсутствие `Kind="Delete"` и прежней ширины 56px |

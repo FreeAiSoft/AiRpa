@@ -54,11 +54,14 @@ public class NuGetPanelLayoutTests
             Assert.That(styles, Does.Contain("Grid.Column=\"0\""), "у иконки первая колонка");
 
             // Место под кнопки плашки выделено всегда.
-            Assert.That(panel, Does.Contain("<ColumnDefinition Width=\"56\" />"),
-                "под кнопки плашки обязана быть выделена фиксированная колонка");
+            Assert.That(panel, Does.Contain("<ColumnDefinition Width=\"37\" />"),
+                "под кнопки плашки выделена фиксированная колонка, суженная в 1.5 раза: 56 → 37");
+            Assert.That(panel, Does.Not.Contain("<ColumnDefinition Width=\"56\" />"),
+                "прежняя ширина колонки 56px больше не используется");
             Assert.That(panel, Does.Contain("NuGet.RowIconButtonStyle"), "кнопки плашки — иконочные");
             Assert.That(panel, Does.Contain("Kind=\"Download\""), "кнопка установки — иконка Download");
-            Assert.That(panel, Does.Contain("Kind=\"Delete\""), "кнопка удаления — иконка Delete");
+            Assert.That(panel, Does.Contain("Kind=\"Close\""), "кнопка удаления — крестик");
+            Assert.That(panel, Does.Not.Contain("Kind=\"Delete\""), "иконка Delete заменена крестиком");
             Assert.That(panel, Does.Not.Contain("Content=\"Install\""), "текстовых кнопок на плашке больше нет");
         });
     }
@@ -126,6 +129,79 @@ public class NuGetPanelLayoutTests
         {
             window.Close();
             Directory.Delete(directory, true);
+        }
+    }
+
+    [Test]
+    public void RowIconButtons_AreSizedForNarrowColumn()
+    {
+        // Колонка кнопок сужена в 1.5 раза (56 → 37): две кнопки по 24px в неё не помещаются,
+        // поэтому размер кнопки плашки — 16×16 (16 + 16 + отступ 5 = ровно 37).
+        string styles = Read(@"RPA.NuGet\Views\NuGetPanel.Styles.xaml");
+        int start = styles.IndexOf("x:Key=\"NuGet.RowIconButtonStyle\"", StringComparison.Ordinal);
+        Assert.That(start, Is.GreaterThan(0), "нет стиля кнопки плашки");
+
+        int end = styles.IndexOf("</Style>", start, StringComparison.Ordinal);
+        Assert.That(end, Is.GreaterThan(start));
+        string block = styles.Substring(start, end - start);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(block, Does.Contain("Value=\"16\""), "кнопка плашки — 16×16");
+            Assert.That(block, Does.Not.Contain("Value=\"24\""), "прежний размер 24×24 не влезает в узкую колонку");
+        });
+    }
+
+    [Test, Apartment(ApartmentState.STA)]
+    public void Panel_RowButtonsFitNarrowColumn()
+    {
+        // Обе кнопки плашки (установка и удаление-крестик) обязаны укладываться в суженную колонку
+        // 37px: 16 + 16 + отступ 5 = ровно 37, иначе крестик выходил бы за правый край плашки.
+        var model = new NuGetPanelViewModel(new StubSearchService());
+        model.BrowseItems.Add(new NuGetPackageItemViewModel(new NuGetPackageInfo
+        {
+            Id = "Newtonsoft.Json",
+            Version = "13.0.4",
+            Authors = "James Newton-King",
+            Description = "Json.NET is a popular high-performance JSON framework for .NET"
+        }));
+
+        var panel = new RPA.NuGet.Views.NuGetPanel(model);
+        Window window = ShowInWindow(panel);
+
+        try
+        {
+            panel.UpdateLayout();
+            Pump();
+
+            var list = panel.FindName("PackageList") as ListBox;
+            Assert.That(list, Is.Not.Null);
+            var row = list.ItemContainerGenerator.ContainerFromIndex(0) as ListBoxItem;
+            Assert.That(row, Is.Not.Null, "строка списка создана");
+
+            var action = FindDescendant<Button>(row, b => b.Name == "RowActionButton");
+            var uninstall = FindDescendant<Button>(row, b => b.Name == "RowUninstallButton");
+            Assert.That(action, Is.Not.Null, "кнопка установки есть в строке");
+            Assert.That(uninstall, Is.Not.Null, "кнопка удаления есть в строке");
+
+            action.Visibility = Visibility.Visible;
+            uninstall.Visibility = Visibility.Visible;
+            panel.UpdateLayout();
+            Pump();
+
+            double right = uninstall.TransformToAncestor(row).Transform(new Point(0, 0)).X + uninstall.ActualWidth;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(action.ActualWidth, Is.EqualTo(16d).Within(0.5), "кнопка установки — 16px");
+                Assert.That(uninstall.ActualWidth, Is.EqualTo(16d).Within(0.5), "кнопка удаления — 16px");
+                Assert.That(right, Is.LessThanOrEqualTo(row.ActualWidth + 0.5),
+                    "крестик не выходит за правый край плашки");
+            });
+        }
+        finally
+        {
+            window.Close();
         }
     }
 

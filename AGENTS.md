@@ -75,6 +75,15 @@
   Молчаливый `catch` вокруг README запрещён: из-за него вкладка README «пропадала у всех пакетов».
   Стражи — `AiRpaStudio.Tests\NuGetReadmeLoadTests.cs`.
 
+- Шапка правой колонки берёт картинку пакета **только** через `PackageIcon`/`HasPackageIcon`/`PackageMonogram`
+  (`NuGetPackageDetailsViewModel`): прямая привязка `Item.Icon` не обновляется, потому что `Details` — один
+  экземпляр на всю панель, `Item` присваивался без уведомления, а иконка приходит позже (`LoadIconAsync`).
+  Фолбэк — монограмма (первая буква идентификатора). Стражи: `NuGetPackageStateTests.Details_HeaderShowsIconOrMonogramFallback`,
+  `NuGetPanelDocumentTabTests.Panel_DetailsHeaderShowsPackageIcon`.
+- Кнопки плашки списка: колонка **37px** (прежние 56px, суженные в 1,5 раза), кнопки 16×16, глифы 10×10;
+  удаление — `MaterialIcon Kind="Close"` (крестик), установка/обновление — `Kind="Download"`; 16 + 16 + 5 = 37.
+  Стражи: `NuGetPanelLayoutTests.RowIconButtons_AreSizedForNarrowColumn`, `...Panel_RowButtonsFitNarrowColumn`.
+
 ## 4.7.2-робот на 4.8-хосте (`CP-08`)
 
 - Студия (.NET Framework 4.8) запускает робота, собранного на **4.7.2**, в своём AppDomain: одна и та же
