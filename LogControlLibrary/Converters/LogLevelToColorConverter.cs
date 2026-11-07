@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 using LogControlLibrary.Models;
@@ -9,16 +10,26 @@ namespace LogControlLibrary.Converters
     /// <summary>
     /// Уровень логирования → цвет текста колонки «Уровень».
     /// <para>
-    /// Цвета уровней — семантика (Trace/Debug/Info/Warning/Error/Fatal), а не акцент интерфейса,
+    /// Цвета уровней — семантика (Debug/Info/Warning/Error/Fatal), а не акцент интерфейса,
     /// но они обязаны читаться и в тёмной, и в светлой теме студии (docs\Vs2026_Theme_Plan.md, §8 п.8, F-07).
     /// Поэтому здесь средние тона: ни чистого белого (не виден на светлом фоне), ни чистого чёрного
     /// (не виден на тёмном).
     /// </para>
+    /// <para>
+    /// Trace — исключение: это «шум», у него нет своего цвета-сигнала, поэтому буквы уровня красятся
+    /// основным цветом текста панели: <c>Studio.Foreground</c> (белый в тёмной теме, чёрный в светлой).
+    /// Ключ читается из ресурсов приложения по строке — библиотека лога не ссылается на <c>RPA.Helpers</c>
+    /// (тот же приём, что в <c>Activities\Converters\BoolToColorConverter</c>); <see cref="TraceBrush"/>
+    /// остаётся замороженным запасным значением на случай, когда ресурсов палитры нет.
+    /// </para>
     /// </summary>
     public class LogLevelToColorConverter : IValueConverter
     {
-        /// <summary>Trace — нейтральный серый.</summary>
-        public Brush TraceBrush { get; set; } = Frozen(Color.FromRgb(0x8C, 0x8C, 0x8C));
+        /// <summary>Ключ палитры: основной цвет текста студии (белый в тёмной теме, чёрный в светлой).</summary>
+        public const string ForegroundKey = "Studio.Foreground";
+
+        /// <summary>Trace — запасной нейтральный тон; в работе берётся Studio.Foreground (см. ThemedForeground).</summary>
+        public Brush TraceBrush { get; set; } = Frozen(Color.FromRgb(0x9D, 0xA0, 0xA6));
 
         /// <summary>Debug — приглушённый синий.</summary>
         public Brush DebugBrush { get; set; } = Frozen(Color.FromRgb(0x5B, 0x9B, 0xD5));
@@ -46,7 +57,7 @@ namespace LogControlLibrary.Converters
                 switch (logLevel)
                 {
                     case LogLevel.Trace:
-                        return TraceBrush;
+                        return ThemedForeground();
                     case LogLevel.Debug:
                         return DebugBrush;
                     case LogLevel.Info:
@@ -69,6 +80,18 @@ namespace LogControlLibrary.Converters
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotSupportedException("Обратное преобразование не поддерживается для LogLevelToColorConverter");
+        }
+
+        /// <summary>
+        /// Основной цвет текста панели из палитры студии: белый в тёмной теме, чёрный в светлой.
+        /// Если ресурсов палитры нет (контрол вне студии), остаётся запасной <see cref="TraceBrush"/>.
+        /// </summary>
+        private Brush ThemedForeground()
+        {
+            ResourceDictionary resources = Application.Current == null ? null : Application.Current.Resources;
+            object themed = resources == null ? null : resources[ForegroundKey];
+
+            return themed as Brush ?? TraceBrush;
         }
 
         private static Brush Frozen(Color color)

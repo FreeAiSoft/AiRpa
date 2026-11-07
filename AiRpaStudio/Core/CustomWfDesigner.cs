@@ -509,11 +509,32 @@ namespace RPA.Core
                 // приложения его тик пытается показать модальное окно конструктора).
                 designer.DetachValidation();
 
+                // Активный дизайнер фиксируется ДО закрытия вкладки: закрытие вкладки в UI поднимает
+                // IsSelectedChanged и успевает переключить активного дизайнера на другую вкладку.
+                // Чей выбор останется последним словом — решает панель документов (см. ниже).
+                WorkflowDesignerEx activeBeforeClose = ActiveWorkflowDesignerEx;
+
                 // Закрываем вкладку в UI перед удалением из коллекции
                 DocGroupHelper docGroupHelper = DocGroupHelper.GetInstance();
                 docGroupHelper?.CloseDocumentByPath(loadedFile);
 
-                ActiveWorkflowDesignerEx = WorkflowDesigners.Count > 0 ? WorkflowDesigners[0] : null;
+                // Повторный вход через DocClosed → CmdRemoveDesigner (CloseDocumentByPath выше) вкладку
+                // уже убрал: решение об активной вкладке принято, второй раз выбирать нельзя.
+                if (!WorkflowDesigners.Contains(designer))
+                {
+                    return;
+                }
+
+                // Какая вкладка станет активной, решает панель документов — DocumentTabsCloseCoordinator
+                // (правило DocumentTabPolicy): только она видит вкладки обоих видов, то есть то, что
+                // реально было на экране. Модель лишь перестаёт считать активным закрытый дизайнер:
+                // фоновую вкладку можно закрыть, не переключая видимую, а закрытый документ активным
+                // остаться не может (иначе SyncWFControls и сохранение работали бы с закрытым документом).
+                if (ReferenceEquals(activeBeforeClose, designer))
+                {
+                    ActiveWorkflowDesignerEx = null;
+                }
+
                 _ = WorkflowDesigners.Remove(designer);
             }
             else

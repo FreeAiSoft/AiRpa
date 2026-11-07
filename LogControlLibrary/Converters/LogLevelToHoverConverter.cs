@@ -17,8 +17,8 @@ namespace LogControlLibrary.Converters
     {
         private const byte HoverAlpha = 0x28;
 
-        /// <summary>Trace — нейтральная подсветка.</summary>
-        public Brush TraceBrush { get; set; } = Frozen(Overlay(0x8C, 0x8C, 0x8C));
+        /// <summary>Trace — без подсветки: строки этого уровня не получают фона ни в покое, ни под курсором.</summary>
+        public Brush TraceBrush { get; set; } = Frozen(Colors.Transparent);
 
         /// <summary>Debug — синяя подсветка.</summary>
         public Brush DebugBrush { get; set; } = Frozen(Overlay(0x5B, 0x9B, 0xD5));

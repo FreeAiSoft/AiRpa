@@ -1,8 +1,201 @@
-<UserControl x:Class="RPA.NuGet.Views.NuGetPanel"
+﻿<UserControl x:Class="RPA.NuGet.Views.NuGetPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:RPA.NuGet.Converters"
+             xmlns:materialIcons="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
              FontFamily="{DynamicResource Studio.FontFamily}"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid Margin="8">
+             FontSize="12"
+             Background="{DynamicResource Studio.Surface}"
+             Foreground="{DynamicResource Studio.Foreground}"
+             UseLayoutRounding="True"
+             PreviewKeyDown="Panel_PreviewKeyDown"
+             SizeChanged="Panel_SizeChanged">
+
+    <!--
+        Менеджер пакетов NuGet в стиле Visual Studio 2026, но с прямыми углами (панель студии
+        плоская, см. docs\NuGet_Panel_Redesign_Plan.md): вкладки Browse/Installed/Updates, поиск
+        с Ctrl+L, выбор источника, список пакетов и панель деталей с выбором версии.
+        Цвета — только ключами палитры студии, шрифт — только Studio.FontFamily.
+    -->
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/RPA.NuGet;component/Views/NuGetPanel.Styles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+            <conv:EmptyStringToVisibilityConverter x:Key="EmptyToVisible" VisibleWhenEmpty="True" />
+            <conv:EmptyStringToVisibilityConverter x:Key="EmptyToCollapsed" VisibleWhenEmpty="False" />
+            <conv:InverseBooleanConverter x:Key="InverseBoolean" />
+            <conv:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
+            <conv:MarkdownToFlowDocumentConverter x:Key="MarkdownToDocument" />
+
+            <!-- Разделитель «список | детали»: hairline 1px, при наведении усиливается. -->
+            <Style x:Key="NuGet.SplitterStyle" TargetType="GridSplitter">
+                <Setter Property="Background" Value="{DynamicResource Studio.Separator}" />
+                <Setter Property="ShowsPreview" Value="False" />
+                <Setter Property="ResizeBehavior" Value="PreviousAndNext" />
+                <Setter Property="ResizeDirection" Value="Columns" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource Studio.SeparatorStrong}" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- Строка списка пакетов: иконка, идентификатор, авторы, описание, версия. -->
+            <!-- Строка таблицы источников: галочка, имя, адрес. -->
+            <DataTemplate x:Key="NuGet.SourceRowTemplate">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="60" />
+                        <ColumnDefinition Width="1.1*" />
+                        <ColumnDefinition Width="2*" />
+                    </Grid.ColumnDefinitions>
+
+                    <CheckBox Grid.Column="0"
+                              Style="{StaticResource NuGet.OverlayCheckBoxStyle}"
+                              IsChecked="{Binding IsEnabled, Mode=TwoWay}" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding Name}"
+                               Margin="2,0,8,0"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource Studio.Foreground}" />
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding Source}"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource Studio.ForegroundMuted}" />
+                </Grid>
+            </DataTemplate>
+
+            <!-- Строка списка пакетов: иконка, идентификатор, авторы, описание, версия и кнопки
+                 установки/удаления, которые появляются при наведении мыши на плашку. -->
+            <DataTemplate x:Key="NuGet.PackageRowTemplate">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="56" />
+                    </Grid.ColumnDefinitions>
+
+                    <Grid Grid.Column="0" Width="32" Height="32" Margin="0,1,10,0" VerticalAlignment="Top">
+                        <Border Background="{DynamicResource Studio.SurfaceAlt}"
+                                BorderBrush="{DynamicResource Studio.Separator}"
+                                BorderThickness="1"
+                                CornerRadius="0" />
+                        <TextBlock Text="{Binding Monogram}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="14"
+                                   Foreground="{DynamicResource Studio.ForegroundMuted}"
+                                   Visibility="{Binding HasIcon, Converter={StaticResource InverseBoolToVisibility}}" />
+                        <Image Source="{Binding Icon}" Margin="2" Stretch="Uniform" />
+                    </Grid>
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Top">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Path Grid.Column="0"
+                                  Width="9"
+                                  Height="9"
+                                  Margin="0,0,5,0"
+                                  VerticalAlignment="Center"
+                                  Stretch="Uniform"
+                                  Fill="{DynamicResource Studio.ForegroundMuted}"
+                                  Data="M 8,0 L 10.35,5.2 L 16,5.9 L 11.9,9.7 L 13,15.3 L 8,12.5 L 3,15.3 L 4.1,9.7 L 0,5.9 L 5.65,5.2 Z"
+                                  Visibility="{Binding IsPopular, Converter={StaticResource BoolToVisibility}}" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding Id}"
+                                       FontWeight="Bold"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource Studio.Foreground}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding AuthorLine}"
+                                       Margin="6,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Style="{StaticResource NuGet.MutedTextStyle}" />
+                        </Grid>
+                        <TextBlock Text="{Binding Description}"
+                                   Style="{StaticResource NuGet.MutedTextStyle}"
+                                   TextWrapping="Wrap"
+                                   MaxHeight="32"
+                                   Margin="0,2,8,0" />
+                        <TextBlock Text="{Binding DownloadsText}"
+                                   Style="{StaticResource NuGet.MutedTextStyle}"
+                                   Margin="0,2,8,0"
+                                   Visibility="{Binding DownloadsText, Converter={StaticResource EmptyToCollapsed}}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" VerticalAlignment="Top" HorizontalAlignment="Right">
+                        <TextBlock Text="{Binding Version}"
+                                   FontSize="12"
+                                   HorizontalAlignment="Right"
+                                   Foreground="{DynamicResource Studio.ForegroundMuted}" />
+                        <TextBlock Text="{Binding StateText}"
+                                   Style="{StaticResource NuGet.MutedTextStyle}"
+                                   HorizontalAlignment="Right"
+                                   Visibility="{Binding HasStateBadge, Converter={StaticResource BoolToVisibility}}" />
+                    </StackPanel>
+
+                    <!-- Кнопки плашки: место под них выделено всегда (колонка 56px), поэтому появление
+                         по наведению не сдвигает ни имя, ни версию, ни описание. -->
+                    <StackPanel Grid.Column="3"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Top"
+                                HorizontalAlignment="Right"
+                                Margin="8,0,0,0">
+                        <Button x:Name="RowActionButton"
+                                Style="{StaticResource NuGet.RowIconButtonStyle}"
+                                Command="{Binding DataContext.InstallItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                CommandParameter="{Binding}"
+                                ToolTip="{Binding RowActionText}">
+                            <materialIcons:MaterialIcon Width="14" Height="14" Kind="Download"
+                                                        Foreground="{DynamicResource Studio.Foreground}" />
+                        </Button>
+                        <Button x:Name="RowUninstallButton"
+                                Style="{StaticResource NuGet.RowIconButtonStyle}"
+                                Command="{Binding DataContext.UninstallItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                CommandParameter="{Binding}"
+                                ToolTip="Uninstall">
+                            <materialIcons:MaterialIcon Width="14" Height="14" Kind="Delete"
+                                                        Foreground="{DynamicResource Studio.Foreground}" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <DataTemplate.Triggers>
+                    <MultiDataTrigger>
+                        <MultiDataTrigger.Conditions>
+                            <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True" />
+                            <Condition Binding="{Binding CanInstallFromRow}" Value="True" />
+                        </MultiDataTrigger.Conditions>
+                        <Setter TargetName="RowActionButton" Property="Visibility" Value="Visible" />
+                    </MultiDataTrigger>
+                    <MultiDataTrigger>
+                        <MultiDataTrigger.Conditions>
+                            <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True" />
+                            <Condition Binding="{Binding IsInstalled}" Value="True" />
+                        </MultiDataTrigger.Conditions>
+                        <Setter TargetName="RowUninstallButton" Property="Visibility" Value="Visible" />
+                    </MultiDataTrigger>
+                </DataTemplate.Triggers>
+            </DataTemplate>
+
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -10,73 +203,695 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Search bar -->
-        <DockPanel Grid.Row="0" Margin="0,0,0,6">
-            <Button x:Name="SearchButton" DockPanel.Dock="Right" Content="Search" Padding="12,4" Click="SearchButton_Click" />
-            <CheckBox x:Name="PrereleaseCheckBox" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,8,0" Content="Include prerelease" IsChecked="{Binding IncludePrerelease}" />
-            <TextBox x:Name="SearchTextBox" VerticalContentAlignment="Center" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" KeyDown="SearchTextBox_KeyDown" />
-        </DockPanel>
+        <!-- ================= Вкладки и заголовок ================= -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource Studio.Surface}"
+                BorderBrush="{DynamicResource Studio.Separator}"
+                BorderThickness="0,0,0,1">
+            <Grid Margin="8,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-        <!-- Project selector -->
-        <DockPanel Grid.Row="1" Margin="0,0,0,6">
-            <Button x:Name="BrowseButton" DockPanel.Dock="Right" Content="Browse..." Padding="12,4" Click="BrowseButton_Click" />
-            <TextBox x:Name="ProjectPathTextBox" IsReadOnly="True" VerticalContentAlignment="Center" Text="{Binding ProjectPath}" />
-        </DockPanel>
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton Content="Browse"
+                                 GroupName="NuGetTab"
+                                 Style="{StaticResource NuGet.TabButtonStyle}"
+                                 IsChecked="{Binding IsBrowseTab, Mode=OneWay}"
+                                 Command="{Binding SelectTabCommand}"
+                                 CommandParameter="Browse" />
+                    <RadioButton Content="Installed"
+                                 GroupName="NuGetTab"
+                                 Style="{StaticResource NuGet.TabButtonStyle}"
+                                 IsChecked="{Binding IsInstalledTab, Mode=OneWay}"
+                                 Command="{Binding SelectTabCommand}"
+                                 CommandParameter="Installed" />
+                    <RadioButton Content="Updates"
+                                 GroupName="NuGetTab"
+                                 Style="{StaticResource NuGet.TabButtonStyle}"
+                                 IsChecked="{Binding IsUpdatesTab, Mode=OneWay}"
+                                 Command="{Binding SelectTabCommand}"
+                                 CommandParameter="Updates" />
+                </StackPanel>
 
-        <!-- Packages -->
+                <TextBlock Grid.Column="1"
+                           Text="{Binding ProjectHeader}"
+                           FontSize="20"
+                           Margin="12,0,0,0"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Right"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource Studio.Foreground}" />
+            </Grid>
+        </Border>
+
+        <!-- ================= Поиск и источник пакетов ================= -->
+        <Border Grid.Row="1"
+                Background="{DynamicResource Studio.Surface}"
+                BorderBrush="{DynamicResource Studio.Separator}"
+                BorderThickness="0,0,0,1">
+            <Grid Margin="8,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Grid Grid.Column="0" Visibility="{Binding ShowBrowseToolbar, Converter={StaticResource BoolToVisibility}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0"
+                            Height="28"
+                            Padding="6,0"
+                            VerticalAlignment="Center"
+                            Background="{DynamicResource Studio.SurfaceAlt}"
+                            BorderBrush="{DynamicResource Studio.Separator}"
+                            BorderThickness="1"
+                            CornerRadius="0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <Path Grid.Column="0"
+                                  Width="11"
+                                  Height="11"
+                                  Margin="0,0,6,0"
+                                  VerticalAlignment="Center"
+                                  Stretch="Uniform"
+                                  Stroke="{DynamicResource Studio.ForegroundMuted}"
+                                  StrokeThickness="1.2"
+                                  Data="M 6.5,0.7 A 5.8,5.8 0 1 0 6.5,12.3 A 5.8,5.8 0 1 0 6.5,0.7 M 10.8,10.8 L 15,15" />
+
+                            <Grid Grid.Column="1">
+                                <TextBox x:Name="SearchTextBox"
+                                         Style="{StaticResource NuGet.SearchTextBoxStyle}"
+                                         Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Search (Ctrl+L)"
+                                           VerticalAlignment="Center"
+                                           IsHitTestVisible="False"
+                                           Foreground="{DynamicResource Studio.ForegroundMuted}"
+                                           Visibility="{Binding SearchQuery, Converter={StaticResource EmptyToVisible}}" />
+                            </Grid>
+
+                            <Button Grid.Column="2"
+                                    Style="{StaticResource NuGet.IconButtonStyle}"
+                                    Command="{Binding ClearSearchCommand}"
+                                    ToolTip="Clear search"
+                                    Visibility="{Binding HasSearchQuery, Converter={StaticResource BoolToVisibility}}">
+                                <Path Width="8" Height="8" Stretch="Uniform"
+                                      Stroke="{DynamicResource Studio.ForegroundMuted}"
+                                      StrokeThickness="1.2"
+                                      Data="M 0,0 L 8,8 M 8,0 L 0,8" />
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <!-- Повтор поиска: заменяет Enter (поиск и так идёт по мере ввода). -->
+                    <Button Grid.Column="1"
+                            Margin="6,0,0,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource NuGet.IconButtonStyle}"
+                            Command="{Binding SearchCommand}"
+                            ToolTip="Refresh search results">
+                        <Path Width="13" Height="13" Stretch="Uniform"
+                              Stroke="{DynamicResource Studio.ForegroundMuted}"
+                              StrokeThickness="1.3"
+                              Data="M 13,1.5 L 13,5.5 L 9,5.5 M 12.4,5 A 5.4,5.4 0 1 0 13,8" />
+                    </Button>
+
+                    <CheckBox Grid.Column="2"
+                              Margin="10,0,0,0"
+                              VerticalAlignment="Center"
+                              Content="Include prerelease"
+                              Style="{StaticResource NuGet.CheckBoxStyle}"
+                              IsChecked="{Binding IncludePrerelease, Mode=TwoWay}" />
+                </Grid>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Package source:"
+                               VerticalAlignment="Center"
+                               Margin="10,0,10,0"
+                               Foreground="{DynamicResource Studio.ForegroundMuted}" />
+                    <ComboBox x:Name="SourceComboBox"
+                              MinWidth="50"
+                              Style="{StaticResource NuGet.ComboBoxStyle}"
+                              ItemsSource="{Binding Sources}"
+                              SelectedItem="{Binding SelectedSource, Mode=TwoWay}"
+                              DisplayMemberPath="Name" />
+                    <Button Margin="4,0,0,0"
+                            Style="{StaticResource NuGet.IconButtonStyle}"
+                            Command="{Binding OpenSourcesCommand}"
+                            ToolTip="Package sources...">
+                        <Path Width="18" Height="18" Stretch="Uniform"
+                              Fill="{DynamicResource Studio.ForegroundMuted}"
+                              Data="M 8,0 L 9.4,0.4 L 9.9,2.1 L 11.4,2.7 L 12.9,1.6 L 14.4,3.1 L 13.3,4.6 L 13.9,6.1 L 15.6,6.6 L 15.6,8 L 13.9,8.4 L 13.3,9.9 L 14.4,11.4 L 12.9,12.9 L 11.4,11.8 L 9.9,12.4 L 9.4,14.1 L 8,14.1 L 7.6,12.4 L 6.1,11.8 L 4.6,12.9 L 3.1,11.4 L 4.2,9.9 L 3.6,8.4 L 1.9,8 L 1.9,6.6 L 3.6,6.1 L 4.2,4.6 L 3.1,3.1 L 4.6,1.6 L 6.1,2.7 L 7.6,2.1 Z M 8.7,5 A 2.6,2.6 0 1 0 8.7,10.2 A 2.6,2.6 0 1 0 8.7,5" />
+                    </Button>
+                    <Button Margin="2,0,0,0"
+                            Style="{StaticResource NuGet.IconButtonStyle}"
+                            Click="BrowseButton_Click"
+                            ToolTip="Select project...">
+                        <Path Width="18" Height="15" Stretch="Uniform"
+                              Stroke="{DynamicResource Studio.ForegroundMuted}"
+                              StrokeThickness="1.2"
+                              Data="M 0,2 H 5 L 6,4 H 14 V 13 H 0 Z" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ================= Список пакетов | Детали ================= -->
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="ListColumn" Width="1*" />
+                <ColumnDefinition x:Name="SplitterColumn" Width="1" />
+                <ColumnDefinition x:Name="DetailsColumn" Width="0.65*" />
             </Grid.ColumnDefinitions>
 
-            <GroupBox Grid.Column="0" Header="Available" Margin="0,0,4,0">
-                <ListView x:Name="AvailableList" ItemsSource="{Binding Available}" SelectionMode="Single">
-                    <ListView.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock FontWeight="Bold" Text="{Binding Id}" />
-                                        <TextBlock Margin="6,0,0,0" Text="{Binding Version}" />
-                                    </StackPanel>
-                                    <TextBlock Text="{Binding Description}" TextWrapping="Wrap" Foreground="Gray" MaxHeight="40" />
-                                </StackPanel>
-                                <Button Grid.Column="1" VerticalAlignment="Center" Content="Install" Padding="10,2" Click="InstallButton_Click" />
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-            </GroupBox>
+            <Grid x:Name="ListPanel" Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-            <GroupBox Grid.Column="1" Header="Installed" Margin="4,0,0,0">
-                <ListView x:Name="InstalledList" ItemsSource="{Binding Installed}" SelectionMode="Single">
-                    <ListView.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock FontWeight="Bold" Text="{Binding Id}" />
-                                    <TextBlock Margin="6,0,0,0" Text="{Binding Version}" />
-                                </StackPanel>
-                                <Button Grid.Column="1" Content="Update" Padding="10,2" Margin="4,0" Click="UpdateButton_Click" />
-                                <Button Grid.Column="2" Content="Uninstall" Padding="10,2" Click="UninstallButton_Click" />
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-            </GroupBox>
+                <ListBox x:Name="PackageList"
+                         Grid.Row="0"
+                         Style="{StaticResource NuGet.PackageListStyle}"
+                         ItemContainerStyle="{StaticResource NuGet.PackageRowStyle}"
+                         ItemTemplate="{StaticResource NuGet.PackageRowTemplate}"
+                         ItemsSource="{Binding VisibleItems}"
+                         SelectedItem="{Binding SelectedItem, Mode=TwoWay}" />
+
+                <TextBlock Grid.Row="0"
+                           Margin="14,18,14,0"
+                           VerticalAlignment="Top"
+                           TextWrapping="Wrap"
+                           Text="{Binding EmptyText}"
+                           Foreground="{DynamicResource Studio.ForegroundMuted}">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding VisibleItems.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <Button Grid.Row="1"
+                        Margin="10,4,10,8"
+                        Content="Load more"
+                        Style="{StaticResource NuGet.ActionButtonStyle}"
+                        Command="{Binding LoadMoreCommand}"
+                        Visibility="{Binding CanLoadMore, Converter={StaticResource BoolToVisibility}}" />
+            </Grid>
+
+            <GridSplitter x:Name="Splitter"
+                          Grid.Column="1"
+                          Width="1"
+                          Style="{StaticResource NuGet.SplitterStyle}" />
+
+            <Border x:Name="DetailsPanel"
+                    Grid.Column="2"
+                    Background="{DynamicResource Studio.Surface}"
+                    BorderBrush="{DynamicResource Studio.Separator}"
+                    BorderThickness="1,0,0,0"
+                    DataContext="{Binding Details}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Шапка: иконка, идентификатор, авторы, источник -->
+                    <Grid Grid.Row="0" Margin="12,12,12,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <Grid Grid.Column="0" Width="48" Height="48" Margin="0,0,10,0" VerticalAlignment="Top">
+                            <Border Background="{DynamicResource Studio.SurfaceAlt}"
+                                    BorderBrush="{DynamicResource Studio.Separator}"
+                                    BorderThickness="1"
+                                    CornerRadius="0" />
+                            <Image Source="{Binding Item.Icon}" Margin="3" Stretch="Uniform" />
+                            <TextBlock Text="{Binding Item.Monogram}"
+                                       IsHitTestVisible="False"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontSize="16"
+                                       Foreground="{DynamicResource Studio.ForegroundMuted}"
+                                       Visibility="{Binding Item.HasIcon, Converter={StaticResource InverseBoolToVisibility}}" />
+                        </Grid>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Id}"
+                                       FontSize="20"
+                                       TextWrapping="Wrap"
+                                       Foreground="{DynamicResource Studio.Foreground}" />
+                            <TextBlock Text="{Binding AuthorLine}"
+                                       Style="{StaticResource NuGet.MutedTextStyle}"
+                                       Margin="0,2,0,0" />
+                            <TextBlock Text="{Binding SourceName}"
+                                       Style="{StaticResource NuGet.MutedTextStyle}"
+                                       Margin="0,1,0,0" />
+                        </StackPanel>
+
+                        <Button x:Name="BackButton"
+                                Grid.Column="2"
+                                Style="{StaticResource NuGet.IconButtonStyle}"
+                                VerticalAlignment="Top"
+                                ToolTip="Back to list"
+                                Click="BackButton_Click"
+                                Visibility="Collapsed">
+                            <Path Width="12" Height="10" Stretch="Uniform"
+                                  Stroke="{DynamicResource Studio.ForegroundMuted}"
+                                  StrokeThickness="1.4"
+                                  Data="M 6,0 L 0,5 L 6,10 M 0,5 L 12,5" />
+                        </Button>
+                    </Grid>
+
+                    <!-- Плашка выключенного сопоставления источников -->
+                    <Border Grid.Row="1"
+                            Margin="12,0,12,10"
+                            Padding="8,6"
+                            Background="{DynamicResource Studio.SurfaceAlt}"
+                            BorderBrush="{DynamicResource Studio.Separator}"
+                            BorderThickness="1"
+                            CornerRadius="0"
+                            Visibility="{Binding DataContext.HasSourceMappingNotice, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Width="12" Height="12" Margin="0,0,6,0" VerticalAlignment="Center" Stretch="Uniform"
+                                  Fill="{DynamicResource Studio.Semantic.Validation}"
+                                  Data="M 8,0 A 8,8 0 1 0 8,16 A 8,8 0 1 0 8,0 M 7,7 H 9 V 12 H 7 Z M 7,4 H 9 V 6 H 7 Z" />
+                            <TextBlock Text="Package source mapping is off."
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Studio.Foreground}" />
+                            <Button Margin="6,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Content="Configure"
+                                    Style="{StaticResource NuGet.LinkButtonStyle}"
+                                    Command="{Binding DataContext.ConfigureSourceMappingCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Версия и действие. Колонка версии — Auto: комбобокс обязан получить свою
+                         ширину по содержимому, иначе grid сжимает его и подпись версии обрезается. -->
+                    <Grid Grid.Row="2" Margin="12,0,12,10"
+                          Visibility="{Binding HasDetails, Converter={StaticResource BoolToVisibility}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0"
+                                   Text="Version:"
+                                   VerticalAlignment="Center"
+                                   Style="{StaticResource NuGet.LabelTextStyle}" />
+                        <ComboBox x:Name="VersionComboBox"
+                                  Grid.Column="1"
+                                  Margin="0,0,8,0"
+                                  MinWidth="80"
+                                  Style="{StaticResource NuGet.ComboBoxStyle}"
+                                  ItemsSource="{Binding Versions}"
+                                  SelectedItem="{Binding SelectedVersion, Mode=TwoWay}"
+                                  DisplayMemberPath="Label" />
+                        <Button Grid.Column="2"
+                                HorizontalAlignment="Right"
+                                Content="{Binding ActionText}"
+                                Style="{StaticResource NuGet.ActionButtonStyle}"
+                                Command="{Binding DataContext.ActionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    </Grid>
+
+                    <!-- Options -->
+                    <Expander Grid.Row="3" Margin="12,0,12,6"
+                              Header="Options"
+                              Style="{StaticResource NuGet.OptionsExpanderStyle}"
+                              Visibility="{Binding HasDetails, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <CheckBox Content="Include prerelease"
+                                      Margin="0,2,0,0"
+                                      Style="{StaticResource NuGet.CheckBoxStyle}"
+                                      IsChecked="{Binding DataContext.IncludePrerelease, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}" />
+                            <CheckBox Content="Run restore after install"
+                                      Margin="0,4,0,0"
+                                      Style="{StaticResource NuGet.CheckBoxStyle}"
+                                      IsChecked="{Binding DataContext.AutoRestoreAfterInstall, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}" />
+                        </StackPanel>
+                    </Expander>
+
+                    <!-- Вкладки README / Package Details -->
+                    <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="12,0,12,0"
+                                Visibility="{Binding HasDetails, Converter={StaticResource BoolToVisibility}}">
+                        <RadioButton Content="README"
+                                     x:Name="ReadmeTabButton"
+                                     GroupName="NuGetDetailsTab"
+                                     Height="30"
+                                     Style="{StaticResource NuGet.TabButtonStyle}"
+                                     Visibility="{Binding ShowReadmeTab, Converter={StaticResource BoolToVisibility}}"
+                                     IsChecked="{Binding IsReadmeSelected, Mode=TwoWay}" />
+                        <RadioButton Content="Package Details"
+                                     GroupName="NuGetDetailsTab"
+                                     Height="30"
+                                     Style="{StaticResource NuGet.TabButtonStyle}"
+                                     IsChecked="{Binding IsPackageDetailsSelected, Mode=TwoWay}" />
+                    </StackPanel>
+
+                    <!-- Содержимое деталей -->
+                    <Grid Grid.Row="5">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      Visibility="{Binding IsReadmeVisible, Converter={StaticResource BoolToVisibility}}">
+                            <FlowDocumentScrollViewer x:Name="ReadmeViewer"
+                                                      Margin="12,8,12,12"
+                                                      VerticalScrollBarVisibility="Disabled"
+                                                      HorizontalScrollBarVisibility="Disabled"
+                                                      IsToolBarVisible="False"
+                                                      Background="Transparent"
+                                                      BorderThickness="0"
+                                                      Document="{Binding Readme, Converter={StaticResource MarkdownToDocument}}" />
+                        </ScrollViewer>
+
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      Visibility="{Binding IsPackageDetailsVisible, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Margin="12,8,12,12">
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Description" Style="{StaticResource NuGet.LabelTextStyle}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Description}" Style="{StaticResource NuGet.ValueTextStyle}" />
+                                </Grid>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Version" Style="{StaticResource NuGet.LabelTextStyle}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding PackageVersionText}" Style="{StaticResource NuGet.ValueTextStyle}" />
+                                </Grid>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Author(s)" Style="{StaticResource NuGet.LabelTextStyle}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Authors}" Style="{StaticResource NuGet.ValueTextStyle}" />
+                                </Grid>
+                                <Grid Margin="0,0,0,8"
+                                      Visibility="{Binding HasLicenseUrl, Converter={StaticResource BoolToVisibility}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="License" Style="{StaticResource NuGet.LabelTextStyle}" />
+                                    <Button Grid.Column="1"
+                                            Content="View license"
+                                            Style="{StaticResource NuGet.LinkButtonStyle}"
+                                            Command="{Binding DataContext.OpenLinkCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding LicenseUrl}" />
+                                </Grid>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Date published" Style="{StaticResource NuGet.LabelTextStyle}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding PublishedText}" Style="{StaticResource NuGet.ValueTextStyle}" />
+                                </Grid>
+                                <Grid Margin="0,0,0,8"
+                                      Visibility="{Binding HasDownloads, Converter={StaticResource BoolToVisibility}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Downloads" Style="{StaticResource NuGet.LabelTextStyle}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding DownloadsText}" Style="{StaticResource NuGet.ValueTextStyle}" />
+                                </Grid>
+                                <Grid Margin="0,0,0,8"
+                                      Visibility="{Binding HasProjectUrl, Converter={StaticResource BoolToVisibility}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Project URL" Style="{StaticResource NuGet.LabelTextStyle}" />
+                                    <Button Grid.Column="1"
+                                            Content="{Binding ProjectUrl}"
+                                            Style="{StaticResource NuGet.LinkButtonStyle}"
+                                            Command="{Binding DataContext.OpenLinkCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding ProjectUrl}" />
+                                </Grid>
+                                <Grid Margin="0,0,0,8"
+                                      Visibility="{Binding HasReportAbuseUrl, Converter={StaticResource BoolToVisibility}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Report Abuse" Style="{StaticResource NuGet.LabelTextStyle}" />
+                                    <Button Grid.Column="1"
+                                            Content="{Binding ReportAbuseUrl}"
+                                            Style="{StaticResource NuGet.LinkButtonStyle}"
+                                            Command="{Binding DataContext.OpenLinkCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding ReportAbuseUrl}" />
+                                </Grid>
+                                <Grid Visibility="{Binding HasTags, Converter={StaticResource BoolToVisibility}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Tags" Style="{StaticResource NuGet.LabelTextStyle}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Tags}" Style="{StaticResource NuGet.ValueTextStyle}" />
+                                </Grid>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Grid>
+            </Border>
         </Grid>
 
-        <!-- Status -->
-        <TextBlock Grid.Row="3" Margin="0,6,0,0" Text="{Binding StatusText}" TextWrapping="Wrap" VerticalAlignment="Center" />
+        <!-- ================= Оверлей «Package sources» ================= -->
+        <Border x:Name="SourcesOverlay"
+                Grid.Row="0"
+                Grid.RowSpan="4"
+                Background="{DynamicResource Studio.Surface}"
+                Visibility="{Binding IsSourcesOverlayOpen, Converter={StaticResource BoolToVisibility}}">
+            <Grid Margin="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Заголовок -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <TextBlock Text="Package sources"
+                               FontSize="15"
+                               FontWeight="Bold"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource Studio.Foreground}" />
+                    <Button HorizontalAlignment="Right"
+                            Style="{StaticResource NuGet.IconButtonStyle}"
+                            Command="{Binding CloseSourcesCommand}"
+                            ToolTip="Close">
+                        <Path Width="10" Height="10" Stretch="Uniform"
+                              Stroke="{DynamicResource Studio.ForegroundMuted}"
+                              StrokeThickness="1.2"
+                              Data="M 0,0 L 10,10 M 10,0 L 0,10" />
+                    </Button>
+                </Grid>
+
+                <!-- Шапка таблицы -->
+                <Border Grid.Row="1"
+                        Padding="0,4"
+                        BorderBrush="{DynamicResource Studio.SeparatorStrong}"
+                        BorderThickness="0,1,0,1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="60" />
+                            <ColumnDefinition Width="1.1*" />
+                            <ColumnDefinition Width="2*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Enabled" Margin="8,0,0,0" Style="{StaticResource NuGet.MutedTextStyle}" />
+                        <TextBlock Grid.Column="1" Text="Name" Style="{StaticResource NuGet.MutedTextStyle}" />
+                        <TextBlock Grid.Column="2" Text="Source" Style="{StaticResource NuGet.MutedTextStyle}" />
+                    </Grid>
+                </Border>
+
+                <!-- Таблица источников -->
+                <ListBox x:Name="SourcesList"
+                         Grid.Row="2"
+                         Margin="0,2,0,0"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ItemTemplate="{StaticResource NuGet.SourceRowTemplate}"
+                         ItemsSource="{Binding SourceItems}"
+                         SelectedItem="{Binding SelectedSourceItem, Mode=TwoWay}">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource NuGet.OverlayRowStyle}">
+                            <Setter Property="Padding" Value="0,5" />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <!-- Редактор строки (Add/Edit) -->
+                <Border Grid.Row="3"
+                        Margin="0,8,0,0"
+                        Padding="8"
+                        Background="{DynamicResource Studio.SurfaceAlt}"
+                        BorderBrush="{DynamicResource Studio.Separator}"
+                        BorderThickness="1"
+                        CornerRadius="0"
+                        Visibility="{Binding IsEditingSource, Converter={StaticResource BoolToVisibility}}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="60" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.ColumnSpan="2"
+                                   Text="{Binding SourceEditorTitle}"
+                                   Margin="0,0,0,6"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource Studio.Foreground}" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Name" VerticalAlignment="Center" Style="{StaticResource NuGet.LabelTextStyle}" />
+                        <TextBox Grid.Row="1" Grid.Column="1"
+                                 x:Name="SourceNameBox"
+                                 Margin="0,0,0,6"
+                                 Style="{StaticResource NuGet.OverlayTextBoxStyle}"
+                                 Text="{Binding EditingSourceName, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Source" VerticalAlignment="Center" Style="{StaticResource NuGet.LabelTextStyle}" />
+                        <TextBox Grid.Row="2" Grid.Column="1"
+                                 x:Name="SourceUrlBox"
+                                 Style="{StaticResource NuGet.OverlayTextBoxStyle}"
+                                 Text="{Binding EditingSourceUrl, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button Content="Save"
+                                    Style="{StaticResource NuGet.RowButtonStyle}"
+                                    Margin="0"
+                                    Command="{Binding SaveSourceCommand}" />
+                            <Button Content="Cancel"
+                                    Style="{StaticResource NuGet.RowButtonStyle}"
+                                    Command="{Binding CancelSourceEditCommand}" />
+                            <TextBlock Text="{Binding SourceEditError}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Studio.Semantic.Validation}"
+                                       Visibility="{Binding HasSourceEditError, Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Кнопки -->
+                <Grid Grid.Row="4" Margin="0,10,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Style="{StaticResource NuGet.RowButtonStyle}"
+                                Margin="0"
+                                Command="{Binding AddSourceCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Width="9" Height="9" Margin="0,0,5,0" VerticalAlignment="Center" Stretch="Uniform"
+                                      Stroke="{DynamicResource Studio.Foreground}" StrokeThickness="1.4"
+                                      Data="M 4.5,0 L 4.5,9 M 0,4.5 L 9,4.5" />
+                                <TextBlock Text="Add" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource NuGet.RowButtonStyle}"
+                                Command="{Binding EditSourceCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Width="9" Height="9" Margin="0,0,5,0" VerticalAlignment="Center" Stretch="Uniform"
+                                      Stroke="{DynamicResource Studio.Foreground}" StrokeThickness="1.2"
+                                      Data="M 0,9 L 7,2 L 9,4 L 2,9 Z M 7,0 L 9,2" />
+                                <TextBlock Text="Edit" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource NuGet.RowButtonStyle}"
+                                Command="{Binding RemoveSourceCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Width="9" Height="9" Margin="0,0,5,0" VerticalAlignment="Center" Stretch="Uniform"
+                                      Stroke="{DynamicResource Studio.Foreground}" StrokeThickness="1.2"
+                                      Data="M 0,1.5 L 9,1.5 M 3,1.5 L 3,0 L 6,0 L 6,1.5 M 1,1.5 L 2,9 L 7,9 L 8,1.5" />
+                                <TextBlock Text="Remove" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <Button HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Content="Open NuGet.Config"
+                            Style="{StaticResource NuGet.LinkButtonStyle}"
+                            Command="{Binding OpenConfigFileCommand}" />
+                </Grid>
+
+                <TextBlock Grid.Row="5"
+                           Margin="0,8,0,0"
+                           TextWrapping="Wrap"
+                           Text="Sources are stored in NuGet.Config. Offline folder sources are listed but not searched."
+                           Style="{StaticResource NuGet.MutedTextStyle}" />
+            </Grid>
+        </Border>
+
+        <!-- ================= Строка состояния ================= -->
+        <Border Grid.Row="3"
+                Background="{DynamicResource Studio.Surface}"
+                BorderBrush="{DynamicResource Studio.Separator}"
+                BorderThickness="0,1,0,0">
+            <Grid Margin="8,2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="{Binding StatusText}"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource NuGet.MutedTextStyle}" />
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ProgressBar Width="90"
+                                 Margin="0,0,8,0"
+                                 VerticalAlignment="Center"
+                                 Maximum="100"
+                                 Value="{Binding ProgressValue, Mode=OneWay}"
+                                 Style="{StaticResource NuGet.ProgressStyle}"
+                                 Visibility="{Binding ShowProgress, Converter={StaticResource BoolToVisibility}}" />
+                    <Button Content="Cancel"
+                            Width="Auto"
+                            Height="20"
+                            Padding="8,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource NuGet.IconButtonStyle}"
+                            Command="{Binding CancelCommand}"
+                            Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

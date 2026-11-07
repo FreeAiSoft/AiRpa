@@ -33,7 +33,7 @@ namespace RPA.CSharpExpressionEditor
     /// <summary>
     /// Interaction logic for RoslynExpressionEditor.xaml
     /// </summary>
-    public partial class RoslynExpressionEditor : TextualExpressionEditor
+    public partial class RoslynExpressionEditor : TextualExpressionEditor, RPA.Core.Services.IExpressionFieldBadge
     {
         private static readonly Logger _perfLogger = LogManager.GetLogger("RoslynExpressionEditor.Performance");
         //UselocationExpression
@@ -139,6 +139,41 @@ namespace RPA.CSharpExpressionEditor
         public BackgroundWorker Validator { get; set; } = null;
 
         #endregion Properties
+
+        #region Вердикт документной проверки
+
+        /// <summary>
+        /// Ключ поля для вердиктов документной проверки — элемент модели выражения. При правке WF
+        /// заменяет этот элемент, поэтому устаревший вердикт перестаёт находиться по ключу.
+        /// </summary>
+        object RPA.Core.Services.IExpressionFieldBadge.ExpressionKey => Expression;
+
+        /// <summary>Поле в правке: бейджем управляет собственная проверка редактора, а не документная.</summary>
+        bool RPA.Core.Services.IExpressionFieldBadge.IsBeingEdited => EditingState != EditingState.Idle;
+
+        /// <summary>Бейдж из документной проверки (ошибка уже найдена в фоне — компиляции здесь нет).</summary>
+        void RPA.Core.Services.IExpressionFieldBadge.ApplyVerdict(string message) => UpdateValidationError(message);
+
+        /// <summary>
+        /// Показывает вердикт документной проверки, если он уже есть для текущего выражения.
+        /// Исправление бага «ошибка валидации видна только после клика»: раньше единственными триггерами
+        /// были изменение текста и фокус, поэтому поле с невалидным выражением выглядело корректным.
+        /// </summary>
+        internal void ApplyStoredVerdict()
+        {
+            if (EditingState != EditingState.Idle)
+            {
+                return;
+            }
+
+            // Ключ берётся один раз: Expression может смениться между чтением и применением.
+            if (RPA.Core.Services.ExpressionFieldVerdicts.TryGet(Expression, out string message))
+            {
+                UpdateValidationError(message);
+            }
+        }
+
+        #endregion Вердикт документной проверки
 
         public RoslynExpressionEditor()
         {
@@ -763,6 +798,9 @@ namespace RPA.CSharpExpressionEditor
 
             // Таймер проверки не должен тикать после закрытия документа.
             StopExpressionValidationTimer();
+
+            // Поле больше не получает вердикты документной проверки: оно закрыто.
+            RPA.Core.Services.ExpressionFieldVerdicts.Unregister(this);
         }
 
         protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
@@ -786,6 +824,12 @@ namespace RPA.CSharpExpressionEditor
             {
                 BeginEdit();
             }
+
+            // Баг «ошибка валидации поля видна только после клика»: при загрузке поля показываем
+            // вердикт документной проверки (он уже посчитан в фоне). Собственный таймер проверки
+            // запускается по изменению текста, поэтому без этой строки поле выглядело корректным.
+            RPA.Core.Services.ExpressionFieldVerdicts.Register(this);
+            ApplyStoredVerdict();
         }
 
         private void OnExpressionChanged()
@@ -1019,6 +1063,9 @@ namespace RPA.CSharpExpressionEditor
             }
 
             IsEditorLoaded = false;
+
+            // Поле перестроено (сменился шаблон) — вердикты ему больше не нужны до новой загрузки.
+            RPA.Core.Services.ExpressionFieldVerdicts.Unregister(this);
         }
 
         private void OnGotEditingFocus(object sender, RoutedEventArgs e)

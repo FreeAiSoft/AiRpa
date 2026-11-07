@@ -300,7 +300,7 @@
 | P-04 | `Properties` | `Border` → `PropertyInspectorView` (WF) | см. F-03 |
 | P-05 | `Log` | `LogViewerControl` | см. W-12 / F-07 |
 | P-06 | `Chat` | `ChatPanel` | см. F-08 |
-| P-07 | `NuGet` | `NuGetPanel` | зашитых цветов нет, используется `DynamicResource` — только проверка |
+| P-07 | `NuGet` | `NuGetPanel` | ✅ переведена на дизайн VS 2026 **без скруглений**: цвета только ключами палитры, `CornerRadius="0"`, шрифт `Studio.FontFamily`; стражи — `NuGetPanelThemeTests` (см. `NuGet_Panel_Redesign_Plan.md`) |
 | P-08 | документы | `WorkflowDesigner.View` / `CodeEditorView` | см. F-04 |
 
 Общие части темы, правящиеся один раз (действуют на все панели):
@@ -564,6 +564,7 @@ Release-сборка `AiRpaStudio.csproj` проходит.
   `.Apply_BreadCrumbBackdropBehindNamesIsSurface` (первая непрозрачная кисть вверх от имени активности
   обязана быть поверхностью палитры).
 - Этап 8: семантические цвета уровней логирования (Trace/Debug/Info/Warning/Error/Fatal) сохранены — это кодировка данных, а не акцент интерфейса. Они приведены к средним тонам, а фон/hover строк — к полупрозрачным накладкам, чтобы читаться и в тёмной, и в светлой теме.
+- Этап 8: иконки фильтров «Log» получили семантические цвета уровней `Studio.Semantic.Log.*` (классика синий/зелёный/оранжевый/красный/тёмно-красный), непрозрачные — alpha 255: глиф обязан читаться на панели и в тёмной, и в светлой теме. Trace в семантику не входит — у него нет цвета-сигнала: иконка и буквы уровня красятся основным цветом текста панели `Studio.Foreground` (белый `#F1F1F1` в тёмной теме, чёрный `#1F1F1F` в светлой), а `LogLevelToColorConverter` читает этот ключ из ресурсов приложения по строке (библиотека лога не ссылается на `RPA.Helpers`), с запасным средним тоном вне студии. Строки Trace фона не получают вовсе (ни фон, ни hover). Цвет ставится на глиф, а не на `ToggleButton`: фон/hover/checked кнопки остаются палитровыми, а hex в `LogViewerControl.xaml` отсутствует.
 - Этап 8: `Commit.SuccessBackground`/`Commit.ErrorBackground`, `Dark.ErrorText` и цвета `NotificationKind` в `RPA.Chat` — семантика git-статуса, ошибки и важности уведомления (приходят кодом, не из темы). Красный остаётся единственным не-нейтральным токеном; полный перевод семантики уведомлений — подшаг «иконки/семантика» (§10).
 - Этап 8: значения словаря `ChatTheme.Dark/Light.xaml` продублированы из палитры, потому что `RPA.Chat` не может ссылаться на `RPA.Helpers`. Согласованность словаря и палитры стережёт тест `ChatThemeBridgeTests.ThemeDictionaries_AlreadyMatchPalette`: правки таблицы моста и словарей делаются вместе.
 - Этап 8: диалоги студии остаются с системным chrome (решение этапа 5), поэтому на Windows 10 их углы прямоугольные — DWM работает только на Windows 11.
@@ -571,7 +572,7 @@ Release-сборка `AiRpaStudio.csproj` проходит.
 **Сделано (этап 9, финал).** Сквозные стражи приёмки — `AiRpaStudio.Tests\ThemeAcceptanceTests.cs` (21 тест):
 * ноль зашитых hex и named-цветов во всех темизируемых XAML (комментарии исключены; разрешены только
   `#E81123`/`#FFFFFF` кнопки закрытия в `Themes\StudioTheme.xaml`), ноль `MaterialDesign.Brush.*` в студии;
-* семантические кисти `Studio.Semantic.*` (`Run`/`Pause`/`Stop`/`FolderIcon`/`XamlFileIcon`/`JsonFileIcon`)
+* семантические кисти `Studio.Semantic.*` (`Run`/`Pause`/`Stop`/`FolderIcon`/`XamlFileIcon`/`JsonFileIcon`/`Validation`)
   объявляются в `StudioBrushes` кодом, одинаковы в обеих темах (`chroma > 6`), ими заменены синий `#4169E1`
   кнопок сохранения (стали `Studio.ToolbarForeground`), `Orange`, `#228B22`, `#DC143C` тулбара и
   `OrangeRed`/`#4CAF50`/`#2196F3` иконок `ProjectManagerControl`;
@@ -583,7 +584,7 @@ Release-сборка `AiRpaStudio.csproj` проходит.
   `Studio.CloseHoverBackground` (красный только для ошибки), `MaterialDesign.Brush.Card.Border` заменён;
   **Уточнение (баг «ошибка выражения — красная рамка без иконки»):** hairline-бейдж неотличим от
   «иконки нет» — в `RoslynExpressionEditor.xaml` он заменён глифом `materialIcons:MaterialIcon`
-  (`Kind="Error"`) в `Studio.CloseHoverBackground`; проверка выражения идёт по изменению текста с
+  (`Kind="Error"`) в `Studio.Semantic.Validation` (голубой, ключ семантики `StudioBrushes`), а красный `Studio.CloseHoverBackground` остаётся у иконки валидации активности и у кружка адаптера ошибки; проверка выражения идёт по изменению текста с
   паузой-дребезгом (`Core\ExpressionValidationTiming.cs`, 350 мс; резервный цикл 3000 мс вместо
   10 000 мс). Иконка на активности рисуется родным рисунком WF
   (`ValidationIconState.ErrorIconBrush()` = `DesignerItems.ActivityErrorValidation`, сплошная кисть

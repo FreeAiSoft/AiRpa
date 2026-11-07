@@ -30,8 +30,11 @@ namespace AvalonDock.Layout
 		private string _id;
 
 		[XmlIgnore]
-		//private readonly bool _autoFixSelectedContent = true;
-        private readonly bool _autoFixSelectedContent = false;
+        // Панель документов ведёт себя так же, как LayoutAnchorablePane: если выбранной вкладки нет
+        // (или её индекс вышел за границы после удаления), индекс доводится до существующей вкладки.
+        // Раньше здесь стояло false, и SelectedContent оставался null — TabControl показывал не ту
+        // вкладку, а IsSelected накапливался на нескольких вкладках (две «активные» вкладки).
+        private readonly bool _autoFixSelectedContent = true;
 
         #endregion fields
 

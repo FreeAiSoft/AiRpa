@@ -42,12 +42,24 @@ namespace RPA.Views
         private readonly PropertyWindowStyleHelper _propertyStyleHelper = new PropertyWindowStyleHelper();
 
         private LayoutDocumentPane docGroup;
+
+        /// <summary>Активация соседней вкладки при закрытии (правило — <see cref="DocumentTabPolicy"/>).</summary>
+        private DocumentTabsCloseCoordinator tabsCloseCoordinator;
         public LogControlLibrary.Controls.LogViewerControl LogViewerControl { get; private set; }
         private ProjectManagerControl projectManagerControl;
         private Border wfProjectBorder;
         private Chat.Views.ChatPanel chatPanel;
         private NuGet.Views.NuGetPanel nuGetPanel;
-        private LayoutAnchorable nuGetAnchorable;
+        /// <summary>ContentId вкладки NuGet: по нему панель находится при повторном открытии.</summary>
+        private const string NuGetContentId = "NuGet";
+
+        /// <summary>
+        /// Открытая панель NuGet: по умолчанию это вкладка панели документов (как менеджер пакетов
+        /// в Visual Studio), но сохранённая раскладка может вернуть её и в боковой док — поэтому
+        /// тип <see cref="LayoutContent"/>, а не <see cref="LayoutDocument"/>.
+        /// </summary>
+        private LayoutContent nuGetContent;
+
         private DispatcherTimer _layoutSaveTimer;
         private bool _resetLayout;
 
@@ -301,11 +313,15 @@ namespace RPA.Views
                         {
                             args.Content = chatPanel;
                         }
+                        // NuGet открывается вкладкой панели документов (как менеджер пакетов VS).
+                        // Ветка обязана стоять до отмены LayoutDocument ниже: иначе сохранённая
+                        // вкладка NuGet не восстановится при старте студии.
                         else if (contentId == "NuGet")
                         {
                             args.Content = nuGetPanel;
-                            nuGetAnchorable = args.Model as LayoutAnchorable;
+                            nuGetContent = args.Model as LayoutContent;
                         }
+
                         // Handle document pane
                         if (args.Model is LayoutDocument)
                         {
@@ -491,20 +507,6 @@ namespace RPA.Views
             chatPane.Children.Add(chatAnchorable);
             rightLayoutAnchorablePaneGroup.Children.Add(chatPane);
 
-            // NuGet pane
-            LayoutAnchorablePane nuGetPane = new LayoutAnchorablePane();
-            LayoutAnchorable nuGetPanelAnchorable = new LayoutAnchorable
-            {
-                ContentId = "NuGet",
-                Title = "NuGet",
-                CanClose = false,
-                CanHide = false,
-                Content = nuGetPanel
-            };
-            nuGetPane.Children.Add(nuGetPanelAnchorable);
-            nuGetAnchorable = nuGetPanelAnchorable;
-            rightLayoutAnchorablePaneGroup.Children.Add(nuGetPane);
-
             layoutPanel.Children.Add(rightLayoutAnchorablePaneGroup);
 
             // Set the layout
@@ -526,12 +528,70 @@ namespace RPA.Views
 
         private void ShowNuGetPanel()
         {
-            if (nuGetAnchorable != null)
+            if (nuGetPanel == null)
             {
-                nuGetAnchorable.Show();
-                nuGetAnchorable.IsActive = true;
+                return;
+            }
+
+            // Панель открывается вкладкой в панели документов: там широкая область, в которой
+            // двухколоночный макет менеджера пакетов читается. Если пользователь утащил вкладку
+            // в боковой док, второй экземпляр не создаётся — находится по ContentId.
+            LayoutDocument document = FindNuGetDocument();
+            if (document == null)
+            {
+                document = new LayoutDocument
+                {
+                    ContentId = NuGetContentId,
+                    Title = "NuGet",
+                    Content = nuGetPanel
+                };
+                document.Closed += NuGetDocument_Closed;
+                docGroup.Children.Add(document);
+            }
+            else
+            {
+                document.Content = nuGetPanel;
+            }
+
+            document.IsSelected = true;
+            document.IsActive = true;
+            nuGetContent = document;
+        }
+
+        /// <summary>Вкладка NuGet, если она уже открыта (содержимое панели при этом переиспользуется).</summary>
+        private LayoutDocument FindNuGetDocument()
+        {
+            if (nuGetContent is LayoutDocument current && docGroup.Children.Contains(current))
+            {
+                return current;
+            }
+
+            LayoutDocument existing = docGroup.Children
+                .OfType<LayoutDocument>()
+                .FirstOrDefault(document => document.ContentId == NuGetContentId);
+
+            if (existing != null)
+            {
+                existing.Closed -= NuGetDocument_Closed;
+                existing.Closed += NuGetDocument_Closed;
+            }
+
+            return existing;
+        }
+
+        private void NuGetDocument_Closed(object sender, EventArgs e)
+        {
+            if (sender is LayoutDocument document)
+            {
+                document.Closed -= NuGetDocument_Closed;
+            }
+
+            if (ReferenceEquals(nuGetContent, sender))
+            {
+                nuGetContent = null;
             }
         }
+
 
         /// <summary>
         /// Показывает панель NuGet для указанного проекта (пункт «Добавить зависимость»).
@@ -562,9 +622,43 @@ namespace RPA.Views
         {
             ApplyMaximizeMargin();
 
+            // Панель документов: закрытие вкладки активирует соседнюю (дизайнер или редактор кода).
+            tabsCloseCoordinator = new DocumentTabsCloseCoordinator(docGroup);
+
             docGroupHelper = new DocGroupHelper(docGroup, RemoveDesigner, SyncWFControls, (MainViewModel)DataContext, SetActiveDesigner);
             WorkflowDesigners.CollectionChanged += docGroupHelper.WorkflowDesigners_CollectionChanged;
+            // Подписка идёт после DocGroupHelper: соседняя вкладка активируется уже после того,
+            // как модель дизайнеров убрала документ и выбрала вкладку по-своему.
+            WorkflowDesigners.CollectionChanged += WorkflowDesigners_CollectionChanged_ActivateNeighbour;
             ((MainViewModel)DataContext).OpenCodeDocuments.CollectionChanged += OpenCodeDocuments_CollectionChanged;
+        }
+
+        /// <summary>
+        /// Вкладку дизайнера закрыли: модель уже убрала документ (и могла выбрать вкладку по-своему) —
+        /// активируем соседнюю вкладку по фактическому порядку панели документов.
+        /// </summary>
+        private void WorkflowDesigners_CollectionChanged_ActivateNeighbour(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (e.Action == NotifyCollectionChangedAction.Remove
+                || e.Action == NotifyCollectionChangedAction.Reset)
+            {
+                _ = tabsCloseCoordinator?.ApplyPendingActivation();
+            }
+        }
+
+        /// <summary>
+        /// Путь активной вкладки панели документов (дизайнер или редактор кода/XAML) — то, что видит
+        /// пользователь. По нему <c>Main.SaveSessionState</c> запоминает активную вкладку сессии.
+        /// </summary>
+        internal string GetActiveDocumentPath()
+        {
+            if (docGroup == null)
+            {
+                return null;
+            }
+
+            return DocumentTabsCloseCoordinator.PathOf(
+                DocumentTabsCloseCoordinator.FindActive(docGroup.Children.OfType<LayoutDocument>()));
         }
 
         private void OpenCodeDocuments_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)

@@ -183,38 +183,19 @@ namespace RPA.Controls
             {
                 if (target.Tag is FSNode fsNode)
                 {
-                    // Проверяем, является ли файл project.json
-                    bool isProjectJson = fsNode.Name?.Equals("project.json", StringComparison.OrdinalIgnoreCase) == true;
-
-                    // Находим элементы меню
+                    // Видимость пунктов решает ProjectTreeMenuRules (единая точка решения): списка имён
+                    // пунктов здесь нет, поэтому новый пункт меню не требует правки этого метода.
                     if (contextMenu.Items.Count > 0)
                     {
                         foreach (object item in contextMenu.Items)
                         {
                             if (item is MenuItem menuItem)
                             {
-                                // Если файл project.json, показываем только "Открыть содержащую папку"
-                                if (isProjectJson)
-                                {
-                                    menuItem.Visibility = menuItem.Name == "OpenFolderContainingFileMenuItem"
-                                        ? Visibility.Visible
-                                        : Visibility.Collapsed;
-                                }
-                                else
-                                {
-                                    if (menuItem.Name == "OpenInVsMenuItem" || menuItem.Name == "BuildWithMsBuildMenuItem")
-                                    {
-                                        bool isVsProjectFile = fsNode.Name != null &&
-                                            (fsNode.Name.EndsWith(".sln", StringComparison.OrdinalIgnoreCase) ||
-                                             fsNode.Name.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase));
-                                        menuItem.Visibility = isVsProjectFile ? Visibility.Visible : Visibility.Collapsed;
-                                    }
-                                    else
-                                    {
-                                        // Для всех остальных файлов показываем все пункты меню
-                                        menuItem.Visibility = Visibility.Visible;
-                                    }
-                                }
+                                // У project.json остаются «Открыть содержащую папку» и «Открыть в редакторе кода»,
+                                // а действия Visual Studio/MSBuild видны только у файлов .sln/.csproj.
+                                menuItem.Visibility = ProjectTreeMenuRules.IsVisibleForFile(menuItem.Name, fsNode.Name)
+                                    ? Visibility.Visible
+                                    : Visibility.Collapsed;
                             }
                         }
                     }

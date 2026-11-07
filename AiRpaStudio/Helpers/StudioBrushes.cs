@@ -67,6 +67,22 @@ namespace RPA.Helpers
         public const string SemanticXamlFileIconKey = "Studio.Semantic.XamlFileIcon";
         public const string SemanticJsonFileIconKey = "Studio.Semantic.JsonFileIcon";
 
+        // Бейдж ошибки поля C#-выражения (CSharpExpressionEditor\RoslynExpressionEditor.xaml). Голубой —
+        // не красный: красный в студии закреплён за системной семантикой ошибки (иконка валидации на
+        // активности — родной рисунок WF, кружок адаптера Validation.ErrorTemplate), а глиф в поле
+        // сигналит «проверка этого поля». Цвет непрозрачный и одинаковый в обеих темах.
+        public const string SemanticValidationKey = "Studio.Semantic.Validation";
+
+        // Иконки фильтров панели «Log» (Debug…Fatal): цвет — кодировка уровня, то есть семантика,
+        // а не акцент. Цвета непрозрачные (alpha 255): глиф обязан читаться на любой поверхности
+        // панели. Значения одинаковы в тёмной и светлой теме. Trace сюда не входит: он нейтральный,
+        // его иконка и буквы красятся Studio.Foreground (белый в тёмной теме, чёрный в светлой).
+        public const string SemanticLogDebugKey = "Studio.Semantic.Log.Debug";
+        public const string SemanticLogInfoKey = "Studio.Semantic.Log.Info";
+        public const string SemanticLogWarningKey = "Studio.Semantic.Log.Warning";
+        public const string SemanticLogErrorKey = "Studio.Semantic.Log.Error";
+        public const string SemanticLogFatalKey = "Studio.Semantic.Log.Fatal";
+
         /// <summary>Все ключи-алиасы, которые обязана заполнять <see cref="Apply(ResourceDictionary, ResourceDictionary)"/>.</summary>
         public static readonly IReadOnlyList<string> AliasKeys = new[]
         {
@@ -108,7 +124,13 @@ namespace RPA.Helpers
             SemanticStopKey,
             SemanticFolderIconKey,
             SemanticXamlFileIconKey,
-            SemanticJsonFileIconKey
+            SemanticJsonFileIconKey,
+            SemanticValidationKey,
+            SemanticLogDebugKey,
+            SemanticLogInfoKey,
+            SemanticLogWarningKey,
+            SemanticLogErrorKey,
+            SemanticLogFatalKey
         };
 
         /// <summary>Системные кисти, которыми темизируются нативные WF-контролы (TreeView/Toolbox/Outline).</summary>
@@ -214,6 +236,20 @@ namespace RPA.Helpers
             Set(target, SemanticFolderIconKey, Color.FromRgb(0xFF, 0x45, 0x00));
             Set(target, SemanticXamlFileIconKey, Color.FromRgb(0x4C, 0xAF, 0x50));
             Set(target, SemanticJsonFileIconKey, Color.FromRgb(0x21, 0x96, 0xF3));
+
+            // Бейдж проверки поля выражения: голубой (светлая гамма), а не красный. Значения фиксированы
+            // и одинаковы в обеих темах — это семантика, а не оформление.
+            Set(target, SemanticValidationKey, Color.FromRgb(0x29, 0xB6, 0xF6));
+
+            // Фильтры панели «Log»: классическая кодировка уровней — цвета непрозрачные, чтобы глиф
+            // читался на панели и в тёмной, и в светлой теме (полупрозрачный тон «растворялся»).
+            // Trace — не цвет, а основной текст панели (Studio.Foreground): белый в тёмной теме,
+            // чёрный в светлой, поэтому в семантике его нет.
+            Set(target, SemanticLogDebugKey, Color.FromRgb(0x00, 0x00, 0xFF));
+            Set(target, SemanticLogInfoKey, Color.FromRgb(0x00, 0x80, 0x00));
+            Set(target, SemanticLogWarningKey, Color.FromRgb(0xFF, 0xA5, 0x00));
+            Set(target, SemanticLogErrorKey, Color.FromRgb(0xFF, 0x00, 0x00));
+            Set(target, SemanticLogFatalKey, Color.FromRgb(0x8B, 0x00, 0x00));
         }
 
         private static void ApplySystemBrushes(ResourceDictionary target, StudioThemeColors palette)

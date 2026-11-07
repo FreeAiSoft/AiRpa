@@ -233,42 +233,48 @@
                                  Style="{StaticResource LogLevelToggleButtonFirstStyle}"
                                  Foreground="{DynamicResource Studio.Foreground}"
                                  ToolTip="Trace">
-                        <materialIcons:MaterialIcon Kind="TimelineTextOutline" Width="16" Height="16"/>
+                        <materialIcons:MaterialIcon Kind="TimelineTextOutline" Width="16" Height="16"
+                                                   Foreground="{DynamicResource Studio.Foreground}"/>
                     </ToggleButton>
                     
                     <ToggleButton IsChecked="{Binding IsDebugVisible}"
                                   Style="{StaticResource LogLevelToggleButtonStyle}"
                                  Foreground="{DynamicResource Studio.Foreground}"
                                  ToolTip="Debug">
-                        <materialIcons:MaterialIcon Kind="Bug" Width="16" Height="16"/>
+                        <materialIcons:MaterialIcon Kind="Bug" Width="16" Height="16"
+                                                   Foreground="{DynamicResource Studio.Semantic.Log.Debug}"/>
                     </ToggleButton>
                     
                     <ToggleButton IsChecked="{Binding IsInfoVisible}"
                                  Style="{StaticResource LogLevelToggleButtonStyle}"
                                  Foreground="{DynamicResource Studio.Foreground}"
                                  ToolTip="Info">
-                        <materialIcons:MaterialIcon Kind="Information" Width="16" Height="16"/>
+                        <materialIcons:MaterialIcon Kind="Information" Width="16" Height="16"
+                                                   Foreground="{DynamicResource Studio.Semantic.Log.Info}"/>
                     </ToggleButton>
                     
                     <ToggleButton IsChecked="{Binding IsWarningVisible}"
                                  Style="{StaticResource LogLevelToggleButtonStyle}"
                                  Foreground="{DynamicResource Studio.Foreground}"
                                  ToolTip="Warning">
-                        <materialIcons:MaterialIcon Kind="Warning" Width="16" Height="16"/>
+                        <materialIcons:MaterialIcon Kind="Warning" Width="16" Height="16"
+                                                   Foreground="{DynamicResource Studio.Semantic.Log.Warning}"/>
                     </ToggleButton>
                     
                     <ToggleButton IsChecked="{Binding IsErrorVisible}"
                                  Style="{StaticResource LogLevelToggleButtonStyle}"
                                  Foreground="{DynamicResource Studio.Foreground}"
                                  ToolTip="Error">
-                        <materialIcons:MaterialIcon Kind="Error" Width="16" Height="16"/>
+                        <materialIcons:MaterialIcon Kind="Error" Width="16" Height="16"
+                                                   Foreground="{DynamicResource Studio.Semantic.Log.Error}"/>
                     </ToggleButton>
                     
                     <ToggleButton IsChecked="{Binding IsFatalVisible}"
                                  Style="{StaticResource LogLevelToggleButtonStyle}"
                                  Foreground="{DynamicResource Studio.Foreground}"
                                  ToolTip="Fatal">
-                        <materialIcons:MaterialIcon Kind="Skull" Width="16" Height="16"/>
+                        <materialIcons:MaterialIcon Kind="Skull" Width="16" Height="16"
+                                                   Foreground="{DynamicResource Studio.Semantic.Log.Fatal}"/>
                     </ToggleButton>
                     
                     <Button Command="{Binding SelectAllLevelsCommand}"

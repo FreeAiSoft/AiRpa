@@ -1,73 +1,514 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
+using RPA.NuGet.Commands;
 using RPA.NuGet.Models;
 using RPA.NuGet.Services;
 
 namespace RPA.NuGet.ViewModels
 {
     /// <summary>
-    /// Lightweight view model for the dockable NuGet package manager panel.
+    /// Модель представления докируемой панели «NuGet» в духе менеджера пакетов Visual Studio 2026:
+    /// вкладки Browse/Installed/Updates, поиск с отменой, выбор источника, панель деталей с выбором
+    /// версии и действием (Install/Update/Downgrade/Uninstall), пакетное обновление.
+    /// <para>
+    /// Вся работа с сетью — асинхронная и отменяемая: поиск и загрузка деталей держат собственный
+    /// <see cref="CancellationTokenSource"/>, поэтому быстрый набор в поле поиска не копит запросы,
+    /// а переключение пакета не оставляет «догоняющий» ответ в панели деталей.
+    /// </para>
     /// </summary>
-    public class NuGetPanelViewModel : INotifyPropertyChanged
+    public class NuGetPanelViewModel : ObservableObject
     {
-        private readonly NuGetSearchService _search;
-        private readonly NuGetPackageDownloader _downloader;
+        private const int PageSize = 20;
 
+        private readonly NuGetIconService _icons;
+        private readonly NuGetSourcesService _sourcesService;
+        private readonly NuGetPackageDetailsService _detailsService;
+        private readonly NuGetInstallService _installService;
+        private readonly bool _fixedSource;
+
+        private NuGetSearchService _search;
+        private CancellationTokenSource _searchCts;
+        private CancellationTokenSource _detailsCts;
         private NuGetProjectPackages _project;
+
+        private NuGetPackageTab _activeTab = NuGetPackageTab.Browse;
         private string _searchQuery;
         private bool _includePrerelease;
         private string _projectPath;
         private string _statusText;
         private bool _isBusy;
+        private bool _isCompact;
+        private bool _updatesChecked;
+        private bool _canLoadMore;
+        private NuGetPackageItemViewModel _selectedItem;
+        private NuGetSourceDefinition _selectedSource;
+        private string _sourceMappingNotice;
+        private bool _autoRestoreAfterInstall = true;
+        private double _progressValue;
+        private CancellationTokenSource _debounceCts;
+        private Task _pendingSearch = Task.CompletedTask;
+        private bool _isSourcesOverlayOpen;
+        private bool _isEditingSource;
+        private bool _isNewSource;
+        private string _editingSourceName;
+        private string _editingSourceUrl;
+        private string _sourceEditError;
+        private NuGetSourceItemViewModel _selectedSourceItem;
 
-        public NuGetPanelViewModel(NuGetSearchService search = null, NuGetPackageDownloader downloader = null)
+        public NuGetPanelViewModel(
+            NuGetSearchService search = null,
+            NuGetPackageDownloader downloader = null,
+            NuGetIconService icons = null,
+            NuGetSourcesService sources = null,
+            NuGetPackageDetailsService details = null,
+            NuGetInstallService install = null)
         {
             _search = search ?? new NuGetSearchService();
-            _downloader = downloader ?? new NuGetPackageDownloader();
+            // Явно переданный сервис — фиксированный источник (тесты, будущие сценарии):
+            // список «Package source» в этом случае его не подменяет.
+            _fixedSource = search != null;
+            _icons = icons ?? new NuGetIconService();
+            _sourcesService = sources ?? new NuGetSourcesService();
+            _detailsService = details ?? new NuGetPackageDetailsService(downloader);
+            _installService = install ?? new NuGetInstallService(downloader);
+
+            Details = new NuGetPackageDetailsViewModel();
+            // Кнопка действия зависит от выбранной версии — она меняется внутри панели деталей.
+            Details.PropertyChanged += (sender, args) =>
+            {
+                if (args.PropertyName == nameof(NuGetPackageDetailsViewModel.Action))
+                    ActionCommand.RaiseCanExecuteChanged();
+            };
+
+            SearchCommand = new AsyncRelayCommand(_ => SearchAsync());
+            LoadMoreCommand = new AsyncRelayCommand(_ => LoadMoreAsync(), _ => CanLoadMore && !IsBusy);
+            ClearSearchCommand = new RelayCommand(_ => ClearSearch());
+            SelectTabCommand = new RelayCommand(parameter => SelectTab(ParseTab(parameter)));
+            ActionCommand = new AsyncRelayCommand(_ => ExecuteActionAsync(), _ => CanExecuteAction);
+            InstallItemCommand = new AsyncRelayCommand(InstallItemAsync, _ => HasProject && !IsBusy);
+            UninstallItemCommand = new AsyncRelayCommand(UninstallItemAsync, _ => HasProject && !IsBusy);
+            UpdateAllCommand = new AsyncRelayCommand(_ => UpdateAllAsync(), _ => UpdateItems.Count > 0 && !IsBusy);
+            CancelCommand = new RelayCommand(_ => Cancel());
+            OpenLinkCommand = new RelayCommand(parameter => OpenLink(parameter as string));
+            ConfigureSourceMappingCommand = new RelayCommand(_ => OpenSources());
+            OpenSourcesCommand = new RelayCommand(_ => OpenSources(), _ => !_isSourcesOverlayOpen);
+            CloseSourcesCommand = new RelayCommand(_ => CloseSources());
+            AddSourceCommand = new RelayCommand(_ => BeginAddSource(), _ => !_isEditingSource);
+            EditSourceCommand = new RelayCommand(_ => BeginEditSource(), _ => SelectedSourceItem != null && !_isEditingSource);
+            RemoveSourceCommand = new RelayCommand(_ => RemoveSource(), _ => SelectedSourceItem != null && !_isEditingSource);
+            SaveSourceCommand = new RelayCommand(_ => SaveSource());
+            CancelSourceEditCommand = new RelayCommand(_ => CancelSourceEdit());
+            OpenConfigFileCommand = new RelayCommand(_ => OpenNuGetConfig());
+            RefreshCommand = new AsyncRelayCommand(_ => RefreshAsync(), _ => HasProject && !IsBusy);
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        /// <summary>Просьба открыть внешнюю ссылку (её выполняет представление: <c>Process.Start</c>).</summary>
+        public event EventHandler<string> LinkRequested;
 
-        public ObservableCollection<NuGetPackageInfo> Available { get; } = new ObservableCollection<NuGetPackageInfo>();
+        // --- Коллекции ---
 
-        public ObservableCollection<NuGetPackageReference> Installed { get; } = new ObservableCollection<NuGetPackageReference>();
+        public ObservableCollection<NuGetPackageItemViewModel> BrowseItems { get; } =
+            new ObservableCollection<NuGetPackageItemViewModel>();
 
+        public ObservableCollection<NuGetPackageItemViewModel> InstalledItems { get; } =
+            new ObservableCollection<NuGetPackageItemViewModel>();
+
+        public ObservableCollection<NuGetPackageItemViewModel> UpdateItems { get; } =
+            new ObservableCollection<NuGetPackageItemViewModel>();
+
+        public ObservableCollection<NuGetSourceDefinition> Sources { get; } =
+            new ObservableCollection<NuGetSourceDefinition>();
+
+        /// <summary>Строки оверлея «Package sources» (редактируемая копия конфигурации).</summary>
+        public ObservableCollection<NuGetSourceItemViewModel> SourceItems { get; } =
+            new ObservableCollection<NuGetSourceItemViewModel>();
+
+        /// <summary>Правая панель деталей.</summary>
+        public NuGetPackageDetailsViewModel Details { get; }
+
+        /// <summary>Пакеты активной вкладки — то, что показывает список.</summary>
+        public IReadOnlyList<NuGetPackageItemViewModel> VisibleItems
+        {
+            get
+            {
+                switch (_activeTab)
+                {
+                    case NuGetPackageTab.Installed:
+                        return InstalledItems;
+                    case NuGetPackageTab.Updates:
+                        return UpdateItems;
+                    default:
+                        return BrowseItems;
+                }
+            }
+        }
+
+        // --- Команды ---
+
+        public AsyncRelayCommand SearchCommand { get; }
+
+        public AsyncRelayCommand LoadMoreCommand { get; }
+
+        public RelayCommand ClearSearchCommand { get; }
+
+        public RelayCommand SelectTabCommand { get; }
+
+        public AsyncRelayCommand ActionCommand { get; }
+
+        /// <summary>Кнопка «Install/Update» на плашке пакета в списке.</summary>
+        public AsyncRelayCommand InstallItemCommand { get; }
+
+        /// <summary>Кнопка «Uninstall» на плашке пакета в списке.</summary>
+        public AsyncRelayCommand UninstallItemCommand { get; }
+
+        public AsyncRelayCommand UpdateAllCommand { get; }
+
+        public RelayCommand CancelCommand { get; }
+
+        public RelayCommand OpenLinkCommand { get; }
+
+        /// <summary>Шестерня в тулбаре и ссылка «Configure» в плашке: открыть оверлей источников.</summary>
+        public RelayCommand ConfigureSourceMappingCommand { get; }
+
+        public RelayCommand OpenSourcesCommand { get; }
+
+        public RelayCommand CloseSourcesCommand { get; }
+
+        public RelayCommand AddSourceCommand { get; }
+
+        public RelayCommand EditSourceCommand { get; }
+
+        public RelayCommand RemoveSourceCommand { get; }
+
+        public RelayCommand SaveSourceCommand { get; }
+
+        public RelayCommand CancelSourceEditCommand { get; }
+
+        /// <summary>Открыть NuGet.Config в оболочке (кнопка в оверлее).</summary>
+        public RelayCommand OpenConfigFileCommand { get; }
+
+        public AsyncRelayCommand RefreshCommand { get; }
+
+        // --- Состояние ---
+
+        public NuGetPackageTab ActiveTab
+        {
+            get => _activeTab;
+            private set
+            {
+                if (!SetProperty(ref _activeTab, value))
+                    return;
+
+                RaisePropertyChanged(nameof(VisibleItems));
+                RaisePropertyChanged(nameof(IsBrowseTab));
+                RaisePropertyChanged(nameof(IsInstalledTab));
+                RaisePropertyChanged(nameof(IsUpdatesTab));
+                RaisePropertyChanged(nameof(ShowBrowseToolbar));
+                RaisePropertyChanged(nameof(EmptyText));
+            }
+        }
+
+        public bool IsBrowseTab => _activeTab == NuGetPackageTab.Browse;
+
+        public bool IsInstalledTab => _activeTab == NuGetPackageTab.Installed;
+
+        public bool IsUpdatesTab => _activeTab == NuGetPackageTab.Updates;
+
+        /// <summary>Поле поиска и «Include prerelease» нужны только на вкладке Browse.</summary>
+        public bool ShowBrowseToolbar => IsBrowseTab;
+
+        /// <summary>
+        /// Поиск запускается сам, как только пользователь перестал печатать: Enter больше не нужен.
+        /// Задержка задаётся <see cref="SearchDebounceMilliseconds"/>, предыдущая отложенная попытка
+        /// отменяется — в источник уходит только последний запрос.
+        /// </summary>
         public string SearchQuery
         {
             get => _searchQuery;
-            set { _searchQuery = value; OnPropertyChanged(); }
+            set
+            {
+                if (!SetProperty(ref _searchQuery, value))
+                    return;
+
+                RaisePropertyChanged(nameof(HasSearchQuery));
+                ScheduleSearch();
+            }
         }
+
+        /// <summary>Задержка авто-поиска после последнего нажатия клавиши (мс). 0 — искать сразу.</summary>
+        public int SearchDebounceMilliseconds { get; set; } = 300;
+
+        /// <summary>
+        /// Отложенный поиск. Нужен, чтобы вызывающая сторона (и тесты) могли дождаться результата
+        /// вместо ожидания фиксированной паузы.
+        /// </summary>
+        public Task PendingSearch
+        {
+            get => _pendingSearch;
+            private set => _pendingSearch = value ?? Task.CompletedTask;
+        }
+
+        public bool HasSearchQuery => !string.IsNullOrWhiteSpace(_searchQuery);
 
         public bool IncludePrerelease
         {
             get => _includePrerelease;
-            set { _includePrerelease = value; OnPropertyChanged(); }
+            set
+            {
+                if (SetProperty(ref _includePrerelease, value))
+                {
+                    // Prerelease влияет и на поиск, и на обновления: старые отметки больше не верны.
+                    _updatesChecked = false;
+                    _ = RefreshForPrereleaseAsync();
+                }
+            }
+        }
+
+        /// <summary>После установки выполнять <c>msbuild -t:restore</c> (иначе проект не соберётся).</summary>
+        public bool AutoRestoreAfterInstall
+        {
+            get => _autoRestoreAfterInstall;
+            set => SetProperty(ref _autoRestoreAfterInstall, value);
         }
 
         public string ProjectPath
         {
             get => _projectPath;
-            set { _projectPath = value; OnPropertyChanged(); }
+            private set
+            {
+                if (SetProperty(ref _projectPath, value))
+                {
+                    RaisePropertyChanged(nameof(ProjectHeader));
+                    RaisePropertyChanged(nameof(HasProject));
+                    InstallItemCommand.RaiseCanExecuteChanged();
+                    UninstallItemCommand.RaiseCanExecuteChanged();
+                }
+            }
         }
+
+        /// <summary>Заголовок панели: «NuGet Package Manager: Проект».</summary>
+        public string ProjectHeader
+        {
+            get
+            {
+                string name = string.IsNullOrWhiteSpace(_projectPath)
+                    ? null
+                    : Path.GetFileNameWithoutExtension(_projectPath);
+                return string.IsNullOrWhiteSpace(name)
+                    ? "NuGet Package Manager"
+                    : "NuGet Package Manager: " + name;
+            }
+        }
+
+        public bool HasProject => _project != null;
 
         public string StatusText
         {
             get => _statusText;
-            set { _statusText = value; OnPropertyChanged(); }
+            set => SetProperty(ref _statusText, value);
         }
 
         public bool IsBusy
         {
             get => _isBusy;
-            set { _isBusy = value; OnPropertyChanged(); }
+            private set
+            {
+                if (SetProperty(ref _isBusy, value))
+                {
+                    RaisePropertyChanged(nameof(IsIdle));
+                    RaiseActionState();
+                    UpdateAllCommand.RaiseCanExecuteChanged();
+                    RefreshCommand.RaiseCanExecuteChanged();
+                    LoadMoreCommand.RaiseCanExecuteChanged();
+                }
+            }
         }
 
-        public bool HasProject => _project != null;
+        public bool IsIdle => !_isBusy;
+
+        /// <summary>Прогресс долгой операции в процентах (0 — полоса скрыта).</summary>
+        public double ProgressValue
+        {
+            get => _progressValue;
+            private set
+            {
+                if (SetProperty(ref _progressValue, value))
+                    RaisePropertyChanged(nameof(ShowProgress));
+            }
+        }
+
+        public bool ShowProgress => _progressValue > 0;
+
+        /// <summary>Узкая панель (перетащили в боковой док): детали открываются вместо списка.</summary>
+        public bool IsCompact
+        {
+            get => _isCompact;
+            set => SetProperty(ref _isCompact, value);
+        }
+
+        public bool CanLoadMore
+        {
+            get => _canLoadMore;
+            private set
+            {
+                if (SetProperty(ref _canLoadMore, value))
+                    LoadMoreCommand.RaiseCanExecuteChanged();
+            }
+        }
+
+        /// <summary>Выбранная строка списка — она же источник данных панели деталей.</summary>
+        public NuGetPackageItemViewModel SelectedItem
+        {
+            get => _selectedItem;
+            set
+            {
+                if (!SetProperty(ref _selectedItem, value))
+                    return;
+
+                RaisePropertyChanged(nameof(HasSelection));
+                if (value == null)
+                {
+                    Details.Clear();
+                    return;
+                }
+
+                _ = LoadDetailsAsync(value);
+            }
+        }
+
+        public bool HasSelection => _selectedItem != null;
+
+        /// <summary>Активный источник пакетов; смена пересоздаёт сервис поиска.</summary>
+        public NuGetSourceDefinition SelectedSource
+        {
+            get => _selectedSource;
+            set
+            {
+                if (!SetProperty(ref _selectedSource, value) || value == null)
+                    return;
+
+                if (!_fixedSource)
+                    _search = new NuGetSearchService(value.Url);
+
+                _updatesChecked = false;
+                UpdateSourceMappingNotice();
+                _ = OnSourceChangedAsync();
+            }
+        }
+
+        /// <summary>Предупреждение о выключенном сопоставлении источников (как в VS).</summary>
+        public string SourceMappingNotice
+        {
+            get => _sourceMappingNotice;
+            private set
+            {
+                if (SetProperty(ref _sourceMappingNotice, value))
+                    RaisePropertyChanged(nameof(HasSourceMappingNotice));
+            }
+        }
+
+        public bool HasSourceMappingNotice => !string.IsNullOrWhiteSpace(_sourceMappingNotice);
+
+        // --- Оверлей «Package sources» ---
+
+        /// <summary>Оверлей добавления/удаления источников пакетов открыт.</summary>
+        public bool IsSourcesOverlayOpen
+        {
+            get => _isSourcesOverlayOpen;
+            private set
+            {
+                if (!SetProperty(ref _isSourcesOverlayOpen, value))
+                    return;
+
+                OpenSourcesCommand.RaiseCanExecuteChanged();
+            }
+        }
+
+        /// <summary>Открыт встроенный редактор строки (Add/Edit).</summary>
+        public bool IsEditingSource
+        {
+            get => _isEditingSource;
+            private set
+            {
+                if (!SetProperty(ref _isEditingSource, value))
+                    return;
+
+                AddSourceCommand.RaiseCanExecuteChanged();
+                EditSourceCommand.RaiseCanExecuteChanged();
+                RemoveSourceCommand.RaiseCanExecuteChanged();
+            }
+        }
+
+        /// <summary>Заголовок редактора: «Add source» или «Edit source».</summary>
+        public string SourceEditorTitle => _isNewSource ? "Add source" : "Edit source";
+
+        public string EditingSourceName
+        {
+            get => _editingSourceName;
+            set => SetProperty(ref _editingSourceName, value);
+        }
+
+        public string EditingSourceUrl
+        {
+            get => _editingSourceUrl;
+            set => SetProperty(ref _editingSourceUrl, value);
+        }
+
+        /// <summary>Ошибка проверки полей редактора (пусто — ошибки нет).</summary>
+        public string SourceEditError
+        {
+            get => _sourceEditError;
+            private set
+            {
+                if (SetProperty(ref _sourceEditError, value))
+                    RaisePropertyChanged(nameof(HasSourceEditError));
+            }
+        }
+
+        public bool HasSourceEditError => !string.IsNullOrWhiteSpace(_sourceEditError);
+
+        /// <summary>Выделенная строка таблицы источников.</summary>
+        public NuGetSourceItemViewModel SelectedSourceItem
+        {
+            get => _selectedSourceItem;
+            set
+            {
+                if (!SetProperty(ref _selectedSourceItem, value))
+                    return;
+
+                EditSourceCommand.RaiseCanExecuteChanged();
+                RemoveSourceCommand.RaiseCanExecuteChanged();
+            }
+        }
+
+        /// <summary>Текст заглушки пустого списка — зависит от вкладки.</summary>
+        public string EmptyText
+        {
+            get
+            {
+                if (!HasProject)
+                    return "Open a project to manage its NuGet packages.";
+
+                switch (_activeTab)
+                {
+                    case NuGetPackageTab.Installed:
+                        return "No packages installed in this project.";
+                    case NuGetPackageTab.Updates:
+                        return "All packages are up to date.";
+                    default:
+                        return "Type a package name and press Enter.";
+                }
+            }
+        }
+
+        private bool CanExecuteAction => Details.HasDetails && Details.Action != NuGetPackageAction.None && !IsBusy;
+
+        // --- Проект ---
 
         /// <summary>Detects a .csproj inside the given folder (current studio project folder).</summary>
         public bool TryDetectProject(string folder)
@@ -95,9 +536,18 @@ namespace RPA.NuGet.ViewModels
             {
                 _project = NuGetProjectConfig.Load(projectPath);
                 ProjectPath = _project.ProjectPath;
-                RefreshInstalled();
-                OnPropertyChanged(nameof(HasProject));
-                StatusText = $"Loaded {(_project.IsSdkStyle ? "SDK-style" : "packages.config")} project: {Path.GetFileName(projectPath)}";
+                RaisePropertyChanged(nameof(HasProject));
+                RaisePropertyChanged(nameof(EmptyText));
+                RefreshCommand.RaiseCanExecuteChanged();
+
+                LoadSources();
+                _updatesChecked = false;
+                RefreshInstalledItems(checkUpdates: false);
+
+                StatusText = $"Loaded {(_project.IsSdkStyle ? "SDK-style" : "packages.config")} project: "
+                             + Path.GetFileName(projectPath);
+
+                _ = RefreshInstalledAsync(checkUpdates: true);
                 return true;
             }
             catch (Exception ex)
@@ -107,21 +557,114 @@ namespace RPA.NuGet.ViewModels
             }
         }
 
+        /// <summary>Повторно читает проект с диска (после install/update/uninstall).</summary>
+        public void ReloadProject()
+        {
+            if (_project == null || !File.Exists(_project.ProjectPath))
+                return;
+
+            string path = _project.ProjectPath;
+            _project = NuGetProjectConfig.Load(path);
+            RaisePropertyChanged(nameof(HasProject));
+        }
+
+        // --- Поиск ---
+
+        /// <summary>Перезапускает отложенный поиск при каждом изменении запроса.</summary>
+        private void ScheduleSearch()
+        {
+            _debounceCts?.Cancel();
+
+            if (string.IsNullOrWhiteSpace(_searchQuery))
+            {
+                BrowseItems.Clear();
+                CanLoadMore = false;
+                SelectedItem = null;
+                StatusText = string.Empty;
+                PendingSearch = Task.CompletedTask;
+                return;
+            }
+
+            var cts = new CancellationTokenSource();
+            _debounceCts = cts;
+            PendingSearch = DebounceSearchAsync(cts);
+        }
+
+        private async Task DebounceSearchAsync(CancellationTokenSource cts)
+        {
+            try
+            {
+                int delay = Math.Max(0, SearchDebounceMilliseconds);
+                if (delay > 0)
+                    await Task.Delay(delay, cts.Token).ConfigureAwait(true);
+
+                if (!cts.IsCancellationRequested)
+                    await SearchAsync();
+            }
+            catch (OperationCanceledException)
+            {
+                // Пользователь продолжил печатать — предыдущая попытка просто отменена.
+            }
+        }
+
+        /// <summary>Ищет пакеты по текущему запросу (первая страница).</summary>
         public async Task SearchAsync()
         {
             if (string.IsNullOrWhiteSpace(SearchQuery))
                 return;
 
+            ActiveTab = NuGetPackageTab.Browse;
+            CancelSearch();
+            var cts = _searchCts = new CancellationTokenSource();
+
             IsBusy = true;
+            ProgressValue = 0;
             StatusText = "Searching...";
             try
             {
-                var results = await _search.SearchAsync(SearchQuery, 20, IncludePrerelease);
-                Available.Clear();
-                foreach (var item in results)
-                    Available.Add(item);
+                List<NuGetPackageInfo> results = await _search.SearchAsync(SearchQuery, PageSize, IncludePrerelease);
+                if (cts.IsCancellationRequested)
+                    return;
 
+                BrowseItems.Clear();
+                foreach (NuGetPackageInfo info in results)
+                    BrowseItems.Add(CreateItem(info));
+
+                CanLoadMore = results.Count >= PageSize;
                 StatusText = results.Count == 0 ? "No packages found." : $"Found {results.Count} package(s).";
+                SelectedItem = BrowseItems.FirstOrDefault();
+            }
+            catch (OperationCanceledException)
+            {
+                // Запрос отменён новым вводом — статус не трогаем.
+            }
+            catch (Exception ex)
+            {
+                StatusText = "Search failed: " + ex.Message;
+            }
+            finally
+            {
+                if (ReferenceEquals(_searchCts, cts))
+                    IsBusy = false;
+            }
+        }
+
+        /// <summary>Догружает следующую страницу результатов (кнопка «Load more»).</summary>
+        public async Task LoadMoreAsync()
+        {
+            if (!CanLoadMore || string.IsNullOrWhiteSpace(SearchQuery))
+                return;
+
+            IsBusy = true;
+            try
+            {
+                List<NuGetPackageInfo> results =
+                    await _search.SearchAsync(SearchQuery, PageSize, IncludePrerelease, BrowseItems.Count);
+                foreach (NuGetPackageInfo info in results)
+                    BrowseItems.Add(CreateItem(info));
+
+                CanLoadMore = results.Count >= PageSize;
+                StatusText = $"Showing {BrowseItems.Count} package(s).";
             }
             catch (Exception ex)
             {
@@ -133,25 +676,156 @@ namespace RPA.NuGet.ViewModels
             }
         }
 
-        public async Task InstallAsync(NuGetPackageInfo package)
+        public void ClearSearch()
         {
-            if (package == null || _project == null)
+            SearchQuery = string.Empty;
+            BrowseItems.Clear();
+            CanLoadMore = false;
+            SelectedItem = null;
+            StatusText = string.Empty;
+        }
+
+        // --- Детали ---
+
+        private async Task LoadDetailsAsync(NuGetPackageItemViewModel item)
+        {
+            CancelDetails();
+            var cts = _detailsCts = new CancellationTokenSource();
+
+            string installedVersion = GetInstalledVersion(item.Id);
+
+            // Сначала карточка из списка: версия и кнопка действия появляются мгновенно, ещё до
+            // ответа источника. Ответ источника затем уточняет сведения и список версий.
+            Details.Load(
+                NuGetPackageDetailsService.FromPackageInfo(item.Package, installedVersion),
+                item,
+                installedVersion,
+                SelectedSource?.Name);
+            RaiseActionState();
+            StatusText = "Loading package details...";
+
+            try
+            {
+                NuGetPackageDetails details =
+                    await _detailsService.LoadAsync(_search, item.Package, installedVersion, IncludePrerelease);
+                if (cts.IsCancellationRequested || !ReferenceEquals(_selectedItem, item))
+                    return;
+
+                Details.Load(details, item, installedVersion, SelectedSource?.Name);
+                StatusText = string.Empty;
+                RaiseActionState();
+
+                if (details != null)
+                {
+                    // README показываем для выбранной версии; запасная — последняя из списка
+                    // (в проекте может быть зафиксирована версия, которой у источника уже нет).
+                    string fallbackVersion = details.Versions.Count > 0 ? details.Versions[0].Version : null;
+                    _ = LoadReadmeAsync(details.Id, details.Version, fallbackVersion, item);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (!cts.IsCancellationRequested)
+                    StatusText = "Failed to load package details: " + ex.Message;
+            }
+        }
+
+        private async Task LoadReadmeAsync(string id, string version, string fallbackVersion, NuGetPackageItemViewModel item)
+        {
+            // README берём из выбранного источника; если показанной версии там уже нет,
+            // сервис пробует запасную (последнюю из списка).
+            string readme = await _detailsService.TryReadReadmeAsync(_search, id, version, fallbackVersion);
+
+            // Пока README грузился, пользователь мог выбрать другой пакет.
+            if (!ReferenceEquals(_selectedItem, item))
+                return;
+
+            // README нет — панель деталей сама уберёт вкладку и оставит «Package Details».
+            // Известную причину (источник, сеть) показываем в строке состояния: раньше пропавшая
+            // вкладка README выглядела как «в пакете нет README».
+            Details.Readme = readme;
+            if (readme == null && !string.IsNullOrWhiteSpace(_detailsService.LastReadmeError))
+                StatusText = "README unavailable: " + _detailsService.LastReadmeError;
+        }
+
+        // --- Действия ---
+
+        private async Task ExecuteActionAsync()
+        {
+            if (_project == null)
+            {
+                StatusText = "Open a project first: the package list belongs to a .csproj.";
+                return;
+            }
+
+            NuGetPackageDetailsViewModel details = Details;
+            if (!details.HasDetails)
+                return;
+
+            string id = details.Id;
+            string version = details.PackageVersionText;
+            NuGetPackageAction action = details.Action;
+            if (action == NuGetPackageAction.None)
                 return;
 
             IsBusy = true;
-            StatusText = $"Installing {package.Id} {package.Version}...";
+            ProgressValue = 15;
             try
             {
-                if (!_project.IsSdkStyle)
+                switch (action)
                 {
-                    byte[] nupkg = await _downloader.DownloadNupkgAsync(package.Id, package.Version);
-                    _downloader.Extract(nupkg, package.Id, package.Version, GetPackagesFolder());
+                    case NuGetPackageAction.Uninstall:
+                        StatusText = $"Uninstalling {id}...";
+                        _installService.Uninstall(_project, id);
+                        ProgressValue = 90;
+                        StatusText = $"Uninstalled {id}.";
+                        break;
+
+                    default:
+                        StatusText = $"{NuGetPackageStateResolver.ActionText(action)} {id} {version}...";
+                        await _installService.InstallAsync(_project, id, version);
+                        ProgressValue = 70;
+                        StatusText = $"{NuGetPackageStateResolver.ActionText(action)}ed {id} {version}.";
+                        break;
                 }
 
-                NuGetProjectConfig.Add(_project, package.Id, package.Version);
-                NuGetProjectConfig.Save(_project);
-                RefreshInstalled();
-                StatusText = $"Installed {package.Id} {package.Version}.";
+                await AfterProjectChangedAsync(id, action != NuGetPackageAction.Uninstall);
+            }
+            catch (Exception ex)
+            {
+                StatusText = "Operation failed: " + ex.Message;
+            }
+            finally
+            {
+                ProgressValue = 0;
+                IsBusy = false;
+            }
+        }
+
+        /// <summary>Установка/обновление пакета кнопкой на плашке списка.</summary>
+        public async Task InstallItemAsync(object parameter)
+        {
+            if (!(parameter is NuGetPackageItemViewModel item) || _project == null)
+                return;
+
+            string version = item.LatestVersion;
+            if (string.IsNullOrWhiteSpace(version))
+                version = item.Package?.Version;
+
+            if (string.IsNullOrWhiteSpace(version))
+            {
+                StatusText = "No version to install for " + item.Id + ".";
+                return;
+            }
+
+            IsBusy = true;
+            ProgressValue = 20;
+            try
+            {
+                StatusText = $"Installing {item.Id} {version}...";
+                await _installService.InstallAsync(_project, item.Id, version);
+                StatusText = $"Installed {item.Id} {version}.";
+                await AfterProjectChangedAsync(item.Id, restore: true);
             }
             catch (Exception ex)
             {
@@ -159,79 +833,552 @@ namespace RPA.NuGet.ViewModels
             }
             finally
             {
+                ProgressValue = 0;
                 IsBusy = false;
             }
         }
 
-        public async Task UpdateAsync(NuGetPackageReference package)
+        /// <summary>Удаление пакета кнопкой на плашке списка.</summary>
+        public async Task UninstallItemAsync(object parameter)
         {
-            if (package == null || _project == null)
+            if (!(parameter is NuGetPackageItemViewModel item) || _project == null)
                 return;
 
             IsBusy = true;
-            StatusText = $"Updating {package.Id}...";
+            ProgressValue = 20;
             try
             {
-                var versions = await _search.GetVersionsAsync(package.Id, IncludePrerelease);
-                string best = NuGetVersionResolver.SelectBestVersion(versions, package.Version, IncludePrerelease);
-                if (best == null || string.Equals(best, package.Version, StringComparison.OrdinalIgnoreCase))
-                {
-                    StatusText = $"{package.Id} is already up to date.";
-                    return;
-                }
-
-                if (!_project.IsSdkStyle)
-                {
-                    byte[] nupkg = await _downloader.DownloadNupkgAsync(package.Id, best);
-                    _downloader.Extract(nupkg, package.Id, best, GetPackagesFolder());
-                }
-
-                NuGetProjectConfig.Update(_project, package.Id, best);
-                NuGetProjectConfig.Save(_project);
-                RefreshInstalled();
-                StatusText = $"Updated {package.Id} to {best}.";
+                StatusText = $"Uninstalling {item.Id}...";
+                _installService.Uninstall(_project, item.Id);
+                StatusText = $"Uninstalled {item.Id}.";
+                await AfterProjectChangedAsync(item.Id, restore: false);
             }
             catch (Exception ex)
             {
-                StatusText = "Update failed: " + ex.Message;
+                StatusText = "Uninstall failed: " + ex.Message;
             }
             finally
             {
+                ProgressValue = 0;
                 IsBusy = false;
             }
         }
 
-        public void Uninstall(NuGetPackageReference package)
+        /// <summary>Пересчитывает доступность кнопок, зависящих от выбранного пакета и версии.</summary>
+        private void RaiseActionState()
         {
-            if (package == null || _project == null)
-                return;
-
-            NuGetProjectConfig.Remove(_project, package.Id);
-            NuGetProjectConfig.Save(_project);
-            RefreshInstalled();
-            StatusText = $"Uninstalled {package.Id}.";
+            ActionCommand.RaiseCanExecuteChanged();
+            InstallItemCommand.RaiseCanExecuteChanged();
+            UninstallItemCommand.RaiseCanExecuteChanged();
         }
 
-        private void RefreshInstalled()
+        /// <summary>Все доступные обновления одной операцией (вкладка Updates).</summary>
+        public async Task UpdateAllAsync()
         {
-            Installed.Clear();
+            if (_project == null || UpdateItems.Count == 0)
+                return;
+
+            List<NuGetPackageItemViewModel> targets = UpdateItems.ToList();
+            IsBusy = true;
+            int done = 0;
+            string lastError = null;
+
+            try
+            {
+                foreach (NuGetPackageItemViewModel item in targets)
+                {
+                    ProgressValue = Math.Round(100d * done / targets.Count, 0);
+                    StatusText = $"Updating {item.Id} to {item.LatestVersion} ({done + 1}/{targets.Count})...";
+                    try
+                    {
+                        await _installService.InstallAsync(_project, item.Id, item.LatestVersion);
+                        done++;
+                    }
+                    catch (Exception ex)
+                    {
+                        lastError = item.Id + ": " + ex.Message;
+                    }
+                }
+
+                await AfterProjectChangedAsync(null, restore: true);
+                StatusText = lastError == null
+                    ? $"Updated {done} package(s)."
+                    : $"Updated {done} package(s). Failed: {lastError}";
+            }
+            finally
+            {
+                ProgressValue = 0;
+                IsBusy = false;
+            }
+        }
+
+        private async Task AfterProjectChangedAsync(string changedId, bool restore)
+        {
+            ReloadProject();
+            _updatesChecked = false;
+            await RefreshInstalledAsync(checkUpdates: true);
+
+            if (changedId != null)
+            {
+                Details.ApplyInstalledVersion(GetInstalledVersion(changedId));
+                ActionCommand.RaiseCanExecuteChanged();
+            }
+
+            if (restore && AutoRestoreAfterInstall)
+            {
+                StatusText = StatusText + " Restoring...";
+                string error = await _installService.RestoreAsync(_project.ProjectPath);
+                if (error != null)
+                    StatusText = StatusText + " " + error;
+                else
+                    StatusText = StatusText.Replace(" Restoring...", " Done.");
+            }
+        }
+
+        // --- Вкладки, источники, обновления ---
+
+        /// <summary>Переключает вкладку и, если нужно, догружает состояние пакетов проекта.</summary>
+        public void SelectTab(NuGetPackageTab tab)
+        {
+            ActiveTab = tab;
+            _ = OnTabActivatedAsync(tab);
+        }
+
+        private async Task OnTabActivatedAsync(NuGetPackageTab tab)
+        {
+            if (tab == NuGetPackageTab.Browse || _project == null || _updatesChecked || IsBusy)
+                return;
+
+            await RefreshInstalledAsync(checkUpdates: true);
+        }
+
+        /// <summary>Обновляет пакеты проекта и список доступных обновлений.</summary>
+        public async Task RefreshInstalledAsync(bool checkUpdates)
+        {
             if (_project == null)
                 return;
 
-            foreach (var package in _project.Packages.OrderBy(p => p.Id, StringComparer.OrdinalIgnoreCase))
-                Installed.Add(package);
+            IsBusy = true;
+            if (checkUpdates)
+                StatusText = "Checking for updates...";
+
+            try
+            {
+                RefreshInstalledItems(checkUpdates: false);
+                var withUpdate = new List<NuGetPackageItemViewModel>();
+
+                if (checkUpdates)
+                {
+                    int index = 0;
+                    foreach (NuGetPackageItemViewModel item in InstalledItems.ToList())
+                    {
+                        index++;
+                        ProgressValue = Math.Round(100d * index / Math.Max(InstalledItems.Count, 1), 0);
+                        try
+                        {
+                            NuGetPackageInfo info = await _search.GetPackageInfoAsync(item.Id, IncludePrerelease);
+                            if (info != null)
+                            {
+                                item.ApplyMetadata(info);
+                                _ = item.LoadIconAsync();
+                            }
+
+                            IReadOnlyList<string> versions = await _search.GetVersionsAsync(item.Id, IncludePrerelease);
+                            item.LatestVersion = NuGetVersionResolver.SelectBestVersion(versions, item.InstalledVersion, IncludePrerelease);
+                        }
+                        catch (Exception)
+                        {
+                            // Один недоступный пакет не должен ломать список обновлений.
+                        }
+
+                        if (item.HasUpdate)
+                            withUpdate.Add(item);
+                    }
+
+                    _updatesChecked = true;
+                }
+
+                UpdateItems.Clear();
+                foreach (NuGetPackageItemViewModel item in withUpdate)
+                    UpdateItems.Add(item);
+
+                UpdateAllCommand.RaiseCanExecuteChanged();
+                if (checkUpdates)
+                {
+                    StatusText = withUpdate.Count == 0
+                        ? $"{InstalledItems.Count} package(s) installed, all up to date."
+                        : $"{withUpdate.Count} update(s) available for {InstalledItems.Count} package(s).";
+                }
+            }
+            finally
+            {
+                ProgressValue = 0;
+                IsBusy = false;
+            }
         }
 
-        private string GetPackagesFolder()
+        /// <summary>Перечитывает пакеты проекта без обращения к источнику (быстро).</summary>
+        private void RefreshInstalledItems(bool checkUpdates)
         {
-            string projectDir = Path.GetDirectoryName(_project.ProjectPath) ?? string.Empty;
-            return Path.Combine(projectDir, "packages");
+            InstalledItems.Clear();
+            if (_project == null)
+                return;
+
+            foreach (NuGetPackageReference reference in _project.Packages
+                .OrderBy(p => p.Id, StringComparer.OrdinalIgnoreCase))
+            {
+                var info = new NuGetPackageInfo { Id = reference.Id, Version = reference.Version };
+                var item = new NuGetPackageItemViewModel(info, _icons.LoadAsync)
+                {
+                    InstalledVersion = reference.Version
+                };
+
+                InstalledItems.Add(item);
+                _ = item.LoadIconAsync();
+            }
         }
 
-        private void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        private NuGetPackageItemViewModel CreateItem(NuGetPackageInfo info)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            var item = new NuGetPackageItemViewModel(info, _icons.LoadAsync);
+            string installed = GetInstalledVersion(info.Id);
+            if (!string.IsNullOrWhiteSpace(installed))
+                item.InstalledVersion = installed;
+
+            _ = item.LoadIconAsync();
+            return item;
+        }
+
+        private string GetInstalledVersion(string id)
+        {
+            if (_project == null || string.IsNullOrWhiteSpace(id))
+                return null;
+
+            return NuGetProjectConfig.Find(_project, id)?.Version;
+        }
+
+        private void LoadSources()
+        {
+            string folder = string.IsNullOrWhiteSpace(_projectPath)
+                ? null
+                : Path.GetDirectoryName(_projectPath);
+
+            if (_fixedSource)
+            {
+                Sources.Clear();
+                Sources.Add(new NuGetSourceDefinition { Name = _search.SourceUrl, Url = _search.SourceUrl });
+                _selectedSource = Sources[0];
+                RaisePropertyChanged(nameof(SelectedSource));
+                UpdateSourceMappingNotice();
+                return;
+            }
+
+            // В выпадающий список попадают только включённые сетевые источники: локальные папки и
+            // выключенные строки видны в оверлее «Package sources», но поиск по ним невозможен.
+            IReadOnlyList<NuGetSourceDefinition> sources = _sourcesService.Load(folder)
+                .Where(source => source.IsEnabled && source.IsRemote)
+                .ToList();
+
+            Sources.Clear();
+            foreach (NuGetSourceDefinition source in sources)
+                Sources.Add(source);
+
+            if (Sources.Count == 0)
+            {
+                Sources.Add(new NuGetSourceDefinition
+                {
+                    Name = NuGetSourcesService.NuGetOrgName,
+                    Url = NuGetSourcesService.NuGetOrgUrl,
+                    IsFallback = true
+                });
+            }
+
+            SelectedSource = Sources.FirstOrDefault();
+            UpdateSourceMappingNotice();
+        }
+
+        /// <summary>Перечитывает источники после правки конфигурации и восстанавливает выбор.</summary>
+        private void ReloadSources()
+        {
+            string previousUrl = _selectedSource?.Url;
+            string folder = GetProjectFolder();
+
+            if (_fixedSource)
+                return;
+
+            IReadOnlyList<NuGetSourceDefinition> definitions = _sourcesService.Load(folder)
+                .Where(source => source.IsEnabled && source.IsRemote)
+                .ToList();
+
+            Sources.Clear();
+            foreach (NuGetSourceDefinition definition in definitions)
+                Sources.Add(definition);
+
+            NuGetSourceDefinition restored = Sources.FirstOrDefault(
+                                               source => string.Equals(source.Url, previousUrl, StringComparison.OrdinalIgnoreCase))
+                                           ?? Sources.FirstOrDefault();
+
+            if (restored == null)
+            {
+                StatusText = "All package sources are disabled: enable at least one in Package sources.";
+                _selectedSource = null;
+                RaisePropertyChanged(nameof(SelectedSource));
+                UpdateSourceMappingNotice();
+                return;
+            }
+
+            if (!ReferenceEquals(restored, _selectedSource))
+                SelectedSource = restored;
+            else
+                UpdateSourceMappingNotice();
+        }
+
+        private void UpdateSourceMappingNotice()
+        {
+            string folder = string.IsNullOrWhiteSpace(_projectPath) ? null : Path.GetDirectoryName(_projectPath);
+            SourceMappingNotice = _sourcesService.IsSourceMappingConfigured(folder)
+                ? null
+                : "Package source mapping is off.";
+        }
+
+        /// <summary>Ссылка «Configure» и шестерня открывают оверлей источников.</summary>
+        private void ConfigureSourceMapping()
+        {
+            OpenSources();
+        }
+
+        private void OpenNuGetConfig()
+        {
+            string folder = GetProjectFolder();
+            string config = _sourcesService.FindConfigPath(folder);
+            OpenLink(config ?? "https://learn.microsoft.com/nuget/consume-packages/package-source-mapping");
+        }
+
+        /// <summary>Открывает оверлей «Package sources» и заполняет его текущей конфигурацией.</summary>
+        public void OpenSources()
+        {
+            ReloadSourceItems();
+            SourceEditError = null;
+            IsEditingSource = false;
+            IsSourcesOverlayOpen = true;
+        }
+
+        public void CloseSources()
+        {
+            IsEditingSource = false;
+            IsSourcesOverlayOpen = false;
+        }
+
+        private void ReloadSourceItems()
+        {
+            string folder = GetProjectFolder();
+            IReadOnlyList<NuGetSourceDefinition> definitions = _sourcesService.Load(folder);
+
+            SourceItems.Clear();
+            foreach (NuGetSourceDefinition definition in definitions)
+            {
+                if (definition.IsFallback)
+                    continue;
+
+                var item = new NuGetSourceItemViewModel(definition);
+                item.PropertyChanged += SourceItem_PropertyChanged;
+                SourceItems.Add(item);
+            }
+
+            SelectedSourceItem = SourceItems.FirstOrDefault();
+        }
+
+        /// <summary>Галочка «Enabled» сохраняется сразу — как в Visual Studio.</summary>
+        private void SourceItem_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(NuGetSourceItemViewModel.IsEnabled))
+                PersistSources();
+        }
+
+        private void BeginAddSource()
+        {
+            _isNewSource = true;
+            EditingSourceName = string.Empty;
+            EditingSourceUrl = string.Empty;
+            SourceEditError = null;
+            RaisePropertyChanged(nameof(SourceEditorTitle));
+            IsEditingSource = true;
+        }
+
+        private void BeginEditSource()
+        {
+            if (SelectedSourceItem == null)
+                return;
+
+            _isNewSource = false;
+            EditingSourceName = SelectedSourceItem.Name;
+            EditingSourceUrl = SelectedSourceItem.Source;
+            SourceEditError = null;
+            RaisePropertyChanged(nameof(SourceEditorTitle));
+            IsEditingSource = true;
+        }
+
+        private void CancelSourceEdit()
+        {
+            IsEditingSource = false;
+            SourceEditError = null;
+        }
+
+        /// <summary>Проверяет поля и записывает строку в список (в файл — по <see cref="PersistSources"/>).</summary>
+        private void SaveSource()
+        {
+            string name = (EditingSourceName ?? string.Empty).Trim();
+            string url = (EditingSourceUrl ?? string.Empty).Trim();
+
+            if (name.Length == 0)
+            {
+                SourceEditError = "Source name is required.";
+                return;
+            }
+
+            if (url.Length == 0)
+            {
+                SourceEditError = "Source path or URL is required.";
+                return;
+            }
+
+            if (SourceItems.Any(item =>
+                    string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase)
+                    && (_isNewSource || !ReferenceEquals(item, SelectedSourceItem))))
+            {
+                SourceEditError = "A source with this name already exists.";
+                return;
+            }
+
+            if (_isNewSource)
+            {
+                var item = new NuGetSourceItemViewModel(new NuGetSourceDefinition { Name = name, Url = url, IsEnabled = true });
+                item.PropertyChanged += SourceItem_PropertyChanged;
+                SourceItems.Add(item);
+                SelectedSourceItem = item;
+            }
+            else if (SelectedSourceItem != null)
+            {
+                SelectedSourceItem.Name = name;
+                SelectedSourceItem.Source = url;
+            }
+
+            SourceEditError = null;
+            IsEditingSource = false;
+            PersistSources();
+        }
+
+        private void RemoveSource()
+        {
+            if (SelectedSourceItem == null)
+                return;
+
+            NuGetSourceItemViewModel removed = SelectedSourceItem;
+            SourceItems.Remove(removed);
+            removed.PropertyChanged -= SourceItem_PropertyChanged;
+            SelectedSourceItem = SourceItems.FirstOrDefault();
+            PersistSources();
+        }
+
+        /// <summary>Записывает список в <c>NuGet.Config</c> и обновляет выпадающий список источников.</summary>
+        private void PersistSources()
+        {
+            try
+            {
+                _sourcesService.Save(GetProjectFolder(), SourceItems.Select(item => item.ToDefinition()).ToList());
+                SourceEditError = null;
+                ReloadSources();
+                StatusText = "Package sources updated.";
+            }
+            catch (Exception ex)
+            {
+                SourceEditError = "Failed to save package sources: " + ex.Message;
+                StatusText = SourceEditError;
+            }
+        }
+
+        private string GetProjectFolder()
+        {
+            return string.IsNullOrWhiteSpace(_projectPath) ? null : Path.GetDirectoryName(_projectPath);
+        }
+
+        private async Task OnSourceChangedAsync()
+        {
+            if (HasProject)
+                await RefreshInstalledAsync(checkUpdates: _activeTab != NuGetPackageTab.Browse);
+
+            if (!string.IsNullOrWhiteSpace(SearchQuery) && IsBrowseTab)
+                await SearchAsync();
+        }
+
+        /// <summary>Смена «Include prerelease» перепроверяет обновления и текущий поиск.</summary>
+        private async Task RefreshForPrereleaseAsync()
+        {
+            if (IsBrowseTab && !string.IsNullOrWhiteSpace(SearchQuery))
+            {
+                await SearchAsync();
+                return;
+            }
+
+            if (HasProject && !IsBrowseTab)
+                await RefreshInstalledAsync(checkUpdates: true);
+        }
+
+        private async Task RefreshAsync()
+        {
+            if (IsBrowseTab)
+            {
+                await SearchAsync();
+                return;
+            }
+
+            await RefreshInstalledAsync(checkUpdates: true);
+        }
+
+        // --- Служебное ---
+
+        public void Cancel()
+        {
+            CancelSearch();
+            CancelDetails();
+            ProgressValue = 0;
+            IsBusy = false;
+            StatusText = "Cancelled.";
+        }
+
+        private void CancelSearch()
+        {
+            _searchCts?.Cancel();
+            _searchCts = null;
+        }
+
+        private void CancelDetails()
+        {
+            _detailsCts?.Cancel();
+            _detailsCts = null;
+        }
+
+        private void OpenLink(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+                return;
+
+            LinkRequested?.Invoke(this, url);
+        }
+
+        private static NuGetPackageTab ParseTab(object parameter)
+        {
+            if (parameter is NuGetPackageTab tab)
+                return tab;
+
+            string text = parameter as string;
+            if (!string.IsNullOrWhiteSpace(text) &&
+                Enum.TryParse(text, ignoreCase: true, out NuGetPackageTab parsed))
+            {
+                return parsed;
+            }
+
+            return NuGetPackageTab.Browse;
         }
     }
 }
-

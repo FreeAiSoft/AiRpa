@@ -368,6 +368,7 @@
     <!-- Среда rehosted-дизайнера WF: одна на студию и тестовый стенд (Valid_Xaml_Designer_Plan.md). -->
     <Compile Include="Helpers\WfDesignerEnvironment.cs" />
     <Compile Include="Helpers\ProjectPathResolver.cs" />
+    <Compile Include="Helpers\ProjectTreeMenuRules.cs" />
     <Compile Include="Logging\Log.cs" />
     <Compile Include="Core\WorkflowDesignerEx.cs" />
     <Compile Include="Core\ExpressionValidationTiming.cs" />
@@ -381,7 +382,11 @@
     <Compile Include="Core\Validation\RoslynExpressionCompiler.cs" />
     <Compile Include="Core\Validation\DesignerValidationPass.cs" />
     <Compile Include="Core\Validation\DesignerValidationMetrics.cs" />
+    <Compile Include="Core\Validation\ExpressionFieldVerdicts.cs" />
     <Compile Include="Core\WorkflowSessionState.cs" />
+    <!-- Панель документов: активация соседней вкладки при закрытии (как в Visual Studio). -->
+    <Compile Include="Core\DocumentTabPolicy.cs" />
+    <Compile Include="Core\DocumentTabsCloseCoordinator.cs" />
     <Compile Include="Extensions\SourceLocationExtensions.cs" />
     <Compile Include="Extensions\StringExtensions.cs" />
     <Compile Include="Extensions\TrackingEventArgsExtensions.cs" />

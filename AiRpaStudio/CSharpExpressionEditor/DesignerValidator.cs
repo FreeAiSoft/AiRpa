@@ -397,7 +397,6 @@ namespace RPA.Core.Services
                     return;
                 }
 
-
                 dispatcher.BeginInvoke(new Action(() =>
                     ApplyValidationResult(generation, scope, errors, validationService)));
             }
@@ -462,6 +461,11 @@ namespace RPA.Core.Services
                     Debug.WriteLine($"Ошибка валидации активности {modelItem.ItemType?.Name} ({entry.Address}): {ErrorText.Of(ex)}");
                 }
             }
+            // Баг «ошибка в поле видна только после клика»: вердикт проверки доводится до самого поля
+            // выражения, а не только до иконки активности. Компиляции здесь нет — только раздача
+            // уже посчитанного результата.
+            PublishFieldVerdicts(scope, errors);
+
             applyWatch.Stop();
             metrics.ApplyMs = applyWatch.Elapsed.TotalMilliseconds;
 
@@ -469,6 +473,119 @@ namespace RPA.Core.Services
             Volatile.Write(ref _lastMetrics, metrics);
             Debug.WriteLine(metrics.Describe());
 
+        }
+
+        /// <summary>Замечания по адресам — с именем аргумента и текстом без префикса (для вердиктов полей).</summary>
+        private static Dictionary<string, List<ActivityValidationError>> GroupErrorsByAddress(
+            IReadOnlyList<ActivityValidationError> errors)
+        {
+            var byAddress = new Dictionary<string, List<ActivityValidationError>>(StringComparer.Ordinal);
+
+            if (errors == null)
+            {
+                return byAddress;
+            }
+
+            foreach (ActivityValidationError error in errors)
+            {
+                if (error == null || string.IsNullOrEmpty(error.Address))
+                {
+                    continue;
+                }
+
+                if (!byAddress.TryGetValue(error.Address, out List<ActivityValidationError> found))
+                {
+                    found = new List<ActivityValidationError>();
+                    byAddress.Add(error.Address, found);
+                }
+
+                found.Add(error);
+            }
+
+            return byAddress;
+        }
+
+        /// <summary>
+        /// Доводит вердикты проверки до полей выражений: ключ — элемент модели выражения, значение —
+        /// текст ошибки (или «ошибок нет»). Поля забирают вердикт сами
+        /// (<see cref="ExpressionFieldVerdicts.Publish"/>), поэтому конструктору не нужно обходить
+        /// визуальные деревья и не нужно проверять выражения повторно на UI-потоке.
+        /// <para>
+        /// Аргументы без замечаний получают вердикт «ошибок нет»: иначе исправленное выражение оставляло
+        /// бы бейдж, поставленный прошлым проходом.
+        /// </para>
+        /// </summary>
+        private static void PublishFieldVerdicts(
+            IReadOnlyList<DesignerScopeEntry> scope,
+            IReadOnlyList<ActivityValidationError> errors)
+        {
+            Dictionary<string, List<ActivityValidationError>> byAddress = GroupErrorsByAddress(errors);
+
+            foreach (DesignerScopeEntry entry in scope)
+            {
+                ModelItem activityModelItem = (entry.Node as ModelItemScopeNode)?.ModelItem;
+                if (activityModelItem == null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    byAddress.TryGetValue(entry.Address, out List<ActivityValidationError> found);
+
+                    foreach (ModelProperty argumentProperty in activityModelItem.Properties)
+                    {
+                        if (!typeof(Argument).IsAssignableFrom(argumentProperty.PropertyType))
+                        {
+                            continue;
+                        }
+
+                        ModelItem expressionModelItem =
+                            argumentProperty.Value?.Properties["Expression"]?.Value;
+                        if (expressionModelItem == null)
+                        {
+                            continue;
+                        }
+
+                        ExpressionFieldVerdicts.Set(
+                            expressionModelItem,
+                            ComposeDetails(found, argumentProperty.Name));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Модель могла измениться между проходом и раздачей: одно поле не должно
+                    // останавливать вердикты остальным.
+                    Debug.WriteLine($"PublishFieldVerdicts {entry.Address}: {ErrorText.Of(ex)}");
+                }
+            }
+
+            ExpressionFieldVerdicts.Publish();
+        }
+
+        /// <summary>
+        /// Текст замечаний одного аргумента без префикса имени аргумента — в таком виде он и должен
+        /// стоять в подсказке поля (подсказка иконки активности остаётся с префиксом).
+        /// </summary>
+        private static string ComposeDetails(List<ActivityValidationError> errors, string argumentName)
+        {
+            if (errors == null || errors.Count == 0)
+            {
+                return null;
+            }
+
+            List<string> details = new List<string>();
+
+            foreach (ActivityValidationError error in errors)
+            {
+                if (string.Equals(error.ArgumentName, argumentName, StringComparison.Ordinal)
+                    && !string.IsNullOrEmpty(error.Detail))
+                {
+                    details.Add(error.Detail);
+                }
+            }
+
+            return details.Count == 0 ? null : string.Join(Environment.NewLine, details);
         }
 
         private static Dictionary<string, List<string>> GroupByAddress(IReadOnlyList<ActivityValidationError> errors)
@@ -739,7 +856,6 @@ namespace RPA.Core.Services
                 //workflowDesignerEx.Load(sourceFile);
                 workflowDesignerEx.Load();
                 DebuggerMappingsHelper.RegenerateSourceDebuggerMappings(workflowDesignerEx);
-
 
                 _workflowDesignerEx.Flush();
                 MemoryStream workflowStream = new MemoryStream(Encoding.UTF8.GetBytes(_workflowDesignerEx.Text));

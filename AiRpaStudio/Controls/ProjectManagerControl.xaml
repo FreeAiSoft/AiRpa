@@ -104,6 +104,10 @@
                       Focusable="False"/>
         </ContextMenu>
         <ContextMenu x:Key="VsProjectContext" Focusable="False">
+            <MenuItem Header="Открыть в редакторе кода"
+                      x:Name="SolutionOpenInCodeEditorMenuItem"
+                      Click="OpenInCodeEditorMenuItem_Click"
+                      Focusable="False"/>
             <MenuItem Header="{DynamicResource lang_cm_open_in_vs}"
                       Click="OpenInVsMenuItem_Click"
                       Focusable="False"/>
@@ -115,7 +119,9 @@
         <!-- Контекстное меню основного файла проекта Visual Studio (.csproj): те же действия, что и у
              нативного проекта студии (project.json) — создать активность и папку, переименовать проект,
              добавить зависимость. Имена пунктов отличаются от файлового меню намеренно: ContextMenu_Opened
-             по именам решает, что скрывать, и не должен прятать «Открыть в VS» у корня проекта. -->
+             по именам решает, что скрывать, и не должен прятать «Открыть в VS» у корня проекта.
+             Правило видимости этих имён — ProjectTreeMenuRules; «Открыть в редакторе кода» назван
+             отдельным именем по той же причине. -->
         <ContextMenu x:Key="VsProjectRootContext" Opened="ContextMenu_Opened" Focusable="False">
             <MenuItem Header="Добавить активность"
                       x:Name="VsAddActivityMenuItem"
@@ -134,6 +140,10 @@
                       Click="AddDependencyToVsProjectMenuItem_Click"
                       Focusable="False" />
             <Separator />
+            <MenuItem Header="Открыть в редакторе кода"
+                      x:Name="VsRootOpenInCodeEditorMenuItem"
+                      Click="OpenInCodeEditorMenuItem_Click"
+                      Focusable="False" />
             <MenuItem Header="{DynamicResource lang_cm_open_in_vs}"
                       x:Name="VsRootOpenInVsMenuItem"
                       Click="OpenInVsMenuItem_Click"

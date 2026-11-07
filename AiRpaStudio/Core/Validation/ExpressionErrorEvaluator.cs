@@ -74,7 +74,13 @@ namespace RPA.Core.Services
 
                 foreach (string message in EvaluateCheck(check, compiler))
                 {
-                    errors.Add(new ActivityValidationError(check.Address, ComposeMessage(check.ArgumentName, message)));
+                    // Аргумент и «чистый» текст переносятся отдельно: по ним вердикт доводится до поля выражения.
+                    // Полная строка Message остаётся подсказкой иконки активности («аргумент: текст»).
+                    errors.Add(new ActivityValidationError(
+                        check.Address,
+                        ComposeMessage(check.ArgumentName, message),
+                        check.ArgumentName,
+                        message));
                 }
             }
 

@@ -19,10 +19,17 @@
     <PackageReference Include="NuGet.Versioning" Version="6.3.4" />
     <PackageReference Include="NuGet.Packaging" Version="6.3.4" />
     <PackageReference Include="NuGet.Protocol" Version="6.3.4" />
+    <!-- Иконки панели (шеврон комбобокса, кнопки строки) — та же версия, что в студии. -->
+    <PackageReference Include="Material.Icons.WPF" Version="2.4.1" />
   </ItemGroup>
 
   <ItemGroup>
     <Reference Include="System.Net.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Тестам нужен конструктор панели с подставленной моделью (источник 127.0.0.1, без сети). -->
+    <InternalsVisibleTo Include="AiRpaStudio.Tests" />
   </ItemGroup>
 
 </Project>

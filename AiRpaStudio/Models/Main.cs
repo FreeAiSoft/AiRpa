@@ -661,16 +661,24 @@ namespace RPA.Models
             }
         }
 
-        /// <summary>Путь активной вкладки: активный дизайнер, иначе последняя вкладка редактора кода.</summary>
+        /// <summary>Путь активной вкладки панели документов (дизайнер или редактор кода/XAML).</summary>
         private string ActiveDocumentPath()
         {
-            string activeFile = CustomWfDesigner.GetLoadedFile(CustomWfDesigner.ActiveWorkflowDesignerEx);
+            // Активную вкладку знает только панель документов: там и дизайнеры, и редакторы кода/XAML.
+            // Раньше активным считался дизайнер (даже если на экране была вкладка кода), а без активного
+            // дизайнера — последняя открытая вкладка кода: в сессии сохранялась не та вкладка.
+            string activeFile = (ViewModel?.View as MainView)?.GetActiveDocumentPath();
+            if (string.IsNullOrWhiteSpace(activeFile))
+            {
+                // Резерв, когда представления нет: активный дизайнер модели.
+                activeFile = CustomWfDesigner.GetLoadedFile(CustomWfDesigner.ActiveWorkflowDesignerEx);
+            }
             if (!string.IsNullOrWhiteSpace(activeFile))
             {
                 return activeFile;
             }
 
-            return OpenCodeDocuments.LastOrDefault()?.FilePath;
+            return null;
         }
 
         /// <summary>

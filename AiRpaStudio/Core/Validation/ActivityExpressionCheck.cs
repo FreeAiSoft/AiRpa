@@ -73,15 +73,31 @@ namespace RPA.Core.Services
     internal sealed class ActivityValidationError
     {
         internal ActivityValidationError(string address, string message)
+            : this(address, message, null, message)
+        {
+        }
+
+        internal ActivityValidationError(string address, string message, string argumentName, string detail)
         {
             Address = address ?? string.Empty;
             Message = message ?? string.Empty;
+            ArgumentName = argumentName ?? string.Empty;
+            Detail = detail ?? string.Empty;
         }
 
         /// <summary>Адрес активности.</summary>
         internal string Address { get; }
 
-        /// <summary>Готовая строка замечания: «аргумент: текст».</summary>
+        /// <summary>Готовая строка замечания: «аргумент: текст» (подсказка иконки активности).</summary>
         internal string Message { get; }
+
+        /// <summary>
+        /// Аргумент, к которому относится замечание: по нему вердикт доводится до <b>поля</b>
+        /// выражения, а не только до иконки активности.
+        /// </summary>
+        internal string ArgumentName { get; }
+
+        /// <summary>Текст замечания без префикса аргумента — то, что видно в подсказке поля.</summary>
+        internal string Detail { get; }
     }
 }

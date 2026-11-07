@@ -1,4 +1,4 @@
-# Правила разработки (AiRpaStudio)
+﻿# Правила разработки (AiRpaStudio)
 
 ## Язык общения в чате - русский
 
@@ -47,6 +47,33 @@
   последним кандидатом, чтобы у существующих установок не пропали промпты). Страж — `AiRpaStudio.Tests\AgentCoreRenameGuardTests.cs`
   (скан `.cs`/`.xaml`/`.csproj`/`.sln`: строковое имя сборки компилятор не проверяет, поэтому рефлексия и `assembly=` в XAML
   ломаются молча).
+
+## Панель NuGet (`RPA.NuGet`)
+
+- Дизайн — как менеджер пакетов Visual Studio 2026, но **без скруглений**: во всех `Border` и
+  шаблонах `CornerRadius="0"` (панели студии плоские, ср. `Helpers\PropertyWindowStyleHelper.cs`).
+  Токены `StudioPalette` (`8/4/6`) не меняются — они про окно, вкладки и меню.
+- Цвета — только ключами `Studio.*` из `StudioBrushes` (`Surface/SurfaceAlt/Hover/Selected/
+  Separator/SeparatorStrong/Foreground/ForegroundMuted` + `Studio.Semantic.Validation`), шрифт —
+  только `{DynamicResource Studio.FontFamily}`, иконки — векторные `Path` (новых зависимостей в
+  `RPA.NuGet` нет). Стражи: `AiRpaStudio.Tests\NuGetPanelThemeTests.cs`.
+- Панель открывается **вкладкой панели документов** (`MainView.ShowNuGetPanel`, `ContentId = "NuGet"`),
+  а не боковым доком: там помещается двухколоночный макет «список | детали». Узкая ширина
+  (< 640) включает режим, где детали показываются вместо списка. Ветка восстановления раскладки
+  для `"NuGet"` обязана стоять до отмены `LayoutDocument`. Стражи:
+  `AiRpaStudio.Tests\NuGetPanelDocumentTabTests.cs`.
+- Правила состояния пакета (какое действие предлагает кнопка, подписи версий и downloads) живут в
+  `Services\NuGetPackageStateResolver.cs` без WPF и сети — там же их тесты
+  (`NuGetPackageStateTests.cs`). План и таблица этапов — `docs\NuGet_Panel_Redesign_Plan.md`.
+- Шеврон блока «Options» в панели деталей — **кнопка без фона** с иконкой Material
+  (`materialIcons:MaterialIcon Kind="ChevronRight"` → `ChevronDown` по `IsChecked`). В шаблоне шапки
+  запрещены триггеры `IsMouseOver`/`IsPressed`: наведение не меняет ни фон, ни цвет иконки.
+  Стражи — `AiRpaStudio.Tests\NuGetOptionsChevronTests.cs`.
+- README пакета читается из `.nupkg`, скачанного **из выбранного источника**
+  (`NuGetSearchService.DownloadNupkgAsync`), с запасной версией и кешем `id|version`; причина неудачи
+  остаётся в `NuGetPackageDetailsService.LastReadmeError` и показывается в строке состояния.
+  Молчаливый `catch` вокруг README запрещён: из-за него вкладка README «пропадала у всех пакетов».
+  Стражи — `AiRpaStudio.Tests\NuGetReadmeLoadTests.cs`.
 
 ## 4.7.2-робот на 4.8-хосте (`CP-08`)
 
@@ -536,6 +563,14 @@
     (ключи пишет `StudioBrushes.ApplyToApplication`), а цвета уровней — семантика в конвертерах
     (`LogLevelToColorConverter`/`...HoverConverter`/`...BackgroundConverter`): средние тона и
     полупрозрачные накладки, чтобы читались и в тёмной, и в светлой теме.
+    Иконки фильтров Debug…Fatal берут цвет из семантики `Studio.Semantic.Log.*` (входят в
+    `SemanticKeys`): классика «синий/зелёный/оранжевый/красный/тёмно-красный», цвета непрозрачные
+    (alpha 255) и одинаковы в обеих темах. Trace — не цвет, а основной текст панели: иконка и буквы
+    уровня красятся `Studio.Foreground` (белый `#F1F1F1` в тёмной теме, чёрный `#1F1F1F` в светлой),
+    конвертер `LogLevelToColorConverter` читает этот ключ из ресурсов приложения по строке; строки
+    Trace фона не получают вовсе — ни в покое, ни под курсором. Стражи — `LogAndChatThemeTests.
+    LogViewer_FilterIconsUseSemanticLevelKeys`, `..._AreClassicSemanticsAndOpaque`, `..._DoNotDependOnTheme`,
+    `LogViewer_TraceIconAndLettersUseStudioForeground`, `LogViewer_TraceRowsHaveNoBackgroundAtAll`.
   * Чат (`RPA.Chat`): все цвета — только в `Themes\ChatTheme.Dark.xaml` / `ChatTheme.Light.xaml`
     (ни одного `<SolidColorBrush>` в контролах, иначе переключение темы не доходит до элемента).
     В студии словарь на лету перекрывает мост `RPA.Chat\Themes\ChatStudioBridge.cs`: таблица
@@ -584,7 +619,7 @@
   * В студии запрещён `MaterialDesign.Brush.*`: значения берутся из `StudioPalette`
     (`MaterialDesign` остаётся только базой контролов, его `Primary`/`Secondary` нейтральны, см. M-04).
   * Семантика (не акцент!) — `StudioBrushes.SemanticKeys`: `Studio.Semantic.Run`/`Pause`/`Stop`
-    (тулбар) и `Studio.Semantic.FolderIcon`/`XamlFileIcon`/`JsonFileIcon` (дерево проекта). Значения
+    (тулбар) и `Studio.Semantic.FolderIcon`/`XamlFileIcon`/`JsonFileIcon` (дерево проекта), `Studio.Semantic.Validation` (бейдж ошибки поля выражения). Значения
     фиксированы для обеих тем (`chroma > 6`), создаются кодом; декоративные иконки должны использовать
     `Studio.ToolbarForeground`, а не цвет.
   * «Третьих» палитр нет: `Themes\StudioTheme.Dark.xaml`, `Themes\StudioTheme.Light.xaml` и
@@ -605,6 +640,12 @@
     `Style` явно: неявный стиль MaterialDesign для `ToggleButton` — это переключатель с фиксированной
     `Width = 34`, из-за него «коробка» списка в настройках агента сжималась по горизонтали, хотя сам
     `ComboBox` растянут по столбцу. Страж — `StudioScrollBarTests.OutlinedComboBox_InnerToggleButtonHasExplicitStyle`.
+    Тот же дефект был у панели NuGet — «комбобоксы не растягиваются по контенту»: `DropDownToggle` и
+    `HeaderToggle` получили явный `Style` `NuGet.StretchedToggleButtonStyle` (`Width=Auto`, `MinWidth=0`),
+    потолок ширины 150px — в `NuGet.ComboBoxStyle`. Стражи —
+    `NuGetPanelLayoutTests.ComboBoxInnerToggleButtons_HaveExplicitStretchedStyle` и
+    `.Panel_ComboBoxesSurviveImplicitMaterialDesignToggleStyle` (эмулирует неявный стиль MaterialDesign:
+    без `App.xaml` в тестах дефект не воспроизводился, поэтому три прошлые правки были зелёными).
   * Каждая докпанель обведена рамкой 1px (`AvalonDock_Separator`, у активной — `AvalonDock_SeparatorStrong`):
     панель главного окна, панель документов, панель автоскрытия и панели внутри откреплённых окон. Рамку
     рисует ровно один элемент (в плавающем окне — `WindowBorder`, иначе панель), ресайзер в покое линии не
@@ -693,6 +734,40 @@
   в VS-проекте вкладки не сохранялись) и писать настройку из двух мест. На время восстановления
   `_isRestoringSession` глушит запись: промежуточное состояние затирало список вкладок.
   Стражи: `AiRpaStudio.Tests\WorkflowSessionStateTests.cs`, `StudioSessionWiringTests.cs`.
+- **Какая вкладка активна после закрытия** — правило одно на всю студию:
+  `AiRpaStudio\Core\DocumentTabPolicy.cs` (без WPF/AvalonDock, чистые функции; вкладки сравниваются
+  **по ссылке**, индексы — по списку до закрытия). Как в Visual Studio: активной становится соседняя
+  **справа** (для последней вкладки — **слева**), закрытие единственной вкладки оставляет панель без
+  активной, закрытие **фоновой** вкладки активную не меняет. Единственная точка решения — панель
+  документов `AiRpaStudio\Core\DocumentTabsCloseCoordinator.cs`: `Closing` запоминает соседа по
+  фактическому порядку вкладок (там и дизайнеры, и редакторы кода), `ApplyPendingActivation`
+  активирует его после того, как модель убрала документ. Модель активную вкладку не выбирает:
+  она лишь перестаёт считать активной закрытую вкладку (`CustomWfDesigner.RemoveDesignerByLoadedFile`,
+  `syncWFControls`/сохранение иначе работали бы с закрытым документом). Запрещено: выбирать вкладку
+  через `WorkflowDesigners[0]` (дефект «при закрытии открывается не та вкладка»), «последнюю вкладку
+  кода» (`OpenCodeDocuments.LastOrDefault()`) в `Main.ActiveDocumentPath` — активную вкладку знает только
+  `MainView.GetActiveDocumentPath`. Раньше здесь активным считался дизайнер (даже когда на экране была
+  вкладка кода/XAML), а без активного дизайнера — последняя открытая вкладка кода. Координатор
+  `tabsCloseCoordinator` подписывается на `WorkflowDesigners.CollectionChanged` **после** `DocGroupHelper`,
+  иначе модель дизайнеров перезапишет выбор панели документов. Стражи (все — `AiRpaStudio.Tests\`):
+  `DocumentTabPolicyTests.cs`, `DocumentTabsCloseTests.cs`, `DocumentTabsCloseWiringTests.cs`.
+- **Выбрана ровно одна вкладка** — инвариант панели документов (второй регресс того же бага: «после
+  перезапуска активна не та вкладка, две вкладки подсвечены как активные»). Источник правды о выбранной
+  вкладке — `LayoutDocumentPane`: `IsSelected` (видимая вкладка; к нему TwoWay-привязан `TabItem.IsSelected`
+  в `AvalonDock.Themes.Metro\Theme.xaml`) обязан совпадать с `IsActive` (`LayoutRoot.ActiveContent`), а
+  `SelectedContent` — быть валидным. Запрещено возвращать в вендорном `AvalonDock` две правки, ломавшие
+  инвариант: `_autoFixSelectedContent = false` в `LayoutDocumentPane` и ветку
+  `if (value && Parent is LayoutDocumentPane) SelectedContentIndex = -1;` в `LayoutContent.IsSelected`.
+  Обнуление индекса не снимало `IsSelected` с предыдущей вкладки (подсвечивались две «активные») и
+  оставляло `SelectedContent == null`, поэтому `LayoutDocumentPaneControl.OnSelectionChanged` никогда не
+  переносил выбор в `IsActive`, а `TabControl` показывал последнюю добавленную вкладку. Восстановление
+  сессии открывает вкладки по одной (каждая ставит `IsSelected = true`), поэтому
+  `Main.RestoreSessionState → ActivateDocument → SetActiveDesigner/ActivateCodeDocument` обязан **снять**
+  выбор с последней открытой — теперь это делает сам `IsSelected`/`IsActive`. При расхождении флагов
+  (унаследованное состояние) `DocumentTabsCloseCoordinator.FindActive` считает правдой `IsActive`.
+  Стражи (STA, настоящие модели AvalonDock, без окна): `AiRpaStudio.Tests\DocumentPaneSelectionTests.cs`,
+  `DocumentPaneSelectionWiringTests.cs`.
+
 - **Иконка валидации на активности** рисуется WF (триггеры `ModelItem.ValidationState` у
   `Border x:Name="validationVisuals"`). Студия (`DesignerValidator`) ставит свои значения **только**
   когда есть её собственные ошибки (выражения, типы аргументов), иначе обязана вызвать
@@ -704,8 +779,8 @@
   Флаг `_isNeedInitValidation` сбрасывается после первого прохода,
   разбор каждой активности — в собственном `try/catch`. Стражи: `AiRpaStudio.Tests\ValidationIconTests.cs`.
 - **Бейдж ошибки C#-выражения** (`CSharpExpressionEditor\RoslynExpressionEditor.xaml`) — глиф
-  `materialIcons:MaterialIcon` (`Kind="Error"`) в единственном не-нейтральном цвете палитры
-  (`Studio.CloseHoverBackground`, `Style x:Key="errorStyle"`); пустая `Rectangle`-рамка запрещена —
+  `materialIcons:MaterialIcon` (`Kind="Error"`) в семантическом голубом `Studio.Semantic.Validation` (ключ из `StudioBrushes.SemanticKeys`, `#29B6F6`, от темы не зависит).
+  Стиль бейджа — `Style x:Key="errorStyle"`; красный `Studio.CloseHoverBackground` остаётся системной семантикой ошибки — он у иконки валидации активности и у кружка адаптера `Validation.ErrorTemplate`); пустая `Rectangle`-рамка запрещена —
   её и видел пользователь как «красная рамка без иконки». Видимость — `HasValidationError`,
   подсказка — `ValidationErrorMessage`. Проверка выражения запускается по изменению текста
   (`IExpressionEditorInstance.TextChanged`) с паузой-дребезгом: политика в
@@ -715,7 +790,7 @@
   обязана звать `UpdateValidationError(null)` при отсутствии ошибки — иначе исправленное выражение
   оставляло бейдж. У адаптера `Validation.ErrorTemplate` (`WfDesignerTheme.CreateValidationErrorTemplate`)
   кроме hairline-рамки есть значок ошибки. Стражи: `AiRpaStudio.Tests\ErrorBadgeTests.cs`,
-  `ExpressionValidationTimingTests.cs`, `ValidationIconGlyphTests.cs`.
+  `ExpressionValidationTimingTests.cs`, `ValidationIconGlyphTests.cs`, `ValidationBadgeColorTests.cs`.
 
 - **Окна WF** (`WorkflowElementDialogWindow`, `EditorDialog` — редактор выражений по «…» в окне
   «Свойства») — обычные `Window` с системным caption, белым в любой теме; `WfDesignerTheme` до них не
@@ -725,6 +800,28 @@
   `RoslynExpressionEditor.OnEditorLoadedForSize` (там же, где восстанавливается размер окна).
   Хелпер идемпотентен и никогда не бросает исключений. Стражи:
   `AiRpaStudio.Tests\WfDialogWindowThemeTests.cs`.
+
+## Меню дерева проекта: одно правило видимости
+- **Что видно у файла, решает `AiRpaStudio\Helpers\ProjectTreeMenuRules.cs`**, а не XAML и не
+  `ProjectManagerControl.ContextMenu_Opened`. Имена пунктов — константы того же класса, они совпадают с
+  `x:Name` в `ProjectManagerControl.xaml`: новый пункт меню добавляется в XAML и в правило, code-behind
+  при этом не правится.
+- Матрица правила: у `project.json` видны только «Открыть содержащую папку» и «Открыть в редакторе кода»;
+  «Открыть в Visual Studio» и «Собрать с помощью MSBuild» — только у `.sln`/`.csproj`; остальным файлам
+  видно всё. Сравнение — по имени файла (путь отбрасывается) и без учёта регистра; незнакомое имя пункта
+  правило не скрывает, иначе меню папок и корня проекта ломались бы молча.
+- «Открыть в редакторе кода» есть в трёх меню: файла (`ProjectFileContext`, `OpenInCodeEditorMenuItem`),
+  корня проекта VS (`VsProjectRootContext`, `VsRootOpenInCodeEditorMenuItem`) и решения
+  (`VsProjectContext`, `SolutionOpenInCodeEditorMenuItem`). Имена разные намеренно: `ContextMenu_Opened`
+  прячет пункты по именам, и совпадающее имя скрыло бы «Открыть в VS» у корня проекта.
+- Открывает `Main.CmdOpenInCodeEditor` (вкладка `code:<путь>`, повторный вызов активирует уже открытую).
+  Двойной клик по `.sln`/`.csproj` по-прежнему идёт в `Main.CmdTryLoadFile` → `CmdVsOpenInVisualStudio`:
+  в `CmdTryLoadFile` ветка `.sln`/`.csproj` обязана стоять раньше ветки редактора кода. Подсветки для
+  `.csproj`/`.sln` нет (`CodeLanguageProvider` их не знает) — файл открывается как текст; это отдельная
+  задача, а не регресс.
+- Стражи: `AiRpaStudio.Tests\ProjectTreeCodeEditorMenuTests.cs` (наличие пунктов и обработчиков, матрица
+  правила, делегирование из `ContextMenu_Opened`, загрузка `.csproj`/`.sln` в `CodeDocument`), уникальность
+  имён пунктов держит `AiRpaStudio.Tests\VsProjectContextMenuTests.cs`.
 
 ## WF-инструменты агента: реестр, разрешения, режимы (`AG-10`)
 - **Новый WF-инструмент** (`activity_*`, `workflow_*`, `argument_*`, `variable_*`) появляется вместе со строкой

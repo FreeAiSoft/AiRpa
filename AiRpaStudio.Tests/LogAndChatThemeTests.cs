@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Media;
 using LogControlLibrary.Converters;
+using RPA.Helpers;
 
 namespace AiRpaStudio.Tests;
 
@@ -97,6 +98,144 @@ public class LogAndChatThemeTests
             Assert.That(ColorOf(brush).A < 255, Is.True,
                 $"фон строки лога {ColorOf(brush)} должен быть полупрозрачным");
         }
+    }
+
+    [Test]
+    public void LogViewer_TraceRowsHaveNoBackgroundAtAll()
+    {
+        // Trace — «шум»: строки этого уровня не получают фона ни в покое, ни под курсором.
+        Color background = ColorOf(new LogLevelToBackgroundConverter().TraceBrush);
+        Color hover = ColorOf(new LogLevelToHoverConverter().TraceBrush);
+
+        Assert.That(background.A, Is.Zero, "фон строки Trace обязан быть полностью прозрачным");
+        Assert.That(hover.A, Is.Zero, "подсветка строки Trace обязана быть полностью прозрачной");
+    }
+
+    [Test]
+    public void LogViewer_FilterIconsUseSemanticLevelKeys()
+    {
+        // Цвета уровней живут в палитре (StudioBrushes.SemanticKeys), а не hex-ом в разметке лога.
+        string xaml = ReadSource(LogViewerPath);
+
+        foreach (string key in LogFilterIconKeys())
+        {
+            Assert.That(xaml, Does.Contain("{DynamicResource " + key + "}"),
+                $"иконка фильтра должна брать цвет из семантики уровня ({key})");
+        }
+    }
+
+    [Test]
+    public void LogFilterIconBrushes_AreClassicSemanticsAndOpaque()
+    {
+        var target = new ResourceDictionary();
+        StudioBrushes.Apply(target);
+
+        foreach (string key in LogFilterIconKeys())
+        {
+            Assert.That(target.Contains(key), Is.True, $"не заполнен ключ иконки фильтра {key}");
+
+            Color color = ColorOf(target[key]);
+            Assert.That((int)color.A, Is.EqualTo(255), $"{key} = {color}: цвет иконки обязан быть непрозрачным (alpha = 255)");
+        }
+
+        // Классическая кодировка уровней: синий / зелёный / оранжевый / красный / тёмно-красный.
+        Assert.That(ChannelOf(LogFilter("Debug"), 'B'), Is.GreaterThan(ChannelOf(LogFilter("Debug"), 'R')), "Debug — синий");
+        Assert.That(ChannelOf(LogFilter("Info"), 'G'), Is.GreaterThan(ChannelOf(LogFilter("Info"), 'R')), "Info — зелёный");
+        Assert.That(ChannelOf(LogFilter("Warning"), 'R'), Is.GreaterThan(ChannelOf(LogFilter("Warning"), 'B')), "Warning — оранжевый");
+        Assert.That(ChannelOf(LogFilter("Warning"), 'G'), Is.GreaterThan(ChannelOf(LogFilter("Error"), 'G')), "Warning теплее Error");
+        Assert.That(ChannelOf(LogFilter("Error"), 'R'), Is.GreaterThan(ChannelOf(LogFilter("Error"), 'G')), "Error — красный");
+        Assert.That(ChannelOf(LogFilter("Fatal"), 'R'), Is.GreaterThan(ChannelOf(LogFilter("Fatal"), 'G')), "Fatal — красный");
+        Assert.That(ChannelOf(LogFilter("Error"), 'R'), Is.GreaterThan(ChannelOf(LogFilter("Fatal"), 'R')), "Fatal темнее Error");
+    }
+
+    [Test]
+    public void LogFilterIconBrushes_DoNotDependOnTheme()
+    {
+        var dark = new ResourceDictionary();
+        var light = new ResourceDictionary();
+        StudioBrushes.ApplyPalette(dark, StudioPalette.Dark);
+        StudioBrushes.ApplyPalette(light, StudioPalette.Light);
+
+        foreach (string key in LogFilterIconKeys())
+        {
+            Assert.That(ColorOf(light[key]), Is.EqualTo(ColorOf(dark[key])),
+                $"{key} — кодировка уровня, она не должна меняться при смене темы");
+        }
+    }
+
+    [Test]
+    public void LogViewer_EachFilterIconIsBoundToItsOwnLevelKey()
+    {
+        // Ключ, повешенный не на ту иконку, — та же регрессия, что и hex: проверяем каждый глиф поимённо.
+        string xaml = ReadSource(LogViewerPath);
+
+        var expected = new Dictionary<string, string>
+        {
+            { "Bug", StudioBrushes.SemanticLogDebugKey },
+            { "Information", StudioBrushes.SemanticLogInfoKey },
+            { "Warning", StudioBrushes.SemanticLogWarningKey },
+            { "Error", StudioBrushes.SemanticLogErrorKey },
+            { "Skull", StudioBrushes.SemanticLogFatalKey }
+        };
+
+        foreach (KeyValuePair<string, string> icon in expected)
+        {
+            Match element = Regex.Match(xaml,
+                "<materialIcons:MaterialIcon Kind=\"" + icon.Key + "\"[^>]*/>",
+                RegexOptions.Singleline,
+                TimeSpan.FromSeconds(2));
+
+            Assert.That(element.Success, Is.True, $"в панели «Log» нет иконки фильтра {icon.Key}");
+            Assert.That(element.Value, Does.Contain("Foreground=\"{DynamicResource " + icon.Value + "}\""),
+                $"иконка {icon.Key} должна брать цвет из {icon.Value}, а не наследовать цвет кнопки");
+
+            // Ключ, которого нет в палитре, DynamicResource молча не найдёт — цвет пропадёт.
+            Assert.That(StudioBrushes.SemanticKeys, Does.Contain(icon.Value),
+                $"{icon.Value} обязан входить в SemanticKeys — его пишет StudioBrushes.Apply");
+        }
+    }
+
+    [Test]
+    public void LogViewer_TraceIconAndLettersUseStudioForeground()
+    {
+        // Trace — «шум»: своего цвета-сигнала у него нет, поэтому иконка и буквы красятся основным
+        // цветом текста панели Studio.Foreground (белый в тёмной теме, чёрный в светлой).
+        string xaml = ReadSource(LogViewerPath);
+
+        Match traceIcon = Regex.Match(xaml,
+            "<materialIcons:MaterialIcon Kind=\"TimelineTextOutline\"[^>]*/>",
+            RegexOptions.Singleline,
+            TimeSpan.FromSeconds(2));
+
+        Assert.That(traceIcon.Success, Is.True, "в панели «Log» нет иконки фильтра Trace");
+        Assert.That(traceIcon.Value, Does.Contain("Foreground=\"{DynamicResource " + StudioBrushes.ForegroundKey + "}\""),
+            "иконка Trace обязана брать основной цвет текста панели (Studio.Foreground), а не серый");
+        Assert.That(traceIcon.Value, Does.Not.Contain("Studio.Semantic.Log."),
+            "у Trace нет собственного цвета-сигнала — он не входит в семантику уровней");
+
+        // Палитра: тёмная тема даёт белый, светлая — чёрный.
+        var dark = new ResourceDictionary();
+        var light = new ResourceDictionary();
+        StudioBrushes.ApplyPalette(dark, StudioPalette.Dark);
+        StudioBrushes.ApplyPalette(light, StudioPalette.Light);
+
+        Color darkForeground = ColorOf(dark[StudioBrushes.ForegroundKey]);
+        Color lightForeground = ColorOf(light[StudioBrushes.ForegroundKey]);
+
+        Assert.That(StudioPalette.Luminance(darkForeground), Is.GreaterThan(0.85),
+            $"Trace в тёмной теме обязан быть белым, а не серым ({darkForeground})");
+        Assert.That(StudioPalette.Luminance(lightForeground), Is.LessThan(0.15),
+            $"Trace в светлой теме обязан быть чёрным, а не серым ({lightForeground})");
+
+        // Буквы уровня в строке лога берут тот же ключ: строка ключа не должна разъехаться с палитрой.
+        Assert.That(LogLevelToColorConverter.ForegroundKey, Is.EqualTo(StudioBrushes.ForegroundKey),
+            "конвертер цвета уровня обязан читать тот же ключ палитры, что пишет StudioBrushes");
+
+        // Вне палитры остаётся запасной средний тон: ни белого, ни чёрного, иначе он не читается в одной из тем.
+        Brush fallback = new LogLevelToColorConverter().TraceBrush;
+        Assert.That(fallback.IsFrozen, Is.True, "запасная кисть Trace обязана быть замороженной");
+        Assert.That(IsNeutralOrSemantic(fallback), Is.True,
+            $"запасной тон Trace {ColorOf(fallback)} обязан оставаться средним — он читается в обеих темах");
     }
 
     // --- F-08: панель «Chat». ---
@@ -198,6 +337,45 @@ public class LogAndChatThemeTests
     }
 
     // --- helpers ---
+
+    private static IEnumerable<string> LogFilterIconKeys()
+    {
+        return new[]
+        {
+            StudioBrushes.SemanticLogDebugKey,
+            StudioBrushes.SemanticLogInfoKey,
+            StudioBrushes.SemanticLogWarningKey,
+            StudioBrushes.SemanticLogErrorKey,
+            StudioBrushes.SemanticLogFatalKey
+        };
+    }
+
+    private static Color LogFilter(string level)
+    {
+        var target = new ResourceDictionary();
+        StudioBrushes.Apply(target);
+
+        string key = LogFilterIconKeys().Single(k => k.EndsWith("." + level, StringComparison.Ordinal));
+        return ColorOf(target[key]);
+    }
+
+    private static int ChromaOf(Color color)
+    {
+        return Math.Max(color.R, Math.Max(color.G, color.B)) - Math.Min(color.R, Math.Min(color.G, color.B));
+    }
+
+    private static byte ChannelOf(Color color, char channel)
+    {
+        switch (channel)
+        {
+            case 'R':
+                return color.R;
+            case 'G':
+                return color.G;
+            default:
+                return color.B;
+        }
+    }
 
     private static IEnumerable<Brush> BrushesOf(object converter, string what)
     {

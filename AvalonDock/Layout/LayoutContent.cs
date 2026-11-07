@@ -155,14 +155,11 @@ namespace AvalonDock.Layout
 				_isSelected = value;
 				if (Parent is ILayoutContentSelector parentSelector)
 				{
-					if(value && Parent is LayoutDocumentPane)
-					{
-                        parentSelector.SelectedContentIndex = -1;
-                    }
-					else
-					{
-                        parentSelector.SelectedContentIndex = _isSelected ? parentSelector.IndexOf(this) : -1;
-                    }
+                    // Выбор вкладки переносит индекс панели на себя (снятие выбора — на -1), как у панели анкоарабов.
+                    // Отдельной ветки для LayoutDocumentPane быть не должно: обнуление индекса оставляло
+                    // SelectedContent равным null (TabControl показывал не ту вкладку) и не снимало IsSelected
+                    // с предыдущей вкладки — подсвечивались две вкладки сразу.
+                    parentSelector.SelectedContentIndex = _isSelected ? parentSelector.IndexOf(this) : -1;
                 }
 				OnIsSelectedChanged(oldValue, value);
 				RaisePropertyChanged(nameof(IsSelected));

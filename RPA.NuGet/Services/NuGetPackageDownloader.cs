@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using NuGet.Packaging;
@@ -9,28 +10,99 @@ namespace RPA.NuGet.Services
     /// <summary>
     /// Downloads <c>.nupkg</c> files from the nuget.org flat-container endpoint and
     /// reads package metadata/dependencies via NuGet.Packaging.
+    /// <para>
+    /// Набор страховок тот же, что у <see cref="NuGetIconService"/>: у .NET Framework 4.8 по умолчанию
+    /// <c>SystemDefault</c>, и соединение с nuget.org обрывается на записи — поэтому TLS 1.2 включается
+    /// явно, запрос повторяется (3 попытки) и ограничен таймаутом. Раньше здесь был «голый»
+    /// <see cref="HttpClient"/> без повторов и без диагностики: чтение README пакета молча не работало,
+    /// потому что исключение глушилось вызывающим кодом.
+    /// </para>
     /// </summary>
     public class NuGetPackageDownloader
     {
+        private const int Attempts = 3;
+        private const int TimeoutSeconds = 60;
+
         private readonly HttpClient _http;
+
+        static NuGetPackageDownloader()
+        {
+            try
+            {
+                // У .NET Framework 4.8 по умолчанию SystemDefault — TLS 1.2 включаем явно,
+                // как это делает NuGet.Protocol.
+                ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+            }
+            catch (NotSupportedException)
+            {
+                // Старая ОС без TLS 1.2 — остаётся системное значение.
+            }
+        }
 
         public NuGetPackageDownloader(HttpClient httpClient = null)
         {
-            _http = httpClient ?? new HttpClient();
+            _http = httpClient ?? new HttpClient(new HttpClientHandler
+            {
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+            })
+            {
+                Timeout = TimeSpan.FromSeconds(TimeoutSeconds)
+            };
         }
 
-        public async Task<byte[]> DownloadNupkgAsync(string id, string version)
+        /// <summary>
+        /// Текст последней ошибки скачивания (диагностика README и установки): панель показывает
+        /// причину вместо тихого «ничего не пришло».
+        /// </summary>
+        public string LastError { get; private set; }
+
+        public virtual async Task<byte[]> DownloadNupkgAsync(string id, string version)
         {
             if (string.IsNullOrWhiteSpace(id))
                 throw new ArgumentException("Package id is required.", nameof(id));
             if (string.IsNullOrWhiteSpace(version))
                 throw new ArgumentException("Package version is required.", nameof(version));
 
+            LastError = null;
             string lowerId = id.ToLowerInvariant();
             string lowerVersion = version.ToLowerInvariant();
             string url = $"https://api.nuget.org/v3-flatcontainer/{lowerId}/{lowerVersion}/{lowerId}.{lowerVersion}.nupkg";
 
-            return await _http.GetByteArrayAsync(url);
+            Exception last = null;
+
+            for (int attempt = 1; attempt <= Attempts; attempt++)
+            {
+                try
+                {
+                    using (var response = await _http.GetAsync(url).ConfigureAwait(false))
+                    {
+                        if (response.IsSuccessStatusCode)
+                        {
+                            byte[] data = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+                            if (data.Length > 0)
+                                return data;
+
+                            last = new InvalidOperationException("empty package body");
+                        }
+                        else
+                        {
+                            last = new InvalidOperationException("HTTP " + (int)response.StatusCode + " for " + url);
+                            if (response.StatusCode == HttpStatusCode.NotFound)
+                                break;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    last = ex;
+                }
+
+                if (attempt < Attempts)
+                    await Task.Delay(200 * attempt).ConfigureAwait(false);
+            }
+
+            LastError = last == null ? "unknown error" : last.GetBaseException().Message;
+            throw new InvalidOperationException("Failed to download " + id + " " + version + ": " + LastError, last);
         }
 
         /// <summary>

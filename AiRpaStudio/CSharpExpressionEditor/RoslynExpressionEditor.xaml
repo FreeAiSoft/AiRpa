@@ -123,7 +123,8 @@
                     Property="ToolTipService.ShowOnDisabled"
                     Value="True" />
             <!-- Бейдж ошибки — глиф палитры, а не пустая рамка: Kind=Error (залитый круг с «!»).
-                 Красный — единственный не-нейтральный цвет палитры, семантика ошибки. -->
+                 Цвет — семантика проверки поля Studio.Semantic.Validation (голубой): красный в студии
+                 закреплён за системной семантикой ошибки (иконка валидации активности, кружок адаптера). -->
             <Setter Property="Kind"
                     Value="Error" />
             <Setter x:Uid="Setter_53"
@@ -136,7 +137,7 @@
                     Property="Margin"
                     Value="2,2,2,0" />
             <Setter Property="Foreground"
-                    Value="{DynamicResource Studio.CloseHoverBackground}" />
+                    Value="{DynamicResource Studio.Semantic.Validation}" />
             <Style.Triggers>
                 <DataTrigger x:Uid="DataTrigger_9"
                              Binding="{Binding Path=HasValidationError}"

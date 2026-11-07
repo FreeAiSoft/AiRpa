@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Media;
@@ -43,7 +43,9 @@ public class ThemeAcceptanceTests
         @"LogControlLibrary\Controls\LogViewerControl.xaml",
         @"RPA.Chat\Views\ChatPanel.xaml",
         @"RPA.Chat\Controls\ChatMessagesControl.xaml",
-        @"RPA.Chat\Controls\PinnedChatMessageControl.xaml"
+        @"RPA.Chat\Controls\PinnedChatMessageControl.xaml",
+        @"RPA.NuGet\Views\NuGetPanel.xaml",
+        @"RPA.NuGet\Views\NuGetPanel.Styles.xaml",
     };
 
     /// <summary>
@@ -260,8 +262,8 @@ public class ThemeAcceptanceTests
         string xaml = WithoutComments(Read(@"AiRpaStudio\CSharpExpressionEditor\RoslynExpressionEditor.xaml"));
 
         Assert.That(xaml, Does.Contain("Studio.Separator"), "рамка редактора — hairline палитры");
-        Assert.That(xaml, Does.Contain("Studio.CloseHoverBackground"),
-            "бейдж ошибки — единственный не-нейтральный цвет палитры (иконка, а не рамка)");
+        Assert.That(xaml, Does.Contain("Studio.Semantic.Validation"),
+            "бейдж ошибки — голубая семантическая кисть проверки поля (иконка, а не рамка)");
         Assert.That(xaml, Does.Not.Contain("TextBoxErrorIcon"),
             "многоцветная иконка ошибки (#FFDADADA/#FF1AA1E2/#FFFFFFFF) заменена глифом палитры");
         Assert.That(xaml, Does.Contain("materialIcons:MaterialIcon"),

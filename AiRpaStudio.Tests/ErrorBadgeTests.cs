@@ -54,8 +54,8 @@ public class ErrorBadgeTests
         {
             Assert.That(style, Does.Contain("Property=\"Kind\""), "у иконки должен быть задан глиф");
             Assert.That(style, Does.Contain("Value=\"Error\""), "глиф ошибки — залитый круг с «!» (Kind=Error)");
-            Assert.That(style, Does.Contain("Studio.CloseHoverBackground"),
-                "красный — единственный не-нейтральный цвет палитры, семантика ошибки");
+            Assert.That(style, Does.Contain("Studio.Semantic.Validation"),
+                "цвет бейджа — семантическая кисть проверки поля (голубой), а не общий красный ошибки");
             Assert.That(style, Does.Contain("Property=\"Width\""));
             Assert.That(style, Does.Contain("Property=\"Height\""),
                 "MaterialIcon без явных размеров схлопывается в 0 — иконки не видно");

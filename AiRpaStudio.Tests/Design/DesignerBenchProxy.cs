@@ -16,6 +16,8 @@ using System.Windows.Threading;
 using System.Diagnostics;
 using System.Windows.Controls;
 using RPA.Core;
+using RPA.CSharpExpressionEditor;
+
 using RPA.Core.Services;
 using System.Activities.Statements;
 
@@ -325,6 +327,583 @@ public sealed class DesignerBenchProxy : MarshalByRefObject
             return false;
         }
     }
+
+    /// <summary>
+    /// Баг «ошибка валидации поля выражения видна только после клика по полю»: замер состояния полей
+    /// <c>RoslynExpressionEditor</c> в четырёх точках и <b>без кликов</b> — загрузка → фоновый проход
+    /// → покой → контрольный фокус.
+    /// <para>
+    /// Почему стенд, а не юнит-тест: «в поле виден красный значок» — факт о живом визуальном дереве
+    /// конструктора (поле создаёт WF по шаблону активности), синтетическая модель его не воспроизводит.
+    /// Замер сразу после <c>Open</c> отвечает на вопрос карточки: есть ли проверка при загрузке, или
+    /// единственные триггеры — изменение текста и фокус.
+    /// </para>
+    /// <para>
+    /// <c>brokenText</c> — текст невалидного выражения из фикстуры: по нему поле опознаётся в дереве
+    /// (пустые поля документа о состоянии проверки ничего не говорят).
+    /// </para>
+    /// </summary>
+    public DesignerBenchFieldBadgeReport ExpressionFieldBadgeScenario(string xamlPath, string brokenText)
+    {
+        DesignerTestHost host = DesignerTestHost.Shared;
+
+        return host.Invoke(() =>
+        {
+            var report = new DesignerBenchFieldBadgeReport { BrokenText = brokenText ?? string.Empty };
+            var designerHost = new BenchDesignerHost();
+            var clock = Stopwatch.StartNew();
+            DesignerTab tab = null;
+            UIElement inspector = null;
+            System.Windows.Interop.HwndSource inspectorSurface = null;
+            ModelItem brokenActivity = null;
+
+            try
+            {
+                tab = designerHost.Open(xamlPath);
+                designerHost.Activate(tab);
+
+                WorkflowDesignerEx designer = tab.Designer;
+                UIElement surface = designer.View as UIElement;
+                ModelService modelService = designer.Context.Services.GetService<ModelService>();
+                ModelItem implementation = modelService?.Root?.Properties["Implementation"]?.Value;
+                IReadOnlyList<DesignerScopeEntry> scope = implementation == null
+                    ? null
+                    : DesignerValidationScope.Collect(new ModelItemScopeNode(implementation));
+                report.ScopeActivityCount = scope == null ? 0 : scope.Count;
+
+                // Активность с невалидным выражением: единственное поле, состояние которого важно.
+                // Берётся <b>самая вложенная</b> подходящая активность: вьюха корня содержит поля детей,
+                // и окно «Свойства» для корня показало бы свойства процесса, а не аргументы Assign.
+                foreach (DesignerScopeEntry entry in scope ?? new List<DesignerScopeEntry>())
+                {
+                    ModelItem modelItem = (entry.Node as ModelItemScopeNode)?.ModelItem;
+                    if (modelItem == null || !(modelItem.GetCurrentValue() is System.Activities.Activity))
+                    {
+                        continue;
+                    }
+
+                    if (FindField(modelItem, report.BrokenText) != null)
+                    {
+                        brokenActivity = modelItem;
+                        report.BrokenAddress = entry.Address;
+                }
+                }
+
+                if (brokenActivity == null)
+                {
+                    report.BrokenAddress = "(активность с полем «" + report.BrokenText + "» не найдена)";
+                }
+
+                // Точка 1 — загрузка: сразу после открытия и до первого прохода валидатора.
+                report.Stages.Add(CaptureStage("загрузка", clock, surface, null));
+
+
+                // Окно «Свойства» на той же активности: поле аргумента обязано вести себя так же.
+                if (brokenActivity != null)
+                {
+                    try
+                    {
+                        System.Activities.Presentation.View.Selection.SelectOnly(designer.Context, brokenActivity);
+
+                        inspector = designer.PropertyInspectorView;
+                        if (inspector == null)
+                        {
+                            report.InspectorState = "PropertyInspectorView == null";
+                        }
+                        else
+                        {
+                            inspectorSurface = HostInWindow(inspector, "AiRpaStudio-BenchInspector");
+                            host.Pump(TimeSpan.FromMilliseconds(700));
+                            System.Activities.Presentation.View.Selection.SelectOnly(designer.Context, brokenActivity);
+                            host.Pump(TimeSpan.FromMilliseconds(700));
+                            report.InspectorState = "ок";
+                            report.InspectorDump.AddRange(DescribeInspector(inspector));
+
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        report.InspectorState = "ошибка: " + ErrorText.Of(ex);
+                    }
+                }
+
+                // Точка 2 — фоновый проход студии отработал (иконки на активностях уже нарисованы).
+                bool passSeen = host.PumpUntil(
+                    () => designer.Validation == null || designer.Validation.LastMetrics != null,
+                    TimeSpan.FromSeconds(60));
+                if (!passSeen)
+                {
+                    report.Errors.Add("фоновый проход валидации не выполнился за 60 с");
+                }
+
+                report.Stages.Add(CaptureStage("после прохода", clock, surface, inspector));
+
+                // Точка 3 — покой: ожидаемое «появляется само через непродолжительное время».
+                host.Pump(TimeSpan.FromSeconds(3));
+                report.Stages.Add(CaptureStage("покой", clock, surface, inspector));
+
+                // Чья иконка на активности: своя (студии) с текстом ошибки выражения или WF.
+                if (brokenActivity != null)
+                {
+                    object activityView = brokenActivity.View;
+                    var icon = activityView == null
+                        ? null
+                        : XamlHelper.FindVisualChildByTypeAndName(
+                            (DependencyObject)activityView, "WorkflowDesignerIconBorder", "validationVisuals") as Border;
+                    if (icon?.ToolTip is string toolTip && !string.IsNullOrEmpty(toolTip))
+                    {
+                        report.BrokenAddressMessages.Add(toolTip);
+                    }
+                }
+
+                // Точка 4 — контроль: программный фокус на поле (сегодняшнее поведение «только после клика»).
+                RoslynExpressionEditor field = brokenActivity == null
+                    ? null
+                    : FindField(brokenActivity, report.BrokenText);
+                if (field != null)
+                {
+                    FocusField(field);
+                    host.PumpUntil(() => field.HasValidationError, TimeSpan.FromSeconds(15));
+                }
+
+                report.Stages.Add(CaptureStage("после клика", clock, surface, inspector));
+
+                report.Ok = report.Errors.Count == 0;
+                report.Description =
+                    "активность с ошибкой: " + report.BrokenAddress
+                    + "; текст поля: «" + report.BrokenText + "»"
+                    + "; активностей в области: " + report.ScopeActivityCount.ToString()
+                    + "; окно «Свойства»: " + report.InspectorState
+                    + "; подсказка иконки: "
+                    + (report.BrokenAddressMessages.Count == 0
+                        ? "(нет)"
+                        : string.Join(" | ", report.BrokenAddressMessages))
+                    + Environment.NewLine
+                    + Describe(report);
+
+                return report;
+            }
+            catch (Exception ex)
+            {
+                report.Ok = false;
+                report.Errors.Add(ErrorText.Of(ex));
+                report.Description = "сценарий замера бейджа не выполнен: " + ErrorText.Of(ex);
+                return report;
+            }
+            finally
+            {
+                // Фоновый цикл проверки поля (стартует по фокусу) не должен переживать сценарий:
+                // он тикает на диспетчере стенда и мешает следующим тестам.
+                StopFieldValidators(inspector);
+                StopFieldValidators(brokenActivity);
+
+                try
+                {
+                    if (inspectorSurface != null)
+                    {
+                        inspectorSurface.RootVisual = null;
+                        inspectorSurface.Dispose();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("Поверхность инспектора не освобождена: " + ErrorText.Of(ex));
+                }
+
+                designerHost.Close(tab);
+            }
+        });
+    }
+
+    /// <summary>Снимок одной точки замера: состояние поля в конструкторе и в окне «Свойства».</summary>
+    private static FieldBadgeStage CaptureStage(
+        string name,
+        Stopwatch clock,
+        UIElement surface,
+        UIElement inspector)
+    {
+        var stage = new FieldBadgeStage
+        {
+            Name = name,
+            ElapsedMs = clock.Elapsed.TotalMilliseconds
+        };
+
+        if (surface != null)
+        {
+            stage.Fields.AddRange(CaptureFieldsFrom(surface, "конструктор"));
+        }
+
+        if (inspector != null)
+        {
+            stage.InspectorFields.AddRange(CaptureFieldsFrom(inspector, "свойства"));
+        }
+
+        return stage;
+    }
+
+    private static List<FieldBadgeEntry> CaptureFieldsFrom(DependencyObject root, string owner)
+    {
+        var entries = new List<FieldBadgeEntry>();
+        if (root == null)
+        {
+            return entries;
+        }
+
+        try
+        {
+            foreach (RoslynExpressionEditor editor in XamlHelper.FindVisualChildren<RoslynExpressionEditor>(root))
+            {
+                entries.Add(CaptureField(editor, owner));
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("Обход полей выражений не выполнен: " + ErrorText.Of(ex));
+        }
+
+        return entries;
+    }
+
+    private static FieldBadgeEntry CaptureField(RoslynExpressionEditor editor, string owner)
+    {
+        var entry = new FieldBadgeEntry { Owner = owner };
+
+        try
+        {
+            entry.FieldName = string.IsNullOrEmpty(editor.Name) ? "(без имени)" : editor.Name;
+            entry.ArgumentName = MatchArgument(editor);
+
+            entry.Text = editor.Text ?? string.Empty;
+            entry.Template = TemplateName(editor);
+            entry.HasBadge = editor.HasValidationError;
+            entry.Message = editor.ValidationErrorMessage ?? string.Empty;
+            entry.BadgeVisibility = BadgeVisibility(editor);
+            entry.WpfHasError = System.Windows.Controls.Validation.GetHasError(editor);
+            entry.EditingState = editor.EditingState.ToString();
+            entry.ExpressionItemType = editor.Expression == null
+                ? "(null)"
+                : editor.Expression.ItemType?.Name ?? "(null)";
+        }
+        catch (Exception ex)
+        {
+            entry.Message = "ошибка чтения поля: " + ErrorText.Of(ex);
+        }
+
+        return entry;
+    }
+
+    /// <summary>
+    /// К какому аргументу активности относится поле: сопоставление по модели, а не по тексту
+    /// (<c>RoslynExpressionEditor.Name</c> у полей пустой). Проверяются оба уровня — сам аргумент и
+    /// вложенный элемент <c>Expression</c>.
+    /// </summary>
+    private static string MatchArgument(RoslynExpressionEditor editor)
+    {
+        var matches = new List<string>();
+
+        try
+        {
+            ModelItem activity = editor.OwnerActivity;
+            ModelItem expression = editor.Expression;
+            if (activity == null || expression == null)
+            {
+                return "(нет модели)";
+            }
+
+            foreach (System.Activities.Presentation.Model.ModelProperty property in activity.Properties)
+            {
+                ModelItem value;
+                try
+                {
+                    value = property.Value;
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+
+                if (value == null)
+                {
+                    continue;
+                }
+
+                if (ReferenceEquals(value, expression))
+                {
+                    matches.Add(property.Name);
+                    continue;
+                }
+
+                try
+                {
+                    if (ReferenceEquals(value.Properties["Expression"]?.Value, expression))
+                    {
+                        matches.Add(property.Name + "(Expression)");
+                    }
+                }
+                catch (Exception)
+                {
+                    // У свойства нет вложенного Expression — это не аргумент выражения.
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            return "(ошибка сопоставления: " + ErrorText.Of(ex) + ")";
+        }
+
+        return matches.Count == 0 ? "(не сопоставлено)" : string.Join(",", matches);
+    }
+
+    /// <summary>
+    /// Что построило окно «Свойства»: типы его полей и их тексты. Без этого нельзя отличить «поля ещё
+    /// нет» (WF создаёт его только по клику) от «поле есть, а бейджа нет» (это наш дефект).
+    /// </summary>
+    private static List<string> DescribeInspector(DependencyObject root)
+    {
+        var lines = new List<string>();
+
+        try
+        {
+            foreach (FrameworkElement child in XamlHelper.FindVisualChildren<FrameworkElement>(root))
+            {
+                string typeName = child.GetType().Name;
+                string text = child is TextBox box ? box.Text : child is TextBlock label ? label.Text : null;
+                lines.Add(typeName
+                          + (string.IsNullOrEmpty(child.Name) ? string.Empty : "#" + child.Name)
+                          + (text == null ? string.Empty : " = «" + text + "»"));
+
+                if (lines.Count >= 80)
+                {
+                    lines.Add("…(обрезано)");
+                    break;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            lines.Add("дамп окна «Свойства» не выполнен: " + ErrorText.Of(ex));
+        }
+
+        if (lines.Count == 0)
+        {
+            lines.Add("(в окне «Свойства» нет ни одного элемента полей)");
+        }
+
+        return lines;
+    }
+
+
+    /// <summary>Какой шаблон показан в поле: <c>textblock</c> (не в правке) или <c>expressioneditor</c>.</summary>
+    private static string TemplateName(RoslynExpressionEditor editor)
+    {
+        try
+        {
+            if (ReferenceEquals(editor.ContentTemplate, editor.FindResource("textblock")))
+            {
+                return "textblock";
+            }
+
+            if (ReferenceEquals(editor.ContentTemplate, editor.FindResource("expressioneditor")))
+            {
+                return "expressioneditor";
+            }
+
+            return editor.ContentTemplate == null ? "(null)" : "другой";
+        }
+        catch (Exception)
+        {
+            return "(неизвестен)";
+        }
+    }
+
+    /// <summary>Видимость самого глифа: пользователь видит иконку, а не флаг привязки.</summary>
+    private static string BadgeVisibility(RoslynExpressionEditor editor)
+    {
+        try
+        {
+            foreach (FrameworkElement child in XamlHelper.FindVisualChildren<FrameworkElement>(editor))
+            {
+                if (child.GetType().Name == "MaterialIcon")
+                {
+                    return child.Visibility.ToString();
+                }
+            }
+
+            return "(глиф не найден)";
+        }
+        catch (Exception)
+        {
+            return "(ошибка обхода)";
+        }
+    }
+    /// <summary>Первое поле активности с заданным текстом (по нему опознаётся фикстура).</summary>
+    private static RoslynExpressionEditor FindField(ModelItem activity, string text)
+    {
+        object view = null;
+        try
+        {
+            view = activity.View;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+
+        if (view == null)
+        {
+            return null;
+        }
+
+        foreach (RoslynExpressionEditor editor in XamlHelper.FindVisualChildren<RoslynExpressionEditor>(
+                     (DependencyObject)view))
+        {
+            if (string.Equals(
+                    (editor.Text ?? string.Empty).Trim(),
+                    (text ?? string.Empty).Trim(),
+                    StringComparison.Ordinal))
+            {
+                return editor;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Программный «клик» по полю: тот же путь, что у пользователя (<c>GotKeyboardFocus</c> на текстовом
+    /// блоке поля). Поверхность конструктора в стенде живёт без активного окна, поэтому
+    /// <see cref="System.Windows.Input.Keyboard.Focus"/> может не сработать — тогда событие поднимается
+    /// вручную на том же элементе.
+    /// </summary>
+    private static void FocusField(RoslynExpressionEditor editor)
+    {
+        var block = XamlHelper.FindVisualChildByTypeAndName(
+            editor, "TextBlock", "expresionTextBlock") as TextBlock;
+
+        if (block == null)
+        {
+            return;
+        }
+
+        if (System.Windows.Input.Keyboard.Focus(block) != null)
+        {
+            return;
+        }
+
+        block.RaiseEvent(new System.Windows.Input.KeyboardFocusChangedEventArgs(
+            System.Windows.Input.Keyboard.PrimaryDevice,
+            Environment.TickCount,
+            null,
+            block)
+        {
+            RoutedEvent = System.Windows.Input.Keyboard.GotKeyboardFocusEvent
+        });
+    }
+
+    /// <summary>
+    /// Останавливает фоновые проверки полей: цикл стартует по фокусу и тикает на диспетчере стенда,
+    /// а после сценария проверять уже нечего.
+    /// </summary>
+    private static void StopFieldValidators(DependencyObject root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        try
+        {
+            System.Reflection.MethodInfo kill = typeof(RoslynExpressionEditor).GetMethod(
+                "KillValidator",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+            foreach (RoslynExpressionEditor editor in XamlHelper.FindVisualChildren<RoslynExpressionEditor>(root))
+            {
+                kill?.Invoke(editor, null);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("Фоновые проверки полей не остановлены: " + ErrorText.Of(ex));
+        }
+    }
+
+    private static void StopFieldValidators(ModelItem activity)
+    {
+        try
+        {
+            StopFieldValidators(activity?.View as DependencyObject);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("Фоновые проверки полей активности не остановлены: " + ErrorText.Of(ex));
+        }
+    }
+
+    /// <summary>Показывает элемент в невидимом окне: без этого окно «Свойства» не строит поля.</summary>
+    private static System.Windows.Interop.HwndSource HostInWindow(UIElement element, string title)
+    {
+        var root = new Grid();
+        root.Children.Add(element);
+
+        var parameters = new System.Windows.Interop.HwndSourceParameters(title)
+        {
+            Width = 420,
+            Height = 900,
+            WindowStyle = 0
+        };
+
+        var surface = new System.Windows.Interop.HwndSource(parameters) { RootVisual = root };
+        root.Measure(new Size(420, 900));
+        root.Arrange(new Rect(0, 0, 420, 900));
+        root.UpdateLayout();
+
+        return surface;
+    }
+
+    /// <summary>Таблица «поле → точка замера → бейдж → текст» для сообщений об ошибках тестов.</summary>
+    private static string Describe(DesignerBenchFieldBadgeReport report)
+    {
+        var text = new System.Text.StringBuilder();
+
+        foreach (FieldBadgeStage stage in report.Stages)
+        {
+            text.AppendLine(stage.Name + " (" + stage.ElapsedMs.ToString("0") + " мс):");
+
+            foreach (FieldBadgeEntry field in stage.Fields)
+            {
+                text.AppendLine("    конструктор/" + field.FieldName
+                                + " (аргумент: " + field.ArgumentName + ")"
+                                + " = «" + field.Text + "»"
+                                + ", шаблон: " + field.Template
+                                + ", состояние: " + field.EditingState
+                                + ", бейдж: " + (field.HasBadge ? "есть" : "нет")
+                                + ", глиф: " + field.BadgeVisibility
+                                + ", WPF: " + (field.WpfHasError ? "ошибка" : "нет")
+                                + ", модель: " + field.ExpressionItemType
+                                + (string.IsNullOrEmpty(field.Message) ? string.Empty : ", текст: " + field.Message));
+            }
+            text.AppendLine("    поля окна «Свойства»: "
+                            + string.Join(" | ", report.InspectorDump));
+
+
+
+
+
+            foreach (FieldBadgeEntry field in stage.InspectorFields)
+            {
+                text.AppendLine("    свойства/" + field.FieldName
+                                + " = «" + field.Text + "»"
+                                + ", шаблон: " + field.Template
+                                + ", бейдж: " + (field.HasBadge ? "есть" : "нет")
+                                + ", глиф: " + field.BadgeVisibility
+                                + (string.IsNullOrEmpty(field.Message) ? string.Empty : ", текст: " + field.Message));
+            }
+        }
+
+        return text.ToString();
+    }
+
 
     public DesignerBenchReport Render(string xamlPath)
     {
