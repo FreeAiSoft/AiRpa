@@ -316,13 +316,13 @@
     <Compile Include="Core\Generation\ActivityPaletteFactory.cs" />
     <Compile Include="Core\Generation\ActivityPaletteRegistry.cs" />
     <Compile Include="Core\Workflow\StudioActivityCatalog.cs" />
+    <Compile Include="Core\Workflow\NuGetActivityPaletteLoader.cs" />
     <Compile Include="Core\Workflow\StudioActivityPaletteNotifier.cs" />
     <Compile Include="Core\Workflow\StudioWorkflowEditSession.cs" />
     <Compile Include="Core\Workflow\StudioWorkflowEditingService.cs" />
     <Compile Include="Core\Workflow\StudioWorkflowOutlineService.cs" />
     <Compile Include="Core\Workflow\StudioWorkflowRunService.cs" />
     <Compile Include="Core\Workflow\WorkflowExpressionSyntax.cs" />
-
     <Compile Include="Core\Generation\DesignerModelSession.cs" />
     <Compile Include="Core\Generation\PaletteWorkflowService.cs" />
     <Compile Include="Core\Generation\WorkflowModelReader.cs" />
@@ -337,7 +337,6 @@
     <!-- Контракт для агента (этап 7 конвейера): правила, выбор инструмента,
          few-shot примеры и правило самокоррекции в одном месте — их отдаёт xaml.describe_contract. -->
     <Compile Include="Core\Generation\WorkflowAgentContract.cs" />
-
     <Compile Include="CSharpExpressionEditor\DesignerValidator.cs" />
     <Compile Include="Core\Services\DesignerContextMenuState.cs" />
     <Compile Include="Core\Services\DesignerVariableContextMenuPolicy.cs" />
@@ -412,7 +411,6 @@
     <Compile Include="Helpers\WfDataGridTheme.cs" />
     <Compile Include="Helpers\WfContextMenuTheme.cs" />
     <Compile Include="Helpers\WfActivityTheme.cs" />
-
     <Compile Include="Helpers\MaterialThemePalette.cs" />
     <Compile Include="Helpers\StudioPalette.cs" />
     <Compile Include="Helpers\WindowCorner.cs" />
@@ -441,7 +439,6 @@
     <Compile Include="Mcp\Tools\GetWorkflowTool.cs" />
     <Compile Include="Mcp\Tools\PaletteToolBase.cs" />
     <Compile Include="Mcp\Tools\SetArgumentTool.cs" />
-
     <Compile Include="Models\ActivityCreator.cs" />
     <Compile Include="Core\CustomWfDesigner.cs" />
     <Compile Include="CSharpExpressionEditor\QueryCompletionData.cs" />
@@ -511,7 +508,6 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-
     <Page Include="Themes\StudioTheme.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -520,7 +516,6 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-
     <Page Include="Views\ActivityCreatorView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -570,15 +565,15 @@
     </EmbeddedResource>
     <None Include=".editorconfig" />
     <None Include="app.manifest" />
-    <None Include="Docs\Designer_Variable_ContextMenu_Principles.md" />
-    <None Include="Docs\ProjectManagerControl_Refactoring_Plan.md" />
-    <None Include="Docs\Reference_Source_Storage.md" />
-    <None Include="Docs\ROADMAP.md" />
-    <None Include="Docs\User_Guide_AI_Activities.md" />
-    <None Include="Docs\Vs2026_Theme_Plan.md" />
-    <None Include="Docs\Workflow_Agent_Contract.md" />
-    <None Include="Docs\WorkflowEditTracking_Architecture.md" />
-    <None Include="Docs\Workflow_Json_Ast_Schema.md" />
+    
+    
+    
+    
+    
+    
+    
+    
+    
     <None Include="NLog.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -590,9 +585,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <Resource Include="TODO.txt" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Activities.Browser\Activities.Browser.csproj">
@@ -661,7 +653,6 @@
       <Project>{3C2A6F41-9D77-4C1E-8F52-6B0D4A7E1C93}</Project>
       <Name>Rpa.Workflow.Runtime</Name>
     </ProjectReference>
-
   </ItemGroup>
   <ItemGroup>
     <Analyzer Include="..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\analyzers\dotnet\cs\Microsoft.CodeAnalysis.Analyzers.dll" />
@@ -681,9 +672,6 @@
   </ItemGroup>
   <ItemGroup>
     <Resource Include="23456789.ico" />
-  </ItemGroup>
-  <ItemGroup>
-    <Resource Include="TESTS.txt" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="VsTemplate\VsTemplateModels.cs" />
@@ -728,10 +716,7 @@
   <ItemGroup>
     <!-- Built-in user documentation (RU/EN) shipped next to the assemblies and consumed
          by the Plan/Help chat modes via Agent.Core.Services.HelpDocumentation. Only the
-         user-facing subset is shipped; the repo's developer docs (docs\*.md) stay out. -->
-    <None Include="Docs\00-index.md">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+         user-facing subset is shipped; the repo's developer docs (dev-docs\*.md) stay out. -->
     <None Include="Docs\ru\*.md">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -781,4 +766,13 @@
   <Import Project="..\packages\NETStandard.Library.2.0.3\build\netstandard2.0\NETStandard.Library.targets" Condition="Exists('..\packages\NETStandard.Library.2.0.3\build\netstandard2.0\NETStandard.Library.targets')" />
   <Import Project="..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.targets" Condition="Exists('..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\build\Microsoft.CodeAnalysis.Analyzers.targets')" />
   <Import Project="..\packages\MaterialDesignThemes.5.4.0\build\MaterialDesignThemes.targets" Condition="Exists('..\packages\MaterialDesignThemes.5.4.0\build\MaterialDesignThemes.targets')" />
+  <!-- WebView2 (MermaidDiagramControl): the native loader must sit next to the studio executable
+       for .NET Framework P/Invoke to find it. RPA.Chat copies it into its own output during its
+       build; copy it here so the chat can render mermaid diagrams. -->
+  <Target Name="CopyWebView2Loader" AfterTargets="Build">
+    <Copy SourceFiles="..\RPA.Chat\bin\$(Configuration)\net48\WebView2Loader.dll"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('..\RPA.Chat\bin\$(Configuration)\net48\WebView2Loader.dll')" />
+  </Target>
 </Project>

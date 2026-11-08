@@ -1,4 +1,4 @@
-﻿# Правила разработки (AiRpaStudio)
+# Правила разработки (AiRpaStudio)
 
 ## Язык общения в чате - русский
 
@@ -56,6 +56,8 @@
   Separator/SeparatorStrong/Foreground/ForegroundMuted` + `Studio.Semantic.Validation`), шрифт —
   только `{DynamicResource Studio.FontFamily}`, иконки — векторные `Path` (новых зависимостей в
   `RPA.NuGet` нет). Стражи: `AiRpaStudio.Tests\NuGetPanelThemeTests.cs`.
+- Оверлей «Package sources» (`SourcesOverlay`) накрывает строки 0–2 корневого `Grid` (`Grid.RowSpan="3"`), а не строку состояния: её непрозрачная полоса с 1px-разделителем рисовалась поверх оверлея и «резала» подпись «Sources are stored in NuGet.Config…». Страж — `AiRpaStudio.Tests\NuGetPanelLayoutTests.cs` (`SourcesOverlay_FootnoteIsNotClippedByStatusBar`).
+
 - Панель открывается **вкладкой панели документов** (`MainView.ShowNuGetPanel`, `ContentId = "NuGet"`),
   а не боковым доком: там помещается двухколоночный макет «список | детали». Узкая ширина
   (< 640) включает режим, где детали показываются вместо списка. Ветка восстановления раскладки
@@ -63,7 +65,7 @@
   `AiRpaStudio.Tests\NuGetPanelDocumentTabTests.cs`.
 - Правила состояния пакета (какое действие предлагает кнопка, подписи версий и downloads) живут в
   `Services\NuGetPackageStateResolver.cs` без WPF и сети — там же их тесты
-  (`NuGetPackageStateTests.cs`). План и таблица этапов — `docs\NuGet_Panel_Redesign_Plan.md`.
+  (`NuGetPackageStateTests.cs`). План и таблица этапов — `dev-docs\NuGet_Panel_Redesign_Plan.md`.
 - Шеврон блока «Options» в панели деталей — **кнопка без фона** с иконкой Material
   (`materialIcons:MaterialIcon Kind="ChevronRight"` → `ChevronDown` по `IsChecked`). В шаблоне шапки
   запрещены триггеры `IsMouseOver`/`IsPressed`: наведение не меняет ни фон, ни цвет иконки.
@@ -145,7 +147,7 @@
   `exitCode`, `state`, `outputs`, `error`, источник и длительность.
 - **Запуск руками:** `RpaRunner\bin\Debug\net472\RpaRunner.exe --project <робот.csproj> --arg InputText=max --out result.json`.
   В PowerShell кавычки внутри `--args {"InputText":"max"}` съедаются оболочкой — используйте `--arg имя=значение`.
-  Тесты — `AiRpaStudio.Tests\Runner\` (63 тест-случая), журнал волны — `AiRpaStudio\docs\Wave5_Execution_Plan.md`.
+  Тесты — `AiRpaStudio.Tests\Runner\` (63 тест-случая), журнал волны — `dev-dev-docs\Wave5_Execution_Plan.md`.
 
 ## Пакет робота `robot.zip` (`OR-03`)
 
@@ -185,7 +187,7 @@
   контракты без зависимостей и `netstandard2.0`, все три проекта есть в `AiRpa.sln`.
 - Тесты: `AiRpaStudio.Tests\Packages\` (формат, правила, хэши, читатель, кэш, разбор проекта),
   `AiRpaStudio.Tests\Packaging\` (упаковщик и живой `RpaPack.exe`), `AiRpaStudio.Tests\Runner\RunnerPackageSourceTests.cs`
-  (параметр `--package`, коды 5/6, прогон эталона из пакета). Журнал волны — `AiRpaStudio\docs\Wave6_Execution_Plan.md`.
+  (параметр `--package`, коды 5/6, прогон эталона из пакета). Журнал волны — `dev-dev-docs\Wave6_Execution_Plan.md`.
 
 ## ТЗ и спецификация (`spec_*`, волна 8)
 - ТЗ живёт **в проекте**: `<проект>\docs\spec\<slug>\` — `spec.md` (текущая версия), `versions\vNNNN-<sha8>.md`,
@@ -275,7 +277,7 @@
   и WPF падает с `XamlParseException` на Style-сеттерах (проверяется тестом
   `AiRpaStudio.Tests\StudioBrushesTests.cs`). Только кодом — `Helpers\StudioBrushes.cs`
   (`ApplyToApplication()` при старте приложения и после каждой смены темы).
-- План темизации всех визуальных контролов (единственный актуальный): `AiRpaStudio\docs\Vs2026_Theme_Plan.md`
+- План темизации всех визуальных контролов (единственный актуальный): `dev-dev-docs\Vs2026_Theme_Plan.md`
   (этапы 1-10 и приложение A — пошаговый чеклист ручной приёмки).
 - Единая палитра студии (в стиле Visual Studio 2026): `AiRpaStudio\Helpers\StudioPalette.cs`
   (`Surface`/`SurfaceAlt`/`Hover`/`Selected`/`Separator`/`SeparatorStrong`/`Foreground`/`ForegroundMuted`,
@@ -405,7 +407,7 @@
   разделителе, если стиль пунктов ещё чужой (`Стиль, заданный для типа "MenuItem", не может применяться
   к типу "Separator"`), поэтому стиль раздаётся `ItemContainerStyleSelector`, а `Separator` получает
   свой hairline-стиль. Стражи — `AiRpaStudio.Tests\WfContextMenuThemeTests.cs`.
-  Механизм этого меню зафиксирован документально (`docs\Designer_Variable_ContextMenu_Principles.md`):
+  Механизм этого меню зафиксирован документально (`dev-docs\Designer_Variable_ContextMenu_Principles.md`):
   правый клик в ячейке `variableDataGrid`/`argumentsDataGrid` открывает меню программно (штатное меню
   завершает правку и закрывает панель), а завершение правки отменяется флагом, взведённым на
   `DataGrid.PreviewMouseRightButtonDown`. Инварианты — порядок туннелирования, отмена consume-once,
@@ -625,9 +627,9 @@
 - Нативные WF-контролы (`ToolboxControl`, `OutlineView`, `PropertyInspectorView`) стилизуются
   обходом визуального дерева; исходники для изучения их шаблонов:
   `C:\Users\Maxxx\source\repos\.NET-Framework-4.8-RTM-Reference-Source`
-  (детали — `AiRpaStudio\docs\Reference_Source_Storage.md`).
+  (детали — `dev-dev-docs\Reference_Source_Storage.md`).
 
-- Финальные правила темы (этап 9, чеклист — приложение A в `AiRpaStudio\docs\Vs2026_Theme_Plan.md`):
+- Финальные правила темы (этап 9, чеклист — приложение A в `dev-dev-docs\Vs2026_Theme_Plan.md`):
   * В темизируемых XAML (`Views`, `Controls`, `CSharpExpressionEditor`, `Themes\StudioTheme.xaml`,
     `AvalonDock.Themes.Metro\Theme.xaml`, `AvalonDock\Themes\generic.xaml`, `LogControlLibrary`, `RPA.Chat`)
     запрещены зашитые hex и named-цвета (`White`, `Gray`, `Orange`, …): только `{DynamicResource Studio.*}`.
@@ -665,7 +667,7 @@
   * Каждая докпанель обведена рамкой 1px (`AvalonDock_Separator`, у активной — `AvalonDock_SeparatorStrong`):
     панель главного окна, панель документов, панель автоскрытия и панели внутри откреплённых окон. Рамку
     рисует ровно один элемент (в плавающем окне — `WindowBorder`, иначе панель), ресайзер в покое линии не
-    рисует (`Transparent`), активность заливкой не передаётся. Правило 6 плана `docs\Vs2026_Theme_Plan.md`,
+    рисует (`Transparent`), активность заливкой не передаётся. Правило 6 плана `dev-docs\Vs2026_Theme_Plan.md`,
     страж — `ThemeXamlTests.ThemeXaml_PaneFramesAreOnePixel`.
   * `App.xaml` не объявляет ресурсы через `{DynamicResource ...}` и не держит `Freezable` (`DrawingImage`
     и т.п.): в `Application.Resources` такая запись остаётся `ResourceReferenceExpression` (не `Brush`),

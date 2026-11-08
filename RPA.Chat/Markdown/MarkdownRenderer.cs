@@ -13,6 +13,7 @@ using Markdig.Extensions.TaskLists;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 using Agent.Core.Services;
+using RPA.Chat.Controls;
 using RPA.Chat.Converters;
 
 // WPF's System.Windows.Documents namespace also defines Block/Inline/Table/TableRow/TableCell,
@@ -143,6 +144,9 @@ namespace RPA.Chat.Markdown
             string language = FirstWord(info);
             string text = MarkdownCodeBlockText.GetText(code);
             text = text.TrimEnd('\r', '\n');
+
+            if (string.Equals(language, "mermaid", StringComparison.OrdinalIgnoreCase))
+                return new MermaidDiagramControl(text);
 
             IReadOnlyList<CodeToken> tokens = IsCSharp(language)
                 ? CSharpHighlighter.Highlight(text)

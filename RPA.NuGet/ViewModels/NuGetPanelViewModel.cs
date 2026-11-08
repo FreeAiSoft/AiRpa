@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -109,6 +109,13 @@ namespace RPA.NuGet.ViewModels
 
         /// <summary>Просьба открыть внешнюю ссылку (её выполняет представление: <c>Process.Start</c>).</summary>
         public event EventHandler<string> LinkRequested;
+
+        /// <summary>
+        /// Проект изменился на диске (установка/удаление пакета и, если включено, restore завершён).
+        /// Параметр — полный путь к <c>.csproj</c>. Студия подписывается и перечитывает References
+        /// и активности пакетов в панели «Активности» без перезапуска.
+        /// </summary>
+        public event EventHandler<string> ProjectChanged;
 
         // --- Коллекции ---
 
@@ -397,6 +404,7 @@ namespace RPA.NuGet.ViewModels
 
                 _updatesChecked = false;
                 UpdateSourceMappingNotice();
+                RaisePropertyChanged(nameof(EmptyText));
                 _ = OnSourceChangedAsync();
             }
         }
@@ -413,6 +421,9 @@ namespace RPA.NuGet.ViewModels
         }
 
         public bool HasSourceMappingNotice => !string.IsNullOrWhiteSpace(_sourceMappingNotice);
+
+        /// <summary>Выбран источник-папка/UNC (offline): для него пустой поиск показывает все пакеты.</summary>
+        private bool IsLocalSourceSelected => SelectedSource != null && !SelectedSource.IsRemote;
 
         // --- Оверлей «Package sources» ---
 
@@ -501,7 +512,9 @@ namespace RPA.NuGet.ViewModels
                     case NuGetPackageTab.Updates:
                         return "All packages are up to date.";
                     default:
-                        return "Type a package name and press Enter.";
+                        return IsLocalSourceSelected
+                            ? "No packages found in the selected source."
+                            : "Type a package name and press Enter.";
                 }
             }
         }
@@ -575,7 +588,9 @@ namespace RPA.NuGet.ViewModels
         {
             _debounceCts?.Cancel();
 
-            if (string.IsNullOrWhiteSpace(_searchQuery))
+            // Пустой запрос для локального источника означает «показать все пакеты» — только на
+            // вкладке Browse. Для удалённого источника пустая строка, как и раньше, очищает список.
+            if (string.IsNullOrWhiteSpace(_searchQuery) && !(IsLocalSourceSelected && IsBrowseTab))
             {
                 BrowseItems.Clear();
                 CanLoadMore = false;
@@ -610,7 +625,8 @@ namespace RPA.NuGet.ViewModels
         /// <summary>Ищет пакеты по текущему запросу (первая страница).</summary>
         public async Task SearchAsync()
         {
-            if (string.IsNullOrWhiteSpace(SearchQuery))
+            string query = SearchQuery?.Trim() ?? string.Empty;
+            if (string.IsNullOrEmpty(query) && !IsLocalSourceSelected)
                 return;
 
             ActiveTab = NuGetPackageTab.Browse;
@@ -619,10 +635,12 @@ namespace RPA.NuGet.ViewModels
 
             IsBusy = true;
             ProgressValue = 0;
-            StatusText = "Searching...";
+            StatusText = string.IsNullOrEmpty(query) ? "Loading packages..." : "Searching...";
+            NuGetLog.Info((string.IsNullOrEmpty(query) ? "List all packages" : "Search: \"" + query + "\"")
+                          + " prerelease=" + IncludePrerelease + " source=" + _search.SourceUrl);
             try
             {
-                List<NuGetPackageInfo> results = await _search.SearchAsync(SearchQuery, PageSize, IncludePrerelease);
+                List<NuGetPackageInfo> results = await _search.SearchAsync(query, PageSize, IncludePrerelease);
                 if (cts.IsCancellationRequested)
                     return;
 
@@ -652,14 +670,15 @@ namespace RPA.NuGet.ViewModels
         /// <summary>Догружает следующую страницу результатов (кнопка «Load more»).</summary>
         public async Task LoadMoreAsync()
         {
-            if (!CanLoadMore || string.IsNullOrWhiteSpace(SearchQuery))
+            string query = SearchQuery?.Trim() ?? string.Empty;
+            if (!CanLoadMore || (string.IsNullOrEmpty(query) && !IsLocalSourceSelected))
                 return;
 
             IsBusy = true;
             try
             {
                 List<NuGetPackageInfo> results =
-                    await _search.SearchAsync(SearchQuery, PageSize, IncludePrerelease, BrowseItems.Count);
+                    await _search.SearchAsync(query, PageSize, IncludePrerelease, BrowseItems.Count);
                 foreach (NuGetPackageInfo info in results)
                     BrowseItems.Add(CreateItem(info));
 
@@ -679,6 +698,16 @@ namespace RPA.NuGet.ViewModels
         public void ClearSearch()
         {
             SearchQuery = string.Empty;
+
+            // Для локального источника Esc/крестик возвращают полный список, а не пустую панель.
+            if (IsLocalSourceSelected && IsBrowseTab)
+            {
+                ScheduleSearch();
+                CanLoadMore = false;
+                SelectedItem = null;
+                return;
+            }
+
             BrowseItems.Clear();
             CanLoadMore = false;
             SelectedItem = null;
@@ -693,6 +722,7 @@ namespace RPA.NuGet.ViewModels
             var cts = _detailsCts = new CancellationTokenSource();
 
             string installedVersion = GetInstalledVersion(item.Id);
+            NuGetLog.Info("Load details: " + item.Id + " installed=" + installedVersion + " source=" + (_search == null ? "?" : _search.SourceUrl));
 
             // Сначала карточка из списка: версия и кнопка действия появляются мгновенно, ещё до
             // ответа источника. Ответ источника затем уточняет сведения и список версий.
@@ -735,6 +765,7 @@ namespace RPA.NuGet.ViewModels
             // README берём из выбранного источника; если показанной версии там уже нет,
             // сервис пробует запасную (последнюю из списка).
             string readme = await _detailsService.TryReadReadmeAsync(_search, id, version, fallbackVersion);
+            NuGetLog.Info("README result for " + id + " " + version + ": " + (readme == null ? "NULL (" + (_detailsService.LastReadmeError ?? "-") + ")" : readme.Length + " chars"));
 
             // Пока README грузился, пользователь мог выбрать другой пакет.
             if (!ReferenceEquals(_selectedItem, item))
@@ -765,6 +796,7 @@ namespace RPA.NuGet.ViewModels
             string id = details.Id;
             string version = details.PackageVersionText;
             NuGetPackageAction action = details.Action;
+            NuGetLog.Info("Action " + action + " on " + id + " " + version + " project=" + _project.ProjectPath);
             if (action == NuGetPackageAction.None)
                 return;
 
@@ -783,7 +815,7 @@ namespace RPA.NuGet.ViewModels
 
                     default:
                         StatusText = $"{NuGetPackageStateResolver.ActionText(action)} {id} {version}...";
-                        await _installService.InstallAsync(_project, id, version);
+                        await _installService.InstallAsync(_project, id, version, _search);
                         ProgressValue = 70;
                         StatusText = $"{NuGetPackageStateResolver.ActionText(action)}ed {id} {version}.";
                         break;
@@ -823,7 +855,8 @@ namespace RPA.NuGet.ViewModels
             try
             {
                 StatusText = $"Installing {item.Id} {version}...";
-                await _installService.InstallAsync(_project, item.Id, version);
+                NuGetLog.Info("Install item: " + item.Id + " " + version + " project=" + _project.ProjectPath);
+                await _installService.InstallAsync(_project, item.Id, version, _search);
                 StatusText = $"Installed {item.Id} {version}.";
                 await AfterProjectChangedAsync(item.Id, restore: true);
             }
@@ -891,7 +924,7 @@ namespace RPA.NuGet.ViewModels
                     StatusText = $"Updating {item.Id} to {item.LatestVersion} ({done + 1}/{targets.Count})...";
                     try
                     {
-                        await _installService.InstallAsync(_project, item.Id, item.LatestVersion);
+                        await _installService.InstallAsync(_project, item.Id, item.LatestVersion, _search);
                         done++;
                     }
                     catch (Exception ex)
@@ -933,6 +966,10 @@ namespace RPA.NuGet.ViewModels
                 else
                     StatusText = StatusText.Replace(" Restoring...", " Done.");
             }
+
+            // После restore (для PackageReference) или распаковки в packages\ (packages.config)
+            // пакет уже на диске — сообщаем студии перечитать References и палитру активностей.
+            ProjectChanged?.Invoke(this, _project.ProjectPath);
         }
 
         // --- Вкладки, источники, обновления ---
@@ -1069,14 +1106,15 @@ namespace RPA.NuGet.ViewModels
                 Sources.Add(new NuGetSourceDefinition { Name = _search.SourceUrl, Url = _search.SourceUrl });
                 _selectedSource = Sources[0];
                 RaisePropertyChanged(nameof(SelectedSource));
+                RaisePropertyChanged(nameof(EmptyText));
                 UpdateSourceMappingNotice();
                 return;
             }
 
-            // В выпадающий список попадают только включённые сетевые источники: локальные папки и
-            // выключенные строки видны в оверлее «Package sources», но поиск по ним невозможен.
+            // В выпадающий список попадают все включённые источники (сетевые и локальные папки);
+            // выключенные строки видны только в оверлее «Package sources».
             IReadOnlyList<NuGetSourceDefinition> sources = _sourcesService.Load(folder)
-                .Where(source => source.IsEnabled && source.IsRemote)
+                .Where(source => source.IsEnabled)
                 .ToList();
 
             Sources.Clear();
@@ -1085,12 +1123,12 @@ namespace RPA.NuGet.ViewModels
 
             if (Sources.Count == 0)
             {
-                Sources.Add(new NuGetSourceDefinition
-                {
-                    Name = NuGetSourcesService.NuGetOrgName,
-                    Url = NuGetSourcesService.NuGetOrgUrl,
-                    IsFallback = true
-                });
+                StatusText = "All package sources are disabled: enable at least one in Package sources.";
+                _selectedSource = null;
+                RaisePropertyChanged(nameof(SelectedSource));
+                RaisePropertyChanged(nameof(EmptyText));
+                UpdateSourceMappingNotice();
+                return;
             }
 
             SelectedSource = Sources.FirstOrDefault();
@@ -1107,7 +1145,7 @@ namespace RPA.NuGet.ViewModels
                 return;
 
             IReadOnlyList<NuGetSourceDefinition> definitions = _sourcesService.Load(folder)
-                .Where(source => source.IsEnabled && source.IsRemote)
+                .Where(source => source.IsEnabled)
                 .ToList();
 
             Sources.Clear();
@@ -1123,6 +1161,7 @@ namespace RPA.NuGet.ViewModels
                 StatusText = "All package sources are disabled: enable at least one in Package sources.";
                 _selectedSource = null;
                 RaisePropertyChanged(nameof(SelectedSource));
+                RaisePropertyChanged(nameof(EmptyText));
                 UpdateSourceMappingNotice();
                 return;
             }
@@ -1249,6 +1288,13 @@ namespace RPA.NuGet.ViewModels
                 SourceEditError = "A source with this name already exists.";
                 return;
             }
+            if (SourceItems.Any(item =>
+                    string.Equals(item.Source, url, StringComparison.OrdinalIgnoreCase)
+                    && (_isNewSource || !ReferenceEquals(item, SelectedSourceItem))))
+            {
+                SourceEditError = "A source with this address already exists.";
+                return;
+            }
 
             if (_isNewSource)
             {
@@ -1307,14 +1353,14 @@ namespace RPA.NuGet.ViewModels
             if (HasProject)
                 await RefreshInstalledAsync(checkUpdates: _activeTab != NuGetPackageTab.Browse);
 
-            if (!string.IsNullOrWhiteSpace(SearchQuery) && IsBrowseTab)
+            if (IsBrowseTab && (IsLocalSourceSelected || !string.IsNullOrWhiteSpace(SearchQuery)))
                 await SearchAsync();
         }
 
         /// <summary>Смена «Include prerelease» перепроверяет обновления и текущий поиск.</summary>
         private async Task RefreshForPrereleaseAsync()
         {
-            if (IsBrowseTab && !string.IsNullOrWhiteSpace(SearchQuery))
+            if (IsBrowseTab && (IsLocalSourceSelected || !string.IsNullOrWhiteSpace(SearchQuery)))
             {
                 await SearchAsync();
                 return;

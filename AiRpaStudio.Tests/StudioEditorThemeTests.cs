@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -102,7 +102,8 @@ public class StudioEditorThemeTests
             Assert.That(StudioEditorPalette.ResolveHighlightToken("AttributeValue"), Is.EqualTo(StudioEditorPalette.AttributeValueToken));
             Assert.That(StudioEditorPalette.ResolveHighlightToken("MarkupExtension"), Is.EqualTo(StudioEditorPalette.MarkupExtensionToken));
             Assert.That(StudioEditorPalette.ResolveHighlightToken("XmlDeclaration"), Is.EqualTo(StudioEditorPalette.XmlDeclarationToken));
-            Assert.That(StudioEditorPalette.ResolveHighlightToken("Punctuation"), Is.Null, "неизвестные цвета остаются дефолтными");
+            Assert.That(StudioEditorPalette.ResolveHighlightToken("Punctuation"), Is.EqualTo(StudioEditorPalette.ForegroundToken),
+                "пунктуация (скобки JSON) красится основным цветом текста — иначе чёрные скобки не видны в тёмной теме");
             Assert.That(StudioEditorPalette.ResolveHighlightToken(null), Is.Null);
         });
     }
@@ -177,6 +178,10 @@ public class StudioEditorThemeTests
         Assert.That(ColorOf(editor.SyntaxHighlighting, "String"),
             Is.EqualTo(StudioEditorPalette.Dark.Get(StudioEditorPalette.StringToken)),
             "строки JSON перекрашиваются (в AvalonEdit это зелёный)");
+        Assert.That(ColorOf(editor.SyntaxHighlighting, "Punctuation"),
+            Is.EqualTo(StudioEditorPalette.Dark.Get(StudioEditorPalette.ForegroundToken)),
+            "фигурные скобки JSON должны быть читаемыми (в AvalonEdit Punctuation — чёрный)");
+
     }
 
     [Test]

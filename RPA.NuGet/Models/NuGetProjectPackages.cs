@@ -17,6 +17,14 @@ namespace RPA.NuGet.Models
 
         public bool IsSdkStyle { get; set; }
 
+        /// <summary>
+        /// Нормализованный целевой фреймворк проекта (<c>net48</c>, <c>net472</c>), прочитанный из
+        /// <c>TargetFramework</c>/<c>TargetFrameworks</c>/<c>TargetFrameworkVersion</c>. <c>null</c>,
+        /// если определить не удалось. Используется для атрибута <c>targetFramework</c> в
+        /// <c>packages.config</c> (карточка NuGet: вместо хардкода <c>net48</c>).
+        /// </summary>
+        public string TargetFramework { get; set; }
+
         public List<NuGetPackageReference> Packages { get; set; } = new List<NuGetPackageReference>();
     }
 }

@@ -6,7 +6,7 @@ using AiRpaStudio.Tests.Generation;
 namespace AiRpaStudio.Tests.Design;
 
 /// <summary>
-/// Шаги 0 и 5 плана <c>AiRpaStudio\docs\UI02_Background_Validation_Plan.md</c> на живом конструкторе:
+/// Шаги 0 и 5 плана <c>dev-dev-docs\UI02_Background_Validation_Plan.md</c> на живом конструкторе:
 /// нагрузочный документ (100+ активностей) открывается в настоящем <c>WorkflowDesigner</c>, проход
 /// валидации выполняется в фоне, а замечания находят ошибки <b>внутри</b> тел и ветвей.
 /// <para>

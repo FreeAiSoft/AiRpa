@@ -31,6 +31,7 @@ namespace RPA.Helpers
                 ? "Json"
                 : string.Equals(extension, ".xml", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(extension, ".xshd", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(extension, ".config", StringComparison.OrdinalIgnoreCase)
                 ? "XML"
                 : null;
         }

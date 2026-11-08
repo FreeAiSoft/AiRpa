@@ -49,7 +49,8 @@ namespace RPA.Helpers
             return type == FSNodeType.Dir
                 || type == FSNodeType.Project
                 || type == FSNodeType.Solution
-                || type == FSNodeType.VsProject;
+                || type == FSNodeType.VsProject
+                || type == FSNodeType.References;
         }
     }
 }

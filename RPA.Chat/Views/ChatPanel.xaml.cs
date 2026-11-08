@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -35,6 +35,7 @@ namespace RPA.Chat.Views
             DataContext = _viewModel;
 
             _viewModel.MessageAppended += OnMessageAppended;
+            _viewModel.DocsNavigated += OnDocsNavigated;
             _viewModel.SettingsSaved += OnSettingsSaved;
             _viewModel.ThemeChanged += OnThemeChanged;
 
@@ -64,6 +65,12 @@ namespace RPA.Chat.Views
         {
             if (_chatAutoScroll)
                 ChatMessages.ScrollToEnd();
+        }
+
+        private void OnDocsNavigated()
+        {
+            Dispatcher.BeginInvoke(new Action(() => DocsScrollViewer?.ScrollToTop()),
+                System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
         private void OnSettingsSaved()

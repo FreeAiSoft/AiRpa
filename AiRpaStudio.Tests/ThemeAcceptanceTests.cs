@@ -8,7 +8,7 @@ namespace AiRpaStudio.Tests;
 
 /// <summary>
 /// Этап 9 плана (docs\Vs2026_Theme_Plan.md, §8 п.9 «Финал»): автоматическая часть чеклиста §9.
-/// Ручная часть (реальный запуск студии) описана в приложении A к AiRpaStudio\docs\Vs2026_Theme_Plan.md.
+/// Ручная часть (реальный запуск студии) описана в приложении A к dev-docs\Vs2026_Theme_Plan.md.
 /// <para>
 /// Здесь собраны сквозные стражи по ВСЕМ темизируемым XAML сразу: отсутствие зашитых цветов и
 /// named-цветов, отсутствие «третьей» палитры, единственный источник семантических цветов и
@@ -362,7 +362,7 @@ public class ThemeAcceptanceTests
     [Test]
     public void ThemePlan_IsMarkedAsFinished()
     {
-        string plan = Read(@"AiRpaStudio\docs\Vs2026_Theme_Plan.md");
+        string plan = Read(@"dev-docs\Vs2026_Theme_Plan.md");
 
         Assert.That(plan, Does.Contain("этапы 1-10"), "статус плана должен фиксировать завершение этапов 1-10");
         Assert.That(plan, Does.Contain("| 10."), "в таблице этапов нет строки 10 (рамка докпанелей)");
@@ -373,7 +373,7 @@ public class ThemeAcceptanceTests
     [Test]
     public void AcceptanceChecklist_LivesInThemePlanAppendix()
     {
-        string checklist = Read(@"AiRpaStudio\docs\Vs2026_Theme_Plan.md");
+        string checklist = Read(@"dev-docs\Vs2026_Theme_Plan.md");
 
         for (int item = 1; item <= 12; item++)
         {

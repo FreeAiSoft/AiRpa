@@ -76,6 +76,29 @@ public class NuGetPanelDocumentTabTests
         });
     }
 
+    [Test]
+    public void MainView_ReusesNuGetRestoredInSideDock()
+    {
+        string code = Read(@"AiRpaStudio\Views\MainView.xaml.cs");
+
+        int show = code.IndexOf("private void ShowNuGetPanel()", StringComparison.Ordinal);
+        int findContent = code.IndexOf("FindNuGetContent()", show, StringComparison.Ordinal);
+        int addDocument = code.IndexOf("docGroup.Children.Add(document);", show, StringComparison.Ordinal);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(findContent, Is.GreaterThan(0),
+                "повторное открытие обязано искать панель во всей раскладке");
+            Assert.That(findContent, Is.LessThan(addDocument),
+                "переиспользование найденной панели обязано стоять до создания новой вкладки");
+            Assert.That(code, Does.Contain(".Descendents()"),
+                "поиск обязан обходить всю раскладку — вкладки документов и боковые доки");
+            Assert.That(code, Does.Contain("opened.IsActive = true;"),
+                "найденную панель активируют, а не создают вторую");
+        });
+    }
+
+
     [Test, Apartment(ApartmentState.STA)]
     public void Panel_InitializesStylesAndNamedParts()
     {

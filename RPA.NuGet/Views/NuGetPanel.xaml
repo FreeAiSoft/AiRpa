@@ -690,7 +690,7 @@
         <!-- ================= Оверлей «Package sources» ================= -->
         <Border x:Name="SourcesOverlay"
                 Grid.Row="0"
-                Grid.RowSpan="4"
+                Grid.RowSpan="3"
                 Background="{DynamicResource Studio.Surface}"
                 Visibility="{Binding IsSourcesOverlayOpen, Converter={StaticResource BoolToVisibility}}">
             <Grid Margin="12">
@@ -796,7 +796,7 @@
                                  Text="{Binding EditingSourceUrl, UpdateSourceTrigger=PropertyChanged}" />
 
                         <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,8,0,0">
-                            <Button Content="Save"
+                            <Button Content="OK"
                                     Style="{StaticResource NuGet.RowButtonStyle}"
                                     Margin="0"
                                     Command="{Binding SaveSourceCommand}" />
@@ -852,10 +852,10 @@
                             Command="{Binding OpenConfigFileCommand}" />
                 </Grid>
 
-                <TextBlock Grid.Row="5"
+                <TextBlock x:Name="SourcesOverlayFootnote" Grid.Row="5"
                            Margin="0,8,0,0"
                            TextWrapping="Wrap"
-                           Text="Sources are stored in NuGet.Config. Offline folder sources are listed but not searched."
+                           Text="Sources are stored in NuGet.Config."
                            Style="{StaticResource NuGet.MutedTextStyle}" />
             </Grid>
         </Border>
@@ -864,7 +864,7 @@
         <Border Grid.Row="3"
                 Background="{DynamicResource Studio.Surface}"
                 BorderBrush="{DynamicResource Studio.Separator}"
-                BorderThickness="0,1,0,0">
+                BorderThickness="0,1,0,0" x:Name="PanelStatusBar">
             <Grid Margin="8,2">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />

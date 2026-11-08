@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Activities.Presentation;
 using System.Activities.Presentation.Model;
 using System.Collections.Generic;
@@ -77,10 +77,39 @@ namespace RPA.Controls
 
         private void NewValueINotifyCollectionChanged_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
-            //Do your stuff here.
-            throw new NotImplementedException();
-        }
+            // Верхнеуровневая коллекция FSNodes меняется при загрузке проекта и при точечном обновлении
+            // узла (RefreshVsProject заменяет FSNodes[i]). Дерево WPF обновляется через привязку
+            // HierarchicalDataTemplate; здесь актуализируем подписки и пересохраняем состояние.
+            if (e.Action == NotifyCollectionChangedAction.Add || e.Action == NotifyCollectionChangedAction.Replace)
+            {
+                if (e.NewItems != null)
+                {
+                    foreach (object item in e.NewItems)
+                    {
+                        if (item is FSNode node)
+                        {
+                            SubscribeToNodeEvents(new ObservableCollection<FSNode> { node });
+                        }
+                    }
+                }
+            }
+            else if (e.Action == NotifyCollectionChangedAction.Remove || e.Action == NotifyCollectionChangedAction.Reset)
+            {
+                if (e.OldItems != null)
+                {
+                    foreach (object item in e.OldItems)
+                    {
+                        if (item is FSNode node)
+                        {
+                            UnsubscribeFromNodeEvents(new ObservableCollection<FSNode> { node });
+                        }
+                    }
+                }
+            }
 
+            SaveTreeState();
+
+        }
         private void ExpandButton_Click(object sender, RoutedEventArgs e)
         {
             foreach (object item in projectTree.Items)
@@ -140,6 +169,12 @@ namespace RPA.Controls
         {
             if (sender is TreeViewItem treeViewItem && treeViewItem.DataContext is FSNode fsNode)
             {
+                // Синтетические узлы «References» и «Reference» не открываются (у них нет файла на диске).
+                if (fsNode.FSNodeType == Enums.FSNodeType.References || fsNode.FSNodeType == Enums.FSNodeType.Reference)
+                {
+                    return;
+                }
+
                 // Only handle if this is the actual item that was double-clicked, not a parent item
                 if (e.OriginalSource is DependencyObject originalSource)
                 {
@@ -841,10 +876,41 @@ namespace RPA.Controls
             // Sort children after adding new activity
             SortChildren(parentNode);
 
+
             // Разворачиваем родительский узел, чтобы новая активность была видна
             parentNode.IsExpanded = true;
         }
 
+        /// <summary>
+        /// Добавляет произвольный файл в выбранный узел дерева (копия + регистрация в .csproj).
+        /// </summary>
+        private void AddFileMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is MenuItem mnu))
+            {
+                return;
+            }
+
+            FrameworkElement target = ((ContextMenu)mnu.Parent).PlacementTarget as FrameworkElement;
+            if (!(target?.Tag is FSNode parentNode))
+            {
+                return;
+            }
+
+            string folderPath = ProjectPathResolver.GetNodeFolder(parentNode);
+            if (string.IsNullOrWhiteSpace(folderPath))
+            {
+                return;
+            }
+
+            MainViewModel mainViewModel = (MainViewModel)DataContext;
+            Models.Main main = (Models.Main)mainViewModel.Model;
+            main.CmdAddFileToProjectFolder(folderPath);
+
+            // Разворачиваем родительский узел, чтобы новый файл был виден
+            SortChildren(parentNode);
+            parentNode.IsExpanded = true;
+        }
         #endregion Context menu folder
 
         #endregion Context menu

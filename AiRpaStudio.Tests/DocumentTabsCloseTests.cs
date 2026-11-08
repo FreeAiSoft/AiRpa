@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Windows.Controls;
+using AvalonDock;
 using AvalonDock.Layout;
 using NUnit.Framework;
 using RPA.Core;
@@ -319,6 +320,35 @@ public class DocumentTabsCloseTests
         // Вкладки, добавленные после сброса панели (LoadProject), тоже обязаны активировать соседа.
         Assert.That(coordinator.Tabs.Select(DocumentTabsCloseCoordinator.PathOf), Is.EqualTo(new[] { WorkflowB }));
         Assert.That(coordinator.ApplyPendingActivation(), Is.SameAs(b));
+    }
+
+    [Test]
+    public void CloseDocumentWithUiElementContent_RemovesContentFromManagerLogicalChildren()
+    {
+        var manager = new DockingManager();
+        LayoutDocumentPane pane = manager.Layout.Descendents().OfType<LayoutDocumentPane>().First();
+        var content = new Border();
+        var document = new LayoutDocument { Content = content };
+        pane.Children.Add(document);
+
+        Assert.That(LogicalChildrenOf(manager), Does.Contain(content),
+            "UIElement-содержимое вкладки обязано попадать в логическое дерево менеджера");
+
+        document.Close();
+
+        Assert.That(LogicalChildrenOf(manager), Does.Not.Contain(content),
+            "закрытие вкладки обязано удалять её UIElement-содержимое из логического дерева менеджера");
+    }
+
+    private static List<object> LogicalChildrenOf(DockingManager manager)
+    {
+        var children = new List<object>();
+        System.Collections.IEnumerator enumerator = manager.LogicalChildrenPublic;
+        while (enumerator.MoveNext())
+        {
+            children.Add(enumerator.Current);
+        }
+        return children;
     }
 
     private static LayoutDocument AddDesignerTab(LayoutDocumentPane pane, string filePath)

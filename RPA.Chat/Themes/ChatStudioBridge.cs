@@ -51,7 +51,6 @@ namespace RPA.Chat.Themes
         private const string StudioCloseHoverBackground = "Studio.CloseHoverBackground";
 
         private const byte OverlayBackgroundAlpha = 0x26;
-        private const byte PlanBackgroundAlpha = 0x1A;
 
         /// <summary>Таблица соответствий: единственное место, где чат знает про палитру.</summary>
         public static IReadOnlyList<ChatThemeMapping> Mappings { get; } = new[]
@@ -72,10 +71,7 @@ namespace RPA.Chat.Themes
 
             new ChatThemeMapping("Chat.UserBorder", StudioSeparatorStrong),
             new ChatThemeMapping("Chat.UserBackground", StudioSurfaceAlt),
-            new ChatThemeMapping("Chat.LastActBorder", StudioSeparatorStrong),
-            new ChatThemeMapping("Chat.LastActBackground", StudioSelected, OverlayBackgroundAlpha),
-            new ChatThemeMapping("Chat.LastPlanBorder", StudioSeparator),
-            new ChatThemeMapping("Chat.LastPlanBackground", StudioHover, PlanBackgroundAlpha),
+
             new ChatThemeMapping("Question.OptionBorder", StudioSeparatorStrong),
             new ChatThemeMapping("Question.AnswerBorder", StudioForeground),
 

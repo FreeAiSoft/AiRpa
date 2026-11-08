@@ -215,5 +215,34 @@ namespace AiRpaStudio.Tests.Workflow
             Assert.That(catalog.Search("Sequence"), Is.Empty);
             Assert.That(catalog.Describe("Sequence"), Is.Null);
         }
+
+        /// <summary>
+        /// Браузерные активности приходят из того же источника, что и панель «Активности»:
+        /// после загрузки сборки каталог обязан видеть их в категории «Browser».
+        /// </summary>
+        [Test]
+        public void BrowserActivities_AreVisible_WhenBrowserAssemblyIsLoaded()
+        {
+            System.Reflection.Assembly browser = null;
+            try
+            {
+                browser = System.Reflection.Assembly.Load("Activities.Browser");
+            }
+            catch (Exception)
+            {
+            }
+
+            Assume.That(browser, Is.Not.Null, "Activities.Browser не загружена в тестовый домен");
+
+            IActivityCatalog catalog = new StudioActivityCatalog(StudioActivityPalette.Categories());
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(catalog.Describe("StartBrowser"), Is.Not.Null);
+                Assert.That(catalog.Describe("GoToUrl"), Is.Not.Null);
+                Assert.That(catalog.Describe("ClickWebElement"), Is.Not.Null);
+                Assert.That(catalog.Describe("StartBrowser").Category, Is.EqualTo("Browser"));
+            });
+        }
     }
 }

@@ -248,6 +248,91 @@ public class VsProjectTreeFileTests
         });
     }
 
+    [Test]
+    public void ImportFile_CopiesFileAddsNodeAndRegisters()
+    {
+        string csproj = CreateProjectFiles(_root);
+        LoadProject(csproj);
+        string sourceDir = Path.Combine(Path.GetTempPath(), "import_src_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(sourceDir);
+        string source = Path.Combine(sourceDir, "helper.cs");
+        File.WriteAllText(source, "class Helper {}");
+        try
+        {
+            CallResult<string> result = _manager.ImportFile(source, _root);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Success, Is.True, result.Message);
+                Assert.That(File.Exists(result.Data), Is.True);
+                Assert.That(_manager.FSNodes[0].Childs.Any(c => c.FSNodeType == FSNodeType.File && c.Name == "helper.cs"), Is.True);
+                Assert.That(XDocument.Load(csproj).Descendants().Any(e => e.Name.LocalName == "Compile" && (string)e.Attribute("Include") == "helper.cs"), Is.True,
+                    "произвольный .cs должен регистрироваться как Compile в .csproj");
+            });
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, true);
+        }
+    }
+
+    [Test]
+    public void ImportFile_NameConflict_GeneratesUniqueName()
+    {
+        string csproj = CreateProjectFiles(_root);
+        LoadProject(csproj);
+        File.WriteAllText(Path.Combine(_root, "notes.txt"), "original");
+        string sourceDir = Path.Combine(Path.GetTempPath(), "import_src_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(sourceDir);
+        string source = Path.Combine(sourceDir, "notes.txt");
+        File.WriteAllText(source, "copy");
+        try
+        {
+            CallResult<string> result = _manager.ImportFile(source, _root);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Success, Is.True, result.Message);
+                Assert.That(Path.GetFileName(result.Data), Is.EqualTo("notes1.txt"));
+                Assert.That(File.ReadAllText(Path.Combine(_root, "notes.txt")), Is.EqualTo("original"), "исходный файл не должен перезаписываться");
+            });
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, true);
+        }
+    }
+
+    [Test]
+    public void ImportFile_OutsideProject_ReturnsError()
+    {
+        string csproj = CreateProjectFiles(_root);
+        LoadProject(csproj);
+        string outside = Path.Combine(Path.GetTempPath(), "import_out_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outside);
+        string sourceDir = Path.Combine(Path.GetTempPath(), "import_src_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(sourceDir);
+        string source = Path.Combine(sourceDir, "readme.md");
+        File.WriteAllText(source, "x");
+        try
+        {
+            CallResult<string> result = _manager.ImportFile(source, outside);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Success, Is.False);
+                Assert.That(result.Error.Message, Does.Contain("внутри папки проекта"));
+            });
+        }
+        finally
+        {
+            Directory.Delete(outside, true);
+            Directory.Delete(sourceDir, true);
+        }
+    }
+
+
+
     private string CreateProjectFiles(string folder)
     {
         string csproj = Path.Combine(folder, "MyLib.csproj");

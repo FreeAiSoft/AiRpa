@@ -42,6 +42,7 @@ namespace RPA.NuGet.Services
                 });
             }
 
+            NuGetLog.Info("NuGet sources loaded: " + result.Count + " source(s) from " + (string.IsNullOrWhiteSpace(projectDirectory) ? "<current dir>" : projectDirectory));
             if (result.Count == 0)
             {
                 result.Add(new NuGetSourceDefinition

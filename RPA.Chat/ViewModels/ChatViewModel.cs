@@ -21,6 +21,7 @@ using Agent.Core.Services.Documents;
 using Agent.Core.Models;
 using Agent.Core.Services;
 using RPA.Chat.Controls;
+using RPA.Chat.Markdown;
 using RPA.Chat.Services;
 using RPA.Chat.Services.AgentTools;
 
@@ -88,6 +89,8 @@ namespace RPA.Chat.ViewModels
         private bool _isPermissionsOpen;
         private bool _isDocsOpen;
         private string _docsContent = "";
+        private string _docsCurrentPath = DocumentationViewer.IndexFileName;
+        private readonly DocumentationViewer _docsViewer = new DocumentationViewer();
 
         private readonly ObservableCollection<ChatMessage> _messages = new ObservableCollection<ChatMessage>();
         private readonly ObservableCollection<ChatAttachment> _attachments = new ObservableCollection<ChatAttachment>();
@@ -445,6 +448,9 @@ namespace RPA.Chat.ViewModels
 
         /// <summary>Raised whenever a message is appended, so the view can auto-scroll.</summary>
         public event Action MessageAppended;
+
+        /// <summary>Raised when the documentation content changes, so the view can reset the scroll.</summary>
+        public event Action DocsNavigated;
 
         /// <summary>Raised when settings are saved and the provider/tools were rebuilt.</summary>
         public event Action SettingsSaved;
@@ -1788,12 +1794,31 @@ namespace RPA.Chat.ViewModels
 
         private void ShowDocsIndex()
         {
-            OnUi(() => DocsContent = HelpDocumentation.ReadAll());
+            OnUi(() => SetDocsContent(DocumentationViewer.IndexFileName, _docsViewer.ReadIndex()));
         }
 
         private void CloseDocs()
         {
+            MarkdownRenderer.RelativeLinkNavigator = null;
             OnUi(() => IsDocsOpen = false);
+        }
+
+        private bool NavigateDocs(string target)
+        {
+            var path = _docsViewer.ResolveLink(_docsCurrentPath, target);
+            if (string.IsNullOrEmpty(path))
+                return false;
+
+            OnUi(() => SetDocsContent(path, _docsViewer.ReadDocument(path)));
+            return true;
+        }
+
+        private void SetDocsContent(string path, string content)
+        {
+            _docsCurrentPath = path;
+            MarkdownRenderer.RelativeLinkNavigator = NavigateDocs;
+            DocsContent = content;
+            DocsNavigated?.Invoke();
         }
 
         private void RefreshPrompts()

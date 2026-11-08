@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Windows.Media;
 using Agent.Core.Models;
@@ -198,6 +198,13 @@ namespace RPA.Helpers
             if (Contains(name, "string") || Contains(name, "char") || Contains(name, "verbatim"))
             {
                 return StringToken;
+            }
+
+            if (Contains(name, "punctuation"))
+            {
+                // Скобки/запятые/двоеточия JSON: в AvalonEdit Punctuation чёрный, на тёмном фоне
+                // редактора невидим. Красим основным цветом текста (белый в тёмной теме, чёрный в светлой).
+                return ForegroundToken;
             }
 
             return Contains(name, "number") || Contains(name, "digit")

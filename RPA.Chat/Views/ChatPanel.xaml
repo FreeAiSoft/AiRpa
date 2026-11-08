@@ -790,7 +790,7 @@
                                 <TextBlock Text="✕" FontSize="11" Foreground="{DynamicResource Dark.Text}" />
                             </Button>
                         </Grid>
-                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ScrollViewer x:Name="DocsScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <ContentControl Content="{Binding DocsContent, Converter={StaticResource MarkdownToElement}}" Margin="4" />
                         </ScrollViewer>
                     </Grid>

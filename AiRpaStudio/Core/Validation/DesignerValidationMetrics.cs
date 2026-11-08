@@ -7,7 +7,7 @@ namespace RPA.Core.Services
     /// <summary>
     /// Замеры одного прохода валидации дизайнера: сколько времени ушло на каждую фазу и что получилось.
     /// <para>
-    /// Нужны для шага 0 плана <c>docs\UI02_Background_Validation_Plan.md</c>: без цифр «до/после» нельзя
+    /// Нужны для шага 0 плана <c>dev-docs\UI02_Background_Validation_Plan.md</c>: без цифр «до/после» нельзя
     /// ни доказать, что фон разгрузил UI-поток, ни узнать, не стало ли узким местом то, что осталось на
     /// UI (<c>ValidationService.ValidateWorkflow()</c>).
     /// </para>

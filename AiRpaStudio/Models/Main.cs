@@ -227,6 +227,24 @@ namespace RPA.Models
         }
 
         /// <summary>
+        /// Добавляет произвольный файл в папку проекта (копия + узел в дереве + регистрация в .csproj).
+        /// </summary>
+        public void CmdAddFileToProjectFolder(string folderPath)
+        {
+            string sourcePath = IOHelper.GetFilePath("All files (*.*)|*.*");
+            if (string.IsNullOrWhiteSpace(sourcePath))
+            {
+                return;
+            }
+
+            CallResult<string> result = ProjectManager.ImportFile(sourcePath, folderPath);
+            if (result.Error != null)
+            {
+                OnSendMessage(result.Error.Message);
+            }
+        }
+
+
         /// Открывает созданную активность, добавляет узел в дерево проекта и регистрирует файл
         /// в .csproj — иначе новая активность не попадёт в сборку библиотеки Visual Studio.
         /// </summary>
@@ -492,7 +510,7 @@ namespace RPA.Models
             MvvmFactory.CreateWindow(creator, new VsTemplateProjectCreatorViewModel(), new VsTemplateProjectCreatorView(), ViewMode.ShowDialog);
             if (creator.IsCreate)
             {
-                OfferVsProjectActions(creator);
+                LoadVsProjectIntoStudio(creator.ProjectFilePath);
             }
         }
 
@@ -770,34 +788,6 @@ namespace RPA.Models
             {
                 Properties.Settings.Default.LastLoadedProjectPath = string.Empty;
                 Properties.Settings.Default.Save();
-            }
-        }
-
-        private void OfferVsProjectActions(VsTemplateProjectCreator creator)
-        {
-            MessageBoxResult choice = MessageBox.Show(
-                creator.ProjectFilePath,
-                LocalizeHelper.Get("lang_vs_project_created"),
-                MessageBoxButton.YesNoCancel,
-                MessageBoxImage.Information,
-                MessageBoxResult.Yes);
-
-            switch (choice)
-            {
-                case MessageBoxResult.Yes:
-                    CmdVsOpenInVisualStudio(creator.ProjectFilePath);
-                    break;
-                case MessageBoxResult.No:
-                    LoadVsProjectIntoStudio(creator.ProjectFilePath);
-                    break;
-                case MessageBoxResult.None:
-                    break;
-                case MessageBoxResult.OK:
-                    break;
-                case MessageBoxResult.Cancel:
-                    break;
-                default:
-                    break;
             }
         }
 

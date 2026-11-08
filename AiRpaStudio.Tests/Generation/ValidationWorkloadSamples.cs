@@ -11,7 +11,7 @@ using RPA.Core.Generation;
 namespace AiRpaStudio.Tests.Generation;
 
 /// <summary>
-/// Нагрузочный процесс для шагов 0 и 5 плана <c>AiRpaStudio\docs\UI02_Background_Validation_Plan.md</c>:
+/// Нагрузочный процесс для шагов 0 и 5 плана <c>dev-dev-docs\UI02_Background_Validation_Plan.md</c>:
 /// документ на 100+ активностей, в котором ошибки выражений лежат <b>внутри</b> тел и ветвей —
 /// ровно там, куда прежний обход (<c>else { break; }</c>) не спускался.
 /// <para>

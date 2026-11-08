@@ -14,8 +14,14 @@ namespace RPA.NuGet.Converters
     /// Новых зависимостей нет — поддерживается ровно то, что встречается в README пакетов:
     /// заголовки <c>#</c>, абзацы, списки <c>-</c>/<c>*</c>/<c>1.</c>, цитаты <c>&gt;</c>,
     /// горизонтальные линии, ограждённые блоки <c>```</c>, инлайн <c>**жирный**</c>,
-    /// <c>*курсив*</c>, <c>`код`</c>, ссылки <c>[текст](url)</c> и картинки <c>![alt](url)</c>
-    /// (показывается alt-текст).
+    /// <c>*курсив*</c>, <c>`код`</c> и ссылки <c>[текст](url)</c>. Картинки <c>![alt](url)</c>
+    /// скрываются полностью (включая бейджи — ссылки, внутри которых только картинка).
+    /// </para>
+    /// <para>
+    /// Отложено (на потом): загрузка настоящих картинок по абсолютным URL (бейджи shields.io,
+    /// nuget.org) с кешем по образцу <c>NuGetIconService</c>; для относительных путей — извлечение
+    /// файлов картинок из <c>.nupkg</c> в <c>NuGetPackageDetailsService</c> и показ через
+    /// <c>BlockUIContainer</c>/<c>InlineUIContainer</c>.
     /// </para>
     /// <para>
     /// Цвета и шрифты берутся из палитры студии через <see cref="NuGetThemeResources"/>: в тёмной и
@@ -29,14 +35,6 @@ namespace RPA.NuGet.Converters
         private static readonly Regex OrderedListPattern = new Regex(@"^\s*\d+[.)]\s+(.*)$", RegexOptions.Compiled);
         private static readonly Regex BulletListPattern = new Regex(@"^\s*[-*+]\s+(.*)$", RegexOptions.Compiled);
         private static readonly Regex HeadingPattern = new Regex(@"^(#{1,6})\s+(.*)$", RegexOptions.Compiled);
-        private static readonly Regex ImagePattern = new Regex(@"!\[([^\]]*)\]\(([^)]*)\)", RegexOptions.Compiled);
-        private static readonly Regex LinkPattern = new Regex(@"\[([^\]]+)\]\(([^)]+)\)", RegexOptions.Compiled);
-        private static readonly Regex BoldPattern = new Regex(@"(\*\*|__)(.+?)\1", RegexOptions.Compiled);
-        private static readonly Regex ItalicPattern = new Regex(@"(?<![\*_])([\*_])(?!\1)(.+?)\1(?![\*_])", RegexOptions.Compiled);
-        private static readonly Regex CodePattern = new Regex(@"`([^`]+)`", RegexOptions.Compiled);
-
-        /// <summary>Инлайн-шаблоны в порядке приоритета: код → картинка → ссылка → жирный → курсив.</summary>
-        private static readonly Regex[] InlinePatterns = { CodePattern, ImagePattern, LinkPattern, BoldPattern, ItalicPattern };
 
         /// <summary>Собирает документ из Markdown; <c>null</c>/пусто — пустой документ.</summary>
         public static FlowDocument Render(string markdown)
@@ -89,14 +87,14 @@ namespace RPA.NuGet.Converters
                 if (heading.Success)
                 {
                     FlushParagraph(document, paragraph);
-                    document.Blocks.Add(CreateHeading(heading.Groups[1].Value.Length, heading.Groups[2].Value.Trim()));
+                    AddBlockIfNotEmpty(document, CreateHeading(heading.Groups[1].Value.Length, heading.Groups[2].Value.Trim()));
                     continue;
                 }
 
                 if (line.TrimStart().StartsWith(">", StringComparison.Ordinal))
                 {
                     FlushParagraph(document, paragraph);
-                    document.Blocks.Add(CreateQuote(line.TrimStart().TrimStart('>')));
+                    AddBlockIfNotEmpty(document, CreateQuote(line.TrimStart().TrimStart('>')));
                     continue;
                 }
 
@@ -111,7 +109,7 @@ namespace RPA.NuGet.Converters
                 if (bullet.Success)
                 {
                     FlushParagraph(document, paragraph);
-                    document.Blocks.Add(CreateListItem(bullet.Groups[1].Value, ordered: false));
+                    AddBlockIfNotEmpty(document, CreateListItem(bullet.Groups[1].Value, ordered: false));
                     continue;
                 }
 
@@ -119,7 +117,7 @@ namespace RPA.NuGet.Converters
                 if (ordered.Success)
                 {
                     FlushParagraph(document, paragraph);
-                    document.Blocks.Add(CreateListItem(ordered.Groups[1].Value, ordered: true));
+                    AddBlockIfNotEmpty(document, CreateListItem(ordered.Groups[1].Value, ordered: true));
                     continue;
                 }
 
@@ -166,16 +164,39 @@ namespace RPA.NuGet.Converters
                 LineHeight = 18
             };
 
+            bool hasContent = false;
             for (int i = 0; i < paragraph.Count; i++)
             {
-                if (i > 0)
+                if (hasContent)
                     block.Inlines.Add(new LineBreak());
 
-                AddInline(block, paragraph[i]);
+                if (!AddInlines(block.Inlines, paragraph[i]))
+                {
+                    if (hasContent)
+                        block.Inlines.Remove(block.Inlines.LastInline);
+
+                    continue;
+                }
+
+                hasContent = true;
             }
 
-            document.Blocks.Add(block);
             paragraph.Clear();
+            TrimBoundaryWhitespace(block.Inlines);
+
+            if (hasContent)
+                document.Blocks.Add(block);
+        }
+
+        private static void AddBlockIfNotEmpty(FlowDocument document, Block block)
+        {
+            if (block == null)
+                return;
+
+            if (block is Paragraph paragraph && paragraph.Inlines.Count == 0)
+                return;
+
+            document.Blocks.Add(block);
         }
 
         private static Paragraph CreateHeading(int level, string text)
@@ -190,7 +211,10 @@ namespace RPA.NuGet.Converters
                 Foreground = NuGetThemeResources.Brush(NuGetThemeResources.ForegroundKey)
             };
 
-            AddInline(heading, text);
+            if (!AddInlines(heading.Inlines, text))
+                return null;
+
+            TrimBoundaryWhitespace(heading.Inlines);
             return heading;
         }
 
@@ -205,7 +229,10 @@ namespace RPA.NuGet.Converters
                 Foreground = NuGetThemeResources.Brush(NuGetThemeResources.ForegroundMutedKey)
             };
 
-            AddInline(quote, text);
+            if (!AddInlines(quote.Inlines, text))
+                return null;
+
+            TrimBoundaryWhitespace(quote.Inlines);
             return quote;
         }
 
@@ -218,7 +245,11 @@ namespace RPA.NuGet.Converters
 
             item.Inlines.Add(new Run(ordered ? "•" : "•") { Foreground = NuGetThemeResources.Brush(NuGetThemeResources.ForegroundMutedKey) });
             item.Inlines.Add(new Run(" ") { });
-            AddInline(item, text);
+
+            if (!AddInlines(item.Inlines, text))
+                return null;
+
+            TrimBoundaryWhitespace(item.Inlines);
             return item;
         }
 
@@ -254,87 +285,220 @@ namespace RPA.NuGet.Converters
             };
         }
 
-        /// <summary>Разбирает строку на инлайны: код, картинки, ссылки, жирный, курсив.</summary>
-        private static void AddInline(Paragraph target, string text)
+        /// <summary>Разбирает строку в инлайны: код, ссылки (рекурсивно), жирный, курсив; картинки скрываются.</summary>
+        private static bool AddInlines(InlineCollection target, string text)
         {
+            int before = target.Count;
             int position = 0;
             while (position < text.Length)
             {
-                Match best = null;
-                foreach (Regex pattern in InlinePatterns)
+                char character = text[position];
+
+                if (character == '`' && TryParseCode(text, position, out int codeEnd, out string code))
                 {
-                    // Regex.Match(input, startat) не сдвигает индексы — смещение учитывается само.
-                    Match candidate = pattern.Match(text, position);
-                    if (candidate.Success && (best == null || candidate.Index < best.Index))
-                        best = candidate;
+                    target.Add(new Run(code)
+                    {
+                        FontFamily = NuGetThemeResources.CodeFont(),
+                        Background = NuGetThemeResources.Brush(NuGetThemeResources.SurfaceAltKey)
+                    });
+                    position = codeEnd;
+                    continue;
                 }
 
-                if (best == null)
+                if (character == '!' && position + 1 < text.Length && text[position + 1] == '['
+                    && TryParseImage(text, position, out int imageEnd))
                 {
-                    target.Inlines.Add(new Run(Unescape(text.Substring(position))));
-                    return;
+                    // Изображения полностью скрываются: ни alt-текста, ни сырого markdown.
+                    position = imageEnd;
+                    continue;
                 }
 
-                if (best.Index > position)
-                    target.Inlines.Add(new Run(Unescape(text.Substring(position, best.Index - position))));
+                if (character == '[' && TryParseLink(text, position, out int linkEnd, out string linkText, out string url))
+                {
+                    var hyperlink = new Hyperlink
+                    {
+                        NavigateUri = TryCreateUri(url),
+                        Foreground = NuGetThemeResources.Brush(NuGetThemeResources.ForegroundKey)
+                    };
 
-                AppendMatched(target, best);
-                position = best.Index + best.Length;
+                    AddInlines(hyperlink.Inlines, linkText);
+                    TrimBoundaryWhitespace(hyperlink.Inlines);
+
+                    // Бейдж — ссылка, внутри которой только картинка, — целиком скрывается.
+                    if (hyperlink.Inlines.Count > 0)
+                        target.Add(hyperlink);
+
+                    position = linkEnd;
+                    continue;
+                }
+
+                if ((character == '*' || character == '_')
+                    && TryParseEmphasis(text, position, out int emphasisEnd, out string emphasis, out bool bold))
+                {
+                    Inline inline = bold
+                        ? (Inline)new Bold(new Run(Unescape(emphasis)))
+                        : new Italic(new Run(Unescape(emphasis)));
+                    target.Add(inline);
+                    position = emphasisEnd;
+                    continue;
+                }
+
+                int nextSpecial = FindNextSpecial(text, position);
+                if (nextSpecial < 0)
+                {
+                    target.Add(new Run(Unescape(text.Substring(position))));
+                    return target.Count > before;
+                }
+
+                if (nextSpecial > position)
+                {
+                    target.Add(new Run(Unescape(text.Substring(position, nextSpecial - position))));
+                    position = nextSpecial;
+                    continue;
+                }
+
+                // Спецсимвол не удалось разобрать (например, незакрытая скобка) — выводим как есть.
+                target.Add(new Run(Unescape(text.Substring(position, 1))));
+                position++;
             }
+
+            return target.Count > before;
         }
 
-        private static void AppendMatched(Paragraph target, Match match)
+        private static bool TryParseCode(string text, int position, out int end, out string code)
         {
-            string value = match.Value;
+            end = position;
+            code = null;
 
-            if (value.Length > 1 && value.StartsWith("`", StringComparison.Ordinal) && value.EndsWith("`", StringComparison.Ordinal))
+            int close = text.IndexOf('`', position + 1);
+            if (close <= position + 1)
+                return false;
+
+            code = text.Substring(position + 1, close - position - 1);
+            end = close + 1;
+            return true;
+        }
+
+        private static bool TryParseImage(string text, int position, out int end)
+        {
+            // position указывает на '!'; дальше обязана идти конструкция '[alt](url)'.
+            end = position;
+
+            int closeBracket = text.IndexOf(']', position + 2);
+            if (closeBracket < 0)
+                return false;
+
+            int openParen = closeBracket + 1;
+            if (openParen >= text.Length || text[openParen] != '(')
+                return false;
+
+            int closeParen = text.IndexOf(')', openParen + 1);
+            if (closeParen < 0)
+                return false;
+
+            end = closeParen + 1;
+            return true;
+        }
+
+        private static bool TryParseLink(string text, int position, out int end, out string linkText, out string url)
+        {
+            end = position;
+            linkText = null;
+            url = null;
+
+            // Находим парную ']', учитывая вложенные '[' (например, картинка внутри ссылки-бейджа).
+            int depth = 1;
+            int index = position + 1;
+            while (index < text.Length)
             {
-                target.Inlines.Add(new Run(value.Trim('`'))
+                if (text[index] == '[')
                 {
-                    FontFamily = NuGetThemeResources.CodeFont(),
-                    Background = NuGetThemeResources.Brush(NuGetThemeResources.SurfaceAltKey)
-                });
-                return;
-            }
-
-            Match image = ImagePattern.Match(value);
-            if (image.Success && image.Index == 0 && image.Length == value.Length)
-            {
-                // Картинки не загружаем (README ссылается на относительные пути) — показываем alt.
-                target.Inlines.Add(new Run("[image: " + image.Groups[1].Value + "]")
+                    depth++;
+                }
+                else if (text[index] == ']')
                 {
-                    Foreground = NuGetThemeResources.Brush(NuGetThemeResources.ForegroundMutedKey),
-                    FontStyle = FontStyles.Italic
-                });
-                return;
+                    depth--;
+                    if (depth == 0)
+                        break;
+                }
+
+                index++;
             }
 
-            Match link = LinkPattern.Match(value);
-            if (link.Success && link.Index == 0 && link.Length == value.Length)
+            if (index >= text.Length)
+                return false;
+
+            linkText = text.Substring(position + 1, index - position - 1);
+
+            int openParen = index + 1;
+            if (openParen >= text.Length || text[openParen] != '(')
+                return false;
+
+            int closeParen = text.IndexOf(')', openParen + 1);
+            if (closeParen < 0)
+                return false;
+
+            url = text.Substring(openParen + 1, closeParen - openParen - 1);
+            end = closeParen + 1;
+            return true;
+        }
+
+        private static bool TryParseEmphasis(string text, int position, out int end, out string content, out bool bold)
+        {
+            end = position;
+            content = null;
+            bold = false;
+
+            char marker = text[position];
+            bool isBold = position + 1 < text.Length && text[position + 1] == marker;
+            int markerLength = isBold ? 2 : 1;
+
+            int close = text.IndexOf(new string(marker, markerLength), position + markerLength, StringComparison.Ordinal);
+            if (close <= position + markerLength)
+                return false;
+
+            content = text.Substring(position + markerLength, close - position - markerLength);
+            end = close + markerLength;
+            bold = isBold;
+            return true;
+        }
+
+        private static int FindNextSpecial(string text, int from)
+        {
+            for (int index = from; index < text.Length; index++)
             {
-                target.Inlines.Add(new Hyperlink(new Run(link.Groups[1].Value))
-                {
-                    NavigateUri = TryCreateUri(link.Groups[2].Value),
-                    Foreground = NuGetThemeResources.Brush(NuGetThemeResources.ForegroundKey)
-                });
-                return;
+                char character = text[index];
+                if (character == '`' || character == '[' || character == '*' || character == '_')
+                    return index;
+
+                if (character == '!' && index + 1 < text.Length && text[index + 1] == '[')
+                    return index;
             }
 
-            Match bold = BoldPattern.Match(value);
-            if (bold.Success && bold.Index == 0 && bold.Length == value.Length)
+            return -1;
+        }
+
+        private static void TrimBoundaryWhitespace(InlineCollection inlines)
+        {
+            while (inlines.FirstInline is Run first && string.IsNullOrWhiteSpace(first.Text))
+                inlines.Remove(first);
+
+            if (inlines.FirstInline is Run leading)
             {
-                target.Inlines.Add(new Bold(new Run(bold.Groups[2].Value)));
-                return;
+                string trimmed = leading.Text.TrimStart();
+                if (trimmed.Length != leading.Text.Length)
+                    leading.Text = trimmed;
             }
 
-            Match italic = ItalicPattern.Match(value);
-            if (italic.Success && italic.Index == 0 && italic.Length == value.Length)
+            while (inlines.LastInline is Run last && string.IsNullOrWhiteSpace(last.Text))
+                inlines.Remove(last);
+
+            if (inlines.LastInline is Run trailing)
             {
-                target.Inlines.Add(new Italic(new Run(italic.Groups[2].Value)));
-                return;
+                string trimmed = trailing.Text.TrimEnd();
+                if (trimmed.Length != trailing.Text.Length)
+                    trailing.Text = trimmed;
             }
-
-            target.Inlines.Add(new Run(Unescape(value)));
         }
 
         private static Uri TryCreateUri(string url)

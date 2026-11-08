@@ -93,7 +93,7 @@ public sealed class DesignerBenchProxy : MarshalByRefObject
 
     /// <summary>Прогоняет файл через конструктор на стенде.</summary>
     /// <summary>
-    /// Шаги 0 и 5 плана <c>AiRpaStudio\docs\UI02_Background_Validation_Plan.md</c> на живом конструкторе:
+    /// Шаги 0 и 5 плана <c>dev-dev-docs\UI02_Background_Validation_Plan.md</c> на живом конструкторе:
     /// открыть нагрузочный документ (100+ активностей, ошибки внутри <c>ActivityAction</c>,
     /// <c>PickBranch</c> и <c>Then</c>), дождаться прохода валидации и снять цифры.
     /// <para>

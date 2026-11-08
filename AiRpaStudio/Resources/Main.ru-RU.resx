@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -219,6 +219,10 @@
   <data name="lang_msg_enter_project_name" xml:space="preserve">
     <value>Введи имя проекта.</value>
   </data>
+  <data name="lang_msg_project_folder_not_empty" xml:space="preserve">
+    <value>Папка {0} не пуста. Проект можно создать только в пустой папке.</value>
+  </data>
+
   <data name="lang_msg_specify_project_file" xml:space="preserve">
     <value>Укажите файл проекта (.sln или .csproj).</value>
   </data>

@@ -44,6 +44,10 @@
                       x:Name="AddFolder"
                       Click="AddFolder_Click"
                       Focusable="False"/>
+            <MenuItem Header="Добавить файл"
+                      x:Name="AddFileMenuItem"
+                      Click="AddFileMenuItem_Click"
+                      Focusable="False"/>
             <MenuItem Header="Переименовать проект"
                       x:Name="RenameProj"
                       Click="Rename_Click"
@@ -98,6 +102,10 @@
                       x:Name="AddFolderToFolderMenuItem"
                       Click="AddFolderToFolderMenuItem_Click"
                       Focusable="False"/>
+            <MenuItem Header="Добавить файл"
+                      x:Name="AddFileToFolderMenuItem"
+                      Click="AddFileMenuItem_Click"
+                      Focusable="False"/>
             <MenuItem Header="Добавить активность"
                       x:Name="AddActivityToFolderMenuItem"
                       Click="AddActivityToFolderMenuItem_Click"
@@ -130,6 +138,10 @@
             <MenuItem Header="Добавить папку проекта"
                       x:Name="VsAddFolderMenuItem"
                       Click="AddFolder_Click"
+                      Focusable="False" />
+            <MenuItem Header="Добавить файл"
+                      x:Name="VsAddFileMenuItem"
+                      Click="AddFileMenuItem_Click"
                       Focusable="False" />
             <MenuItem Header="Переименовать проект"
                       x:Name="VsRenameProjectMenuItem"
@@ -409,6 +421,55 @@
                                                 <Setter Property="Visibility"
                                                         Value="Visible" />
                                             </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </materialIcons:MaterialIcon.Style>
+                            </materialIcons:MaterialIcon>
+
+                            <!-- Иконка для .config файлов -->
+                            <materialIcons:MaterialIcon Kind="FileCog"
+                                                        Width="12"
+                                                        Height="12"
+                                                        Foreground="{DynamicResource Studio.Foreground}"
+                                                        Margin="0,0,4,0"
+                                                        VerticalAlignment="Center">
+                                <materialIcons:MaterialIcon.Style>
+                                    <Style TargetType="materialIcons:MaterialIcon">
+                                        <Setter Property="Visibility"
+                                                Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding FSNodeType}"
+                                                               Value="{x:Static enums:FSNodeType.File}" />
+                                                    <Condition Binding="{Binding Name, Converter={StaticResource FileExtensionConverter}, ConverterParameter='.config'}"
+                                                               Value="True" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility"
+                                                        Value="Visible" />
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </materialIcons:MaterialIcon.Style>
+                            </materialIcons:MaterialIcon>
+
+                            <!-- Иконка зависимости Reference -->
+                            <materialIcons:MaterialIcon Kind="PackageVariant"
+                                                        Width="12"
+                                                        Height="12"
+                                                        Foreground="{DynamicResource Studio.ForegroundMuted}"
+                                                        Margin="0,0,4,0"
+                                                        VerticalAlignment="Center">
+                                <materialIcons:MaterialIcon.Style>
+                                    <Style TargetType="materialIcons:MaterialIcon">
+                                        <Setter Property="Visibility"
+                                                Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding FSNodeType}"
+                                                         Value="{x:Static enums:FSNodeType.Reference}">
+                                                <Setter Property="Visibility"
+                                                        Value="Visible" />
+                                            </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </materialIcons:MaterialIcon.Style>

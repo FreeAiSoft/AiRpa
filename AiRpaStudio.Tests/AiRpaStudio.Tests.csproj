@@ -52,6 +52,7 @@
     <Reference Include="System.Xaml" />
     <Reference Include="System.Activities" />
     <Reference Include="System.Activities.Presentation" />
+    <Reference Include="System.Activities.Core.Presentation" />
     <!-- Roslyn 3.6 (Microsoft.CodeAnalysis приходит через студию) грузит System.Reflection.Metadata:
          без него RoslynExpressionEditorService падает при построении поверхности дизайнера.
          Версия та же, что у студии, — одна версия зависимости на решение. -->

@@ -49,6 +49,24 @@ public class StudioDialogWindowTests
     }
 
     [Test]
+    public void Dialogs_HaveOnePixelFrame()
+    {
+        foreach (string relativePath in DialogPaths)
+        {
+            string xaml = ReadSource(relativePath);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(xaml, Does.Contain("BorderBrush=\"{DynamicResource Studio.Separator}\""),
+                    $"{relativePath}: рамка окна должна быть hairline Studio.Separator (максимально тонкая)");
+                Assert.That(xaml, Does.Contain("BorderThickness=\"1\""),
+                    $"{relativePath}: рамка окна должна быть 1px");
+            });
+        }
+    }
+
+
+    [Test]
     public void Dialogs_HaveNoHardcodedColors()
     {
         foreach (string relativePath in DialogPaths)

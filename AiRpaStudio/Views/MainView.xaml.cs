@@ -94,6 +94,8 @@ namespace RPA.Views
             // Route chat diagnostics to the studio log (viewed via LogControlLibrary).
             Chat.Services.OutputWindowService.WriteSink = message => Log.Write(message);
             Chat.Services.ChatLog.Sink = message => Log.Write(message);
+            // Сетевая диагностика панели NuGet — в тот же журнал: поиск, скачивание .nupkg, README.
+            RPA.NuGet.Services.NuGetLog.Sink = message => Log.Write(message);
             // The chat resolves the current project folder for agent tools + MSBuild feedback.
             Chat.Services.ChatEnvironment.SolutionPathProvider = () => ProjectManager.GetInstance().ProjectFolder;
             // Каталог активностей для агента (AG-01): строится из тех же типов, что и панель «Активности».
@@ -137,6 +139,8 @@ namespace RPA.Views
             nuGetPanel = new NuGet.Views.NuGetPanel();
             // Re-detect the .csproj whenever the current studio project folder changes.
             ProjectManager.GetInstance().PropertyChanged += OnProjectManagerPropertyChanged;
+            // После install/uninstall пакета перечитываем References и активности в палитре.
+            nuGetPanel.ViewModel.ProjectChanged += OnNuGetProjectChanged;
             _ = nuGetPanel.SetProjectFolder(ProjectManager.GetInstance().ProjectFolder);
         }
 
@@ -145,6 +149,7 @@ namespace RPA.Views
             if (e.PropertyName == nameof(ProjectManager.ProjectFolder))
             {
                 _ = nuGetPanel.SetProjectFolder(ProjectManager.GetInstance().ProjectFolder);
+                ScanNuGetActivities(nuGetPanel?.ViewModel?.ProjectPath);
             }
         }
 
@@ -154,6 +159,42 @@ namespace RPA.Views
             // свой словарь. Здесь остаётся перекраска открытых документов и панелей; повторный
             // ApplyTheme дал бы второй полный прогон темы на каждый клик.
             ReapplyWorkflowControlThemes();
+        }
+
+        /// <summary>После изменения NuGet-пакетов перечитываем References и активности пакетов на UI-потоке.</summary>
+        private void OnNuGetProjectChanged(object sender, string projectPath)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(() => OnNuGetProjectChanged(sender, projectPath)));
+                return;
+            }
+
+            ProjectManager.GetInstance().RefreshVsProject(projectPath);
+            ScanNuGetActivities(projectPath);
+        }
+
+        /// <summary>
+        /// Сканирует NuGet-пакеты проекта и, если нашлись активности, пересобирает панель «Активности».
+        /// Вызывается и при изменении пакетов, и при загрузке/смене проекта — чтобы активности из уже
+        /// установленных пакетов появлялись в тулбоксе автоматически, без перезапуска студии.
+        /// </summary>
+        private void ScanNuGetActivities(string projectPath)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(() => ScanNuGetActivities(projectPath)));
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(projectPath) || !File.Exists(projectPath))
+                return;
+
+            var result = new Core.Workflow.NuGetActivityPaletteLoader().LoadFromProject(projectPath);
+            if (result.Changed)
+            {
+                RefreshActivityPalette();
+            }
         }
 
         private void ReapplyWorkflowControlThemes()
@@ -272,8 +313,22 @@ namespace RPA.Views
             _wfToolbox = new WFToolboxHelper().Build();
             WfToolboxBorder.Child = _wfToolbox;
             _wfToolbox.ApplyTheme();
+            RefreshActivityCatalog();
             Log.Write("Палитра «Активности» пересобрана: появилась новая библиотека активностей.");
         }
+        /// <summary>
+        /// Переустанавливает каталог активностей агента после пересборки панели «Активности».
+        /// Панель и activity_search/activity_describe читают один и тот же состав: сброс
+        /// Lazy-кэшей сам по себе не меняет экземпляр, который уже взял чат.
+        /// </summary>
+        private void RefreshActivityCatalog()
+        {
+            Core.Generation.ActivityPaletteRegistry.InvalidateDefault();
+            Core.Workflow.StudioActivityCatalog.InvalidateDefault();
+            Chat.Services.ChatEnvironment.ActivityCatalog = Core.Workflow.StudioActivityCatalog.Default;
+        }
+
+
         private void InitializeLayoutRoot()
         {
             // Try to load layout from saved settings
@@ -349,6 +404,7 @@ namespace RPA.Views
 
                     _wfToolbox = new WFToolboxHelper().Build();
                     WfToolboxBorder.Child = _wfToolbox;
+                    RefreshActivityCatalog();
 
                     return;
                 }
@@ -368,6 +424,7 @@ namespace RPA.Views
 
             _wfToolbox = new WFToolboxHelper().Build();
             WfToolboxBorder.Child = _wfToolbox;
+            RefreshActivityCatalog();
         }
 
         private List<LayoutDocumentPane> FindAllDocumentPanes(LayoutRoot layoutRoot)
@@ -536,6 +593,20 @@ namespace RPA.Views
             // Панель открывается вкладкой в панели документов: там широкая область, в которой
             // двухколоночный макет менеджера пакетов читается. Если пользователь утащил вкладку
             // в боковой док, второй экземпляр не создаётся — находится по ContentId.
+            LayoutContent opened = FindNuGetContent();
+            if (opened != null)
+            {
+                if (!ReferenceEquals(opened.Content, nuGetPanel))
+                {
+                    opened.Content = nuGetPanel;
+                }
+
+                opened.IsSelected = true;
+                opened.IsActive = true;
+                nuGetContent = opened;
+                return;
+            }
+
             LayoutDocument document = FindNuGetDocument();
             if (document == null)
             {
@@ -577,6 +648,14 @@ namespace RPA.Views
             }
 
             return existing;
+        }
+
+        /// <summary>Открытая панель NuGet в любом месте раскладки — вкладка документа или боковой док.</summary>
+        private LayoutContent FindNuGetContent()
+        {
+            return dockManager.Layout?.Descendents()
+                .OfType<LayoutContent>()
+                .FirstOrDefault(content => content.ContentId == NuGetContentId);
         }
 
         private void NuGetDocument_Closed(object sender, EventArgs e)

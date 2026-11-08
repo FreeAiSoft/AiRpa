@@ -18,10 +18,10 @@
     <SolidColorBrush x:Key="Dark.Primary" Color="#1F1F1F" />
     <SolidColorBrush x:Key="Chat.UserBorder" Color="#CFCFCF" />
     <SolidColorBrush x:Key="Chat.UserBackground" Color="#F3F3F3" />
-    <SolidColorBrush x:Key="Chat.LastActBorder" Color="#CFCFCF" />
-    <SolidColorBrush x:Key="Chat.LastActBackground" Color="#26E4E4E4" />
-    <SolidColorBrush x:Key="Chat.LastPlanBorder" Color="#E4E4E4" />
-    <SolidColorBrush x:Key="Chat.LastPlanBackground" Color="#1AEAEAEA" />
+    <SolidColorBrush x:Key="Chat.LastActBorder" Color="#4CAF50" />
+    <SolidColorBrush x:Key="Chat.LastActBackground" Color="#0D4CAF50" />
+    <SolidColorBrush x:Key="Chat.LastPlanBorder" Color="#FF8C00" />
+    <SolidColorBrush x:Key="Chat.LastPlanBackground" Color="#0DFF8C00" />
     <SolidColorBrush x:Key="Question.OptionBorder" Color="#CFCFCF" />
     <SolidColorBrush x:Key="Question.AnswerBorder" Color="#1F1F1F" />
     <SolidColorBrush x:Key="Chat.ToolBlockedBorder" Color="#E81123" />

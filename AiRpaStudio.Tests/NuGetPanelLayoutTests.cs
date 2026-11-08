@@ -272,6 +272,31 @@ public class NuGetPanelLayoutTests
     }
 
     [Test]
+    public void SourceOverlayButtons_AreVisibleByDefault()
+    {
+        // Regression: NuGet.RowButtonStyle inherited Visibility="Collapsed" from the package-row
+        // buttons, hiding the Package sources overlay buttons (Add/Edit/Remove, OK/Cancel).
+        string styles = Read(@"RPA.NuGet\Views\NuGetPanel.Styles.xaml");
+        int rowStart = styles.IndexOf("x:Key=\"NuGet.RowButtonStyle\"", StringComparison.Ordinal);
+        int rowIconStart = styles.IndexOf("x:Key=\"NuGet.RowIconButtonStyle\"", StringComparison.Ordinal);
+
+        Assert.That(rowStart, Is.GreaterThan(0), "NuGet.RowButtonStyle is missing");
+        Assert.That(rowIconStart, Is.GreaterThan(0), "NuGet.RowIconButtonStyle is missing");
+
+        string rowBlock = styles.Substring(rowStart, styles.IndexOf("</Style>", rowStart, StringComparison.Ordinal) - rowStart);
+        string rowIconBlock = styles.Substring(rowIconStart, styles.IndexOf("</Style>", rowIconStart, StringComparison.Ordinal) - rowIconStart);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rowBlock, Does.Not.Contain("Visibility\" Value=\"Collapsed\""),
+                "overlay source buttons must be visible by default");
+            Assert.That(rowIconBlock, Does.Contain("Visibility\" Value=\"Collapsed\""),
+                "package-row buttons must still appear only on hover");
+        });
+    }
+
+
+    [Test]
     public void IconUrl_FallsBackToNuGetFlatContainerPath()
     {
         // Источник не отдал IconUrl — панель обязана знать стандартный путь (без .png: он даёт 404).
@@ -429,6 +454,49 @@ public class NuGetPanelLayoutTests
         {
             window.Close();
             Directory.Delete(directory, true);
+        }
+    }
+
+
+    [Test, Apartment(ApartmentState.STA)]
+    public void SourcesOverlay_FootnoteIsNotClippedByStatusBar()
+    {
+        // Регрессия: оверлей «Package sources» имел Grid.RowSpan="4" и рисовался НИЖЕ строки
+        // состояния — её непрозрачная полоса с 1px-разделителем перекрывала низ оверлея и
+        // «резала» подпись «Sources are stored in NuGet.Config…».
+        var model = new NuGetPanelViewModel(new StubSearchService());
+        model.OpenSourcesCommand.Execute(null);
+
+        var panel = new RPA.NuGet.Views.NuGetPanel(model);
+        Window window = ShowInWindow(panel);
+
+        try
+        {
+            panel.UpdateLayout();
+            Pump();
+
+            var footnote = panel.FindName("SourcesOverlayFootnote") as TextBlock;
+            var statusBar = panel.FindName("PanelStatusBar") as Border;
+            Assert.That(footnote, Is.Not.Null, "у оверлея есть подпись-сноска");
+            Assert.That(statusBar, Is.Not.Null, "у панели есть строка состояния");
+
+            double footnoteTop = footnote.TransformToAncestor(panel).Transform(new Point(0, 0)).Y;
+            double footnoteBottom = footnoteTop + footnote.ActualHeight;
+            double statusBarTop = statusBar.TransformToAncestor(panel).Transform(new Point(0, 0)).Y;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(footnote.ActualHeight, Is.GreaterThanOrEqualTo(12d),
+                    "подпись имеет высоту строки текста, а не сжата в ноль");
+                Assert.That(footnoteBottom, Is.LessThanOrEqualTo(statusBarTop + 0.5),
+                    "низ подписи не заходит под строку состояния");
+                Assert.That(footnoteBottom, Is.LessThanOrEqualTo(panel.ActualHeight + 0.5),
+                    "подпись не выходит за нижний край панели");
+            });
+        }
+        finally
+        {
+            window.Close();
         }
     }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -67,6 +67,7 @@ namespace RPA.NuGet.Services
             string lowerId = id.ToLowerInvariant();
             string lowerVersion = version.ToLowerInvariant();
             string url = $"https://api.nuget.org/v3-flatcontainer/{lowerId}/{lowerVersion}/{lowerId}.{lowerVersion}.nupkg";
+            NuGetLog.Info("Download " + url);
 
             Exception last = null;
 
@@ -76,6 +77,7 @@ namespace RPA.NuGet.Services
                 {
                     using (var response = await _http.GetAsync(url).ConfigureAwait(false))
                     {
+                        NuGetLog.Debug("HTTP " + (int)response.StatusCode + " for " + url);
                         if (response.IsSuccessStatusCode)
                         {
                             byte[] data = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
@@ -94,6 +96,7 @@ namespace RPA.NuGet.Services
                 }
                 catch (Exception ex)
                 {
+                    NuGetLog.Error(ex, "download attempt " + attempt + " failed: " + url);
                     last = ex;
                 }
 

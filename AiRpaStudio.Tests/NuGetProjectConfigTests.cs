@@ -31,6 +31,14 @@ public class NuGetProjectConfigTests
         "  </PropertyGroup>\r\n" +
         "</Project>\r\n";
 
+    private const string LegacyCsproj472 =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n" +
+        "<Project ToolsVersion=\"15.0\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">\r\n" +
+        "  <PropertyGroup>\r\n" +
+        "    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>\r\n" +
+        "  </PropertyGroup>\r\n" +
+        "</Project>\r\n";
+
     private const string PackagesConfig =
         "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n" +
         "<packages>\r\n" +
@@ -246,6 +254,74 @@ public class NuGetProjectConfigTests
 
         Assert.That(project.Packages.Count, Is.EqualTo(1));
         Assert.That(project.Packages[0].Version, Is.EqualTo("2.0.0"));
+    }
+
+    [Test]
+    public void Load_SdkProject_SetsTargetFramework()
+    {
+        string path = WriteTemp(SdkCsproj, "Sdk.csproj");
+        try
+        {
+            var project = NuGetProjectConfig.Load(path);
+
+            Assert.That(project.TargetFramework, Is.EqualTo("net48"));
+        }
+        finally
+        {
+            Directory.Delete(Path.GetDirectoryName(path), true);
+        }
+    }
+
+    [Test]
+    public void Load_LegacyProject_SetsTargetFrameworkFromCsproj()
+    {
+        string path = WriteTemp(LegacyCsproj, "Legacy.csproj");
+        try
+        {
+            var project = NuGetProjectConfig.Load(path);
+
+            Assert.That(project.TargetFramework, Is.EqualTo("net48"));
+        }
+        finally
+        {
+            Directory.Delete(Path.GetDirectoryName(path), true);
+        }
+    }
+
+    [Test]
+    public void DetermineTargetFramework_NormalizesV472()
+    {
+        string path = WriteTemp(LegacyCsproj472, "Legacy472.csproj");
+        try
+        {
+            Assert.That(NuGetProjectConfig.DetermineTargetFramework(path), Is.EqualTo("net472"));
+        }
+        finally
+        {
+            Directory.Delete(Path.GetDirectoryName(path), true);
+        }
+    }
+
+    [Test]
+    public void Save_LegacyProject_UsesProjectTfmForNewPackages()
+    {
+        string dir = MakeTempDir();
+        try
+        {
+            string csproj = Path.Combine(dir, "Legacy.csproj");
+            File.WriteAllText(csproj, LegacyCsproj472);
+
+            var project = NuGetProjectConfig.Load(csproj);
+            NuGetProjectConfig.Add(project, "Serilog", "3.1.1");
+            NuGetProjectConfig.Save(project);
+
+            var reloaded = NuGetProjectConfig.Load(csproj);
+            Assert.That(NuGetProjectConfig.Find(reloaded, "Serilog").TargetFramework, Is.EqualTo("net472"));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
     }
 
     private static string MakeTempDir()

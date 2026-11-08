@@ -700,6 +700,7 @@ namespace RPA.Core.Generation
         internal const string DebugCategory = "lang_main_debug";
         internal const string ControlFlowCategory = "lang_toolbox_control_flow";
         internal const string FlowchartCategory = "lang_toolbox_flowchart";
+        internal const string CollectionCategory = "lang_toolbox_collection";
         internal const string StateMachineCategory = "lang_toolbox_state_machine";
         internal const string PrimitivesCategory = "lang_toolbox_primitives";
         internal const string ErrorHandlingCategory = "lang_toolbox_error_handling";
@@ -715,14 +716,14 @@ namespace RPA.Core.Generation
             "Activities.Flow",
             "Activities.Debug",
             "Activities.OS",
-            "Activities.Browser"
+            "Activities.Browser",
         };
 
         /// <summary>
         /// Встроенные категории палитры (активности WF без библиотек студии).
         /// <para>
         /// Список совпадает с панелью «Активности», поэтому в нём есть и элементы диаграммы
-        /// (<c>FlowDecision</c>, <c>FlowSwitch</c>, <c>State</c>): они не являются
+        /// (<c>FlowDecision</c>, <c>FlowSwitch</c>, <c>State</c>, <c>FinalState</c>): они не являются
         /// <see cref="Activity"/> и в реестре не описываются — создать их отдельной активностью нельзя,
         /// они существуют только внутри <c>Flowchart</c>/<c>StateMachine</c>.
         /// </para>
@@ -740,7 +741,9 @@ namespace RPA.Core.Generation
                     typeof(Switch<>),
                     typeof(While),
                     typeof(Parallel),
-                    typeof(Pick)
+                    typeof(ParallelForEach<>),
+                    typeof(Pick),
+                    typeof(PickBranch)
                 }),
                 new ActivityPaletteCategory(FlowchartCategory, new[]
                 {
@@ -751,17 +754,18 @@ namespace RPA.Core.Generation
                 new ActivityPaletteCategory(StateMachineCategory, new[]
                 {
                     typeof(StateMachine),
-                    typeof(State)
+                    typeof(State),
+                    typeof(System.Activities.Core.Presentation.FinalState)
                 }),
                 new ActivityPaletteCategory(PrimitivesCategory, new[]
                 {
                     typeof(Assign),
                     typeof(Delay),
+                    typeof(InvokeDelegate),
                     typeof(InvokeMethod),
                     typeof(WriteLine)
                 }),
-                // Коллекции в панели лежат в категории «Блок-схема» — ключ сохранён как есть.
-                new ActivityPaletteCategory(FlowchartCategory, new[]
+                new ActivityPaletteCategory(CollectionCategory, new[]
                 {
                     typeof(AddToCollection<>),
                     typeof(ClearCollection<>),
@@ -778,17 +782,55 @@ namespace RPA.Core.Generation
         }
 
         /// <summary>
-        /// Пользовательские библиотеки активностей (карточка <c>AG-08</c>): сюда попадает сборка, созданная
-        /// агентом и загруженная в домен. Список живёт рядом с <see cref="LibraryAssemblyNames"/>, потому что
-        /// это тот же состав палитры — второй список разошёлся бы с панелью «Активности».
+        /// Библиотеки активностей, созданные агентом (карточка <c>AG-08</c>) и загруженные в домен.
+        /// Живут отдельно от пакетных (<see cref="PackageLibraries"/>), потому что пересинхронизация
+        /// NuGet-пакетов (install/uninstall/update) обязана удалять только пакетные активности.
         /// </summary>
-        private static readonly List<ActivityPaletteCategory> UserLibraries = new List<ActivityPaletteCategory>();
+        private static readonly List<ActivityPaletteCategory> CreatedLibraries = new List<ActivityPaletteCategory>();
 
         /// <summary>
-        /// Добавляет типы собранной библиотеки в палитру. Возвращает число добавленных типов;
-        /// повторная регистрация того же типа дубля не создаёт (иначе панель показала бы две одинаковые строки).
+        /// Библиотеки активностей из NuGet-пакетов проекта. Полностью заменяются при каждом
+        /// сканировании пакетов (<see cref="ReplacePackageLibraries"/>), поэтому удаление пакета
+        /// или смена проекта не оставляют «мёртвые» активности в палитре.
+        /// </summary>
+        private static readonly List<ActivityPaletteCategory> PackageLibraries = new List<ActivityPaletteCategory>();
+
+        /// <summary>
+        /// Добавляет типы собранной библиотеки в палитру (источник — <c>activity_create</c>).
+        /// Возвращает число добавленных типов; повторная регистрация того же типа дубля не создаёт
+        /// (иначе панель показала бы две одинаковые строки).
         /// </summary>
         internal static int RegisterUserLibrary(string categoryKey, IEnumerable<Type> types)
+        {
+            return MergeLibrary(CreatedLibraries, categoryKey, types);
+        }
+
+        /// <summary>
+        /// Атомарно заменяет пакетные библиотеки точным набором категорий, полученным при сканировании
+        /// NuGet-пакетов. Категории с одинаковым ключом сливаются, дубли типов убираются.
+        /// </summary>
+        internal static void ReplacePackageLibraries(IEnumerable<ActivityPaletteCategory> categories)
+        {
+            PackageLibraries.Clear();
+
+            foreach (ActivityPaletteCategory category in categories ?? Enumerable.Empty<ActivityPaletteCategory>())
+            {
+                if (category == null || string.IsNullOrWhiteSpace(category.Key) || category.Types.Count == 0)
+                {
+                    continue;
+                }
+
+                MergeLibrary(PackageLibraries, category.Key, category.Types);
+            }
+        }
+
+        /// <summary>Снапшот текущих пакетных категорий (для сравнения added/removed при пересканировании).</summary>
+        internal static IReadOnlyList<ActivityPaletteCategory> PackageCategories()
+        {
+            return PackageLibraries.ToArray();
+        }
+
+        private static int MergeLibrary(List<ActivityPaletteCategory> libraries, string categoryKey, IEnumerable<Type> types)
         {
             Type[] activities = (types ?? Enumerable.Empty<Type>())
                 .Where(type => type != null && typeof(Activity).IsAssignableFrom(type) && !type.IsAbstract)
@@ -800,18 +842,18 @@ namespace RPA.Core.Generation
             }
 
             string key = string.IsNullOrWhiteSpace(categoryKey) ? FlowCategory : categoryKey;
-            ActivityPaletteCategory existing = UserLibraries
+            ActivityPaletteCategory existing = libraries
                 .FirstOrDefault(category => string.Equals(category.Key, key, StringComparison.Ordinal));
 
             Type[] merged = activities;
             if (existing != null)
             {
-                UserLibraries.Remove(existing);
+                libraries.Remove(existing);
                 merged = existing.Types.Concat(activities).Distinct().ToArray();
             }
 
             int added = merged.Length - (existing?.Types.Count ?? 0);
-            UserLibraries.Add(new ActivityPaletteCategory(key, merged));
+            libraries.Add(new ActivityPaletteCategory(key, merged));
 
             return added < 0 ? 0 : added;
         }
@@ -819,15 +861,23 @@ namespace RPA.Core.Generation
         /// <summary>Сброс пользовательских библиотек (тесты и перезагрузка проекта).</summary>
         internal static void ResetUserLibraries()
         {
-            UserLibraries.Clear();
+            CreatedLibraries.Clear();
+            PackageLibraries.Clear();
         }
 
-/// <summary>Полный состав палитры: встроенные категории плюс уже загруженные библиотеки студии.</summary>
+        /// <summary>Сброс только пакетных библиотек (тесты и перезагрузка проекта без пакетов).</summary>
+        internal static void ResetPackageLibraries()
+        {
+            PackageLibraries.Clear();
+        }
+
         /// <summary>Пользовательские категории палитры (для панели «Активности», карточка <c>AG-08</c>).</summary>
         internal static IReadOnlyList<ActivityPaletteCategory> UserCategories()
         {
-            return UserLibraries.ToArray();
+            return CreatedLibraries.Concat(PackageLibraries).ToArray();
         }
+
+        /// <summary>Полный состав палитры: встроенные категории плюс уже загруженные библиотеки студии.</summary>
         internal static IReadOnlyList<ActivityPaletteCategory> Categories()
         {
             var categories = new List<ActivityPaletteCategory>(BuiltinCategories());
@@ -841,7 +891,8 @@ namespace RPA.Core.Generation
                 }
             }
 
-            categories.AddRange(UserLibraries);
+            categories.AddRange(CreatedLibraries);
+            categories.AddRange(PackageLibraries);
 
             return categories;
         }

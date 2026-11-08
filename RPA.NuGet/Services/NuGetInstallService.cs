@@ -33,6 +33,7 @@ namespace RPA.NuGet.Services
             NuGetProjectPackages project,
             string id,
             string version,
+            NuGetSearchService search = null,
             CancellationToken cancellationToken = default)
         {
             if (project == null)
@@ -42,9 +43,11 @@ namespace RPA.NuGet.Services
             if (string.IsNullOrWhiteSpace(version))
                 throw new ArgumentException("Package version is required.", nameof(version));
 
+            NuGetLog.Info("Install " + id + " " + version + " (sdk=" + project.IsSdkStyle + ") project=" + project.ProjectPath
+                          + " source=" + (search != null ? search.SourceUrl : "direct"));
             if (!project.IsSdkStyle)
             {
-                byte[] nupkg = await _downloader.DownloadNupkgAsync(id, version).ConfigureAwait(false);
+                byte[] nupkg = await DownloadNupkgAsync(search, id, version, cancellationToken).ConfigureAwait(false);
                 cancellationToken.ThrowIfCancellationRequested();
                 _downloader.Extract(nupkg, id, version, GetPackagesFolder(project));
             }
@@ -52,6 +55,27 @@ namespace RPA.NuGet.Services
             NuGetProjectConfig.Add(project, id, version);
             NuGetProjectConfig.Save(project);
         }
+
+        /// <summary>Скачивает <c>.nupkg</c> из выбранного источника; без него — прямая ссылка nuget.org.</summary>
+        private async Task<byte[]> DownloadNupkgAsync(
+            NuGetSearchService search,
+            string id,
+            string version,
+            CancellationToken cancellationToken)
+        {
+            if (search != null)
+            {
+                byte[] fromSource = await search.DownloadNupkgAsync(id, version, cancellationToken).ConfigureAwait(false);
+                if (fromSource != null && fromSource.Length > 0)
+                    return fromSource;
+
+                throw new InvalidOperationException(
+                    "Package " + id + " " + version + " is not available in the selected source (" + search.SourceUrl + ").");
+            }
+
+            return await _downloader.DownloadNupkgAsync(id, version).ConfigureAwait(false);
+        }
+
 
         /// <summary>Убирает пакет из проекта (папку <c>packages\{id}.{version}</c> не трогаем — как NuGet).</summary>
         public void Uninstall(NuGetProjectPackages project, string id)
@@ -86,6 +110,7 @@ namespace RPA.NuGet.Services
 
                 try
                 {
+                    NuGetLog.Info("Restore: msbuild -t:restore \"" + projectPath + "\"");
                     var info = new ProcessStartInfo(msbuild, "-t:restore -nologo -v:m \"" + projectPath + "\"")
                     {
                         WorkingDirectory = Path.GetDirectoryName(projectPath) ?? string.Empty,

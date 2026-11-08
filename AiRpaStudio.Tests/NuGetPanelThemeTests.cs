@@ -185,10 +185,12 @@ public class NuGetPanelThemeTests
 
             // Оверлей «Package sources»: заголовок, таблица, кнопки Add/Edit/Remove.
             Assert.That(xaml, Does.Contain("x:Name=\"SourcesOverlay\""), "нет оверлея источников пакетов");
+            Assert.That(Regex.IsMatch(xaml, "x:Name=\"SourcesOverlay\"[\\s\\S]{0,120}?Grid\\.RowSpan=\"3\""),
+                "оверлей обязан накрывать строки 0–2 (Grid.RowSpan=\"3\"), а не строку состояния — её полоса резала подпись");
             Assert.That(xaml, Does.Contain("Package sources"), "нет заголовка оверлея");
             Assert.That(xaml, Does.Contain("Text=\"Add\""), "нет кнопки Add в оверлее");
             Assert.That(xaml, Does.Contain("Text=\"Remove\""), "нет кнопки Remove в оверлее");
-            Assert.That(xaml, Does.Contain("Content=\"Save\""), "нет кнопки Save в редакторе источника");
+            Assert.That(xaml, Does.Contain("Content=\"OK\""), "нет кнопки OK в редакторе источника");
 
             // README отображается разметкой, а не сырым текстом.
             Assert.That(xaml, Does.Contain("FlowDocumentScrollViewer"), "README обязан рендериться как документ");

@@ -38,6 +38,7 @@
         (ShowInTaskbar=False), свернутое окно было бы недоступно. Изменение размера — за кромку окна
         (WindowChrome.ResizeBorderThickness): системный grip исчез вместе с caption.
     -->
+    <Border BorderBrush="{DynamicResource Studio.Separator}" BorderThickness="1">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="32" />
@@ -127,4 +128,5 @@
             </Grid>
         </Grid>
     </Grid>
+    </Border>
 </Window>

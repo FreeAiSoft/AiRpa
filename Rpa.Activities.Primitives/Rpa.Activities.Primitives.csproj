@@ -11,7 +11,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Rpa.Activities.Primitives</RootNamespace>
     <AssemblyName>Rpa.Activities.Primitives</AssemblyName>
-    <!-- CP-02: эталон роботов — .NET Framework 4.7.2 (см. AiRpaStudio\docs\ROADMAP.md, матрица TFM). -->
+    <!-- CP-02: эталон роботов — .NET Framework 4.7.2 (см. dev-dev-docs\ROADMAP.md, матрица TFM). -->
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />

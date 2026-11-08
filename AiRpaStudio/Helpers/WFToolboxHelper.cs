@@ -42,20 +42,10 @@ namespace RPA.Helpers
             _ = AppDomain.CurrentDomain.Load("Activities.Debug");
             _ = AppDomain.CurrentDomain.Load("Activities.OS");
 
-            var categories = new List<ActivityPaletteCategory>
-            {
-                StudioActivityPalette.CategoryFromLoadedAssembly(StudioActivityPalette.FlowCategory, "Activities.Flow"),
-                StudioActivityPalette.CategoryFromLoadedAssembly(StudioActivityPalette.DebugCategory, "Activities.Debug")
-            };
-
-            categories.AddRange(StudioActivityPalette.BuiltinCategories());
-
-            categories.Add(StudioActivityPalette.CategoryFromLoadedAssembly(StudioActivityPalette.BrowserCategory, "Activities.Browser"));
-            categories.Add(StudioActivityPalette.CategoryFromLoadedAssembly(StudioActivityPalette.OsCategory, "Activities.OS"));
-            // Пользовательские библиотеки (AG-08): сборка, созданная агентом, и всё, что добавили после старта.
-            categories.AddRange(StudioActivityPalette.UserCategories());
-
-            foreach (ActivityPaletteCategory category in categories)
+            // Единый источник состава палитры: панель «Активности» и каталог агента читают один и тот же
+            // список (StudioActivityPalette.Categories) — встроенные активности, библиотеки студии
+            // (Flow/Debug/OS/Browser) и пользовательские/пакетные активности.
+            foreach (ActivityPaletteCategory category in StudioActivityPalette.Categories())
             {
                 if (category == null)
                 {
@@ -63,11 +53,21 @@ namespace RPA.Helpers
                     continue;
                 }
 
-                AddToolboxCategory(wfToolbox, category.Types.ToList(), LocalizeHelper.Get(category.Key));
+                AddToolboxCategory(wfToolbox, category.Types.ToList(), CategoryDisplayName(category.Key));
             }
 
             toolboxPanel.SetToolboxControl(wfToolbox);
             return toolboxPanel;
+        }
+
+        /// <summary>
+        /// Display name of a category: localization for built-in keys, the key itself
+        /// (assembly file name without extension) otherwise.
+        /// </summary>
+        internal static string CategoryDisplayName(string key)
+        {
+            string localized = LocalizeHelper.Get(key);
+            return string.IsNullOrWhiteSpace(localized) ? key : localized;
         }
 
         private void LoadPuppeteer()
@@ -159,10 +159,16 @@ namespace RPA.Helpers
             }
         }
 
-        private void AddToolboxCategory(ToolboxControl wfToolbox, List<Type> types, string categoryName)
+        /// <summary>
+        /// Добавляет категорию в тулбокс. Активности сортируются по отображаемому имени
+        /// (<see cref="FixName"/>) без учёта регистра, чтобы порядок в панели не зависел от
+        /// порядка перечисления типов в источнике (встроенный список задаётся вручную).
+        /// </summary>
+        internal void AddToolboxCategory(ToolboxControl wfToolbox, List<Type> types, string categoryName)
         {
             ToolboxCategory controlFlowToolboxCategory = new ToolboxCategory(categoryName);
             IEnumerable<ToolboxItemWrapper> activities = types
+                .OrderBy(FixName, StringComparer.OrdinalIgnoreCase)
                 .Select(a => new ToolboxItemWrapper(a, FixName(a)));
             activities.ToList().ForEach(controlFlowToolboxCategory.Add);
             wfToolbox.Categories.Add(controlFlowToolboxCategory);

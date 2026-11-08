@@ -97,7 +97,7 @@ namespace RPA.Core.Generation
     /// </para>
     /// <para>
     /// Контракт читают двое: агент — через инструмент <c>xaml.describe_contract</c> (и через текст
-    /// из <see cref="Describe"/>), человек — через <c>AiRpaStudio\docs\Workflow_Agent_Contract.md</c>.
+    /// из <see cref="Describe"/>), человек — через <c>dev-dev-docs\Workflow_Agent_Contract.md</c>.
     /// Каждый пример проверен прогоном через настоящий конвейер
     /// (<see cref="JsonWorkflowService"/>/<see cref="CodeFirstWorkflowService"/> → гейт), поэтому
     /// «пример из документации не собирается» невозможен.

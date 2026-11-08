@@ -1801,7 +1801,7 @@ namespace AvalonDock
 
 			RemoveViewFromLogicalChild(document);
 			if (document.Content is UIElement uIElement)
-				RemoveLogicalChild(uIElement);
+				InternalRemoveLogicalChild(uIElement);
 			DocumentClosed?.Invoke(this, new DocumentClosedEventArgs(document));
 
 			//get rid of the closed document content

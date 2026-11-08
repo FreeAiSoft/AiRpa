@@ -55,8 +55,6 @@ public class TfmMatrixGuardTests
             "сборка студии (чат/агент), подключается только студией"),
         new KnownProject("RPA.NuGet", "net48", "хост",
             "панель NuGet внутри студии"),
-        new KnownProject("Extensions", "net5.0", "CP-05",
-            "утилиты цепочки IpApiClient/ProxyChecker; роботы не ссылаются"),
         new KnownProject("Shared", "net5.0", "CP-05",
             "общие модели цепочки IpApiClient/ProxyChecker; роботы не ссылаются"),
         new KnownProject("IpApiClient", "net6.0", "CP-05",

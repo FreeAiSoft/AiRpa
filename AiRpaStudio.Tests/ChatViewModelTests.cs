@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using RPA.Chat.Markdown;
 using RPA.Chat.Services;
 using RPA.Chat.ViewModels;
 using Agent.Core.Models;
@@ -133,6 +134,18 @@ public class ChatViewModelTests
 
         Assert.That(vm.Messages.Any(m => m.Text.Contains("unavailable")), Is.True);
     }
+    [Test]
+    public void DocsCommands_SetAndClearRelativeNavigator()
+    {
+        var vm = new ChatViewModel();
+
+        vm.DocsHomeCommand.Execute(null);
+        Assert.That(MarkdownRenderer.RelativeLinkNavigator, Is.Not.Null);
+
+        vm.DocsCloseCommand.Execute(null);
+        Assert.That(MarkdownRenderer.RelativeLinkNavigator, Is.Null);
+    }
+
     // ---- AG-10: настройки → маска разрешений (одна точка правды, её же зовёт ChatViewModel) ----
 
 

@@ -250,4 +250,73 @@ public class VsProjectWriterTests
 
         Assert.That(relative, Is.EqualTo(@"Sub\Activity2.xaml"));
     }
+
+    [Test]
+    public void AddFileItem_CsFile_AddsCompileItem()
+    {
+        string csproj = Path.Combine(_root, "MyLib.csproj");
+        File.WriteAllText(csproj, LegacyCsproj);
+
+        bool changed = VsProjectWriter.AddFileItem(csproj, @"Sub\Helper.cs");
+
+        XDocument document = XDocument.Load(csproj);
+        XElement item = document.Descendants()
+            .Single(e => e.Name.LocalName == "Compile" && (string)e.Attribute("Include") == @"Sub\Helper.cs");
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.True);
+            Assert.That(item, Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public void AddFileItem_OtherFile_AddsNoneItem()
+    {
+        string csproj = Path.Combine(_root, "MyLib.csproj");
+        File.WriteAllText(csproj, LegacyCsproj);
+
+        bool changed = VsProjectWriter.AddFileItem(csproj, @"Assets\readme.md");
+
+        XDocument document = XDocument.Load(csproj);
+        XElement item = document.Descendants()
+            .Single(e => e.Name.LocalName == "None" && (string)e.Attribute("Include") == @"Assets\readme.md");
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.True);
+            Assert.That(item, Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public void AddFileItem_XamlFile_DelegatesToXamlAppDef()
+    {
+        string csproj = Path.Combine(_root, "MyLib.csproj");
+        File.WriteAllText(csproj, LegacyCsproj);
+
+        bool changed = VsProjectWriter.AddFileItem(csproj, "Activity2.xaml");
+
+        XDocument document = XDocument.Load(csproj);
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.True);
+            Assert.That(document.Descendants().Any(e => e.Name.LocalName == "XamlAppDef" && (string)e.Attribute("Include") == "Activity2.xaml"), Is.True);
+        });
+    }
+
+    [Test]
+    public void AddFileItem_SecondCall_IsIdempotent()
+    {
+        string csproj = Path.Combine(_root, "MyLib.csproj");
+        File.WriteAllText(csproj, LegacyCsproj);
+        _ = VsProjectWriter.AddFileItem(csproj, @"Sub\Helper.cs");
+
+        bool changedAgain = VsProjectWriter.AddFileItem(csproj, @"Sub\Helper.cs");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(changedAgain, Is.False);
+            Assert.That(XDocument.Load(csproj).Descendants().Count(e => e.Name.LocalName == "Compile" && (string)e.Attribute("Include") == @"Sub\Helper.cs"), Is.EqualTo(1));
+        });
+    }
+
 }

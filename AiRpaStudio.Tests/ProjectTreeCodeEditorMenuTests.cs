@@ -192,6 +192,34 @@ public class ProjectTreeCodeEditorMenuTests
         }
     }
 
+    [Test]
+    public void CodeDocument_LoadsConfigAsXml()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "rpa-config-doc-" + Guid.NewGuid().ToString("N"));
+        _ = Directory.CreateDirectory(directory);
+
+        try
+        {
+            string path = Path.Combine(directory, "packages.config");
+            File.WriteAllText(path, "<packages><package id=\"NLog\" version=\"4.7.15\" /></packages>");
+
+            CodeDocument document = CodeDocument.Load(path);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(document.Title, Is.EqualTo("packages.config"));
+                Assert.That(document.Language, Is.EqualTo("XML"),
+                    ".config должен открываться с XML-подсветкой во встроенном редакторе");
+                Assert.That(CodeLanguageProvider.GetLanguageForExtension("packages.config"), Is.EqualTo("XML"));
+                Assert.That(CodeLanguageProvider.GetLanguageForExtension("App.config"), Is.EqualTo("XML"));
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
     private static XElement FindMenuItem(string menuKey, string itemName)
     {
         XElement menu = LoadProjectTreeXaml()

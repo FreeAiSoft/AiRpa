@@ -28,7 +28,8 @@ namespace RPA.NuGet.Services
             var project = new NuGetProjectPackages
             {
                 ProjectPath = fullPath,
-                IsSdkStyle = isSdk
+                IsSdkStyle = isSdk,
+                TargetFramework = DetermineTargetFramework(fullPath)
             };
 
             if (isSdk)
@@ -160,6 +161,73 @@ namespace RPA.NuGet.Services
             return Path.Combine(Path.GetDirectoryName(projectPath) ?? string.Empty, "packages.config");
         }
 
+        /// <summary>
+        /// Определяет целевой фреймворк проекта из <c>.csproj</c>: SDK-style
+        /// <c>TargetFramework</c>/<c>TargetFrameworks</c> (берётся первый) или legacy
+        /// <c>TargetFrameworkVersion</c> (<c>v4.7.2</c> → <c>net472</c>). <c>null</c>, если
+        /// определить не удалось.
+        /// </summary>
+        public static string DetermineTargetFramework(string projectPath)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath) || !File.Exists(projectPath))
+                return null;
+
+            XDocument document = XDocument.Load(projectPath);
+            XElement root = document.Root;
+            if (root == null)
+                return null;
+
+            XElement targetFramework = root.Descendants()
+                .FirstOrDefault(e => e.Name.LocalName == "TargetFramework");
+            if (targetFramework != null)
+            {
+                string value = FirstTfm(targetFramework.Value);
+                if (value != null)
+                    return value;
+            }
+
+            XElement targetFrameworks = root.Descendants()
+                .FirstOrDefault(e => e.Name.LocalName == "TargetFrameworks");
+            if (targetFrameworks != null)
+            {
+                string value = FirstTfm(targetFrameworks.Value);
+                if (value != null)
+                    return value;
+            }
+
+            XElement targetFrameworkVersion = root.Descendants()
+                .FirstOrDefault(e => e.Name.LocalName == "TargetFrameworkVersion");
+            return targetFrameworkVersion == null ? null : NormalizeTargetFramework(targetFrameworkVersion.Value);
+        }
+
+        /// <summary>Первый TFM из списка, разделённого <c>;</c> (multi-targeting).</summary>
+        private static string FirstTfm(string raw)
+        {
+            string[] parts = (raw ?? string.Empty).Split(';');
+            return parts.Length == 0 ? null : NormalizeTargetFramework(parts[0]);
+        }
+
+        /// <summary>Нормализует TFM: <c>v4.7.2</c> → <c>net472</c>, <c>net48</c> → <c>net48</c>.</summary>
+        private static string NormalizeTargetFramework(string raw)
+        {
+            string value = (raw ?? string.Empty).Trim();
+            if (value.Length == 0)
+                return null;
+
+            if (value.StartsWith("net", StringComparison.OrdinalIgnoreCase))
+                return value.ToLowerInvariant();
+
+            if (value.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+                value = value.Substring(1);
+
+            // 4.7.2 → net472, 4.8 → net48, 5.0 → net5.0
+            if (value.All(c => char.IsDigit(c) || c == '.'))
+                return "net" + value.Replace(".", string.Empty);
+
+            return value.ToLowerInvariant();
+        }
+
+
         private static void SaveSdkStyle(NuGetProjectPackages project)
         {
             XDocument document = XDocument.Load(project.ProjectPath, LoadOptions.PreserveWhitespace);
@@ -245,7 +313,7 @@ namespace RPA.NuGet.Services
             string defaultTargetFramework = project.Packages
                 .Where(p => !string.IsNullOrWhiteSpace(p.TargetFramework))
                 .Select(p => p.TargetFramework)
-                .FirstOrDefault() ?? "net48";
+                .FirstOrDefault() ?? project.TargetFramework ?? "net472";
 
             foreach (var package in project.Packages.OrderBy(p => p.Id, StringComparer.OrdinalIgnoreCase))
             {

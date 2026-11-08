@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -123,6 +123,14 @@ namespace RPA.Models
                 OnSendMessage($"Введи имя проекта.");
                 return;
             }
+
+            Project.Name = Project.Name.Trim();
+            if (Directory.Exists(RootFolder) && Directory.EnumerateFileSystemEntries(RootFolder).Any())
+            {
+                OnSendMessage(LocalizeHelper.Get("lang_msg_project_folder_not_empty", RootFolder));
+                return;
+            }
+
 
             Project.MainActivity = Consts.defaultMainActivityFileName;
 

@@ -20,8 +20,8 @@ namespace RPA.NuGet.Models
         public bool IsEnabled { get; set; } = true;
 
         /// <summary>
-        /// Источник доступен по сети. Локальные папки-источники (offline-пакеты) в списке видны,
-        /// но поиск по ним через NuGet.Protocol не выполняется.
+        /// Источник доступен по сети. Локальные папки-источники (offline-пакеты) в списке видны
+        /// и ищутся через NuGet.Protocol: пустой запрос показывает все пакеты из папки.
         /// </summary>
         public bool IsRemote
         {

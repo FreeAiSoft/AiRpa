@@ -114,11 +114,29 @@ namespace RPA.Models
         /// <summary>Validates the input; returns an error message or null when valid.</summary>
         public string Validate()
         {
-            return string.IsNullOrWhiteSpace(SelectedPath)
-                ? LocalizeHelper.Get("lang_msg_specify_project_folder")
-                : !Directory.Exists(SelectedPath)
-                ? LocalizeHelper.Get("lang_msg_folder_not_exists", SelectedPath)
-                : string.IsNullOrWhiteSpace(ProjectName) ? LocalizeHelper.Get("lang_msg_enter_project_name") : null;
+            if (string.IsNullOrWhiteSpace(SelectedPath))
+            {
+                return LocalizeHelper.Get("lang_msg_specify_project_folder");
+            }
+
+            if (!Directory.Exists(SelectedPath))
+            {
+                return LocalizeHelper.Get("lang_msg_folder_not_exists", SelectedPath);
+            }
+
+            if (string.IsNullOrWhiteSpace(ProjectName))
+            {
+                return LocalizeHelper.Get("lang_msg_enter_project_name");
+            }
+
+            string safeName = VsTemplateParameterResolver.MakeSafeProjectName(ProjectName);
+            string outputDirectory = Path.Combine(SelectedPath.Trim(), safeName);
+            if (Directory.Exists(outputDirectory) && Directory.EnumerateFileSystemEntries(outputDirectory).Any())
+            {
+                return LocalizeHelper.Get("lang_msg_project_folder_not_empty", outputDirectory);
+            }
+
+            return null;
         }
 
         /// <summary>Builds the instantiation request used by the .vstemplate engine.</summary>

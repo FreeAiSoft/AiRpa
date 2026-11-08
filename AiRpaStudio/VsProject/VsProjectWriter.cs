@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -68,6 +68,60 @@ namespace RPA.VsProject
         }
 
         /// <summary>
+        /// Добавляет произвольный файл в проект: <c>.xaml</c> — как <c>XamlAppDef</c>, <c>.cs</c> — как
+        /// <c>Compile</c>, остальные — как <c>None</c> (файл в проекте без действия сборки).
+        /// Возвращает <c>true</c>, если файл проекта изменён.
+        /// </summary>
+        public static bool AddFileItem(string projectPath, string relativePath)
+        {
+            string extension = Path.GetExtension(relativePath ?? string.Empty);
+            if (string.Equals(extension, ".xaml", StringComparison.OrdinalIgnoreCase))
+            {
+                return AddXamlItem(projectPath, relativePath);
+            }
+
+            string itemType = string.Equals(extension, ".cs", StringComparison.OrdinalIgnoreCase)
+                ? "Compile"
+                : "None";
+
+            return AddSimpleItem(projectPath, relativePath, itemType);
+        }
+
+        private static bool AddSimpleItem(string projectPath, string relativePath, string itemType)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath))
+            {
+                throw new ArgumentException("Путь к файлу проекта не указан.", nameof(projectPath));
+            }
+
+            string fullProjectPath = Path.GetFullPath(projectPath);
+            if (!File.Exists(fullProjectPath))
+            {
+                throw new FileNotFoundException("Файл проекта не найден.", fullProjectPath);
+            }
+
+            string include = NormalizeInclude(relativePath);
+            XDocument document = LoadPreservingFormat(fullProjectPath);
+            XElement root = document.Root ?? throw new InvalidDataException("Файл проекта пуст.");
+
+            bool alreadyIncluded = root
+                .Descendants()
+                .Where(e => string.Equals(e.Name.LocalName, itemType, StringComparison.OrdinalIgnoreCase))
+                .Any(e => string.Equals(NormalizeInclude((string)e.Attribute("Include")), include, StringComparison.OrdinalIgnoreCase));
+            if (alreadyIncluded)
+            {
+                return false;
+            }
+
+            XElement newItem = new XElement(root.Name.Namespace + itemType);
+            newItem.SetAttributeValue("Include", include);
+
+            XElement itemGroup = FindItemGroup(root, itemType) ?? AddItemGroup(root);
+            AppendChild(itemGroup, newItem, root);
+            SavePreservingFormat(document, fullProjectPath);
+            return true;
+        }
+        /// <summary>
         /// Переименовывает файл проекта (<c>*.csproj</c>) и правит ссылку на него в найденных <c>.sln</c>.
         /// Возвращает новый путь к файлу проекта. Имя сборки и содержимое проекта не меняются.
         /// </summary>
@@ -80,6 +134,7 @@ namespace RPA.VsProject
 
             string fullProjectPath = Path.GetFullPath(projectPath);
             if (!File.Exists(fullProjectPath))
+
             {
                 throw new FileNotFoundException("Файл проекта не найден.", fullProjectPath);
             }

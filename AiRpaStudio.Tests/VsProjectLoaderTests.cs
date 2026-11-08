@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using RPA.Entities;
 using RPA.Enums;
 using RPA.VsProject;
 
@@ -69,6 +70,71 @@ public class VsProjectLoaderTests
             Assert.That(node.Name, Is.EqualTo("MyLib"));
             Assert.That(node.Childs.Any(c => c.FSNodeType == FSNodeType.File && c.Name == "Activity1.xaml"), Is.True);
             Assert.That(node.Childs.Any(c => c.Name == "MyLib.csproj"), Is.False);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Test]
+    public void LoadProject_AddsReferencesNodeWithDependencies()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "vs_load_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string csproj = Path.Combine(root, "MyLib.csproj");
+        File.WriteAllText(csproj,
+            "<Project ToolsVersion=\"15.0\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">\r\n" +
+            "  <PropertyGroup>\r\n" +
+            "    <AssemblyName>MyLib</AssemblyName>\r\n" +
+            "    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>\r\n" +
+            "  </PropertyGroup>\r\n" +
+            "  <ItemGroup>\r\n" +
+            "    <PackageReference Include=\"Newtonsoft.Json\" Version=\"13.0.3\" />\r\n" +
+            "    <Reference Include=\"System.Activities\" />\r\n" +
+            "    <ProjectReference Include=\"..\\Other\\Other.csproj\" />\r\n" +
+            "  </ItemGroup>\r\n" +
+            "</Project>");
+        try
+        {
+            var node = VsProjectLoader.LoadProject(csproj);
+
+            FSNode references = node.Childs.FirstOrDefault(c => c.FSNodeType == FSNodeType.References);
+            Assert.That(references, Is.Not.Null, "у VS-проекта должен быть узел References");
+            Assert.That(references.Name, Is.EqualTo("References"));
+            Assert.That(references.Childs.All(c => c.FSNodeType == FSNodeType.Reference), Is.True);
+            Assert.That(references.Childs.All(c => string.IsNullOrEmpty(c.RuntimeFullPath)), Is.True,
+                "зависимости — виртуальные узлы без файла на диске");
+
+            Assert.That(references.Childs.Any(c => c.Name == "Newtonsoft.Json (13.0.3)"), Is.True,
+                "PackageReference попадает в References с версией");
+            Assert.That(references.Childs.Any(c => c.Name == "System.Activities"), Is.True,
+                "Reference Include попадает в References");
+            Assert.That(references.Childs.Any(c => c.Name == "Other"), Is.True,
+                "ProjectReference попадает в References по имени файла проекта");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Test]
+    public void LoadProject_WithoutDependencies_StillHasReferencesNode()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "vs_load_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string csproj = Path.Combine(root, "MyLib.csproj");
+        File.WriteAllText(csproj, SampleCsproj);
+        File.WriteAllText(Path.Combine(root, "Activity1.xaml"), "<Activity/>");
+        try
+        {
+            var node = VsProjectLoader.LoadProject(csproj);
+
+            FSNode references = node.Childs.FirstOrDefault(c => c.FSNodeType == FSNodeType.References);
+            Assert.That(references, Is.Not.Null, "узел References есть даже без зависимостей");
+            Assert.That(references.Name, Is.EqualTo("References"));
+            Assert.That(references.Childs, Is.Empty);
         }
         finally
         {

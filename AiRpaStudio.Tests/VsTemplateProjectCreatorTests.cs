@@ -96,4 +96,27 @@ public class VsTemplateProjectCreatorTests
 
         Assert.That(creator.IsCreate, Is.False);
     }
+
+    [Test]
+    public void Validate_NonEmptyTargetFolder_ReturnsError()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "vs_creator_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        string target = Path.Combine(dir, "MyLibrary");
+        Directory.CreateDirectory(target);
+        File.WriteAllText(Path.Combine(target, "readme.txt"), "x");
+        try
+        {
+            var creator = new VsTemplateProjectCreator();
+            creator.SelectedPath = dir;
+            creator.ProjectName = "MyLibrary";
+
+            Assert.That(creator.Validate(), Is.Not.Null.And.Not.Empty);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
 }

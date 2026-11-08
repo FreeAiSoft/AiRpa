@@ -181,6 +181,8 @@
     <None Include="app.config" />
     <None Include="docs.md" />
     <None Include="packages.config" />
+    <None Include="Activities.Browser.nuspec" />
+    <None Include="package.version" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\ActivitiesBrowser.resx">
@@ -229,6 +231,26 @@
     </Page>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <NuGetExe>$(MSBuildProjectDirectory)\..\nuget.exe</NuGetExe>
+    <NuGetLocalDir>$(MSBuildProjectDirectory)\..\nuget_local</NuGetLocalDir>
+    <PackageBaseVersion>1.0.0</PackageBaseVersion>
+    <PackageVersionFile>$(MSBuildProjectDirectory)\package.version</PackageVersionFile>
+  </PropertyGroup>
+  <Target Name="PackActivitiesBrowser" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' And Exists('$(NuGetExe)')">
+    <ReadLinesFromFile File="$(PackageVersionFile)" Condition="Exists('$(PackageVersionFile)')">
+      <Output TaskParameter="Lines" ItemName="_PackageVersionLines" />
+    </ReadLinesFromFile>
+    <PropertyGroup>
+      <_PackageCounterRaw>@(_PackageVersionLines)</_PackageCounterRaw>
+      <_PackageCounterRaw Condition="'$(_PackageCounterRaw)' == ''">0</_PackageCounterRaw>
+      <_PackageCounter>$([MSBuild]::Add($(_PackageCounterRaw), 1))</_PackageCounter>
+      <PackageVersion>$(PackageBaseVersion).$(_PackageCounter)</PackageVersion>
+    </PropertyGroup>
+    <MakeDir Directories="$(NuGetLocalDir)" />
+    <Exec Command="&quot;$(NuGetExe)&quot; pack &quot;$(MSBuildProjectDirectory)\Activities.Browser.nuspec&quot; -Version $(PackageVersion) -Properties Configuration=$(Configuration) -OutputDirectory &quot;$(NuGetLocalDir)&quot; -NonInteractive" />
+    <WriteLinesToFile File="$(PackageVersionFile)" Lines="$(_PackageCounter)" Overwrite="true" />
+  </Target>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

@@ -202,4 +202,77 @@ public class ActivityPaletteRegistryTests
                 Has.Some.EqualTo("Sequence").And.Some.EqualTo("If"));
         });
     }
+    [Test]
+    public void BuiltinCategories_IncludeParallelForEachPickBranchAndFinalState()
+    {
+        var controlFlow = StudioActivityPalette.BuiltinCategories()
+            .Where(category => category.Key == StudioActivityPalette.ControlFlowCategory)
+            .SelectMany(category => category.Types)
+            .ToArray();
+
+        var stateMachine = StudioActivityPalette.BuiltinCategories()
+            .Where(category => category.Key == StudioActivityPalette.StateMachineCategory)
+            .SelectMany(category => category.Types)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(controlFlow,
+                Does.Contain(typeof(ParallelForEach<>)).And.Contains(typeof(PickBranch)));
+            Assert.That(stateMachine,
+                Does.Contain(typeof(System.Activities.Core.Presentation.FinalState)));
+        });
+    }
+
+    [Test]
+    public void BuiltinCategories_InvokeDelegateInPrimitives_CollectionsOwnCategory()
+    {
+        var primitives = StudioActivityPalette.BuiltinCategories()
+            .Where(category => category.Key == StudioActivityPalette.PrimitivesCategory)
+            .SelectMany(category => category.Types)
+            .ToArray();
+
+        var collection = StudioActivityPalette.BuiltinCategories()
+            .Where(category => category.Key == StudioActivityPalette.CollectionCategory)
+            .SelectMany(category => category.Types)
+            .ToArray();
+
+        var flowchart = StudioActivityPalette.BuiltinCategories()
+            .Where(category => category.Key == StudioActivityPalette.FlowchartCategory)
+            .SelectMany(category => category.Types)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(primitives, Does.Contain(typeof(InvokeDelegate)));
+            Assert.That(collection, Does.Contain(typeof(AddToCollection<>))
+                .And.Contains(typeof(RemoveFromCollection<>)));
+            Assert.That(flowchart, Does.Not.Contain(typeof(AddToCollection<>)));
+        });
+    }
+
+    [Test]
+    public void Categories_IncludeBrowserActivities_WhenBrowserAssemblyIsLoaded()
+    {
+        System.Reflection.Assembly browser = null;
+        try
+        {
+            browser = System.Reflection.Assembly.Load("Activities.Browser");
+        }
+        catch (Exception)
+        {
+        }
+
+        Assume.That(browser, Is.Not.Null, "Activities.Browser не загружена в тестовый домен");
+
+
+        string[] keys = StudioActivityPalette.Categories()
+            .Select(category => category.Key)
+            .ToArray();
+
+        Assert.That(keys, Does.Contain(StudioActivityPalette.BrowserCategory),
+            "браузерные активности должны попадать в каталог/реестр из общего источника палитры");
+    }
+
+
 }

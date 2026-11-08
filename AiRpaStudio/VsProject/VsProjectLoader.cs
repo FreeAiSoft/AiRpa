@@ -76,13 +76,59 @@ namespace RPA.VsProject
         public static FSNode LoadProject(string projectPath)
         {
             VsProjectInfo info = VsProjectParser.Parse(projectPath);
+            ObservableCollection<FSNode> children = BuildFileTree(Path.GetDirectoryName(projectPath), projectPath);
+
+            // Узел зависимостей идёт первым, как «References» в дереве проекта Visual Studio.
+            FSNode references = BuildReferencesNode(info);
+            if (references != null)
+            {
+                children.Insert(0, references);
+            }
+
             FSNode root = new FSNode(projectPath, FSNodeType.VsProject)
             {
                 Name = info.Name,
-                Childs = BuildFileTree(Path.GetDirectoryName(projectPath), projectPath)
+                Childs = children
             };
 
             return root;
+        }
+
+        /// <summary>
+        /// Собирает виртуальный узел «References» с зависимостями проекта: NuGet-пакеты
+        /// (PackageReference/packages.config), затем ProjectReference и Reference из .csproj.
+        /// У синтетических узлов нет файла на диске, поэтому <see cref="FSNode.RuntimeFullPath"/> = null.
+        /// </summary>
+        private static FSNode BuildReferencesNode(VsProjectInfo info)
+        {
+            var children = new ObservableCollection<FSNode>();
+
+            foreach (VsProjectPackage package in info.Packages)
+            {
+                string name = string.IsNullOrWhiteSpace(package.Version)
+                    ? package.Id
+                    : package.Id + " (" + package.Version + ")";
+
+                children.Add(new FSNode(null, FSNodeType.Reference) { Name = name });
+            }
+
+            foreach (VsProjectItem item in info.Items)
+            {
+                if (string.Equals(item.ItemType, "ProjectReference", StringComparison.OrdinalIgnoreCase))
+                {
+                    children.Add(new FSNode(null, FSNodeType.Reference) { Name = Path.GetFileNameWithoutExtension(item.Include) });
+                }
+                else if (string.Equals(item.ItemType, "Reference", StringComparison.OrdinalIgnoreCase))
+                {
+                    children.Add(new FSNode(null, FSNodeType.Reference) { Name = item.Include });
+                }
+            }
+
+            return new FSNode(null, FSNodeType.References)
+            {
+                Name = "References",
+                Childs = children
+            };
         }
 
         private static FSNode CreateNode(VsSolutionProject project, List<string> warnings)

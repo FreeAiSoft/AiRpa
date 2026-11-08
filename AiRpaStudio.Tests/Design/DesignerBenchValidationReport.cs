@@ -5,7 +5,7 @@ namespace AiRpaStudio.Tests.Design;
 
 /// <summary>
 /// Отчёт стенда по фоновой валидации дизайнера (шаги 0 и 5 плана
-/// <c>AiRpaStudio\docs\UI02_Background_Validation_Plan.md</c>).
+/// <c>dev-dev-docs\UI02_Background_Validation_Plan.md</c>).
 /// <para>
 /// Только данные: тесты утверждают по числам и адресам, а не по живым объектам WPF (они не переживают
 /// границу домена стенда).

@@ -10,7 +10,7 @@ namespace AiRpaStudio.Tests.Generation;
 /// <summary>
 /// `UI-09` (доска `RPA - доска`): «импорт параметра `new List<string>` теряет угловую скобку».
 /// <para>
-/// Здесь проверяются две гипотезы плана <c>AiRpaStudio\docs\UI02_Background_Validation_Plan.md</c> §4,
+/// Здесь проверяются две гипотезы плана <c>dev-dev-docs\UI02_Background_Validation_Plan.md</c> §4,
 /// которые можно проверить кодом без интерактивной студии:
 /// </para>
 /// <list type="number">

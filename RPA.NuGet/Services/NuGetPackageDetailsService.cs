@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -169,6 +169,7 @@ namespace RPA.NuGet.Services
             string fallbackVersion = null)
         {
             LastReadmeError = null;
+            NuGetLog.Info("README load: " + packageId + " " + version + " (fallback=" + fallbackVersion + ", source=" + (search != null ? search.SourceUrl : "direct") + ")");
             if (string.IsNullOrWhiteSpace(packageId))
                 return null;
 
@@ -188,6 +189,7 @@ namespace RPA.NuGet.Services
                     continue;
 
                 string readme = ReadReadme(nupkg);
+                NuGetLog.Info("README " + (string.IsNullOrWhiteSpace(readme) ? "not found" : "found (" + readme.Length + " chars)") + " in " + packageId + " " + candidate);
 
                 // Пакет скачался — результат окончательный: и текст, и «README нет» кешируются.
                 ReadmeCache[key] = readme ?? string.Empty;
@@ -240,6 +242,7 @@ namespace RPA.NuGet.Services
         private async Task<byte[]> DownloadAsync(NuGetSearchService search, string id, string version)
         {
             // 1. Выбранный источник: прокси/авторизация из NuGet.Config, отмена, корректный TLS-путь.
+            NuGetLog.Info("Download nupkg " + id + " " + version + " from selected source: " + (search != null ? search.SourceUrl : "direct"));
             if (search != null)
             {
                 try

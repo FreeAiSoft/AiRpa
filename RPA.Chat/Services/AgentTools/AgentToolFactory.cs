@@ -165,7 +165,7 @@ namespace RPA.Chat.Services.AgentTools
 
             registry.Register(new AgentTool(
                 "search_docs",
-                "Search the built-in studio user documentation (workflow designer, activities, project management, settings, MCP server, NuGet manager) and return matching sections with their relative paths.",
+                "Search the built-in studio user documentation (workflow designer, activities, project management, settings, MCP server, NuGet manager, AI activities) and return matching sections with their relative paths.",
                 "{\"query\":\"string\",\"max_results\":\"integer\"}",
                 false,
                 SearchDocsAsync,

@@ -24,6 +24,7 @@
                             UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
     <!-- Заголовок окна рисует студия (Controls\StudioTitleBar.xaml): системный caption белый в любой теме. -->
+    <Border BorderBrush="{DynamicResource Studio.Separator}" BorderThickness="1">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="32" />
@@ -74,4 +75,5 @@
             </Grid>
         </Grid>
     </Grid>
+    </Border>
 </Window>

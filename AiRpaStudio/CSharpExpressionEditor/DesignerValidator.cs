@@ -48,7 +48,7 @@ namespace RPA.Core.Services
     /// WF-валидация (<c>ValidationService.ValidateWorkflow()</c>) остаётся на UI-потоке: она наполняет
     /// <c>ModelItem.ValidationState</c>, по которому WF рисует свои иконки, и без UI-потока работать
     /// не может. Её цена отдельно не измерялась — это шаг 0 плана
-    /// <c>docs\UI02_Background_Validation_Plan.md</c>.
+    /// <c>dev-docs\UI02_Background_Validation_Plan.md</c>.
     /// </para>
     /// </summary>
     internal class DesignerValidator : IDisposable

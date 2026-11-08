@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+  <metadata>
+    <id>Activities.Browser</id>
+    <version>1.0.0</version>
+    <title>Activities.Browser</title>
+    <authors>AiRpaStudio</authors>
+    <owners>AiRpaStudio</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Библиотека активностей для автоматизации работы с веб-браузером (Windows Workflow Foundation, net472).</description>
+    <copyright>Copyright © 2025</copyright>
+    <tags>RPA Workflow Activities Browser Puppeteer</tags>
+    <dependencies>
+      <group targetFramework="net472">
+        <dependency id="PuppeteerSharp" version="20.2.2" />
+        <dependency id="Newtonsoft.Json" version="13.0.3" />
+        <dependency id="Microsoft.Bcl.AsyncInterfaces" version="8.0.0" />
+        <dependency id="Microsoft.Extensions.DependencyInjection" version="8.0.0" />
+        <dependency id="Microsoft.Extensions.DependencyInjection.Abstractions" version="8.0.0" />
+        <dependency id="Microsoft.Extensions.Logging" version="8.0.0" />
+        <dependency id="Microsoft.Extensions.Logging.Abstractions" version="8.0.0" />
+        <dependency id="Microsoft.Extensions.Options" version="8.0.0" />
+        <dependency id="Microsoft.Extensions.Primitives" version="8.0.0" />
+        <dependency id="System.Buffers" version="4.5.1" />
+        <dependency id="System.Diagnostics.DiagnosticSource" version="8.0.0" />
+        <dependency id="System.Memory" version="4.5.5" />
+        <dependency id="System.Numerics.Vectors" version="4.6.1" />
+        <dependency id="System.Runtime.CompilerServices.Unsafe" version="6.0.0" />
+        <dependency id="System.Text.Encodings.Web" version="8.0.0" />
+        <dependency id="System.Text.Json" version="8.0.5" />
+        <dependency id="System.Threading.Tasks.Extensions" version="4.5.4" />
+        <dependency id="System.ValueTuple" version="4.5.0" />
+      </group>
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="bin\$configuration$\Activities.Browser.dll" target="lib\net472" />
+    <file src="bin\$configuration$\ActivityLibraryBase.dll" target="lib\net472" />
+    <file src="bin\$configuration$\RpaCommon.dll" target="lib\net472" />
+  </files>
+</package>

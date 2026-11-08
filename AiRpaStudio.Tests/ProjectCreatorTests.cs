@@ -80,4 +80,44 @@ public class ProjectCreatorTests
             }
         }
     }
+
+    [Test]
+    public void CreateProject_NonEmptyExistingFolder_DoesNotSetIsCreate()
+    {
+        string baseDir = Path.Combine(Path.GetTempPath(), "pc_" + Guid.NewGuid().ToString("N"));
+        string target = Path.Combine(baseDir, "MyProcess");
+        Directory.CreateDirectory(target);
+        File.WriteAllText(Path.Combine(target, "existing.txt"), "keep me");
+
+        string previousCwd = Directory.GetCurrentDirectory();
+        try
+        {
+            Directory.SetCurrentDirectory(baseDir);
+            File.WriteAllText(Path.Combine(baseDir, "Main.xaml"), "<Activity />");
+
+            var creator = new ProjectCreator(ProjectType.Process);
+            creator.SelectedPath = baseDir;
+            creator.Project.Name = "MyProcess";
+
+            creator.CreateProject();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(creator.IsCreate, Is.False);
+                Assert.That(File.Exists(Path.Combine(target, "existing.txt")), Is.True,
+                    "посторонний файл не должен быть затронут");
+                Assert.That(File.Exists(Path.Combine(target, "project.json")), Is.False,
+                    "проект не должен создаваться поверх существующей папки");
+            });
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(previousCwd);
+            if (Directory.Exists(baseDir))
+            {
+                Directory.Delete(baseDir, true);
+            }
+        }
+    }
+
 }

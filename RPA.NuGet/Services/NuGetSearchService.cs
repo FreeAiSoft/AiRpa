@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
@@ -42,6 +42,22 @@ namespace RPA.NuGet.Services
         public string SourceUrl { get; }
 
         /// <summary>
+        /// Источник — локальная папка/UNC, а не сетевой канал (http/https). Для локального
+        /// источника пустой запрос поиска означает «показать все пакеты из папки».
+        /// </summary>
+        public bool IsLocal
+        {
+            get
+            {
+                if (Uri.TryCreate(SourceUrl, UriKind.Absolute, out Uri uri))
+                    return uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps;
+
+                // Относительный путь (например, "offline") не парсится как Absolute — это локальная папка.
+                return true;
+            }
+        }
+
+        /// <summary>
         /// Страница результатов поиска. <paramref name="skip"/> — сколько карточек уже показано
         /// (кнопка «Load more» листает источник без повторной выдачи первых страниц).
         /// </summary>
@@ -52,7 +68,14 @@ namespace RPA.NuGet.Services
             int skip = 0)
         {
             if (string.IsNullOrWhiteSpace(query))
-                return new List<NuGetPackageInfo>();
+            {
+                // Удалённый источник не умеет «показать всё»: пустой запрос там не имеет смысла.
+                // Локальная папка (LocalPackageSearchResource) при пустом запросе возвращает все пакеты.
+                if (!IsLocal)
+                    return new List<NuGetPackageInfo>();
+
+                query = string.Empty;
+            }
 
             var searchResource = await _repository.GetResourceAsync<PackageSearchResource>();
             var filter = new SearchFilter(includePrerelease: includePrerelease);
@@ -61,7 +84,7 @@ namespace RPA.NuGet.Services
                 filter,
                 skip: Math.Max(skip, 0),
                 take: take,
-                NullLogger.Instance,
+                NuGetProtocolLogger.Instance,
                 CancellationToken.None);
 
             return results.Select(ToPackageInfo).ToList();
@@ -91,7 +114,7 @@ namespace RPA.NuGet.Services
             IEnumerable<NuGetVersion> versions = await resource.GetAllVersionsAsync(
                 packageId,
                 cache,
-                NullLogger.Instance,
+                NuGetProtocolLogger.Instance,
                 CancellationToken.None);
 
             IEnumerable<string> normalized = versions.Select(v => v.ToNormalizedString());
@@ -176,7 +199,7 @@ namespace RPA.NuGet.Services
                     parsed,
                     stream,
                     cache,
-                    NullLogger.Instance,
+                    NuGetProtocolLogger.Instance,
                     cancellationToken);
 
                 return copied && stream.Length > 0 ? stream.ToArray() : null;

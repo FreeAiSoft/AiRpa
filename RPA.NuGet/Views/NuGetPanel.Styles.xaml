@@ -125,16 +125,13 @@
         </Setter>
     </Style>
 
-    <!-- Маленькая кнопка на плашке пакета (Install/Update/Uninstall по наведению мыши). -->
+    <!-- Компактная текстовая кнопка оверлея «Package sources» (Add/Edit/Remove, OK/Cancel). Видимость не скрывается. -->
     <Style x:Key="NuGet.RowButtonStyle" TargetType="Button" BasedOn="{StaticResource NuGet.ActionButtonStyle}">
         <Setter Property="Height" Value="22" />
         <Setter Property="MinWidth" Value="0" />
         <Setter Property="Padding" Value="8,0" />
         <Setter Property="Margin" Value="4,0,0,0" />
         <Setter Property="FontSize" Value="11" />
-        <!-- Видимость задаётся только триггером плашки: локальное значение в шаблоне
-             перебило бы DataTemplate-триггер (у локального значения приоритет выше). -->
-        <Setter Property="Visibility" Value="Collapsed" />
     </Style>
 
     <!-- Ссылка (Project URL, Report Abuse, Configure): подчёркнутый текст без рамки и фона. -->

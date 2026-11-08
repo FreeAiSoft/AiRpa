@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -121,6 +121,53 @@ namespace RPA.Models
                 return new CallResult { Error = new Error(ex) };
             }
         }
+
+
+        /// <summary>
+        /// Перечитывает узел проекта (и его «References») в уже открытом дереве без перезагрузки всего
+        /// решения. Нужен после установки/удаления NuGet-пакета: новый пакет должен сразу появляться
+        /// в «References», при этом дерево решения и выделение в нём не должны теряться.
+        public bool RefreshVsProject(string projectPath)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath) || FSNodes == null || FSNodes.Count == 0)
+                return false;
+
+            if (!File.Exists(projectPath))
+                return false;
+
+            FSNode reloaded = VsProjectLoader.LoadProject(projectPath);
+            bool replaced = ReplaceNode(FSNodes, projectPath, reloaded);
+
+            if (!replaced)
+            {
+                RPA.Logging.Log.Write("RefreshVsProject: узел проекта не найден в дереве: " + projectPath);
+            }
+
+            return replaced;
+        }
+
+        private static bool ReplaceNode(IList<FSNode> nodes, string projectPath, FSNode replacement)
+        {
+            if (nodes == null)
+                return false;
+
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                FSNode node = nodes[i];
+                if (node.FSNodeType == FSNodeType.VsProject
+                    && string.Equals(node.RuntimeFullPath, projectPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    nodes[i] = replacement;
+                    return true;
+                }
+
+                if (node.Childs != null && ReplaceNode(node.Childs, projectPath, replacement))
+                    return true;
+            }
+
+            return false;
+        }
+
 
         private void SetChilds(FSNode fSNode)
         {
@@ -519,7 +566,7 @@ namespace RPA.Models
                 string projectPath = projectNode.RuntimeFullPath;
                 string projectFolder = Path.GetDirectoryName(projectPath);
                 string include = VsProjectWriter.GetRelativeIncludePath(projectFolder, fullPath);
-                _ = VsProjectWriter.AddXamlItem(projectPath, include);
+                _ = VsProjectWriter.AddFileItem(projectPath, include);
 
                 return new CallResult();
             }
@@ -528,6 +575,76 @@ namespace RPA.Models
                 return new CallResult { Error = new Error($"Не удалось добавить активность в файл проекта: {ex}") };
             }
         }
+        /// <summary>
+        /// Копирует произвольный файл в папку проекта, добавляет узел в дерево и регистрирует файл
+        /// в .csproj (для проектов Visual Studio). Возвращает итоговый путь в <see cref="CallResult{T}.Data"/>.
+        /// </summary>
+        internal CallResult<string> ImportFile(string sourcePath, string targetFolder)
+        {
+            if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+            {
+                return new CallResult<string> { Error = new Error($"Файл {sourcePath} не найден.") };
+            }
+
+            if (string.IsNullOrWhiteSpace(targetFolder) || !Directory.Exists(targetFolder))
+            {
+                return new CallResult<string> { Error = new Error($"Папка {targetFolder} не существует.") };
+            }
+
+            string rootFolder = FSNodes != null && FSNodes.Count > 0
+                ? ProjectPathResolver.GetNodeFolder(FSNodes[0])
+                : null;
+
+            if (!ProjectPathResolver.IsInsideProject(targetFolder, rootFolder ?? targetFolder))
+            {
+                return new CallResult<string> { Error = new Error("Файл должен располагаться внутри папки проекта.") };
+            }
+
+            try
+            {
+                string fileName = Path.GetFileName(sourcePath);
+                string targetPath = GetUniqueFilePath(targetFolder, fileName);
+                File.Copy(sourcePath, targetPath);
+
+                AddFile(targetPath);
+
+                CallResult registerResult = RegisterFileInVsProject(targetPath);
+                if (registerResult.Error != null)
+                {
+                    return new CallResult<string> { Error = registerResult.Error };
+                }
+
+                return new CallResult<string> { Data = targetPath };
+            }
+            catch (Exception ex)
+            {
+                return new CallResult<string> { Error = new Error($"Не удалось добавить файл: {ex}") };
+            }
+        }
+
+        private static string GetUniqueFilePath(string folder, string fileName)
+        {
+            string fullPath = Path.Combine(folder, fileName);
+            if (!File.Exists(fullPath))
+            {
+                return fullPath;
+            }
+
+            string stem = Path.GetFileNameWithoutExtension(fileName);
+            string extension = Path.GetExtension(fileName);
+            for (int i = 1; i < 1000; i++)
+            {
+                string candidate = Path.Combine(folder, stem + i + extension);
+                if (!File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            return fullPath;
+        }
+
+
 
         private static FSNode FindOwningVsProject(FSNode node, string filePath)
         {

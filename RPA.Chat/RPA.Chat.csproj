@@ -15,6 +15,7 @@
     <PackageReference Include="Markdig" Version="1.4.2" />
     <PackageReference Include="Material.Icons.WPF" Version="2.4.1" />
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
     <!-- Единая версия пакета во всём решении: 4.5.2 даёт сборку 4.2.0.0, а студия перенаправляет
          привязку на 4.2.0.1 (пакет 4.5.4). Разные копии одной сборки в папке приложения роняли
          дизайнер WF (FileLoadException, HRESULT 0x80131040) при перечислении пространств имён. -->
@@ -42,4 +43,17 @@
   <ItemGroup>
     <ProjectReference Include="..\Agent.Core\Agent.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Mermaid.js bundled as an embedded resource and read at runtime by MermaidDiagramControl. -->
+    <EmbeddedResource Include="Assets\mermaid.min.js">
+      <LogicalName>RPA.Chat.Assets.mermaid.min.js</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <Target Name="CopyWebView2LoaderToOutput" AfterTargets="Build">
+    <!-- The WebView2 NuGet package only drops the native loader under runtimes\ for this
+         SDK-style net48 project. Copy the x64 loader next to the managed assemblies so the
+         studio (and F5 debug) can find it. -->
+    <Copy SourceFiles="$(NuGetPackageRoot)microsoft.web.webview2\1.0.4258.31\runtimes\win-x64\native\WebView2Loader.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

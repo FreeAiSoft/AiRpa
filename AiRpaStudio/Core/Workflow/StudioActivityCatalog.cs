@@ -39,6 +39,7 @@ namespace RPA.Core.Workflow
                 { StudioActivityPalette.DebugCategory, "Debug" },
                 { StudioActivityPalette.ControlFlowCategory, "Control Flow" },
                 { StudioActivityPalette.FlowchartCategory, "Flowchart" },
+                { StudioActivityPalette.CollectionCategory, "Collection" },
                 { StudioActivityPalette.StateMachineCategory, "State Machine" },
                 { StudioActivityPalette.PrimitivesCategory, "Primitives" },
                 { StudioActivityPalette.ErrorHandlingCategory, "Error Handling" },
