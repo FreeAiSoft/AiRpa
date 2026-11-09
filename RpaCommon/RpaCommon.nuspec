@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+  <metadata>
+    <id>RpaCommon</id>
+    <version>1.0.0</version>
+    <title>RpaCommon</title>
+    <authors>AiRpaStudio</authors>
+    <owners>AiRpaStudio</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Общие модели и вспомогательные типы для RPA (net472).</description>
+    <copyright>Copyright © 2025</copyright>
+    <tags>RPA Workflow Common</tags>
+    <dependencies>
+      <group targetFramework="net472">
+        <dependency id="Newtonsoft.Json" version="13.0.3" />
+      </group>
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="bin\$configuration$\RpaCommon.dll" target="lib\net472" />
+  </files>
+</package>

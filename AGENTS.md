@@ -58,6 +58,11 @@
   `RPA.NuGet` нет). Стражи: `AiRpaStudio.Tests\NuGetPanelThemeTests.cs`.
 - Оверлей «Package sources» (`SourcesOverlay`) накрывает строки 0–2 корневого `Grid` (`Grid.RowSpan="3"`), а не строку состояния: её непрозрачная полоса с 1px-разделителем рисовалась поверх оверлея и «резала» подпись «Sources are stored in NuGet.Config…». Страж — `AiRpaStudio.Tests\NuGetPanelLayoutTests.cs` (`SourcesOverlay_FootnoteIsNotClippedByStatusBar`).
 
+- Выбор источника в комбобоксе персистится **на воркспейс** в настройке `NuGetSelectedSources`
+  (JSON-словарь `workspaceFolder → sourceUrl`); парсинг/запись — `Core\NuGetSourceSelectionStore.cs`,
+  панель читает/пишет через хуки `NuGetPanelViewModel.LoadSelectedSourceUrl`/`SaveSelectedSourceUrl`
+  (сам `RPA.NuGet` на студию не ссылается). Стражи — `NuGetSourceSelectionStoreTests`,
+  `NuGetSourcesAndSearchTests.SelectedSource_*`.
 - Панель открывается **вкладкой панели документов** (`MainView.ShowNuGetPanel`, `ContentId = "NuGet"`),
   а не боковым доком: там помещается двухколоночный макет «список | детали». Узкая ширина
   (< 640) включает режим, где детали показываются вместо списка. Ветка восстановления раскладки

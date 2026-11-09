@@ -43,7 +43,7 @@ namespace RPA.Core.Workflow
                 { StudioActivityPalette.StateMachineCategory, "State Machine" },
                 { StudioActivityPalette.PrimitivesCategory, "Primitives" },
                 { StudioActivityPalette.ErrorHandlingCategory, "Error Handling" },
-                { StudioActivityPalette.BrowserCategory, "Browser" },
+
                 { StudioActivityPalette.OsCategory, "OS" }
             };
 

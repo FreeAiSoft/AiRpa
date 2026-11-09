@@ -1,15 +1,15 @@
 ﻿using System;
-using System.Activities;
+
 using System.Activities.Presentation.Model;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
+
 using System.Data;
 using System.Linq;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using PuppeteerSharp;
+
 using RPA.Core.Services;
 
 namespace RPA.CSharpExpressionEditor
@@ -39,7 +39,7 @@ namespace RPA.CSharpExpressionEditor
                 MetadataReference.CreateFromFile(typeof(Enumerable).GetTypeInfo().Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(Console).GetTypeInfo().Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(DataTable).GetTypeInfo().Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(IBrowser).GetTypeInfo().Assembly.Location)
+
             };
         }
 
@@ -92,12 +92,7 @@ namespace RPA.CSharpExpressionEditor
             }
 
             string fullName = type.FullName;
-            if (!string.IsNullOrEmpty(fullName))
-            {
-                return fullName.Replace('+', '.');
-            }
-
-            return type.Name;
+            return !string.IsNullOrEmpty(fullName) ? fullName.Replace('+', '.') : type.Name;
         }
 
         /// <summary>

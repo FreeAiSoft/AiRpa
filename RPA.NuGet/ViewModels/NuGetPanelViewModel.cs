@@ -118,6 +118,12 @@ namespace RPA.NuGet.ViewModels
         public event EventHandler<string> ProjectChanged;
 
         // --- Коллекции ---
+        /// <summary>Читает сохранённый для текущего воркспейса URL источника (подключается хостом-студией).</summary>
+        public Func<string> LoadSelectedSourceUrl { get; set; }
+
+        /// <summary>Сохраняет URL выбранного источника для текущего воркспейса (подключается хостом-студией).</summary>
+        public Action<string> SaveSelectedSourceUrl { get; set; }
+
 
         public ObservableCollection<NuGetPackageItemViewModel> BrowseItems { get; } =
             new ObservableCollection<NuGetPackageItemViewModel>();
@@ -400,7 +406,10 @@ namespace RPA.NuGet.ViewModels
                     return;
 
                 if (!_fixedSource)
+                {
                     _search = new NuGetSearchService(value.Url);
+                    SaveSelectedSourceUrl?.Invoke(value.Url);
+                }
 
                 _updatesChecked = false;
                 UpdateSourceMappingNotice();
@@ -1131,7 +1140,12 @@ namespace RPA.NuGet.ViewModels
                 return;
             }
 
-            SelectedSource = Sources.FirstOrDefault();
+            string persistedUrl = LoadSelectedSourceUrl?.Invoke();
+            NuGetSourceDefinition preferred = string.IsNullOrWhiteSpace(persistedUrl)
+                ? null
+                : Sources.FirstOrDefault(source => string.Equals(source.Url, persistedUrl, StringComparison.OrdinalIgnoreCase));
+
+            SelectedSource = preferred ?? Sources.FirstOrDefault();
             UpdateSourceMappingNotice();
         }
 

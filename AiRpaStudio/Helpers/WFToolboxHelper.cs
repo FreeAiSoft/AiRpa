@@ -5,6 +5,8 @@ using System.Activities.Core.Presentation;
 using System.Activities.Presentation.Toolbox;
 using System.Collections.Generic;
 using System.Linq;
+using System.ComponentModel;
+using System.IO;
 using System.Reflection;
 using RPA.Controls;
 using RPA.Core.Generation;
@@ -36,7 +38,7 @@ namespace RPA.Helpers
             ResetActivitiesCount();
             ToolboxControl wfToolbox = new ToolboxControl();
 
-            LoadPuppeteer();
+
             _ = AppDomain.CurrentDomain.Load("System.Activities"); //some time not load
             _ = AppDomain.CurrentDomain.Load("Activities.Flow");
             _ = AppDomain.CurrentDomain.Load("Activities.Debug");
@@ -70,95 +72,6 @@ namespace RPA.Helpers
             return string.IsNullOrWhiteSpace(localized) ? key : localized;
         }
 
-        private void LoadPuppeteer()
-        {
-            Assembly assembly = AppDomain.CurrentDomain.Load("Activities.Browser");
-
-            // Вывод всех зависимостей сборки Activities.Browser через Debug
-            System.Diagnostics.Debug.WriteLine("=== Activities.Browser Dependencies ===");
-            AssemblyName[] referencedAssemblies = assembly.GetReferencedAssemblies();
-            foreach (AssemblyName refAssembly in referencedAssemblies)
-            {
-                System.Diagnostics.Debug.WriteLine($"  - {refAssembly.FullName}");
-            }
-            System.Diagnostics.Debug.WriteLine($"Total dependencies: {referencedAssemblies.Length}");
-            System.Diagnostics.Debug.WriteLine("=====================================");
-
-            // Принудительная загрузка всех зависимостей в память
-            System.Diagnostics.Debug.WriteLine("=== Loading Activities.Browser Dependencies ===");
-            foreach (AssemblyName refAssembly in referencedAssemblies)
-            {
-                try
-                {
-                    Assembly loadedAssembly = AppDomain.CurrentDomain.Load(refAssembly);
-                    System.Diagnostics.Debug.WriteLine($"  ✓ Loaded: {refAssembly.Name}");
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"  ✗ Failed to load {refAssembly.Name}: {ex}");
-                }
-            }
-            System.Diagnostics.Debug.WriteLine("============================");
-
-            // Принудительная загрузка netstandard и всех его зависимостей
-            try
-            {
-                AssemblyName netstandardName = new AssemblyName("netstandard, Version=2.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51");
-                Assembly netstandardAssembly = AppDomain.CurrentDomain.Load(netstandardName);
-
-                System.Diagnostics.Debug.WriteLine("");
-                System.Diagnostics.Debug.WriteLine("=== netstandard Assembly Loaded ===");
-                System.Diagnostics.Debug.WriteLine($"  Assembly: {netstandardAssembly.FullName}");
-                System.Diagnostics.Debug.WriteLine($"  Location: {netstandardAssembly.Location}");
-                System.Diagnostics.Debug.WriteLine("====================================");
-
-                System.Diagnostics.Debug.WriteLine("");
-                System.Diagnostics.Debug.WriteLine("=== netstandard Dependencies ===");
-                AssemblyName[] netstandardReferences = netstandardAssembly.GetReferencedAssemblies();
-                foreach (AssemblyName refAssembly in netstandardReferences)
-                {
-                    System.Diagnostics.Debug.WriteLine($"  - {refAssembly.FullName}");
-                }
-                System.Diagnostics.Debug.WriteLine($"Total dependencies: {netstandardReferences.Length}");
-                System.Diagnostics.Debug.WriteLine("=================================");
-
-                // Принудительная загрузка всех зависимостей netstandard в память
-                System.Diagnostics.Debug.WriteLine("=== Loading netstandard Dependencies ===");
-                foreach (AssemblyName refAssembly in netstandardReferences)
-                {
-                    try
-                    {
-                        Assembly loadedAssembly = AppDomain.CurrentDomain.Load(refAssembly);
-                        System.Diagnostics.Debug.WriteLine($"  ✓ Loaded: {refAssembly.Name}");
-
-                        // Рекурсивная загрузка зависимостей второго уровня
-                        AssemblyName[] secondLevelRefs = loadedAssembly.GetReferencedAssemblies();
-                        foreach (AssemblyName secondLevelRef in secondLevelRefs)
-                        {
-                            try
-                            {
-                                _ = AppDomain.CurrentDomain.Load(secondLevelRef);
-                                System.Diagnostics.Debug.WriteLine($"    ✓ Loaded (2nd level): {secondLevelRef.Name}");
-                            }
-                            catch (Exception ex2)
-                            {
-                                System.Diagnostics.Debug.WriteLine($"    ✗ Failed to load (2nd level) {secondLevelRef.Name}: {ex2.Message}");
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"  ✗ Failed to load {refAssembly.Name}: {ex}");
-                    }
-                }
-                System.Diagnostics.Debug.WriteLine("=========================================");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to load netstandard assembly: {ex}");
-            }
-        }
-
         /// <summary>
         /// Добавляет категорию в тулбокс. Активности сортируются по отображаемому имени
         /// (<see cref="FixName"/>) без учёта регистра, чтобы порядок в панели не зависел от
@@ -180,7 +93,8 @@ namespace RPA.Helpers
             string displayName = type.Name;
             string[] splitName = displayName.Split('`');
             displayName = splitName[0];
-            if (type.GetCustomAttributes(typeof(System.ComponentModel.DisplayNameAttribute), true).FirstOrDefault() is System.ComponentModel.DisplayNameAttribute displayNameAttribute)
+            DisplayNameAttribute displayNameAttribute = ReadDisplayName(type);
+            if (displayNameAttribute != null && !string.IsNullOrWhiteSpace(displayNameAttribute.DisplayName))
             {
                 displayName = displayNameAttribute.DisplayName;
             }
@@ -191,6 +105,28 @@ namespace RPA.Helpers
             }
 
             return displayName;
+        }
+
+        /// <summary>
+        /// Читает <see cref="DisplayNameAttribute"/> типа, не роняя панель, если среди атрибутов типа есть
+        /// атрибут из дизайнерской сборки, отсутствующей рядом с пакетом (например
+        /// <c>Microsoft.Windows.Design.Interaction</c>, откуда берутся <c>[ToolboxBrowsable]</c>/
+        /// <c>[ToolboxItem]</c>): <c>GetCustomAttributes</c> резолвит типы всех атрибутов и падает,
+        /// хотя панели нужен только <c>DisplayName</c>.
+        /// </summary>
+        private static DisplayNameAttribute ReadDisplayName(Type type)
+        {
+            try
+            {
+                return type.GetCustomAttributes(typeof(DisplayNameAttribute), true)
+                    .OfType<DisplayNameAttribute>()
+                    .FirstOrDefault();
+            }
+            catch (Exception ex) when (ex is FileNotFoundException || ex is FileLoadException ||
+                                       ex is TypeLoadException || ex is ReflectionTypeLoadException)
+            {
+                return null;
+            }
         }
     }
 }

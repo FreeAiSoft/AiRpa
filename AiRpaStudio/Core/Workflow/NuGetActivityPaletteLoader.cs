@@ -268,7 +268,17 @@ namespace RPA.Core.Workflow
                 return null;
             }
 
-            IReadOnlyList<Type> activityTypes = StudioActivityPalette.ActivityTypesOf(assembly);
+            IReadOnlyList<Type> activityTypes;
+            try
+            {
+                activityTypes = StudioActivityPalette.ActivityTypesOf(assembly);
+            }
+            catch (Exception ex)
+            {
+                // Сборка пакета не загрузила свои зависимости: палитра её пропускает, установка не падает.
+                NuGetLog.Warn("Palette scan skipped " + dllPath + ": " + ex.GetBaseException().Message);
+                return null;
+            }
             if (activityTypes.Count == 0)
                 return null;
 

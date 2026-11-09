@@ -4,6 +4,7 @@ using System.Activities.Statements;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 
@@ -459,7 +460,7 @@ namespace RPA.Core.Generation
         internal static string DisplayNameOf(Type type)
         {
             string name = KeyOf(type);
-            var attribute = type.GetCustomAttribute<DisplayNameAttribute>(true);
+            DisplayNameAttribute attribute = GetAttributeSafe<DisplayNameAttribute>(type, true);
 
             if (attribute != null && !string.IsNullOrWhiteSpace(attribute.DisplayName))
             {
@@ -471,8 +472,44 @@ namespace RPA.Core.Generation
 
         private static string DescriptionOf(Type type)
         {
-            var attribute = type.GetCustomAttribute<DescriptionAttribute>(true);
+            DescriptionAttribute attribute = GetAttributeSafe<DescriptionAttribute>(type, true);
             return attribute?.Description;
+        }
+
+        /// <summary>
+        /// Безопасное чтение атрибута: если у типа или свойства есть атрибут из дизайнерской сборки,
+        /// которой нет рядом с пакетом (например <c>Microsoft.Windows.Design.Interaction</c>),
+        /// <c>GetCustomAttribute</c> резолвит типы всех атрибутов и падает — каталог агента
+        /// обязан строиться, а не ломаться из-за одного пакета.
+        /// </summary>
+        private static T GetAttributeSafe<T>(MemberInfo member, bool inherit) where T : Attribute
+        {
+            try
+            {
+                return member.GetCustomAttribute<T>(inherit);
+            }
+            catch (Exception ex) when (ex is FileNotFoundException || ex is FileLoadException ||
+                                       ex is TypeLoadException || ex is ReflectionTypeLoadException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Безопасная проверка наличия атрибута — та же причина, что у <see cref="GetAttributeSafe{T}"/>:
+        /// недогруженная дизайнерская сборка не должна ронять каталог агента.
+        /// </summary>
+        private static bool HasAttributeSafe(MemberInfo member, Type attributeType, bool inherit)
+        {
+            try
+            {
+                return member.GetCustomAttributes(attributeType, inherit).Any();
+            }
+            catch (Exception ex) when (ex is FileNotFoundException || ex is FileLoadException ||
+                                       ex is TypeLoadException || ex is ReflectionTypeLoadException)
+            {
+                return false;
+            }
         }
 
         private void Add(Type type, string category)
@@ -501,9 +538,9 @@ namespace RPA.Core.Generation
                     propertyType,
                     PaletteArgumentDirection.In,
                     propertyType.GetGenericArguments()[0],
-                    required: property.GetCustomAttributes(typeof(RequiredArgumentAttribute), true).Any(),
-                    property.GetCustomAttribute<DefaultValueAttribute>(true)?.Value?.ToString(),
-                    property.GetCustomAttribute<DescriptionAttribute>(true)?.Description);
+                    required: HasAttributeSafe(property, typeof(RequiredArgumentAttribute), true),
+                    GetAttributeSafe<DefaultValueAttribute>(property, true)?.Value?.ToString(),
+                    GetAttributeSafe<DescriptionAttribute>(property, true)?.Description);
             }
 
             if (!typeof(Argument).IsAssignableFrom(propertyType))
@@ -525,9 +562,9 @@ namespace RPA.Core.Generation
                 direction = PaletteArgumentDirection.In;
             }
 
-            bool required = property.GetCustomAttributes(typeof(RequiredArgumentAttribute), true).Any();
-            var defaultAttribute = property.GetCustomAttribute<DefaultValueAttribute>(true);
-            var descriptionAttribute = property.GetCustomAttribute<DescriptionAttribute>(true);
+            bool required = HasAttributeSafe(property, typeof(RequiredArgumentAttribute), true);
+            DefaultValueAttribute defaultAttribute = GetAttributeSafe<DefaultValueAttribute>(property, true);
+            DescriptionAttribute descriptionAttribute = GetAttributeSafe<DescriptionAttribute>(property, true);
 
             return new PaletteArgumentDescriptor(
                 property.Name,
@@ -619,8 +656,8 @@ namespace RPA.Core.Generation
                 PaletteArgumentDirection.Property,
                 propertyType,
                 required: false,
-                property.GetCustomAttribute<DefaultValueAttribute>(true)?.Value?.ToString(),
-                property.GetCustomAttribute<DescriptionAttribute>(true)?.Description);
+                GetAttributeSafe<DefaultValueAttribute>(property, true)?.Value?.ToString(),
+                GetAttributeSafe<DescriptionAttribute>(property, true)?.Description);
         }
 
         /// <summary>
@@ -704,7 +741,7 @@ namespace RPA.Core.Generation
         internal const string StateMachineCategory = "lang_toolbox_state_machine";
         internal const string PrimitivesCategory = "lang_toolbox_primitives";
         internal const string ErrorHandlingCategory = "lang_toolbox_error_handling";
-        internal const string BrowserCategory = "lang_toolbox_browser";
+
         internal const string OsCategory = "lang_toolbox_os";
 
         /// <summary>
@@ -716,7 +753,7 @@ namespace RPA.Core.Generation
             "Activities.Flow",
             "Activities.Debug",
             "Activities.OS",
-            "Activities.Browser",
+
         };
 
         /// <summary>
@@ -937,6 +974,13 @@ namespace RPA.Core.Generation
                     .OrderBy(type => type.Name, StringComparer.Ordinal)
                     .ToArray();
             }
+            catch (Exception)
+            {
+                // FileNotFoundException/FileLoadException/BadImageFormatException из-за неразрешённых
+                // зависимостей сборки (например, пакет с транзитивными зависимостями ещё не в packages\).
+                // Один «битый» пакет не должен ронять палитру и тем более установку пакета.
+                return Array.Empty<Type>();
+            }
         }
 
         internal static string CategoryKeyOf(string assemblyName)
@@ -949,8 +993,8 @@ namespace RPA.Core.Generation
                     return DebugCategory;
                 case "Activities.OS":
                     return OsCategory;
-                case "Activities.Browser":
-                    return BrowserCategory;
+
+
                 default:
                     return FlowCategory;
             }

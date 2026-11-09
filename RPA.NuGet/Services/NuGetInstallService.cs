@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using NuGet.Versioning;
 using RPA.NuGet.Models;
 
 namespace RPA.NuGet.Services
@@ -45,14 +48,27 @@ namespace RPA.NuGet.Services
 
             NuGetLog.Info("Install " + id + " " + version + " (sdk=" + project.IsSdkStyle + ") project=" + project.ProjectPath
                           + " source=" + (search != null ? search.SourceUrl : "direct"));
-            if (!project.IsSdkStyle)
+            if (project.IsSdkStyle)
             {
-                byte[] nupkg = await DownloadNupkgAsync(search, id, version, cancellationToken).ConfigureAwait(false);
-                cancellationToken.ThrowIfCancellationRequested();
-                _downloader.Extract(nupkg, id, version, GetPackagesFolder(project));
+                // PackageReference: транзитивные зависимости разрешает msbuild restore —
+                // в csproj добавляется только прямая ссылка, иначе restore и проект разойдутся.
+                NuGetProjectConfig.Add(project, id, version);
+                NuGetProjectConfig.Save(project);
+                return;
             }
 
+            byte[] nupkg = await DownloadNupkgAsync(search, id, version, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            _downloader.Extract(nupkg, id, version, GetPackagesFolder(project));
             NuGetProjectConfig.Add(project, id, version);
+
+            var processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (NuGetPackageReference package in project.Packages)
+                processed.Add(package.Id);
+
+            foreach (NuGetPackageDependency dependency in _downloader.ReadDependencies(nupkg, project.TargetFramework))
+                await InstallDependencyRecursiveAsync(project, dependency, search, processed, cancellationToken).ConfigureAwait(false);
+
             NuGetProjectConfig.Save(project);
         }
 
@@ -74,6 +90,72 @@ namespace RPA.NuGet.Services
             }
 
             return await _downloader.DownloadNupkgAsync(id, version).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Ставит транзитивную зависимость и рекурсивно её зависимости (packages.config-проекты).
+        /// Уже присутствующие в проекте пакеты не трогаются, чтобы не откатывать более новую версию.
+        /// </summary>
+        private async Task InstallDependencyRecursiveAsync(
+            NuGetProjectPackages project,
+            NuGetPackageDependency dependency,
+            NuGetSearchService search,
+            HashSet<string> processed,
+            CancellationToken cancellationToken)
+        {
+            if (dependency == null || string.IsNullOrWhiteSpace(dependency.Id))
+                return;
+            if (processed.Contains(dependency.Id))
+                return;
+
+            processed.Add(dependency.Id);
+
+            string version = await ResolveDependencyVersionAsync(dependency, search).ConfigureAwait(false);
+            if (version == null)
+            {
+                NuGetLog.Info("Dependency " + dependency.Id + " (" + dependency.VersionRange + ") not resolved; left to restore.");
+                return;
+            }
+
+            byte[] nupkg = await DownloadNupkgAsync(search, dependency.Id, version, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            _downloader.Extract(nupkg, dependency.Id, version, GetPackagesFolder(project));
+            NuGetProjectConfig.Add(project, dependency.Id, version);
+
+            foreach (NuGetPackageDependency child in _downloader.ReadDependencies(nupkg, project.TargetFramework))
+                await InstallDependencyRecursiveAsync(project, child, search, processed, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Подбирает конкретную версию зависимости: наименьшую стабильную, удовлетворяющую диапазону
+        /// (как делает NuGet restore по умолчанию). Без источника версии не перечислить — <c>null</c>,
+        /// и зависимость остаётся на msbuild restore.
+        /// </summary>
+        private static async Task<string> ResolveDependencyVersionAsync(NuGetPackageDependency dependency, NuGetSearchService search)
+        {
+            if (search == null)
+                return null;
+
+            IReadOnlyList<string> available = await search.GetVersionsAsync(dependency.Id, includePrerelease: true).ConfigureAwait(false);
+            VersionRange range = ParseVersionRange(dependency.VersionRange);
+            bool allowPrerelease = range?.MinVersion?.IsPrerelease == true;
+
+            return available
+                .Select(version => NuGetVersion.TryParse(version, out NuGetVersion parsed) ? parsed : null)
+                .Where(version => version != null)
+                .Where(version => !version.IsPrerelease || allowPrerelease)
+                .Where(version => range == null || range.Satisfies(version))
+                .OrderBy(version => version)
+                .Select(version => version.ToNormalizedString())
+                .FirstOrDefault();
+        }
+
+        private static VersionRange ParseVersionRange(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return null;
+
+            return VersionRange.TryParse(text, out VersionRange range) ? range : null;
         }
 
 

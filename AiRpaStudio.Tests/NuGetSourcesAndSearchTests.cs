@@ -434,6 +434,64 @@ public class NuGetSourcesAndSearchTests
         }
     }
 
+    [Test]
+    public void SelectedSource_RestoresFromWorkspaceHook()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "NuGet.Config"),
+                "<?xml version=\"1.0\" encoding=\"utf-8\"?><configuration><packageSources><clear />"
+                + "<add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" />"
+                + "<add key=\"corp\" value=\"https://corp.example.org/v3/index.json\" />"
+                + "</packageSources></configuration>");
+
+            var model = new NuGetPanelViewModel();
+            model.LoadSelectedSourceUrl = () => "https://corp.example.org/v3/index.json";
+            LoadProjectInto(model, directory);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.SelectedSource, Is.Not.Null);
+                Assert.That(model.SelectedSource.Url, Is.EqualTo("https://corp.example.org/v3/index.json"),
+                    "при наличии сохранённого выбора восстанавливается он, а не первый источник");
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Test]
+    public void SelectedSource_PersistsViaWorkspaceHook()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "NuGet.Config"),
+                "<?xml version=\"1.0\" encoding=\"utf-8\"?><configuration><packageSources><clear />"
+                + "<add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" />"
+                + "<add key=\"corp\" value=\"https://corp.example.org/v3/index.json\" />"
+                + "</packageSources></configuration>");
+
+            string savedUrl = null;
+            var model = new NuGetPanelViewModel();
+            model.SaveSelectedSourceUrl = url => savedUrl = url;
+            LoadProjectInto(model, directory);
+
+            NuGetSourceDefinition corp = model.Sources.First(source => source.Name == "corp");
+            model.SelectedSource = corp;
+
+            Assert.That(savedUrl, Is.EqualTo("https://corp.example.org/v3/index.json"),
+                "смена источника записывает его URL через хук воркспейса");
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
     // ================= Служебное =================
 
     private static void LoadProjectInto(NuGetPanelViewModel model, string directory)

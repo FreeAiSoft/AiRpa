@@ -1,4 +1,4 @@
-﻿<?xml version='1.0' encoding='utf-8'?>
+<?xml version='1.0' encoding='utf-8'?>
 <SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="RPA.Properties" GeneratedClassName="Settings">
   <Profiles />
   <Settings>
@@ -34,6 +34,9 @@
     </Setting>
     <Setting Name="MsBuildToolchain" Type="System.String" Scope="User">
       <Value Profile="(Default)">Auto</Value>
+    </Setting>
+    <Setting Name="NuGetSelectedSources" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
     </Setting>
   </Settings>
 </SettingsFile>

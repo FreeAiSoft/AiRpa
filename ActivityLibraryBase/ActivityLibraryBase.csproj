@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -83,6 +83,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />
+    <None Include="ActivityLibraryBase.nuspec" />
+    <None Include="package.version" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\ActivityLibraryBaseResorces.resx">
@@ -98,6 +100,26 @@
     </Page>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <NuGetExe>$(MSBuildProjectDirectory)\..\nuget.exe</NuGetExe>
+    <NuGetLocalDir>$(MSBuildProjectDirectory)\..\nuget_local</NuGetLocalDir>
+    <PackageBaseVersion>1.0.0</PackageBaseVersion>
+    <PackageVersionFile>$(MSBuildProjectDirectory)\package.version</PackageVersionFile>
+  </PropertyGroup>
+  <Target Name="PackActivityLibraryBase" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' And Exists('$(NuGetExe)')">
+    <ReadLinesFromFile File="$(PackageVersionFile)" Condition="Exists('$(PackageVersionFile)')">
+      <Output TaskParameter="Lines" ItemName="_PackageVersionLines" />
+    </ReadLinesFromFile>
+    <PropertyGroup>
+      <_PackageCounterRaw>@(_PackageVersionLines)</_PackageCounterRaw>
+      <_PackageCounterRaw Condition="'$(_PackageCounterRaw)' == ''">0</_PackageCounterRaw>
+      <_PackageCounter>$([MSBuild]::Add($(_PackageCounterRaw), 1))</_PackageCounter>
+      <PackageVersion>$(PackageBaseVersion).$(_PackageCounter)</PackageVersion>
+    </PropertyGroup>
+    <MakeDir Directories="$(NuGetLocalDir)" />
+    <Exec Command="&quot;$(NuGetExe)&quot; pack &quot;$(MSBuildProjectDirectory)\ActivityLibraryBase.nuspec&quot; -Version $(PackageVersion) -Properties Configuration=$(Configuration) -OutputDirectory &quot;$(NuGetLocalDir)&quot; -NonInteractive" />
+    <WriteLinesToFile File="$(PackageVersionFile)" Lines="$(_PackageCounter)" Overwrite="true" />
+  </Target>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

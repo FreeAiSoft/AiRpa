@@ -137,6 +137,22 @@ namespace RPA.Views
                 });
 
             nuGetPanel = new NuGet.Views.NuGetPanel();
+            // Выбор источника пакетов персистится на воркспейс: панель не знает про студию и настройки,
+            // поэтому хост подключает чтение/запись через хуки.
+            nuGetPanel.ViewModel.LoadSelectedSourceUrl = () =>
+                NuGetSourceSelectionStore.Read(
+                    Properties.Settings.Default.NuGetSelectedSources,
+                    ProjectManager.GetInstance().ProjectFolder);
+
+            nuGetPanel.ViewModel.SaveSelectedSourceUrl = url =>
+            {
+                Properties.Settings.Default.NuGetSelectedSources =
+                    NuGetSourceSelectionStore.Write(
+                        Properties.Settings.Default.NuGetSelectedSources,
+                        ProjectManager.GetInstance().ProjectFolder,
+                        url);
+                Properties.Settings.Default.Save();
+            };
             // Re-detect the .csproj whenever the current studio project folder changes.
             ProjectManager.GetInstance().PropertyChanged += OnProjectManagerPropertyChanged;
             // После install/uninstall пакета перечитываем References и активности в палитре.

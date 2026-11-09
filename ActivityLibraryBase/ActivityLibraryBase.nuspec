@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+  <metadata>
+    <id>ActivityLibraryBase</id>
+    <version>1.0.0</version>
+    <title>ActivityLibraryBase</title>
+    <authors>AiRpaStudio</authors>
+    <owners>AiRpaStudio</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Базовые классы активностей для Windows Workflow Foundation (net472).</description>
+    <copyright>Copyright © 2025</copyright>
+    <tags>RPA Workflow Activities Base</tags>
+  </metadata>
+  <files>
+    <file src="bin\$configuration$\ActivityLibraryBase.dll" target="lib\net472" />
+  </files>
+</package>

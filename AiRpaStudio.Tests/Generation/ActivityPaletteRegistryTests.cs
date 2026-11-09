@@ -251,28 +251,4 @@ public class ActivityPaletteRegistryTests
         });
     }
 
-    [Test]
-    public void Categories_IncludeBrowserActivities_WhenBrowserAssemblyIsLoaded()
-    {
-        System.Reflection.Assembly browser = null;
-        try
-        {
-            browser = System.Reflection.Assembly.Load("Activities.Browser");
-        }
-        catch (Exception)
-        {
-        }
-
-        Assume.That(browser, Is.Not.Null, "Activities.Browser не загружена в тестовый домен");
-
-
-        string[] keys = StudioActivityPalette.Categories()
-            .Select(category => category.Key)
-            .ToArray();
-
-        Assert.That(keys, Does.Contain(StudioActivityPalette.BrowserCategory),
-            "браузерные активности должны попадать в каталог/реестр из общего источника палитры");
-    }
-
-
 }

@@ -1,9 +1,15 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using NuGet.Frameworks;
 using NuGet.Packaging;
+using NuGet.Packaging.Core;
+using NuGet.Versioning;
+using RPA.NuGet.Models;
 
 namespace RPA.NuGet.Services
 {
@@ -156,6 +162,95 @@ namespace RPA.NuGet.Services
                     Description = nuspec.GetDescription(),
                     Authors = string.Join(", ", nuspec.GetAuthors())
                 };
+            }
+        }
+
+        /// <summary>
+        /// Читает зависимости пакета из <c>.nuspec</c>, выбрав группу, подходящую целевому
+        /// фреймворку проекта. Нужен менеджеру пакетов, чтобы ставить транзитивные зависимости
+        /// для <c>packages.config</c>-проектов так, как это делает NuGet restore.
+        /// </summary>
+        public IReadOnlyList<NuGetPackageDependency> ReadDependencies(byte[] nupkg, string targetFramework)
+        {
+            if (nupkg == null || nupkg.Length == 0)
+                return Array.Empty<NuGetPackageDependency>();
+
+            using (var stream = new MemoryStream(nupkg))
+            using (var reader = new PackageArchiveReader(stream))
+            {
+                NuspecReader nuspec = reader.NuspecReader;
+                PackageDependencyGroup group = SelectDependencyGroup(nuspec.GetDependencyGroups(), targetFramework);
+                if (group == null)
+                    return Array.Empty<NuGetPackageDependency>();
+
+                return group.Packages
+                    .Where(package => package != null && !string.IsNullOrWhiteSpace(package.Id))
+                    .Select(package => new NuGetPackageDependency
+                    {
+                        Id = package.Id,
+                        VersionRange = package.VersionRange?.ToNormalizedString() ?? string.Empty
+                    })
+                    .ToList();
+            }
+        }
+
+        private static PackageDependencyGroup SelectDependencyGroup(
+            IEnumerable<PackageDependencyGroup> groups,
+            string targetFramework)
+        {
+            List<PackageDependencyGroup> list = (groups ?? Enumerable.Empty<PackageDependencyGroup>()).ToList();
+            if (list.Count == 0)
+                return null;
+
+            NuGetFramework project = ParseFramework(targetFramework);
+            if (project != null)
+            {
+                PackageDependencyGroup exact = list.FirstOrDefault(group =>
+                    group.TargetFramework != null &&
+                    string.Equals(group.TargetFramework.GetShortFolderName(), project.GetShortFolderName(), StringComparison.OrdinalIgnoreCase));
+                if (exact != null)
+                    return exact;
+
+                List<NuGetFramework> candidates = list
+                    .Where(group => group.TargetFramework != null)
+                    .Select(group => group.TargetFramework)
+                    .ToList();
+                if (candidates.Count > 0)
+                {
+                    try
+                    {
+                        NuGetFramework nearest = new FrameworkReducer().GetNearest(project, candidates);
+                        if (nearest != null)
+                        {
+                            PackageDependencyGroup match = list.FirstOrDefault(group =>
+                                group.TargetFramework != null && group.TargetFramework.Equals(nearest));
+                            if (match != null)
+                                return match;
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        // Подбор фреймворка — best-effort: нестандартный TFM не должен ломать установку.
+                    }
+                }
+            }
+
+            PackageDependencyGroup any = list.FirstOrDefault(group => group.TargetFramework == null || group.TargetFramework.IsAny);
+            return any ?? list[0];
+        }
+
+        private static NuGetFramework ParseFramework(string targetFramework)
+        {
+            if (string.IsNullOrWhiteSpace(targetFramework))
+                return null;
+
+            try
+            {
+                return NuGetFramework.ParseFolder(targetFramework);
+            }
+            catch (Exception)
+            {
+                return null;
             }
         }
 

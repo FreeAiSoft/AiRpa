@@ -163,6 +163,29 @@ public class NuGetProjectIntegrationTests
             "обработчик CollectionChanged обязан не бросать исключение — иначе обновление References ломает дерево");
     }
 
+    [Test]
+    public void ActivityTypesOf_DoesNotCrashOnAssemblyLoadErrors()
+    {
+        // Регрессия: assembly.GetTypes() при неразрешённых зависимостях бросает FileNotFoundException/
+        // FileLoadException (а не только ReflectionTypeLoadException). Из-за этого установка пакета
+        // падала с «Install failed», хотя сам .nupkg уже был распакован. Палитра обязана переживать
+        // «битую» сборку пакета и не ронять установку.
+        string path = Path.Combine(FindRepositoryRoot(), "AiRpaStudio", "Core", "Generation", "ActivityPaletteRegistry.cs");
+        string code = File.ReadAllText(path);
+
+        int reflectionCatch = code.IndexOf("catch (ReflectionTypeLoadException ex)", StringComparison.Ordinal);
+        int fallbackCatch = code.IndexOf("catch (Exception)", reflectionCatch, StringComparison.Ordinal);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reflectionCatch, Is.GreaterThan(0),
+                "ActivityTypesOf обязан обрабатывать ReflectionTypeLoadException");
+            Assert.That(fallbackCatch, Is.GreaterThan(reflectionCatch),
+                "ActivityTypesOf обязан перехватывать и прочие ошибки загрузки зависимостей (FileNotFoundException/FileLoadException)");
+        });
+    }
+
+
     private static FSNode ReferencesOf(FSNode project)
     {
         return project?.Childs?.FirstOrDefault(node => node.FSNodeType == FSNodeType.References);

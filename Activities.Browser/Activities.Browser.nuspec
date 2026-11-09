@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
   <metadata>
-    <id>Activities.Browser</id>
+    <id>Activities.Browser</id> 
     <version>1.0.0</version>
     <title>Activities.Browser</title>
     <authors>AiRpaStudio</authors>
@@ -30,12 +30,14 @@
         <dependency id="System.Text.Json" version="8.0.5" />
         <dependency id="System.Threading.Tasks.Extensions" version="4.5.4" />
         <dependency id="System.ValueTuple" version="4.5.0" />
+        <dependency id="ActivityLibraryBase" version="1.0.0.1" />
+        <dependency id="RpaCommon" version="1.0.0.1" />
       </group>
     </dependencies>
   </metadata>
   <files>
     <file src="bin\$configuration$\Activities.Browser.dll" target="lib\net472" />
-    <file src="bin\$configuration$\ActivityLibraryBase.dll" target="lib\net472" />
-    <file src="bin\$configuration$\RpaCommon.dll" target="lib\net472" />
+
+
   </files>
 </package>

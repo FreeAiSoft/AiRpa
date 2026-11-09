@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -61,8 +61,30 @@
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />
+    <None Include="RpaCommon.nuspec" />
+    <None Include="package.version" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <NuGetExe>$(MSBuildProjectDirectory)\..\nuget.exe</NuGetExe>
+    <NuGetLocalDir>$(MSBuildProjectDirectory)\..\nuget_local</NuGetLocalDir>
+    <PackageBaseVersion>1.0.0</PackageBaseVersion>
+    <PackageVersionFile>$(MSBuildProjectDirectory)\package.version</PackageVersionFile>
+  </PropertyGroup>
+  <Target Name="PackRpaCommon" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' And Exists('$(NuGetExe)')">
+    <ReadLinesFromFile File="$(PackageVersionFile)" Condition="Exists('$(PackageVersionFile)')">
+      <Output TaskParameter="Lines" ItemName="_PackageVersionLines" />
+    </ReadLinesFromFile>
+    <PropertyGroup>
+      <_PackageCounterRaw>@(_PackageVersionLines)</_PackageCounterRaw>
+      <_PackageCounterRaw Condition="'$(_PackageCounterRaw)' == ''">0</_PackageCounterRaw>
+      <_PackageCounter>$([MSBuild]::Add($(_PackageCounterRaw), 1))</_PackageCounter>
+      <PackageVersion>$(PackageBaseVersion).$(_PackageCounter)</PackageVersion>
+    </PropertyGroup>
+    <MakeDir Directories="$(NuGetLocalDir)" />
+    <Exec Command="&quot;$(NuGetExe)&quot; pack &quot;$(MSBuildProjectDirectory)\RpaCommon.nuspec&quot; -Version $(PackageVersion) -Properties Configuration=$(Configuration) -OutputDirectory &quot;$(NuGetLocalDir)&quot; -NonInteractive" />
+    <WriteLinesToFile File="$(PackageVersionFile)" Lines="$(_PackageCounter)" Overwrite="true" />
+  </Target>
 </Project>

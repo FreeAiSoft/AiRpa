@@ -148,9 +148,6 @@
     <Reference Include="NLog, Version=6.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
       <HintPath>..\packages\NLog.6.1.0\lib\net46\NLog.dll</HintPath>
     </Reference>
-    <Reference Include="PuppeteerSharp, Version=20.2.2.0, Culture=neutral, PublicKeyToken=db12f80f85d8ba23, processorArchitecture=MSIL">
-      <HintPath>..\packages\PuppeteerSharp.20.2.2\lib\netstandard2.0\PuppeteerSharp.dll</HintPath>
-    </Reference>
     <Reference Include="RoslynPad.Editor.Windows, Version=1.2.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\RoslynPad.Editor.Windows.1.2.0\lib\net48\RoslynPad.Editor.Windows.dll</HintPath>
     </Reference>
@@ -383,6 +380,7 @@
     <Compile Include="Core\Validation\DesignerValidationMetrics.cs" />
     <Compile Include="Core\Validation\ExpressionFieldVerdicts.cs" />
     <Compile Include="Core\WorkflowSessionState.cs" />
+    <Compile Include="Core\NuGetSourceSelectionStore.cs" />
     <!-- Панель документов: активация соседней вкладки при закрытии (как в Visual Studio). -->
     <Compile Include="Core\DocumentTabPolicy.cs" />
     <Compile Include="Core\DocumentTabsCloseCoordinator.cs" />
@@ -565,15 +563,6 @@
     </EmbeddedResource>
     <None Include=".editorconfig" />
     <None Include="app.manifest" />
-    
-    
-    
-    
-    
-    
-    
-    
-    
     <None Include="NLog.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -587,10 +576,6 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Activities.Browser\Activities.Browser.csproj">
-      <Project>{0739d690-4cca-412e-bdf2-56dab379175d}</Project>
-      <Name>Activities.Browser</Name>
-    </ProjectReference>
     <ProjectReference Include="..\Activities.Debug\Activities.Debug.csproj">
       <Project>{642bd9a9-0b46-43e5-8e81-ca9fca572bbe}</Project>
       <Name>Activities.Debug</Name>
@@ -770,9 +755,6 @@
        for .NET Framework P/Invoke to find it. RPA.Chat copies it into its own output during its
        build; copy it here so the chat can render mermaid diagrams. -->
   <Target Name="CopyWebView2Loader" AfterTargets="Build">
-    <Copy SourceFiles="..\RPA.Chat\bin\$(Configuration)\net48\WebView2Loader.dll"
-          DestinationFolder="$(OutputPath)"
-          SkipUnchangedFiles="true"
-          Condition="Exists('..\RPA.Chat\bin\$(Configuration)\net48\WebView2Loader.dll')" />
+    <Copy SourceFiles="..\RPA.Chat\bin\$(Configuration)\net48\WebView2Loader.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" Condition="Exists('..\RPA.Chat\bin\$(Configuration)\net48\WebView2Loader.dll')" />
   </Target>
 </Project>
