@@ -10,6 +10,7 @@ using System.IO;
 using System.Reflection;
 using RPA.Controls;
 using RPA.Core.Generation;
+using RPA.Logging;
 
 namespace RPA.Helpers
 {
@@ -39,10 +40,8 @@ namespace RPA.Helpers
             ToolboxControl wfToolbox = new ToolboxControl();
 
 
-            _ = AppDomain.CurrentDomain.Load("System.Activities"); //some time not load
-            _ = AppDomain.CurrentDomain.Load("Activities.Flow");
-            _ = AppDomain.CurrentDomain.Load("Activities.Debug");
-            _ = AppDomain.CurrentDomain.Load("Activities.OS");
+            // System.Activities and studio libraries are loaded by the single palette source
+            // (StudioActivityPalette.Categories) so toolbox and agent catalog stay in sync.
 
             // Единый источник состава палитры: панель «Активности» и каталог агента читают один и тот же
             // список (StudioActivityPalette.Categories) — встроенные активности, библиотеки студии
@@ -84,8 +83,15 @@ namespace RPA.Helpers
                 .OrderBy(FixName, StringComparer.OrdinalIgnoreCase)
                 .Select(a => new ToolboxItemWrapper(a, FixName(a)));
             activities.ToList().ForEach(controlFlowToolboxCategory.Add);
-            wfToolbox.Categories.Add(controlFlowToolboxCategory);
-            ActivitiesCount += controlFlowToolboxCategory.Tools.Count;
+            try
+            {
+                wfToolbox.Categories.Add(controlFlowToolboxCategory);
+                ActivitiesCount += controlFlowToolboxCategory.Tools.Count;
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"Панель «Активности»: категория «{categoryName}» пропущена — {ex.GetBaseException().Message}");
+            }
         }
 
         private string FixName(Type type)

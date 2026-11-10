@@ -109,10 +109,6 @@ namespace RPA.Helpers
             if (sender is FrameworkElement designerView)
             {
                 WfDesignerTheme.Apply(designerView);
-                // Диагностика (временно): контрольная точка «дерево построено, тема применена».
-                LoadActivityToDesignerHelper.LogDesignerViewState(designerView, "4/designerViewLoaded");
-                // Диагностика (временно): кто рисует пиксель на hairline «крошки/дизайнер».
-                LoadActivityToDesignerHelper.LogBreadCrumbArtifacts(designerView, "px/afterApply");
             }
         }
 

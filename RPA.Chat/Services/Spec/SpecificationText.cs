@@ -402,7 +402,7 @@ namespace RPA.Chat.Services.Spec
                 return value;
             }
 
-            return value.Substring(0, maxChars) + Environment.NewLine +
+            return SafeText.Truncate(value, maxChars) + Environment.NewLine +
                    "… (текст сокращён до " + maxChars + " символов: читайте раздел через spec_show(section))";
         }
 

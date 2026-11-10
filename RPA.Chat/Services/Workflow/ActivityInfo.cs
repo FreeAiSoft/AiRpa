@@ -124,7 +124,8 @@ namespace RPA.Chat.Services.Workflow
             bool isGeneric = false,
             int genericArity = 0,
             IReadOnlyList<ActivityArgumentInfo> arguments = null,
-            IReadOnlyList<ActivityContainerInfo> containers = null)
+            IReadOnlyList<ActivityContainerInfo> containers = null,
+            bool isStandaloneActivity = true)
         {
             Key = key ?? string.Empty;
             TypeName = typeName ?? string.Empty;
@@ -136,6 +137,7 @@ namespace RPA.Chat.Services.Workflow
             GenericArity = genericArity;
             Arguments = arguments ?? NoArguments;
             Containers = containers ?? NoContainers;
+            IsStandaloneActivity = isStandaloneActivity;
         }
 
         /// <summary>Короткое имя активности: <c>Sequence</c>, <c>WriteLine</c>, <c>ForEach</c>.</summary>
@@ -166,6 +168,13 @@ namespace RPA.Chat.Services.Workflow
 
         /// <summary>Активность принимает дочерние активности.</summary>
         public bool CanContainActivities => Containers.Count > 0;
+
+        /// <summary>
+        /// <c>false</c> у элементов диаграммы (<c>FlowDecision</c>, <c>FlowSwitch</c>, <c>State</c>,
+        /// <c>FinalState</c>, <c>PickBranch</c>): они есть в тулбоксе, но отдельной активностью не
+        /// вставляются — только внутри <c>Flowchart</c>/<c>StateMachine</c>/<c>Pick</c>.
+        /// </summary>
+        public bool IsStandaloneActivity { get; }
 
         /// <summary>Аргумент по имени (без учёта регистра) или <c>null</c>.</summary>
         public ActivityArgumentInfo FindArgument(string name)

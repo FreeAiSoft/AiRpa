@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using RPA.Chat;
+using Agent.Core.Models;
 
 namespace AiRpaStudio.Tests;
 
@@ -25,7 +26,31 @@ public class ChatModelsTests
         var p = new ToolCallPayload();
         Assert.That(p.ToolName, Is.EqualTo(string.Empty));
         Assert.That(p.Result, Is.EqualTo(string.Empty));
+        Assert.That(p.FullResult, Is.EqualTo(string.Empty));
         Assert.That(p.Blocked, Is.False);
+    }
+
+    [Test]
+    public void ChatMessage_CopyText_ToolCall_UsesFullResult()
+    {
+        var m = new ChatMessage
+        {
+            Kind = ChatMessageKind.ToolCall,
+            Payload = new ToolCallPayload { ToolName = "activity_search", Result = "short", FullResult = "full" }
+        };
+        Assert.That(m.DisplayText, Is.EqualTo("⚙ activity_search → short"));
+        Assert.That(m.CopyText, Is.EqualTo("⚙ activity_search → full"));
+    }
+
+    [Test]
+    public void ChatMessage_CopyText_ToolCall_FallsBackToResultWhenFullEmpty()
+    {
+        var m = new ChatMessage
+        {
+            Kind = ChatMessageKind.ToolCall,
+            Payload = new ToolCallPayload { ToolName = "t", Result = "result", FullResult = "" }
+        };
+        Assert.That(m.CopyText, Is.EqualTo("⚙ t → result"));
     }
 
     [Test]

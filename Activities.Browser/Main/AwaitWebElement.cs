@@ -10,15 +10,12 @@ using System.Threading;
 using RpaCommon;
 using Activities.Browser.Designers;
 using System.ComponentModel;
-using Microsoft.Windows.Design;
 
 namespace Activities.Browser
 {
     [LocalizedDescription("await_web_element_desc", typeof(ActivitiesBrowser))]
     [LocalizedDisplayName("await_web_element", typeof(ActivitiesBrowser))]
     [Designer(typeof(AwaitWebElementDesigner))]
-    [ToolboxBrowsable(true)]
-    [ToolboxItem(true)]
     public sealed class AwaitWebElement : TimeoutCodeActivity
     {
         [RequiredArgument]

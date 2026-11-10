@@ -917,6 +917,8 @@ namespace RPA.Core.Generation
         /// <summary>Полный состав палитры: встроенные категории плюс уже загруженные библиотеки студии.</summary>
         internal static IReadOnlyList<ActivityPaletteCategory> Categories()
         {
+            EnsureStudioLibrariesLoaded();
+
             var categories = new List<ActivityPaletteCategory>(BuiltinCategories());
 
             foreach (string assemblyName in LibraryAssemblyNames)
@@ -932,6 +934,32 @@ namespace RPA.Core.Generation
             categories.AddRange(PackageLibraries);
 
             return categories;
+        }
+
+        /// <summary>
+        /// Загружает базовые сборки палитры (<c>System.Activities</c> и библиотеки студии Flow/Debug/OS)
+        /// до построения состава, чтобы тулбокс и каталог агента получали одинаковый набор независимо
+        /// от порядка вызовов. Ошибка загрузки одной сборки не роняет палитру и каталог.
+        /// </summary>
+        private static void EnsureStudioLibrariesLoaded()
+        {
+            LoadAssemblySafe("System.Activities");
+            foreach (string assemblyName in LibraryAssemblyNames)
+            {
+                LoadAssemblySafe(assemblyName);
+            }
+        }
+
+        private static void LoadAssemblySafe(string assemblyName)
+        {
+            try
+            {
+                Assembly.Load(assemblyName);
+            }
+            catch (Exception)
+            {
+                // Библиотека недоступна в домене — её категория будет пропущена, но палитра обязана построиться.
+            }
         }
 
         /// <summary>Активности уже загруженной библиотеки (если её нет в домене — <c>null</c>).</summary>

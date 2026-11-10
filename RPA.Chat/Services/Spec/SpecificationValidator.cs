@@ -414,7 +414,7 @@ namespace RPA.Chat.Services.Spec
             }
 
             text = text.Trim().Replace("\r", " ").Replace("\n", " ");
-            return text.Length <= 80 ? text : text.Substring(0, 77) + "…";
+            return text.Length <= 80 ? text : SafeText.Truncate(text, 77) + "…";
         }
     }
 }

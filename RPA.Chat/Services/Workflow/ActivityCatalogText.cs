@@ -38,6 +38,11 @@ namespace RPA.Chat.Services.Workflow
                 text.AppendLine("описание: " + activity.Description.Trim());
             }
 
+            if (!activity.IsStandaloneActivity)
+            {
+                text.AppendLine("⚠ отдельной активностью не вставляется: это элемент диаграммы, который создаётся только внутри Flowchart/StateMachine/Pick.");
+            }
+
             if (activity.Arguments.Count == 0)
             {
                 text.AppendLine("аргументы: нет");
@@ -135,6 +140,11 @@ namespace RPA.Chat.Services.Workflow
                 text.Append("- ").Append(activity.Key)
                     .Append(" — ").Append(activity.TypeName)
                     .Append(" [").Append(string.IsNullOrWhiteSpace(activity.Category) ? "без категории" : activity.Category).Append(']');
+
+                if (!activity.IsStandaloneActivity)
+                {
+                    text.Append(" [элемент диаграммы]");
+                }
 
                 text.Append("; аргументы: ");
                 text.Append(activity.Arguments.Count == 0 ? "нет" : JoinArguments(activity.Arguments));

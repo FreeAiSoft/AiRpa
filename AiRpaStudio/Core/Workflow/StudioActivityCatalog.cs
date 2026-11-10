@@ -49,6 +49,7 @@ namespace RPA.Core.Workflow
 
         private readonly List<ActivityInfo> _activities = new List<ActivityInfo>();
         private readonly List<string> _categories = new List<string>();
+        private readonly HashSet<string> _addedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         private readonly Dictionary<string, ActivityInfo> _lookup =
             new Dictionary<string, ActivityInfo>(StringComparer.OrdinalIgnoreCase);
@@ -57,17 +58,43 @@ namespace RPA.Core.Workflow
         {
             var registry = new ActivityPaletteRegistry(categories);
 
-            foreach (PaletteActivityDescriptor descriptor in registry.All)
+            // Архитектурное требование: каталог агента обязан покрывать весь тулбокс без исключений.
+            // Обходим те же категории и типы, которые читает панель «Активности»; настоящие Activity
+            // описываются реестром, элементы диаграммы (FlowDecision/FlowSwitch/State/FinalState/PickBranch) —
+            // информационными записями, которые нельзя вставить отдельной активностью.
+            foreach (ActivityPaletteCategory category in categories ?? Enumerable.Empty<ActivityPaletteCategory>())
             {
-                ActivityInfo info = Map(descriptor);
-                _activities.Add(info);
-
-                if (!_categories.Contains(info.Category))
+                if (category == null || string.IsNullOrWhiteSpace(category.Key))
                 {
-                    _categories.Add(info.Category);
+                    continue;
                 }
 
-                Index(info);
+                foreach (Type type in category.Types)
+                {
+                    if (type == null)
+                    {
+                        continue;
+                    }
+
+                    PaletteActivityDescriptor descriptor = registry.Describe(type, category.Key);
+                    ActivityInfo info = descriptor != null
+                        ? Map(descriptor)
+                        : MapDiagramElement(type, category.Key);
+
+                    if (info == null || !_addedKeys.Add(info.Key))
+                    {
+                        continue;
+                    }
+
+                    _activities.Add(info);
+
+                    if (!_categories.Contains(info.Category))
+                    {
+                        _categories.Add(info.Category);
+                    }
+
+                    Index(info);
+                }
             }
         }
 
@@ -196,6 +223,27 @@ namespace RPA.Core.Workflow
                 descriptor.GenericArity,
                 arguments,
                 containers);
+        }
+
+        /// <summary>
+        /// Информационная запись элемента диаграммы тулбокса (<c>FlowDecision</c>, <c>FlowSwitch</c>,
+        /// <c>State</c>, <c>FinalState</c>, <c>PickBranch</c>): агент видит её в каталоге, но не может
+        /// вставить отдельной активностью — такие элементы создаются только внутри своего контейнера.
+        /// </summary>
+        private static ActivityInfo MapDiagramElement(Type type, string categoryKey)
+        {
+            return new ActivityInfo(
+                ActivityPaletteRegistry.KeyOf(type),
+                type.FullName ?? type.Name,
+                ActivityPaletteRegistry.DisplayNameOf(type),
+                CategoryNameOf(categoryKey),
+                categoryKey,
+                "Элемент диаграммы: отдельной активностью не вставляется, создаётся только внутри Flowchart/StateMachine/Pick.",
+                type.IsGenericTypeDefinition,
+                type.IsGenericTypeDefinition ? type.GetGenericArguments().Length : 0,
+                null,
+                null,
+                isStandaloneActivity: false);
         }
 
         private static string CategoryNameOf(string categoryKey)

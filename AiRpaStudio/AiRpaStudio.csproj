@@ -298,8 +298,8 @@
     <Compile Include="Converters\WorkflowStateToIsEnabledConverter.cs" />
     <Compile Include="Core\ActivityRunner.cs" />
     <Compile Include="Core\DebugValidationErrorService.cs" />
-    <!-- Генерация валидного XAML (этап 2 конвейера): канонизация модели,
-         сериализация WF и гейт валидации — один конвейер для всех инструментов. -->
+    <!-- Р“РµРЅРµСЂР°С†РёСЏ РІР°Р»РёРґРЅРѕРіРѕ XAML (СЌС‚Р°Рї 2 РєРѕРЅРІРµР№РµСЂР°): РєР°РЅРѕРЅРёР·Р°С†РёСЏ РјРѕРґРµР»Рё,
+         СЃРµСЂРёР°Р»РёР·Р°С†РёСЏ WF Рё РіРµР№С‚ РІР°Р»РёРґР°С†РёРё вЂ” РѕРґРёРЅ РєРѕРЅРІРµР№РµСЂ РґР»СЏ РІСЃРµС… РёРЅСЃС‚СЂСѓРјРµРЅС‚РѕРІ. -->
     <Compile Include="Core\Generation\WorkflowCanonicalizationOptions.cs" />
     <Compile Include="Core\Generation\WorkflowCanonicalizer.cs" />
     <Compile Include="Core\Generation\WorkflowXamlSerializer.cs" />
@@ -331,8 +331,8 @@
     <Compile Include="Core\Generation\WorkflowJsonValidator.cs" />
     <Compile Include="Core\Generation\WorkflowJsonTranslator.cs" />
     <Compile Include="Core\Generation\JsonWorkflowService.cs" />
-    <!-- Контракт для агента (этап 7 конвейера): правила, выбор инструмента,
-         few-shot примеры и правило самокоррекции в одном месте — их отдаёт xaml.describe_contract. -->
+    <!-- РљРѕРЅС‚СЂР°РєС‚ РґР»СЏ Р°РіРµРЅС‚Р° (СЌС‚Р°Рї 7 РєРѕРЅРІРµР№РµСЂР°): РїСЂР°РІРёР»Р°, РІС‹Р±РѕСЂ РёРЅСЃС‚СЂСѓРјРµРЅС‚Р°,
+         few-shot РїСЂРёРјРµСЂС‹ Рё РїСЂР°РІРёР»Рѕ СЃР°РјРѕРєРѕСЂСЂРµРєС†РёРё РІ РѕРґРЅРѕРј РјРµСЃС‚Рµ вЂ” РёС… РѕС‚РґР°С‘С‚ xaml.describe_contract. -->
     <Compile Include="Core\Generation\WorkflowAgentContract.cs" />
     <Compile Include="CSharpExpressionEditor\DesignerValidator.cs" />
     <Compile Include="Core\Services\DesignerContextMenuState.cs" />
@@ -361,7 +361,7 @@
     <Compile Include="Enums\WorkflowState.cs" />
     <Compile Include="Helpers\AssembliesHelper.cs" />
     <Compile Include="Helpers\XamlHelper.cs" />
-    <!-- Среда rehosted-дизайнера WF: одна на студию и тестовый стенд. -->
+    <!-- РЎСЂРµРґР° rehosted-РґРёР·Р°Р№РЅРµСЂР° WF: РѕРґРЅР° РЅР° СЃС‚СѓРґРёСЋ Рё С‚РµСЃС‚РѕРІС‹Р№ СЃС‚РµРЅРґ. -->
     <Compile Include="Helpers\WfDesignerEnvironment.cs" />
     <Compile Include="Helpers\ProjectPathResolver.cs" />
     <Compile Include="Helpers\ProjectTreeMenuRules.cs" />
@@ -381,7 +381,7 @@
     <Compile Include="Core\Validation\ExpressionFieldVerdicts.cs" />
     <Compile Include="Core\WorkflowSessionState.cs" />
     <Compile Include="Core\NuGetSourceSelectionStore.cs" />
-    <!-- Панель документов: активация соседней вкладки при закрытии (как в Visual Studio). -->
+    <!-- РџР°РЅРµР»СЊ РґРѕРєСѓРјРµРЅС‚РѕРІ: Р°РєС‚РёРІР°С†РёСЏ СЃРѕСЃРµРґРЅРµР№ РІРєР»Р°РґРєРё РїСЂРё Р·Р°РєСЂС‹С‚РёРё (РєР°Рє РІ Visual Studio). -->
     <Compile Include="Core\DocumentTabPolicy.cs" />
     <Compile Include="Core\DocumentTabsCloseCoordinator.cs" />
     <Compile Include="Extensions\SourceLocationExtensions.cs" />
@@ -632,8 +632,8 @@
       <Project>{609357CB-88DB-4FB8-A3C9-586E3D4BBD27}</Project>
       <Name>Agent.Core</Name>
     </ProjectReference>
-    <!-- OR-02: движок прогона и формат ошибки переехали в общий headless-рантайм (net472):
-         студия и RpaRunner.exe прогоняют робота одним и тем же кодом. -->
+    <!-- OR-02: РґРІРёР¶РѕРє РїСЂРѕРіРѕРЅР° Рё С„РѕСЂРјР°С‚ РѕС€РёР±РєРё РїРµСЂРµРµС…Р°Р»Рё РІ РѕР±С‰РёР№ headless-СЂР°РЅС‚Р°Р№Рј (net472):
+         СЃС‚СѓРґРёСЏ Рё RpaRunner.exe РїСЂРѕРіРѕРЅСЏСЋС‚ СЂРѕР±РѕС‚Р° РѕРґРЅРёРј Рё С‚РµРј Р¶Рµ РєРѕРґРѕРј. -->
     <ProjectReference Include="..\Rpa.Workflow.Runtime\Rpa.Workflow.Runtime.csproj">
       <Project>{3C2A6F41-9D77-4C1E-8F52-6B0D4A7E1C93}</Project>
       <Name>Rpa.Workflow.Runtime</Name>
@@ -722,10 +722,17 @@
     <Compile Include="VsProject\VsProjectLoader.cs" />
     <Compile Include="VsProject\VsProjectBuilder.cs" />
     <Compile Include="VsProject\VsProjectWriter.cs" />
+    <Compile Include="VsProject\ActivityCompatibilityContract.cs" />
+    <Compile Include="VsProject\ActivityCompatibilityReport.cs" />
+    <Compile Include="VsProject\ActivityCompatibilityChecker.cs" />
+    <Compile Include="VsProject\ActivityCompatibilityFixer.cs" />
     <Compile Include="Models\VsProjectOpen.cs" />
     <Compile Include="ViewModels\VsProjectOpenViewModel.cs" />
     <Compile Include="Views\VsProjectOpenView.xaml.cs">
       <DependentUpon>VsProjectOpenView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\ProjectCompatibilityView.xaml.cs">
+      <DependentUpon>ProjectCompatibilityView.xaml</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>
@@ -734,6 +741,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Views\VsProjectOpenView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Views\ProjectCompatibilityView.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

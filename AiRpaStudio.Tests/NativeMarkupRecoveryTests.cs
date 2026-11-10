@@ -191,6 +191,36 @@ namespace AiRpaStudio.Tests
         }
 
         [Test]
+        public async Task RunAsync_LongToolResult_EventCarriesFullResultForClipboard()
+        {
+            string big = new string('x', 20000);
+            var registry = new AgentToolRegistry();
+            registry.Register(new AgentTool("activity_search", "search", "{}", mutates: false,
+                (arguments, cancellationToken) => Task.FromResult(big),
+                permission: AgentPermissions.ReadFiles));
+
+            var ai = new FakeAiProvider(
+                new ChatResponse { Answer = "{\"action\":\"tool_call\",\"tool\":\"activity_search\",\"arguments\":{}}", FinishReason = "stop" },
+                new ChatResponse { Answer = "{\"action\":\"final\",\"text\":\"done\"}", FinishReason = "stop" });
+
+            var budget = new ContextBudget { MaxIterations = 4, ToolResultMaxChars = 12000 };
+            var runner = new AgentRunner(ai, registry, mode => "SYS", budget, "COMPACT");
+
+            AgentToolCall executed = null;
+            runner.ToolExecuted += (sender, args) => executed = args;
+
+            await runner.RunAsync("go", AgentMode.Act, CancellationToken.None);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(executed, Is.Not.Null);
+                Assert.That(executed.Result, Does.Contain("…(truncated)"), "плашка/контекст остаются усечёнными");
+                Assert.That(executed.Result.Length, Is.LessThan(big.Length));
+                Assert.That(executed.FullResult, Is.EqualTo(big), "в буфер обмена попадает полный результат");
+            });
+        }
+
+        [Test]
         public async Task RunAsync_BigOutlineHistory_CondensesAndKeepsRecentOutlineIntact()
         {
             string oldOutline = new string('a', 12000);

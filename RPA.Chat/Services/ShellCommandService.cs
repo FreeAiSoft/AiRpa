@@ -168,7 +168,7 @@ namespace RPA.Chat.Services
         private static string Truncate(string text)
         {
             if (string.IsNullOrEmpty(text) || text.Length <= MaxOutputChars) return text;
-            return text.Substring(0, MaxOutputChars) + "\n…(truncated)";
+            return SafeText.Truncate(text, MaxOutputChars) + "\n…(truncated)";
         }
     }
 

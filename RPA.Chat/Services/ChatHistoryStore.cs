@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Text;
 using Newtonsoft.Json;
 using Agent.Core.Models;
 
@@ -15,6 +16,7 @@ namespace RPA.Chat.Services
         public string Reasoning { get; set; } = "";
         public string Mode { get; set; } = "";
         public string ToolName { get; set; } = "";
+        public string FullResult { get; set; } = "";
     }
 
     /// <summary>A saved chat conversation with its messages.</summary>
@@ -83,6 +85,9 @@ namespace RPA.Chat.Services
         public const int MaxStoredConversations = 50;
 
         private static readonly object Sync = new object();
+
+        /// <summary>Щадящая UTF-8 без BOM: недопустимые символы заменяются на U+FFFD, а не роняют запись.</summary>
+        private static readonly UTF8Encoding WriteEncoding = new UTF8Encoding(false, false);
 
         /// <summary>Creates the history file (empty store) if it does not exist yet.</summary>
         public static void Initialize()
@@ -208,7 +213,7 @@ namespace RPA.Chat.Services
         private static void WriteAll(List<ChatConversation> conversations)
         {
             ChatPaths.EnsureDirectories();
-            File.WriteAllText(ChatPaths.HistoryFile, JsonConvert.SerializeObject(conversations, Formatting.Indented));
+            File.WriteAllText(ChatPaths.HistoryFile, JsonConvert.SerializeObject(conversations, Formatting.Indented), WriteEncoding);
         }
     }
 }

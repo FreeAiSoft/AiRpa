@@ -596,6 +596,8 @@
                       Foreground="{DynamicResource Studio.MenuForeground}">
                 <MenuItem Header="NuGet Package Manager"
                           Click="NuGetPanelMenuItem_Click" />
+                <MenuItem Header="{DynamicResource lang_main_check_activity_compat}"
+                          Click="CheckActivityCompatibilityMenuItem_Click" />
             </MenuItem>
            
         </Menu>

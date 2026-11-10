@@ -19,6 +19,7 @@ namespace RPA.Chat.Views
     {
         private ChatViewModel _viewModel;
         private bool _chatAutoScroll = true;
+        private bool _scrollToEndRequested;
 
         /// <summary>Словарь темы на каждое значение перечисления: третьей темы нет по определению.</summary>
         private static readonly IReadOnlyDictionary<StudioTheme, Uri> ThemeDictionaries = new Dictionary<StudioTheme, Uri>
@@ -63,8 +64,10 @@ namespace RPA.Chat.Views
 
         private void OnMessageAppended()
         {
+            // Не скроллим сразу: высота нового сообщения ещё не пересчитана.
+            // Скролл выполнит OnChatScrollChanged, когда ExtentHeight обновится.
             if (_chatAutoScroll)
-                ChatMessages.ScrollToEnd();
+                _scrollToEndRequested = true;
         }
 
         private void OnDocsNavigated()
@@ -105,14 +108,25 @@ namespace RPA.Chat.Views
 
         private void OnChatScrollChanged(object sender, ScrollChangedEventArgs e)
         {
-            if (e.ExtentHeightChange > 0 && Math.Abs(e.ExtentHeight - e.ViewportHeight - e.VerticalOffset) <= 1.0)
+            // Чистый скролл пользователя (контент не менялся) — автопрокрутка следует за позицией.
+            if (e.ExtentHeightChange == 0)
             {
-                _chatAutoScroll = true;
+                _chatAutoScroll = IsAtBottom(e);
+                return;
             }
-            else if (e.ExtentHeightChange == 0 && e.ExtentHeight - e.ViewportHeight - e.VerticalOffset > 1.0)
+
+            // Контент вырос (пришло живое сообщение): если следим за низом — доводим до нового низа.
+            if (e.ExtentHeightChange > 0 && _scrollToEndRequested)
             {
-                _chatAutoScroll = false;
+                _scrollToEndRequested = false;
+                if (_chatAutoScroll)
+                    ChatMessages.ScrollToEnd();
             }
+        }
+
+        private static bool IsAtBottom(ScrollChangedEventArgs e)
+        {
+            return e.ExtentHeight - e.ViewportHeight - e.VerticalOffset <= 1.0;
         }
 
         private void OnInputPreviewKeyDown(object sender, KeyEventArgs e)

@@ -887,7 +887,7 @@ namespace RPA.Chat.ViewModels
                 ChatLog.Info("Agent tool executed: " + (e.ToolName ?? "") + (e.Blocked ? " (blocked)" : ""));
                 if (string.Equals(e.ToolName, "ask_question", StringComparison.OrdinalIgnoreCase)) return;
                 if (string.Equals(e.ToolName, "spawn_agent", StringComparison.OrdinalIgnoreCase)) return;
-                AppendToolCall(e.ToolName, detail, e.Blocked);
+                AppendToolCall(e.ToolName, detail, e.FullResult, e.Blocked);
             });
         }
 
@@ -918,11 +918,11 @@ namespace RPA.Chat.ViewModels
 
         private void AppendExtensionError(Exception ex) => AppendExtensionError(ex?.Message ?? "Unknown error");
 
-        private void AppendToolCall(string toolName, string result, bool blocked) =>
+        private void AppendToolCall(string toolName, string result, string fullResult, bool blocked) =>
             AppendChatMessage(new ChatMessage
             {
                 Kind = blocked ? ChatMessageKind.ToolBlocked : ChatMessageKind.ToolCall,
-                Payload = new ToolCallPayload { ToolName = toolName ?? "", Result = result ?? "", Blocked = blocked }
+                Payload = new ToolCallPayload { ToolName = toolName ?? "", Result = result ?? "", FullResult = fullResult ?? "", Blocked = blocked }
             });
 
         private void AppendCompaction(string text) => AppendChatMessage(new ChatMessage { Kind = ChatMessageKind.Compaction, Text = text });
@@ -1056,7 +1056,7 @@ namespace RPA.Chat.ViewModels
                         ? File.ReadAllText(path)
                         : document.Text;
                     if (text.Length > 20000)
-                        text = text.Substring(0, 20000) + "\n…(truncated)";
+                        text = SafeText.Truncate(text, 20000) + "\n…(truncated)";
                     _attachments.Add(new ChatAttachment { FileName = Path.GetFileName(path), TextContent = text });
                 }
                 OnPropertyChanged(nameof(HasAttachments));
@@ -1270,7 +1270,7 @@ namespace RPA.Chat.ViewModels
             if (string.IsNullOrWhiteSpace(text)) return "New chat";
             var singleLine = text.Replace('\r', ' ').Replace('\n', ' ').Trim();
             const int max = 60;
-            return singleLine.Length <= max ? singleLine : singleLine.Substring(0, max) + "…";
+            return singleLine.Length <= max ? singleLine : SafeText.Truncate(singleLine, max) + "…";
         }
 
         private static ChatHistoryMessage ToHistoryMessage(ChatMessage message)
@@ -1280,8 +1280,9 @@ namespace RPA.Chat.ViewModels
                 return new ChatHistoryMessage
                 {
                     Kind = message.Kind,
-                    Text = message.Text,
+                    Text = (message.Payload as ToolCallPayload)?.Result ?? "",
                     ToolName = (message.Payload as ToolCallPayload)?.ToolName ?? "",
+                    FullResult = (message.Payload as ToolCallPayload)?.FullResult ?? "",
                     Reasoning = message.Reasoning,
                     Mode = message.Mode
                 };
@@ -1296,7 +1297,7 @@ namespace RPA.Chat.ViewModels
                 return new ChatMessage
                 {
                     Kind = m.Kind,
-                    Payload = new ToolCallPayload { ToolName = m.ToolName ?? "", Result = m.Text ?? "", Blocked = m.Kind == ChatMessageKind.ToolBlocked }
+                    Payload = new ToolCallPayload { ToolName = m.ToolName ?? "", Result = m.Text ?? "", FullResult = m.FullResult ?? "", Blocked = m.Kind == ChatMessageKind.ToolBlocked }
                 };
             }
             return new ChatMessage { Kind = m.Kind, Text = m.Text, Reasoning = m.Reasoning, Mode = m.Mode };
@@ -1366,7 +1367,7 @@ namespace RPA.Chat.ViewModels
         private void CopyMessage(ChatMessage message)
         {
             if (message == null) return;
-            try { System.Windows.Clipboard.SetText(message.DisplayText); }
+            try { System.Windows.Clipboard.SetText(message.CopyText); }
             catch { /* clipboard busy — ignore */ }
         }
 
@@ -1413,7 +1414,7 @@ namespace RPA.Chat.ViewModels
         private static string FormatMessageForCopy(ChatMessage message)
         {
             var sb = new StringBuilder();
-            sb.Append(message.DisplayText);
+            sb.Append(message.CopyText);
             if (!string.IsNullOrWhiteSpace(message.Reasoning))
             {
                 sb.AppendLine();
@@ -1694,7 +1695,7 @@ namespace RPA.Chat.ViewModels
         private async Task<string> SummarizeChangesAsync(string content, string systemPrompt)
         {
             if (content.Length > CommitDiffMaxChars)
-                content = content.Substring(0, CommitDiffMaxChars) + "\n… (diff truncated)";
+                content = SafeText.Truncate(content, CommitDiffMaxChars) + "\n… (diff truncated)";
             var messages = new List<ChatMessageData>
             {
                 new ChatMessageData { Role = "user", Content = content }

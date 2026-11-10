@@ -540,7 +540,7 @@ namespace RPA.Chat.Services.AgentTools
         private Task<string> SpawnAgentDisplayAsync(JObject args, CancellationToken ct)
         {
             var task = (args["task"]?.Value<string>() ?? string.Empty).Trim();
-            var shortTask = task.Length > 60 ? task.Substring(0, 60) + "…" : task;
+            var shortTask = task.Length > 60 ? SafeText.Truncate(task, 60) + "…" : task;
             return Task.FromResult(string.IsNullOrEmpty(shortTask) ? "sub-agent" : shortTask);
         }
 
@@ -2305,14 +2305,14 @@ namespace RPA.Chat.Services.AgentTools
         private static string Truncate(string text)
         {
             if (string.IsNullOrEmpty(text) || text.Length <= ReadFilesMaxChars) return text;
-            return text.Substring(0, ReadFilesMaxChars) + "\n…(truncated)";
+            return SafeText.Truncate(text, ReadFilesMaxChars) + "\n…(truncated)";
         }
 
         private static string MiddleTruncateLines(string text, int maxChars)
         {
             if (string.IsNullOrEmpty(text) || text.Length <= maxChars) return text;
             var half = maxChars / 2;
-            return text.Substring(0, half) + "\n…(truncated)…\n" + text.Substring(text.Length - half);
+            return SafeText.Truncate(text, half) + "\n…(truncated)…\n" + SafeText.Tail(text, half);
         }
     }
 }

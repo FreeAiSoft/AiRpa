@@ -244,5 +244,45 @@ namespace AiRpaStudio.Tests.Workflow
                 Assert.That(catalog.Describe("StartBrowser").Category, Is.EqualTo("Browser"));
             });
         }
+
+        /// <summary>
+        /// Архитектурное требование: каталог агента покрывает весь тулбокс без исключений — ту же
+        /// последовательность типов, которую читает панель «Активности».
+        /// </summary>
+        [Test]
+        public void Catalog_CoversEveryToolboxType_WithoutException()
+        {
+            Type[] toolboxTypes = StudioActivityPalette.Categories()
+                .SelectMany(category => category.Types)
+                .ToArray();
+
+            Assert.That(toolboxTypes, Is.Not.Empty, "тулбокс не может быть пустым");
+
+            string missing = string.Join(", ", toolboxTypes
+                .Where(type => _catalog.Describe(ActivityPaletteRegistry.KeyOf(type)) == null)
+                .Select(type => type.Name));
+
+            Assert.That(missing, Is.Empty, "в каталоге агента нет активностей тулбокса: " + missing);
+        }
+
+        /// <summary>
+        /// Элементы диаграммы видны агенту, но помечены как не вставляемые отдельной активностью.
+        /// </summary>
+        [Test]
+        public void DiagramElements_AreReportedAsNotStandalone()
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(_catalog.Describe("FlowDecision").IsStandaloneActivity, Is.False);
+                Assert.That(_catalog.Describe("FlowSwitch").IsStandaloneActivity, Is.False);
+                Assert.That(_catalog.Describe("State").IsStandaloneActivity, Is.False);
+                Assert.That(_catalog.Describe("FinalState").IsStandaloneActivity, Is.False);
+                Assert.That(_catalog.Describe("PickBranch").IsStandaloneActivity, Is.False);
+
+                Assert.That(_catalog.Describe("Sequence").IsStandaloneActivity, Is.True);
+            });
+        }
+
+
     }
 }

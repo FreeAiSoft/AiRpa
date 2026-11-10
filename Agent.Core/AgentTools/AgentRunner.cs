@@ -16,6 +16,9 @@ namespace Agent.Core.AgentTools
         public string ToolName { get; set; } = "";
         public string Result { get; set; } = "";
 
+        /// <summary>Full (untruncated) tool result, intended for copy-to-clipboard and persistence. Empty means use <see cref="Result"/>.</summary>
+        public string FullResult { get; set; } = "";
+
         /// <summary>Short text for the chat progress line (e.g. a file path). Empty means use <see cref="Result"/>.</summary>
         public string DisplayResult { get; set; } = "";
         public bool Blocked { get; set; }
@@ -413,6 +416,7 @@ namespace Agent.Core.AgentTools
             ToolExecuted?.Invoke(this, new AgentToolCall
             {
                 ToolName = tool.Name,
+                FullResult = resultText ?? "",
                 Result = truncated,
                 DisplayResult = string.IsNullOrWhiteSpace(displayText) ? "" : displayText,
                 Blocked = false
@@ -500,6 +504,7 @@ namespace Agent.Core.AgentTools
             ToolExecuted?.Invoke(this, new AgentToolCall
             {
                 ToolName = tool.Name,
+                FullResult = resultText ?? "",
                 Result = truncated,
                 DisplayResult = string.IsNullOrWhiteSpace(displayText) ? "" : displayText,
                 Blocked = false

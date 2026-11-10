@@ -45,6 +45,28 @@ namespace RPA.Chat.Tests
         }
 
         [Test]
+        public void SaveAndLoad_ToolCall_RoundTripsResultAndFullResult()
+        {
+            var conversation = new ChatConversation { Id = "conv-tool" };
+            conversation.Messages.Add(new ChatHistoryMessage
+            {
+                Kind = ChatMessageKind.ToolCall,
+                Text = "short result",
+                ToolName = "activity_search",
+                FullResult = "full result"
+            });
+
+            ChatHistoryStore.SaveConversation(conversation);
+
+            var loaded = ChatHistoryStore.LoadConversation("conv-tool");
+            Assert.That(loaded, Is.Not.Null);
+            Assert.That(loaded.Messages[0].Kind, Is.EqualTo(ChatMessageKind.ToolCall));
+            Assert.That(loaded.Messages[0].Text, Is.EqualTo("short result"));
+            Assert.That(loaded.Messages[0].ToolName, Is.EqualTo("activity_search"));
+            Assert.That(loaded.Messages[0].FullResult, Is.EqualTo("full result"));
+        }
+
+        [Test]
         public void ListConversations_ReturnsNewestFirst()
         {
             ChatHistoryStore.SaveConversation(new ChatConversation { Id = "a", Title = "A", UpdatedAtUtc = System.DateTime.UtcNow.AddMinutes(-5) });
@@ -71,6 +93,39 @@ namespace RPA.Chat.Tests
 
             var loaded = ChatHistoryStore.LoadConversation("t");
             Assert.That(loaded.Title, Is.EqualTo("New chat"));
+        }
+
+        [Test]
+        public void SaveConversation_UnpairedSurrogateInText_DoesNotThrow()
+        {
+            var conversation = new ChatConversation { Id = "conv-surrogate" };
+            conversation.Messages.Add(new ChatHistoryMessage
+            {
+                Kind = ChatMessageKind.AgentText,
+                Text = "hello \uD83D"
+            });
+
+            Assert.That(() => ChatHistoryStore.SaveConversation(conversation), Throws.Nothing);
+
+            var loaded = ChatHistoryStore.LoadConversation("conv-surrogate");
+            Assert.That(loaded, Is.Not.Null);
+            Assert.That(loaded.Messages.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SaveConversation_FullEmoji_RoundTripsUnchanged()
+        {
+            var conversation = new ChatConversation { Id = "conv-emoji" };
+            conversation.Messages.Add(new ChatHistoryMessage
+            {
+                Kind = ChatMessageKind.User,
+                Text = "\uD83D\uDC4D ok"
+            });
+
+            ChatHistoryStore.SaveConversation(conversation);
+
+            var loaded = ChatHistoryStore.LoadConversation("conv-emoji");
+            Assert.That(loaded.Messages[0].Text, Is.EqualTo("\uD83D\uDC4D ok"));
         }
     }
 }

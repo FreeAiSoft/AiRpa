@@ -268,4 +268,31 @@
   <data name="lang_error_copied" xml:space="preserve">
     <value>Скопировано в буфер обмена</value>
   </data>
+  <data name="lang_main_check_activity_compat" xml:space="preserve">
+    <value>Проверить совместимость проекта активностей</value>
+  </data>
+  <data name="lang_activity_compat_title" xml:space="preserve">
+    <value>Совместимость проекта</value>
+  </data>
+  <data name="lang_activity_compat_hint" xml:space="preserve">
+    <value>Отчёт ниже можно выделить и скопировать (Ctrl+C). Версии пересекающихся зависимостей можно исправить автоматически.</value>
+  </data>
+  <data name="lang_activity_compat_fix" xml:space="preserve">
+    <value>Исправить автоматически</value>
+  </data>
+  <data name="lang_activity_compat_fix_done" xml:space="preserve">
+    <value>Исправлено автоматически: {0} проблем(ы).</value>
+  </data>
+  <data name="lang_activity_compat_fix_nothing" xml:space="preserve">
+    <value>Автоматически исправить ничего не удалось.</value>
+  </data>
+  <data name="lang_activity_compat_fix_failed" xml:space="preserve">
+    <value>Не удалось исправить: {0} проблем(ы).</value>
+  </data>
+  <data name="lang_activity_compat_compatible" xml:space="preserve">
+    <value>Совместим со студией</value>
+  </data>
+  <data name="lang_activity_compat_problems" xml:space="preserve">
+    <value>Найдены проблемы совместимости</value>
+  </data>
 </root>

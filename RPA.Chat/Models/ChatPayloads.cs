@@ -33,6 +33,10 @@ namespace RPA.Chat
     {
         public string ToolName { get; set; } = "";
         public string Result { get; set; } = "";
+
+        /// <summary>Full (untruncated) tool result for copy-to-clipboard. Empty means use <see cref="Result"/>.</summary>
+        public string FullResult { get; set; } = "";
+
         public bool Blocked { get; set; }
     }
 

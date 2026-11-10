@@ -17,6 +17,7 @@ using AvalonDock.Layout;
 using AvalonDock.Layout.Serialization;
 using FW.EasyMvvm.Core;
 using Material.Icons;
+using Microsoft.Win32;
 using RPA.Controls;
 using RPA.Converters;
 using RPA.Core;
@@ -24,6 +25,7 @@ using RPA.Helpers;
 using RPA.Logging;
 using RPA.Models;
 using RPA.ViewModels;
+using RPA.VsProject;
 
 namespace RPA.Views
 {
@@ -597,6 +599,41 @@ namespace RPA.Views
         private void NuGetPanelMenuItem_Click(object sender, RoutedEventArgs e)
         {
             ShowNuGetPanel();
+        }
+
+        private void CheckActivityCompatibilityMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog dialog = new OpenFileDialog
+            {
+                Title = LocalizeHelper.Get("lang_main_check_activity_compat"),
+                Filter = "C# project (*.csproj)|*.csproj|All files (*.*)|*.*",
+                CheckFileExists = true
+            };
+
+            if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            try
+            {
+                ActivityCompatibilityReport report = new ActivityCompatibilityChecker().Check(dialog.FileName);
+                ProjectCompatibilityView view = new ProjectCompatibilityView();
+                view.SetReport(report);
+
+                Window owner = Application.Current?.MainWindow;
+                if (owner != null && owner.IsLoaded && owner.IsVisible)
+                {
+                    view.Owner = owner;
+                    view.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                }
+
+                _ = view.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                ErrorDialog.ShowException(ex, "Проверка совместимости проекта", this);
+            }
         }
 
         private void ShowNuGetPanel()

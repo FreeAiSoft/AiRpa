@@ -187,6 +187,28 @@ namespace RPA.Chat
         /// <summary>Single-line form of <see cref="DisplayText"/> with line breaks collapsed to spaces; used by the collapsed pinned header.</summary>
         public string SingleLineDisplayText => DisplayText.Replace('\r', ' ').Replace('\n', ' ').Trim();
 
+        /// <summary>
+        /// Text placed on the clipboard by the copy button. For tool calls it uses the full
+        /// (untruncated) result when available, while <see cref="DisplayText"/> stays compact.
+        /// </summary>
+        public string CopyText
+        {
+            get
+            {
+                if (Kind == ChatMessageKind.ToolCall || Kind == ChatMessageKind.ToolBlocked)
+                {
+                    var p = Payload as ToolCallPayload;
+                    var name = p?.ToolName ?? "";
+                    var full = p?.FullResult ?? "";
+                    var text = string.IsNullOrEmpty(full) ? (p?.Result ?? "") : full;
+                    if (Kind == ChatMessageKind.ToolBlocked)
+                        return "⛔ " + name + " blocked in Plan mode.";
+                    return "⚙ " + name + " → " + text;
+                }
+                return DisplayText;
+            }
+        }
+
         /// <summary>Message content split into text and code blocks (for syntax-highlighted rendering).</summary>
         public IReadOnlyList<MessageBlock> Blocks => ChatMarkdown.SplitBlocks(DisplayText);
 

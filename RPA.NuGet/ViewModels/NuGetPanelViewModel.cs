@@ -35,6 +35,7 @@ namespace RPA.NuGet.ViewModels
         private CancellationTokenSource _searchCts;
         private CancellationTokenSource _detailsCts;
         private NuGetProjectPackages _project;
+        private int _projectGeneration;
 
         private NuGetPackageTab _activeTab = NuGetPackageTab.Browse;
         private string _searchQuery;
@@ -545,6 +546,7 @@ namespace RPA.NuGet.ViewModels
 
             if (csproj == null)
             {
+                ResetProjectState();
                 StatusText = "No .csproj found in the current project folder. Open a Visual Studio project or browse for one.";
                 return false;
             }
@@ -556,6 +558,7 @@ namespace RPA.NuGet.ViewModels
         {
             try
             {
+                ResetProjectState();
                 _project = NuGetProjectConfig.Load(projectPath);
                 ProjectPath = _project.ProjectPath;
                 RaisePropertyChanged(nameof(HasProject));
@@ -588,6 +591,33 @@ namespace RPA.NuGet.ViewModels
             string path = _project.ProjectPath;
             _project = NuGetProjectConfig.Load(path);
             RaisePropertyChanged(nameof(HasProject));
+        }
+
+        /// <summary>
+        /// Полностью сбрасывает состояние, привязанное к проекту: вкладки Installed/Updates,
+        /// список Browse и панель деталей. Вызывается при смене проекта и когда <c>.csproj</c>
+        /// определить не удалось — иначе панель продолжает показывать «установленные» пакеты
+        /// предыдущего проекта.
+        /// </summary>
+        private void ResetProjectState()
+        {
+            _project = null;
+            ProjectPath = null;
+            _updatesChecked = false;
+            _projectGeneration++;
+
+            InstalledItems.Clear();
+            UpdateItems.Clear();
+            BrowseItems.Clear();
+            SelectedItem = null;
+            Details.Clear();
+            CanLoadMore = false;
+
+            RaisePropertyChanged(nameof(HasProject));
+            RaisePropertyChanged(nameof(EmptyText));
+            RaiseActionState();
+            UpdateAllCommand.RaiseCanExecuteChanged();
+            RefreshCommand.RaiseCanExecuteChanged();
         }
 
         // --- Поиск ---
@@ -1004,6 +1034,7 @@ namespace RPA.NuGet.ViewModels
             if (_project == null)
                 return;
 
+            int generation = _projectGeneration;
             IsBusy = true;
             if (checkUpdates)
                 StatusText = "Checking for updates...";
@@ -1011,6 +1042,10 @@ namespace RPA.NuGet.ViewModels
             try
             {
                 RefreshInstalledItems(checkUpdates: false);
+
+                if (generation != _projectGeneration)
+                    return;
+
                 var withUpdate = new List<NuGetPackageItemViewModel>();
 
                 if (checkUpdates)
@@ -1018,6 +1053,9 @@ namespace RPA.NuGet.ViewModels
                     int index = 0;
                     foreach (NuGetPackageItemViewModel item in InstalledItems.ToList())
                     {
+                        if (generation != _projectGeneration)
+                            return;
+
                         index++;
                         ProgressValue = Math.Round(100d * index / Math.Max(InstalledItems.Count, 1), 0);
                         try
@@ -1044,6 +1082,9 @@ namespace RPA.NuGet.ViewModels
                     _updatesChecked = true;
                 }
 
+                if (generation != _projectGeneration)
+                    return;
+
                 UpdateItems.Clear();
                 foreach (NuGetPackageItemViewModel item in withUpdate)
                     UpdateItems.Add(item);
@@ -1058,8 +1099,11 @@ namespace RPA.NuGet.ViewModels
             }
             finally
             {
-                ProgressValue = 0;
-                IsBusy = false;
+                if (generation == _projectGeneration)
+                {
+                    ProgressValue = 0;
+                    IsBusy = false;
+                }
             }
         }
 

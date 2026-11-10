@@ -49,9 +49,9 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Activities\Activities.csproj">
-      <Project>{b099d40d-2455-4772-8c65-bd3b81cc0ec1}</Project>
-      <Name>Activities</Name>
+    <ProjectReference Include="..\ActivityLibraryBase\ActivityLibraryBase.csproj">
+      <Project>{b406de8e-8cf4-42f3-a234-f7b64b496eb0}</Project>
+      <Name>ActivityLibraryBase</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

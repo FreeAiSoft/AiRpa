@@ -2,7 +2,6 @@
 using ActivityLibraryBase.Attributes;
 using ActivityLibraryBase.BaseActivities;
 using ActivityLibraryBase.Resources;
-using Microsoft.Windows.Design;
 using PuppeteerSharp;
 using System.Activities;
 using System.Threading.Tasks;
@@ -11,7 +10,6 @@ namespace Activities.Browser
 {
     [LocalizedDescription("back_desc", typeof(ActivitiesBrowser))]
     [LocalizedDisplayName("back", typeof(ActivitiesBrowser))]
-    [ToolboxBrowsable(true)]
     public sealed class Back : TimeoutCodeActivity
     {
         [RequiredArgument]

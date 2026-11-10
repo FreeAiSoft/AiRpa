@@ -101,6 +101,81 @@ public class NuGetPanelViewModelTests
     }
 
     [Test]
+    public void LoadProject_SecondProjectWithoutPackages_ClearsPreviousState()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            string projectA = Path.Combine(directory, "A.csproj");
+            File.WriteAllText(projectA,
+                "<Project Sdk=\"Microsoft.NET.Sdk\">"
+                + "<PropertyGroup><TargetFramework>net48</TargetFramework></PropertyGroup>"
+                + "<ItemGroup><PackageReference Include=\"Newtonsoft.Json\" Version=\"13.0.4\" /></ItemGroup>"
+                + "</Project>");
+
+            var model = new NuGetPanelViewModel(new NuGetSearchService(OfflineSource));
+            Assert.That(model.LoadProject(projectA), Is.True);
+            model.BrowseItems.Add(new NuGetPackageItemViewModel(new NuGetPackageInfo { Id = "Old.Browse" }));
+
+            string projectB = Path.Combine(directory, "B.csproj");
+            File.WriteAllText(projectB,
+                "<Project Sdk=\"Microsoft.NET.Sdk\">"
+                + "<PropertyGroup><TargetFramework>net48</TargetFramework></PropertyGroup>"
+                + "</Project>");
+
+            Assert.That(model.LoadProject(projectB), Is.True);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.HasProject, Is.True);
+                Assert.That(model.ProjectHeader, Is.EqualTo("NuGet Package Manager: B"));
+                Assert.That(model.InstalledItems, Is.Empty, "пакеты предыдущего проекта не должны оставаться в Installed");
+                Assert.That(model.BrowseItems, Is.Empty, "строки Browse предыдущего проекта должны сбрасываться");
+                Assert.That(model.UpdateItems, Is.Empty);
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Test]
+    public void TryDetectProject_WithoutProjectFile_ClearsPreviousProject()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            string project = Path.Combine(directory, "Demo.csproj");
+            File.WriteAllText(project,
+                "<Project Sdk=\"Microsoft.NET.Sdk\"><ItemGroup>"
+                + "<PackageReference Include=\"Newtonsoft.Json\" Version=\"13.0.4\" />"
+                + "</ItemGroup></Project>");
+
+            var model = new NuGetPanelViewModel(new NuGetSearchService(OfflineSource));
+            Assert.That(model.LoadProject(project), Is.True);
+
+            string emptyDir = Path.Combine(directory, "empty");
+            Directory.CreateDirectory(emptyDir);
+
+            Assert.That(model.TryDetectProject(emptyDir), Is.False);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.HasProject, Is.False);
+                Assert.That(model.ProjectHeader, Is.EqualTo("NuGet Package Manager"));
+                Assert.That(model.InstalledItems, Is.Empty, "пакеты предыдущего проекта не должны оставаться в Installed");
+                Assert.That(model.UpdateItems, Is.Empty);
+                Assert.That(model.BrowseItems, Is.Empty);
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Test]
     public void SelectTab_SwitchesVisibleItems()
     {
         string directory = CreateTempDirectory();

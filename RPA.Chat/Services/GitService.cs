@@ -180,7 +180,7 @@ namespace RPA.Chat.Services
             if (trimmed.Length <= MaxLoggedOutputChars)
                 return trimmed;
 
-            return trimmed.Substring(0, MaxLoggedOutputChars) + Environment.NewLine + "... (output truncated, " + trimmed.Length + " chars total)";
+            return SafeText.Truncate(trimmed, MaxLoggedOutputChars) + Environment.NewLine + "... (output truncated, " + trimmed.Length + " chars total)";
         }
 
         private static IEnumerable<string> SplitLines(string text)

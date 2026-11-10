@@ -241,7 +241,7 @@ namespace RPA.Chat.Services.Workflow
 
             return single.Length <= MaxExpressionLength
                 ? single
-                : single.Substring(0, MaxExpressionLength - 1) + "…";
+                : SafeText.Truncate(single, MaxExpressionLength - 1) + "…";
         }
 
         private static string Repeat(string value, int count)

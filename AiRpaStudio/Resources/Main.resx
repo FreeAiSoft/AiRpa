@@ -268,4 +268,31 @@
   <data name="lang_error_copied" xml:space="preserve">
     <value>Copied to clipboard</value>
   </data>
+  <data name="lang_main_check_activity_compat" xml:space="preserve">
+    <value>Check Activity Library Compatibility</value>
+  </data>
+  <data name="lang_activity_compat_title" xml:space="preserve">
+    <value>Project Compatibility</value>
+  </data>
+  <data name="lang_activity_compat_hint" xml:space="preserve">
+    <value>The report below can be selected and copied (Ctrl+C). Versions of shared dependencies can be fixed automatically.</value>
+  </data>
+  <data name="lang_activity_compat_fix" xml:space="preserve">
+    <value>Fix automatically</value>
+  </data>
+  <data name="lang_activity_compat_fix_done" xml:space="preserve">
+    <value>Fixed automatically: {0} issue(s).</value>
+  </data>
+  <data name="lang_activity_compat_fix_nothing" xml:space="preserve">
+    <value>No issues could be fixed automatically.</value>
+  </data>
+  <data name="lang_activity_compat_fix_failed" xml:space="preserve">
+    <value>Could not fix: {0} issue(s).</value>
+  </data>
+  <data name="lang_activity_compat_compatible" xml:space="preserve">
+    <value>Compatible with the studio</value>
+  </data>
+  <data name="lang_activity_compat_problems" xml:space="preserve">
+    <value>Compatibility problems found</value>
+  </data>
 </root>

@@ -19,8 +19,8 @@ namespace RPA.Core.Workflow
     /// </para>
     /// <para>
     /// Package assemblies often depend on sibling assemblies shipped in the same lib folder
-    /// (ActivityLibraryBase.dll, RpaCommon.dll) or on transitive packages. A temporary
-    /// AssemblyResolve handler loads those dependencies while the palette is scanned.
+    /// (ActivityLibraryBase.dll, RpaCommon.dll) or on transitive packages. A permanent
+    /// AssemblyResolve handler loads those dependencies while the palette is scanned and later, when the toolbox lazily resolves its items.
     /// </para>
     /// </summary>
     internal sealed class NuGetActivityPaletteLoader
@@ -50,6 +50,50 @@ namespace RPA.Core.Workflow
 
             /// <summary>Состав пакетных активностей изменился (добавление или удаление).</summary>
             internal bool Changed => Added != 0 || Removed != 0;
+        }
+
+        private static readonly object ResolverSyncRoot = new object();
+        private static int _resolverSubscribeCount;
+        private static List<string> _resolverSearchDirectories = new List<string>();
+        private static string _resolverFallbackRoot;
+
+        /// <summary>Обработчик поиска пакетных сборок установлен в текущем домене.</summary>
+        internal static bool IsResolverInstalled => _resolverSubscribeCount > 0;
+
+        /// <summary>
+        /// Ставит постоянный обработчик <c>AssemblyResolve</c>, который ищет сборки пакетов
+        /// в их <c>lib</c>-каталогах. Подписка не снимается после сканирования: палитра и дизайнер
+        /// резолвят типы лениво (уже после <c>LoadFromProject</c>), и без живого обработчика
+        /// <c>ToolboxItemWrapper.ResolveToolboxItem</c> падает с <c>FileNotFoundException</c>.
+        /// </summary>
+        private static void InstallResolver(IEnumerable<string> searchDirectories, string fallbackRoot)
+        {
+            lock (ResolverSyncRoot)
+            {
+                _resolverSearchDirectories = (searchDirectories ?? Enumerable.Empty<string>()).ToList();
+                _resolverFallbackRoot = fallbackRoot;
+
+                if (_resolverSubscribeCount > 0)
+                {
+                    return;
+                }
+
+                AppDomain.CurrentDomain.AssemblyResolve += OnAssemblyResolve;
+                _resolverSubscribeCount++;
+            }
+        }
+
+        private static Assembly OnAssemblyResolve(object sender, ResolveEventArgs args)
+        {
+            try
+            {
+                return ResolveAssembly(args?.Name, _resolverSearchDirectories, _resolverFallbackRoot);
+            }
+            catch (Exception)
+            {
+                // Поиск сборки пакета не должен ронять привязку и палитру.
+                return null;
+            }
         }
 
         /// <summary>Сканирует пакеты проекта и пересинхронизирует пакетные активности палитры.</summary>
@@ -84,18 +128,19 @@ namespace RPA.Core.Workflow
             }
 
             if (targets.Count == 0)
+            {
+                InstallResolver(Array.Empty<string>(), null);
                 return Synchronize(Array.Empty<ActivityPaletteCategory>());
+            }
 
             List<string> searchDirectories = targets.Select(t => t.LibDirectory).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             string fallbackRoot = project.IsSdkStyle
                 ? GetGlobalPackageRoot()
                 : Path.Combine(projectDir, "packages");
 
-            ResolveEventHandler resolver = (sender, args) => ResolveAssembly(args.Name, searchDirectories, fallbackRoot);
-            AppDomain.CurrentDomain.AssemblyResolve += resolver;
+            InstallResolver(searchDirectories, fallbackRoot);
 
             var newCategories = new List<ActivityPaletteCategory>();
-            try
             {
                 // Pre-load every co-located assembly so GetTypes() can resolve base classes and
                 // argument types that live in the same lib folder (ActivityLibraryBase, RpaCommon, ...).
@@ -125,10 +170,6 @@ namespace RPA.Core.Workflow
                         }
                     }
                 }
-            }
-            finally
-            {
-                AppDomain.CurrentDomain.AssemblyResolve -= resolver;
             }
 
             return Synchronize(newCategories);
