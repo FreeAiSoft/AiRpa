@@ -29,6 +29,15 @@ namespace RPA.NuGet.Services
 
         private readonly SourceRepository _repository;
 
+        private LocalPackageIndexCache _localIndexCache;
+        private readonly object _localMemoLock = new object();
+        private readonly Dictionary<string, List<NuGetPackageInfo>> _localSearchMemo =
+            new Dictionary<string, List<NuGetPackageInfo>>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, IReadOnlyList<string>> _localVersionsMemo =
+            new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, NuGetPackageInfo> _localPackageInfoMemo =
+            new Dictionary<string, NuGetPackageInfo>(StringComparer.OrdinalIgnoreCase);
+
         public NuGetSearchService(string sourceUrl)
         {
             if (string.IsNullOrWhiteSpace(sourceUrl))
@@ -78,6 +87,9 @@ namespace RPA.NuGet.Services
                 query = string.Empty;
             }
 
+            if (IsLocal)
+                return await SearchLocalAsync(query, take, includePrerelease, skip);
+
             NuGetLog.Info("Search: query=\"" + query + "\" skip=" + skip + " take=" + take
                           + " prerelease=" + includePrerelease + " source=" + SourceUrl);
             var searchResource = await _repository.GetResourceAsync<PackageSearchResource>();
@@ -104,6 +116,9 @@ namespace RPA.NuGet.Services
             if (string.IsNullOrWhiteSpace(packageId))
                 return null;
 
+            if (IsLocal)
+                return GetLocalPackageInfo(packageId, includePrerelease);
+
             List<NuGetPackageInfo> results = await SearchAsync(packageId, 10, includePrerelease);
             return results.FirstOrDefault(r => string.Equals(r.Id, packageId, StringComparison.OrdinalIgnoreCase))
                    ?? results.FirstOrDefault();
@@ -114,6 +129,8 @@ namespace RPA.NuGet.Services
             if (string.IsNullOrWhiteSpace(packageId))
                 return Array.Empty<string>();
 
+            if (IsLocal)
+                return GetLocalVersions(packageId, includePrerelease);
             NuGetLog.Info("GetVersions: id=" + packageId + " prerelease=" + includePrerelease + " source=" + SourceUrl);
             var resource = await _repository.GetResourceAsync<FindPackageByIdResource>();
             var cache = new SourceCacheContext();
@@ -216,6 +233,171 @@ namespace RPA.NuGet.Services
                               + " for " + packageId + " " + version + " from source " + SourceUrl);
                 return data;
             }
+        }
+
+        // --- Кэш локального источника (offline-папка) ---
+
+        private LocalPackageIndexCache LocalIndexCache
+        {
+            get
+            {
+                if (_localIndexCache == null)
+                    _localIndexCache = new LocalPackageIndexCache(SourceUrl);
+                return _localIndexCache;
+            }
+        }
+
+        private Task<List<NuGetPackageInfo>> SearchLocalAsync(
+            string query,
+            int take,
+            bool includePrerelease,
+            int skip)
+        {
+            string memoKey = BuildSearchMemoKey(query, take, includePrerelease, skip);
+            lock (_localMemoLock)
+            {
+                if (_localSearchMemo.TryGetValue(memoKey, out List<NuGetPackageInfo> cached))
+                    return Task.FromResult(cached);
+            }
+
+            IReadOnlyList<LocalPackageIndexEntry> entries = LocalIndexCache.Entries;
+            List<LocalPackageIndexEntry> filtered = FilterLocalEntries(entries, query, includePrerelease);
+
+            // Browse-карточка — одна на пакет: показываем самую свежую подходящую версию.
+            var distinct = new List<LocalPackageIndexEntry>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (LocalPackageIndexEntry entry in filtered)
+            {
+                if (seen.Add(entry.Id))
+                    distinct.Add(entry);
+            }
+
+            int start = Math.Max(skip, 0);
+            List<NuGetPackageInfo> page = distinct
+                .Skip(start)
+                .Take(Math.Max(take, 1))
+                .Select(ToPackageInfo)
+                .ToList();
+
+            lock (_localMemoLock)
+                _localSearchMemo[memoKey] = page;
+
+            NuGetLog.Info("Search (local cache): query=\"" + query + "\" skip=" + skip + " take=" + take
+                          + " prerelease=" + includePrerelease + " source=" + SourceUrl
+                          + " -> " + page.Count + " package(s)");
+            return Task.FromResult(page);
+        }
+
+        private NuGetPackageInfo GetLocalPackageInfo(string packageId, bool includePrerelease)
+        {
+            string memoKey = BuildPackageInfoMemoKey(packageId, includePrerelease);
+            lock (_localMemoLock)
+            {
+                if (_localPackageInfoMemo.TryGetValue(memoKey, out NuGetPackageInfo cached))
+                    return cached;
+            }
+
+            // Записи отсортированы по Id и убыванию версии, поэтому первое совпадение — самая свежая.
+            IReadOnlyList<LocalPackageIndexEntry> entries = LocalIndexCache.Entries;
+            LocalPackageIndexEntry match = entries.FirstOrDefault(entry =>
+                string.Equals(entry.Id, packageId, StringComparison.OrdinalIgnoreCase)
+                && (includePrerelease || !entry.IsPrerelease));
+
+            NuGetPackageInfo info = match == null ? null : ToPackageInfo(match);
+            lock (_localMemoLock)
+                _localPackageInfoMemo[memoKey] = info;
+
+            return info;
+        }
+
+        private IReadOnlyList<string> GetLocalVersions(string packageId, bool includePrerelease)
+        {
+            string memoKey = BuildVersionsMemoKey(packageId, includePrerelease);
+            lock (_localMemoLock)
+            {
+                if (_localVersionsMemo.TryGetValue(memoKey, out IReadOnlyList<string> cached))
+                    return cached;
+            }
+
+            IReadOnlyList<LocalPackageIndexEntry> entries = LocalIndexCache.Entries;
+            List<string> versions = entries
+                .Where(entry =>
+                    string.Equals(entry.Id, packageId, StringComparison.OrdinalIgnoreCase)
+                    && (includePrerelease || !entry.IsPrerelease))
+                .Select(entry => entry.Version)
+                .ToList();
+
+            lock (_localMemoLock)
+                _localVersionsMemo[memoKey] = versions;
+
+            NuGetLog.Info("GetVersions (local cache): id=" + packageId + " prerelease=" + includePrerelease
+                          + " source=" + SourceUrl + " -> " + versions.Count + " version(s)");
+            return versions;
+        }
+
+        private static List<LocalPackageIndexEntry> FilterLocalEntries(
+            IReadOnlyList<LocalPackageIndexEntry> entries,
+            string query,
+            bool includePrerelease)
+        {
+            var result = new List<LocalPackageIndexEntry>();
+            foreach (LocalPackageIndexEntry entry in entries)
+            {
+                if (!includePrerelease && entry.IsPrerelease)
+                    continue;
+
+                if (query.Length == 0 || MatchesLocal(entry, query))
+                    result.Add(entry);
+            }
+
+            return result;
+        }
+
+        private static bool MatchesLocal(LocalPackageIndexEntry entry, string query)
+        {
+            return IndexOf(entry.Id, query) >= 0
+                   || IndexOf(entry.Description, query) >= 0
+                   || IndexOf(entry.Tags, query) >= 0;
+        }
+
+        private static int IndexOf(string value, string query)
+        {
+            return string.IsNullOrEmpty(value)
+                ? -1
+                : value.IndexOf(query, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string BuildSearchMemoKey(string query, int take, bool includePrerelease, int skip)
+        {
+            return query + "|" + take + "|" + includePrerelease + "|" + skip;
+        }
+
+        private static string BuildVersionsMemoKey(string packageId, bool includePrerelease)
+        {
+            return packageId + "|" + includePrerelease;
+        }
+
+        private static string BuildPackageInfoMemoKey(string packageId, bool includePrerelease)
+        {
+            return packageId + "|" + includePrerelease;
+        }
+
+        private static NuGetPackageInfo ToPackageInfo(LocalPackageIndexEntry entry)
+        {
+            return new NuGetPackageInfo
+            {
+                Id = entry.Id,
+                Version = entry.Version,
+                IsPrerelease = entry.IsPrerelease,
+                Description = entry.Description,
+                Authors = entry.Authors,
+                TotalDownloads = 0,
+                IconUrl = entry.IconUrl,
+                ProjectUrl = entry.ProjectUrl,
+                LicenseUrl = entry.LicenseUrl,
+                Tags = entry.Tags,
+                Published = entry.Published
+            };
         }
 
         private static NuGetPackageInfo ToPackageInfo(IPackageSearchMetadata metadata)

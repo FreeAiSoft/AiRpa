@@ -787,8 +787,10 @@ Release-сборка `AiRpaStudio.csproj` проходит.
 
 **Режимы взаимоисключающие.** Успешная установка включает режим кэша: `WfActivityTheme` плиту и рамку не
 красит, `ReplaceWorkflowDefaultColors` не выполняется. Остаётся текст: подпись наследует `Foreground` от
-`WorkflowViewElement`, а тот приходит из темы WF (чёрный), поэтому `ThemeStaleText` ставит цвет
-**синхронно** в `LayoutUpdated` (до Render) и помечает активность (`Marks`), иначе раскладка зацикливается.
+`WorkflowViewElement`, а тот приходит из темы WF (чёрный). Поэтому `WfActivityTheme.HookCaptionForeground`
+регистрирует class handler на `FrameworkElement.Loaded` и ставит на контрол связанную кисть палитры до
+первого кадра (покрывает все типы дизайнеров — `SequenceDesigner`, `ActivityTypeDesigner`, кастомные, —
+без обхода дерева; смена темы перекрашивает через источник кисти).
 Любой сбой установки (нет поля кэша, не загрузился словарь WF) возвращает прежнюю пост-покраску;
 аварийный тумблер — switch `Studio.WfLegacyTheming` в `AiRpaStudio.exe.config`.
 

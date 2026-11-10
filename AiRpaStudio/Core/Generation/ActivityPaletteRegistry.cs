@@ -3,10 +3,12 @@ using System.Activities;
 using System.Activities.Statements;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using RPA.Logging;
 
 namespace RPA.Core.Generation
 {
@@ -319,6 +321,10 @@ namespace RPA.Core.Generation
         private readonly List<PaletteActivityDescriptor> _descriptors = new List<PaletteActivityDescriptor>();
         private readonly List<string> _categories = new List<string>();
 
+        /// <summary>Кэш метаданных типа на процесс: рефлексия выполняется один раз на тип.</summary>
+        private static readonly ConcurrentDictionary<Type, PaletteActivityDescriptor> DescriptorCache =
+            new ConcurrentDictionary<Type, PaletteActivityDescriptor>();
+
         internal ActivityPaletteRegistry(IEnumerable<ActivityPaletteCategory> categories)
         {
             foreach (ActivityPaletteCategory category in categories ?? Enumerable.Empty<ActivityPaletteCategory>())
@@ -350,7 +356,33 @@ namespace RPA.Core.Generation
         /// </summary>
         internal static void InvalidateDefault()
         {
+            // Кэш дескрипторов целиком не чистим: дескрипторы неизменяемы и привязаны к Type, поэтому
+            // встроенные и созданные агентом типы не рефлексируются заново. Устаревшие типы удаляются
+            // точечно через InvalidateTypes.
             DefaultRegistry = new Lazy<ActivityPaletteRegistry>(() => new ActivityPaletteRegistry(StudioActivityPalette.Categories()));
+        }
+
+        /// <summary>
+        /// Точечно удаляет из кэша дескрипторы указанных типов (например, удалённых NuGet-пакетов)
+        /// и сбрасывает Lazy реестра. Встроенные и созданные агентом типы остаются закэшированными.
+        /// </summary>
+        internal static void InvalidateTypes(IEnumerable<Type> types)
+        {
+            foreach (Type type in types ?? Enumerable.Empty<Type>())
+            {
+                DescriptorCache.TryRemove(type, out _);
+            }
+
+            DefaultRegistry = new Lazy<ActivityPaletteRegistry>(() => new ActivityPaletteRegistry(StudioActivityPalette.Categories()));
+        }
+
+        /// <summary>
+        /// Устанавливает заранее построенный реестр (фоновая пересборка палитры), чтобы
+        /// <see cref="Default"/> вернул его без повторной рефлексии.
+        /// </summary>
+        internal static void Install(ActivityPaletteRegistry registry)
+        {
+            DefaultRegistry = new Lazy<ActivityPaletteRegistry>(() => registry ?? new ActivityPaletteRegistry(StudioActivityPalette.Categories()));
         }
 
         /// <summary>Все активности палитры (по одной на имя, в порядке категорий).</summary>
@@ -392,33 +424,61 @@ namespace RPA.Core.Generation
                 return null;
             }
 
+            if (DescriptorCache.TryGetValue(type, out PaletteActivityDescriptor cached))
+            {
+                return cached;
+            }
+
+            System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
+
             var arguments = new List<PaletteArgumentDescriptor>();
             var containers = new List<PaletteContainerDescriptor>();
 
-            foreach (PropertyInfo property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            System.Diagnostics.Stopwatch getPropsSw = System.Diagnostics.Stopwatch.StartNew();
+            PropertyInfo[] properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            long getPropertiesMs = getPropsSw.ElapsedMilliseconds;
+
+            foreach (PropertyInfo property in properties)
             {
+                System.Diagnostics.Stopwatch typeSw = System.Diagnostics.Stopwatch.StartNew();
+                _ = property.PropertyType;
+                long propertyTypeMs = typeSw.ElapsedMilliseconds;
+
+                System.Diagnostics.Stopwatch propSw = System.Diagnostics.Stopwatch.StartNew();
+
                 PaletteArgumentDescriptor argument = DescribeArgument(property);
                 if (argument != null)
                 {
                     arguments.Add(argument);
-                    continue;
+                }
+                else
+                {
+                    PaletteContainerDescriptor container = DescribeContainer(property);
+                    if (container != null)
+                    {
+                        containers.Add(container);
+                    }
+                    else
+                    {
+                        PaletteArgumentDescriptor plain = DescribePlainProperty(property);
+                        if (plain != null)
+                        {
+                            arguments.Add(plain);
+                        }
+                    }
                 }
 
-                PaletteContainerDescriptor container = DescribeContainer(property);
-                if (container != null)
-                {
-                    containers.Add(container);
-                    continue;
-                }
+                long describeMs = propSw.ElapsedMilliseconds;
 
-                PaletteArgumentDescriptor plain = DescribePlainProperty(property);
-                if (plain != null)
+                if (propertyTypeMs > 0 || describeMs > 0)
                 {
-                    arguments.Add(plain);
+                    Log.Write($"[Palette]     Prop {type.Name}.{property.Name}: GetType={propertyTypeMs} ms, Describe={describeMs} ms");
                 }
             }
 
-            return new PaletteActivityDescriptor(
+            Log.Write($"[Palette] Describe({type.FullName ?? type.Name}): GetProperties={getPropertiesMs} ms, всего={sw.ElapsedMilliseconds} ms");
+
+            var descriptor = new PaletteActivityDescriptor(
                 KeyOf(type),
                 DisplayNameOf(type),
                 category,
@@ -426,6 +486,8 @@ namespace RPA.Core.Generation
                 DescriptionOf(type),
                 arguments,
                 containers);
+
+            return DescriptorCache.GetOrAdd(type, descriptor);
         }
 
         /// <summary>Все известные имена — для подсказки в ответе на неизвестную активность.</summary>
@@ -477,38 +539,102 @@ namespace RPA.Core.Generation
         }
 
         /// <summary>
-        /// Безопасное чтение атрибута: если у типа или свойства есть атрибут из дизайнерской сборки,
-        /// которой нет рядом с пакетом (например <c>Microsoft.Windows.Design.Interaction</c>),
-        /// <c>GetCustomAttribute</c> резолвит типы всех атрибутов и падает — каталог агента
-        /// обязан строиться, а не ломаться из-за одного пакета.
+        /// Безопасное чтение атрибута без резолва посторонних атрибутов. <see cref="MemberInfo.GetCustomAttribute{T}"/>
+        /// инстанцирует/резолвит все атрибуты члена и падает на атрибуте из дизайнерской сборки
+        /// (<c>Microsoft.Windows.Design.Interaction</c> — <c>[ToolboxBrowsable]</c>/<c>[ToolboxItem]</c>), которой
+        /// нет рядом с пакетом. <see cref="CustomAttributeData"/> читает сырые метаданные и не трогает типы,
+        /// поэтому каталог агента строится без исключений.
         /// </summary>
-        private static T GetAttributeSafe<T>(MemberInfo member, bool inherit) where T : Attribute
+        internal static T GetAttributeSafe<T>(MemberInfo member, bool inherit) where T : Attribute
         {
-            try
+            for (MemberInfo current = member; current != null; )
             {
-                return member.GetCustomAttribute<T>(inherit);
+                foreach (CustomAttributeData data in CustomAttributesOf(current))
+                {
+                    Type attributeType;
+                    try
+                    {
+                        attributeType = data.AttributeType;
+                    }
+                    catch
+                    {
+                        // Нерезолвимый атрибут (дизайнерская сборка не рядом) — пропускаем, не роняя палитру.
+                        continue;
+                    }
+
+                    if (!typeof(T).IsAssignableFrom(attributeType))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        object[] args = data.ConstructorArguments.Select(argument => argument.Value).ToArray();
+                        return (T)data.Constructor.Invoke(args);
+                    }
+                    catch
+                    {
+                        return null;
+                    }
+                }
+
+                if (!inherit)
+                {
+                    break;
+                }
+
+                current = (current as Type)?.BaseType;
             }
-            catch (Exception ex) when (ex is FileNotFoundException || ex is FileLoadException ||
-                                       ex is TypeLoadException || ex is ReflectionTypeLoadException)
-            {
-                return null;
-            }
+
+            return null;
         }
 
         /// <summary>
         /// Безопасная проверка наличия атрибута — та же причина, что у <see cref="GetAttributeSafe{T}"/>:
-        /// недогруженная дизайнерская сборка не должна ронять каталог агента.
+        /// сырые метаданные вместо резолва типов атрибутов.
         /// </summary>
-        private static bool HasAttributeSafe(MemberInfo member, Type attributeType, bool inherit)
+        internal static bool HasAttributeSafe(MemberInfo member, Type attributeType, bool inherit)
+        {
+            for (MemberInfo current = member; current != null; )
+            {
+                foreach (CustomAttributeData data in CustomAttributesOf(current))
+                {
+                    Type type;
+                    try
+                    {
+                        type = data.AttributeType;
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    if (attributeType.IsAssignableFrom(type))
+                    {
+                        return true;
+                    }
+                }
+
+                if (!inherit)
+                {
+                    break;
+                }
+
+                current = (current as Type)?.BaseType;
+            }
+
+            return false;
+        }
+
+        private static IList<CustomAttributeData> CustomAttributesOf(MemberInfo member)
         {
             try
             {
-                return member.GetCustomAttributes(attributeType, inherit).Any();
+                return CustomAttributeData.GetCustomAttributes(member);
             }
-            catch (Exception ex) when (ex is FileNotFoundException || ex is FileLoadException ||
-                                       ex is TypeLoadException || ex is ReflectionTypeLoadException)
+            catch
             {
-                return false;
+                return Array.Empty<CustomAttributeData>();
             }
         }
 
@@ -917,13 +1043,19 @@ namespace RPA.Core.Generation
         /// <summary>Полный состав палитры: встроенные категории плюс уже загруженные библиотеки студии.</summary>
         internal static IReadOnlyList<ActivityPaletteCategory> Categories()
         {
+            System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
+
             EnsureStudioLibrariesLoaded();
+            Log.Write($"[Palette] EnsureStudioLibrariesLoaded: +{sw.ElapsedMilliseconds} ms");
 
             var categories = new List<ActivityPaletteCategory>(BuiltinCategories());
+            Log.Write($"[Palette] BuiltinCategories: +{sw.ElapsedMilliseconds} ms, категорий={categories.Count}");
 
             foreach (string assemblyName in LibraryAssemblyNames)
             {
+                long before = sw.ElapsedMilliseconds;
                 ActivityPaletteCategory category = CategoryFromLoadedAssembly(CategoryKeyOf(assemblyName), assemblyName);
+                Log.Write($"[Palette] CategoryFromLoadedAssembly({assemblyName}): +{sw.ElapsedMilliseconds - before} ms, типов={category?.Types.Count ?? 0}, найдена={category != null}");
                 if (category != null)
                 {
                     categories.Add(category);
@@ -933,6 +1065,7 @@ namespace RPA.Core.Generation
             categories.AddRange(CreatedLibraries);
             categories.AddRange(PackageLibraries);
 
+            Log.Write($"[Palette] StudioActivityPalette.Categories: всего +{sw.ElapsedMilliseconds} ms, категорий={categories.Count}, типов={categories.Sum(c => c?.Types.Count ?? 0)}");
             return categories;
         }
 

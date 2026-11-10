@@ -171,18 +171,34 @@ namespace RPA.VsProject
 
         private static string ReadAllText(string path, out bool hasBom)
         {
-            byte[] bytes = File.ReadAllBytes(path);
-            hasBom = bytes.Length >= 3
-                     && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
-
-            Encoding encoding = hasBom ? new UTF8Encoding(true) : new UTF8Encoding(false);
-            return encoding.GetString(bytes);
+            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                hasBom = HasUtf8Bom(stream);
+                stream.Position = 0;
+                // detectEncodingFromByteOrderMarks=true: the StreamReader strips the BOM itself,
+                // so U+FEFF never enters the text (otherwise writing back with a BOM would double
+                // it and corrupt the XML declaration).
+                using (var reader = new StreamReader(stream, new UTF8Encoding(false), detectEncodingFromByteOrderMarks: true))
+                {
+                    return reader.ReadToEnd();
+                }
+            }
         }
 
         private static void WriteAllText(string path, string text, bool hasBom)
         {
-            Encoding encoding = hasBom ? new UTF8Encoding(true) : new UTF8Encoding(false);
-            File.WriteAllText(path, text, encoding);
+            using (var writer = new StreamWriter(path, false, new UTF8Encoding(hasBom)))
+            {
+                writer.Write(text);
+            }
+        }
+
+        private static bool HasUtf8Bom(Stream stream)
+        {
+            byte[] prefix = new byte[3];
+            int read = stream.Read(prefix, 0, prefix.Length);
+            return read == prefix.Length
+                   && prefix[0] == 0xEF && prefix[1] == 0xBB && prefix[2] == 0xBF;
         }
     }
 }

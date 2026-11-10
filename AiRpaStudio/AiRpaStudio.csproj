@@ -28,7 +28,7 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
+    <WarningLevel>0</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -40,7 +40,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup>
-    <ApplicationIcon>23456789.ico</ApplicationIcon>
+    <ApplicationIcon>RPA-icon.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -366,6 +366,7 @@
     <Compile Include="Helpers\ProjectPathResolver.cs" />
     <Compile Include="Helpers\ProjectTreeMenuRules.cs" />
     <Compile Include="Logging\Log.cs" />
+    <Compile Include="Logging\StartupTimer.cs" />
     <Compile Include="Core\WorkflowDesignerEx.cs" />
     <Compile Include="Core\ExpressionValidationTiming.cs" />
     <Compile Include="Core\ValidationSchedule.cs" />
@@ -654,9 +655,6 @@
     <EmbeddedResource Include="Resources\ExpressionEditor\Method.png" />
     <EmbeddedResource Include="Resources\ExpressionEditor\Property.png" />
     <EmbeddedResource Include="Resources\Highlighting\Xaml.xshd" />
-  </ItemGroup>
-  <ItemGroup>
-    <Resource Include="23456789.ico" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="VsTemplate\VsTemplateModels.cs" />

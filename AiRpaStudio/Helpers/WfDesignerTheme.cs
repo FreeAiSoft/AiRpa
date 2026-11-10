@@ -243,6 +243,7 @@ namespace RPA.Helpers
             Add(values, "WorkflowViewElementSelectedBorder", colors.SeparatorStrong);
             Add(values, "WorkflowViewElementCaptionBrush", colors.Foreground);
             Add(values, "WorkflowViewElementSelectedCaptionBrush", colors.Foreground);
+            Add(values, "ActivityDesignerSelectedTitleForegroundColor", colors.Foreground);
             Add(values, "DesignerViewStatusBarBackground", colors.SurfaceAlt);
             Add(values, "ParallelSpacerColor", colors.Separator);
             Add(values, "FlowchartConnectorColor", colors.SeparatorStrong);

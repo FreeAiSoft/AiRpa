@@ -290,8 +290,10 @@ namespace RPA.Core.Workflow
             int added = after.Count(type => !before.Contains(type));
             int removed = before.Count(type => !after.Contains(type));
 
+            Type[] removedTypes = before.Where(type => !after.Contains(type)).ToArray();
+
             StudioActivityPalette.ReplacePackageLibraries(newCategories);
-            ActivityPaletteRegistry.InvalidateDefault();
+            ActivityPaletteRegistry.InvalidateTypes(removedTypes);
             StudioActivityCatalog.InvalidateDefault();
 
             return new NuGetPaletteScanResult(added, removed);

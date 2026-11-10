@@ -1,13 +1,14 @@
 using System;
+using System.Diagnostics;
+using System.Threading;
 using System.Activities;
 using System.Activities.Core.Presentation;
 //using System.Activities;
 using System.Activities.Presentation.Toolbox;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.ComponentModel;
-using System.IO;
-using System.Reflection;
 using RPA.Controls;
 using RPA.Core.Generation;
 using RPA.Logging;
@@ -17,6 +18,10 @@ namespace RPA.Helpers
     internal class WFToolboxHelper
     {
         public static int ActivitiesCount { get; set; } = 0;
+
+        /// <summary>Кэш отображаемых имён типов: FixName вычисляется один раз на тип.</summary>
+        private static readonly ConcurrentDictionary<Type, string> DisplayNameCache =
+            new ConcurrentDictionary<Type, string>();
 
         /// <summary>
         /// Сброс счётчика панели (карточка <c>AG-08</c>): <see cref="Build"/> вызывается не только при старте,
@@ -35,6 +40,9 @@ namespace RPA.Helpers
         /// </summary>
         internal ToolboxPanel Build()
         {
+            Stopwatch sw = Stopwatch.StartNew();
+            Log.Write($"[Palette] WFToolboxHelper.Build: начало (поток {Thread.CurrentThread.ManagedThreadId})");
+
             ToolboxPanel toolboxPanel = new ToolboxPanel();
             ResetActivitiesCount();
             ToolboxControl wfToolbox = new ToolboxControl();
@@ -46,7 +54,10 @@ namespace RPA.Helpers
             // Единый источник состава палитры: панель «Активности» и каталог агента читают один и тот же
             // список (StudioActivityPalette.Categories) — встроенные активности, библиотеки студии
             // (Flow/Debug/OS/Browser) и пользовательские/пакетные активности.
-            foreach (ActivityPaletteCategory category in StudioActivityPalette.Categories())
+            IReadOnlyList<ActivityPaletteCategory> categories = StudioActivityPalette.Categories();
+            Log.Write($"[Palette] StudioActivityPalette.Categories: +{sw.ElapsedMilliseconds} ms, категорий={categories.Count}, типов={categories.Sum(c => c?.Types.Count ?? 0)}");
+
+            foreach (ActivityPaletteCategory category in categories)
             {
                 if (category == null)
                 {
@@ -54,11 +65,81 @@ namespace RPA.Helpers
                     continue;
                 }
 
+                long before = sw.ElapsedMilliseconds;
                 AddToolboxCategory(wfToolbox, category.Types.ToList(), CategoryDisplayName(category.Key));
+                Log.Write($"[Palette] Категория «{CategoryDisplayName(category.Key)}»: +{sw.ElapsedMilliseconds - before} ms, типов={category.Types.Count}");
             }
 
             toolboxPanel.SetToolboxControl(wfToolbox);
+            Log.Write($"[Palette] WFToolboxHelper.Build: завершён +{sw.ElapsedMilliseconds} ms, ActivitiesCount={ActivitiesCount}");
             return toolboxPanel;
+        }
+
+        /// <summary>
+        /// Фоновая фаза пересборки палитры: строит model-объекты тулбокса.
+        /// <see cref="ToolboxCategory"/> и <see cref="ToolboxItemWrapper"/> — обычные классы
+        /// (не WPF-элементы), поэтому метод безопасно вызывать из <c>Task.Run</c>.
+        /// </summary>
+        internal List<ToolboxCategory> BuildModel(IReadOnlyList<ActivityPaletteCategory> categories)
+        {
+            var result = new List<ToolboxCategory>();
+            foreach (ActivityPaletteCategory category in categories ?? Array.Empty<ActivityPaletteCategory>())
+            {
+                if (category == null)
+                {
+                    continue;
+                }
+
+                result.Add(CreateCategory(category.Types.ToList(), CategoryDisplayName(category.Key)));
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// UI-фаза пересборки палитры: из подготовленных категорий собирает <see cref="ToolboxControl"/>.
+        /// <see cref="ToolboxControl"/> — WPF-элемент, поэтому метод вызывается только на UI-потоке.
+        /// </summary>
+        internal ToolboxControl BuildControl(List<ToolboxCategory> categories)
+        {
+            Stopwatch sw = Stopwatch.StartNew();
+            Log.Write($"[Palette] WFToolboxHelper.BuildControl: начало (поток {Thread.CurrentThread.ManagedThreadId})");
+
+            ResetActivitiesCount();
+            ToolboxControl wfToolbox = new ToolboxControl();
+
+            foreach (ToolboxCategory category in categories ?? new List<ToolboxCategory>())
+            {
+                if (category == null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    wfToolbox.Categories.Add(category);
+                    ActivitiesCount += category.Tools.Count;
+                }
+                catch (Exception ex)
+                {
+                    Log.Write($"Панель «Активности»: категория пропущена — {ex.GetBaseException().Message}");
+                }
+            }
+
+            Log.Write($"[Palette] WFToolboxHelper.BuildControl: завершён +{sw.ElapsedMilliseconds} ms, ActivitiesCount={ActivitiesCount}");
+            return wfToolbox;
+        }
+
+        /// <summary>
+        /// Строит одну категорию тулбокса из типов активностей (сортировка по отображаемому имени).
+        /// </summary>
+        internal ToolboxCategory CreateCategory(List<Type> types, string categoryName)
+        {
+            ToolboxCategory toolboxCategory = new ToolboxCategory(categoryName);
+            foreach (Type type in types.OrderBy(FixName, StringComparer.OrdinalIgnoreCase))
+            {
+                toolboxCategory.Add(new ToolboxItemWrapper(type, FixName(type)));
+            }
+            return toolboxCategory;
         }
 
         /// <summary>
@@ -79,10 +160,12 @@ namespace RPA.Helpers
         internal void AddToolboxCategory(ToolboxControl wfToolbox, List<Type> types, string categoryName)
         {
             ToolboxCategory controlFlowToolboxCategory = new ToolboxCategory(categoryName);
-            IEnumerable<ToolboxItemWrapper> activities = types
-                .OrderBy(FixName, StringComparer.OrdinalIgnoreCase)
-                .Select(a => new ToolboxItemWrapper(a, FixName(a)));
-            activities.ToList().ForEach(controlFlowToolboxCategory.Add);
+            foreach (Type type in types.OrderBy(FixName, StringComparer.OrdinalIgnoreCase))
+            {
+                System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
+                controlFlowToolboxCategory.Add(new ToolboxItemWrapper(type, FixName(type)));
+                Log.Write($"[Palette]   Тип «{type.FullName ?? type.Name}» (категория «{categoryName}»): +{sw.ElapsedMilliseconds} ms");
+            }
             try
             {
                 wfToolbox.Categories.Add(controlFlowToolboxCategory);
@@ -95,6 +178,11 @@ namespace RPA.Helpers
         }
 
         private string FixName(Type type)
+        {
+            return DisplayNameCache.GetOrAdd(type, ComputeFixName);
+        }
+
+        private static string ComputeFixName(Type type)
         {
             string displayName = type.Name;
             string[] splitName = displayName.Split('`');
@@ -114,25 +202,12 @@ namespace RPA.Helpers
         }
 
         /// <summary>
-        /// Читает <see cref="DisplayNameAttribute"/> типа, не роняя панель, если среди атрибутов типа есть
-        /// атрибут из дизайнерской сборки, отсутствующей рядом с пакетом (например
-        /// <c>Microsoft.Windows.Design.Interaction</c>, откуда берутся <c>[ToolboxBrowsable]</c>/
-        /// <c>[ToolboxItem]</c>): <c>GetCustomAttributes</c> резолвит типы всех атрибутов и падает,
-        /// хотя панели нужен только <c>DisplayName</c>.
+        /// Читает <see cref="DisplayNameAttribute"/> типа по сырым метаданным атрибутов (без резолва
+        /// посторонних дизайнерских атрибутов): тот же путь, что и в каталоге агента.
         /// </summary>
         private static DisplayNameAttribute ReadDisplayName(Type type)
         {
-            try
-            {
-                return type.GetCustomAttributes(typeof(DisplayNameAttribute), true)
-                    .OfType<DisplayNameAttribute>()
-                    .FirstOrDefault();
-            }
-            catch (Exception ex) when (ex is FileNotFoundException || ex is FileLoadException ||
-                                       ex is TypeLoadException || ex is ReflectionTypeLoadException)
-            {
-                return null;
-            }
+            return ActivityPaletteRegistry.GetAttributeSafe<DisplayNameAttribute>(type, true);
         }
     }
 }

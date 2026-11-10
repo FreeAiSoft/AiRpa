@@ -60,6 +60,7 @@ namespace RPA.NuGet.ViewModels
         private string _editingSourceUrl;
         private string _sourceEditError;
         private NuGetSourceItemViewModel _selectedSourceItem;
+        private bool _isPanelVisible;
 
         public NuGetPanelViewModel(
             NuGetSearchService search = null,
@@ -446,6 +447,23 @@ namespace RPA.NuGet.ViewModels
         /// <summary>Выбран источник-папка/UNC (offline): для него пустой поиск показывает все пакеты.</summary>
         private bool IsLocalSourceSelected => SelectedSource != null && !SelectedSource.IsRemote;
 
+        /// <summary>
+        /// Панель показана пользователю. Первичный поиск откладывается до этого момента: при старте
+        /// студии источник уже выбран и <see cref="OnSourceChangedAsync"/> не запускает
+        /// <see cref="SearchAsync"/>, чтобы не блокировать запуск длинным локальным поиском. Здесь
+        /// отложенный поиск уходит один раз при первом открытии панели.
+        /// </summary>
+        public void NotifyPanelShown()
+        {
+            if (_isPanelVisible)
+                return;
+
+            _isPanelVisible = true;
+
+            if (IsBrowseTab && (IsLocalSourceSelected || !string.IsNullOrWhiteSpace(SearchQuery)))
+                _ = SearchAsync();
+        }
+
         // --- Оверлей «Package sources» ---
 
         /// <summary>Оверлей добавления/удаления источников пакетов открыт.</summary>
@@ -583,7 +601,9 @@ namespace RPA.NuGet.ViewModels
                 StatusText = $"Loaded {(_project.IsSdkStyle ? "SDK-style" : "packages.config")} project: "
                              + Path.GetFileName(projectPath);
 
-                _ = RefreshInstalledAsync(checkUpdates: true);
+                // Обновления считаются лениво — при первом переходе на вкладку Installed/Updates
+                // (StartupPerformance_Fix_Plan.md, этап 2): при старте не ходим в источник за
+                // версиями и метаданными установленных пакетов.
                 return true;
             }
             catch (Exception ex)
@@ -709,7 +729,7 @@ namespace RPA.NuGet.ViewModels
 
                 CanLoadMore = results.Count >= PageSize;
                 StatusText = results.Count == 0 ? "No packages found." : $"Found {results.Count} package(s).";
-                SelectedItem = BrowseItems.FirstOrDefault();
+                SelectedItem = null;
             }
             catch (OperationCanceledException)
             {
@@ -1459,6 +1479,11 @@ namespace RPA.NuGet.ViewModels
         {
             if (HasProject)
                 await RefreshInstalledAsync(checkUpdates: _activeTab != NuGetPackageTab.Browse);
+
+            // При старте источник уже выбран, но панель ещё не показана: поиск не запускаем —
+            // он уйдёт в NotifyPanelShown() при первом открытии панели.
+            if (!_isPanelVisible)
+                return;
 
             if (IsBrowseTab && (IsLocalSourceSelected || !string.IsNullOrWhiteSpace(SearchQuery)))
                 await SearchAsync();

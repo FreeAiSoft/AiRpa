@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Activities.Presentation;
 using System.Collections;
 using System.Collections.Generic;
@@ -101,6 +101,7 @@ namespace RPA.Helpers
                 ["WorkflowViewElementSelectedBorder"] = StudioPalette.SeparatorStrongToken,
                 ["WorkflowViewElementCaptionBrush"] = StudioPalette.ForegroundToken,
                 ["WorkflowViewElementSelectedCaptionBrush"] = StudioPalette.ForegroundToken,
+                ["ActivityDesignerSelectedTitleForegroundColor"] = StudioPalette.ForegroundToken,
 
                 // Поверхность и служебные слои дизайнера. DesignerViewBackground — ключ неявного стиля
                 // WorkflowViewElement: именно он даёт белую плиту активности, если его не переопределить.
@@ -188,7 +189,15 @@ namespace RPA.Helpers
                 return false;
             }
 
-            return TryInstall(palette, defaults, cache);
+            bool installed = TryInstall(palette, defaults, cache);
+            if (installed)
+            {
+                // Подпись активности наследует Foreground от WorkflowViewElement; class handler ставит
+                // его связанной кистью до первого кадра — для всех типов дизайнеров, без обхода дерева.
+                WfActivityTheme.HookCaptionForeground();
+            }
+
+            return installed;
         }
 
         /// <summary>

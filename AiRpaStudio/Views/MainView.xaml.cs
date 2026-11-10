@@ -5,8 +5,11 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -64,17 +67,33 @@ namespace RPA.Views
 
         private DispatcherTimer _layoutSaveTimer;
         private bool _resetLayout;
+        private bool _paletteRebuildInProgress;
+
+        /// <summary>Результат фоновой пересборки палитры: данные, безопасные для построения вне UI-потока.</summary>
+        private sealed class PaletteBuildResult
+        {
+            internal Core.Generation.ActivityPaletteRegistry Registry;
+            internal Core.Workflow.StudioActivityCatalog Catalog;
+            internal List<System.Activities.Presentation.Toolbox.ToolboxCategory> ToolboxCategories;
+        }
 
         public MainView()
         {
+            StartupTimer.Mark("MainView: конструктор, начало");
             StudioBrushes.ApplyToApplication();
             StudioFonts.ApplyToApplication();
+            StartupTimer.Mark("MainView: StudioBrushes + StudioFonts");
             InitializeComponent();
+            StartupTimer.Mark("MainView: InitializeComponent()");
             Services.AppSettings.SetDockingManager(dockManager);// DockingManager можно отловить только здесь, такие дела
+            StartupTimer.Mark("MainView: SetDockingManager()");
 
             InitializeControls();
+            StartupTimer.Mark("MainView: InitializeControls()");
             InitializeLayoutRoot();
+            StartupTimer.Mark("MainView: InitializeLayoutRoot()");
             InitializeLayoutAutoSave();
+            StartupTimer.Mark("MainView: InitializeLayoutAutoSave()");
         }
 
         private void InitializeControls()
@@ -166,8 +185,15 @@ namespace RPA.Views
         {
             if (e.PropertyName == nameof(ProjectManager.ProjectFolder))
             {
-                _ = nuGetPanel.SetProjectFolder(ProjectManager.GetInstance().ProjectFolder);
-                ScanNuGetActivities(nuGetPanel?.ViewModel?.ProjectPath);
+                // Этап 0 (StartupPerformance_Fix_Plan.md): не блокируем появление окна. Тяжёлая
+                // инициализация NuGet-панели (LoadSources → SelectedSource → SearchAsync) и сканирование
+                // активностей пакетов (Assembly.LoadFrom + GetTypes + пересборка палитры) откладываются
+                // до ApplicationIdle — окно успевает отрисоваться до старта дорогой работы.
+                Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
+                {
+                    _ = nuGetPanel.SetProjectFolder(ProjectManager.GetInstance().ProjectFolder);
+                    ScanNuGetActivities(nuGetPanel?.ViewModel?.ProjectPath);
+                }));
             }
         }
 
@@ -208,8 +234,18 @@ namespace RPA.Views
             if (string.IsNullOrWhiteSpace(projectPath) || !File.Exists(projectPath))
                 return;
 
-            var result = new Core.Workflow.NuGetActivityPaletteLoader().LoadFromProject(projectPath);
-            if (result.Changed)
+            // Этап 3 (StartupPerformance_Fix_Plan.md): сканирование пакетных активностей
+            // (Assembly.LoadFrom + GetTypes) — это CPU/IO, поэтому выполняется в фоне, а не на
+            // UI-потоке. На UI-поток возвращается только результат (Changed), и лишь там
+            // пересобирается панель «Активности».
+            _ = ScanNuGetActivitiesAsync(projectPath);
+        }
+
+        private async Task ScanNuGetActivitiesAsync(string projectPath)
+        {
+            var result = await Task.Run(() => new Core.Workflow.NuGetActivityPaletteLoader().LoadFromProject(projectPath));
+
+            if (result?.Changed == true)
             {
                 RefreshActivityPalette();
             }
@@ -328,23 +364,74 @@ namespace RPA.Views
                 return;
             }
 
-            _wfToolbox = new WFToolboxHelper().Build();
-            WfToolboxBorder.Child = _wfToolbox;
-            _wfToolbox.ApplyTheme();
-            RefreshActivityCatalog();
-            Log.Write("Палитра «Активности» пересобрана: появилась новая библиотека активностей.");
+            _ = RefreshActivityPaletteAsync();
         }
-        /// <summary>
-        /// Переустанавливает каталог активностей агента после пересборки панели «Активности».
-        /// Панель и activity_search/activity_describe читают один и тот же состав: сброс
-        /// Lazy-кэшей сам по себе не меняет экземпляр, который уже взял чат.
-        /// </summary>
-        private void RefreshActivityCatalog()
+
+        private async Task RefreshActivityPaletteAsync()
         {
-            Core.Generation.ActivityPaletteRegistry.InvalidateDefault();
-            Core.Workflow.StudioActivityCatalog.InvalidateDefault();
-            Chat.Services.ChatEnvironment.ActivityCatalog = Core.Workflow.StudioActivityCatalog.Default;
+            if (_paletteRebuildInProgress)
+            {
+                return;
+            }
+            _paletteRebuildInProgress = true;
+
+            if (_wfToolbox == null)
+            {
+                _wfToolbox = new ToolboxPanel();
+                WfToolboxBorder.Child = _wfToolbox;
+            }
+
+            _wfToolbox.ShowLoading();
+
+            try
+            {
+                Stopwatch sw = Stopwatch.StartNew();
+                Log.Write($"[Palette] RefreshActivityPalette: начало (поток {Thread.CurrentThread.ManagedThreadId}, UI-поток={Dispatcher.CheckAccess()})");
+
+                PaletteBuildResult result = await Task.Run(BuildPaletteModel);
+                Log.Write($"[Palette] BuildPaletteModel (фон): +{sw.ElapsedMilliseconds} ms");
+
+                _wfToolbox.SetToolboxControl(new WFToolboxHelper().BuildControl(result.ToolboxCategories));
+                Log.Write($"[Palette] WFToolboxHelper.BuildControl + SetToolboxControl: +{sw.ElapsedMilliseconds} ms");
+
+                _wfToolbox.ApplyTheme();
+                Log.Write($"[Palette] ApplyTheme: +{sw.ElapsedMilliseconds} ms");
+
+                InstallActivityCatalog(result);
+                Log.Write($"[Palette] InstallActivityCatalog: +{sw.ElapsedMilliseconds} ms");
+
+                Log.Write($"Палитра «Активности» пересобрана: появилась новая библиотека активностей. (всего {sw.ElapsedMilliseconds} ms)");
+            }
+            finally
+            {
+                _paletteRebuildInProgress = false;
+                _wfToolbox?.HideLoading();
+            }
         }
+
+        private PaletteBuildResult BuildPaletteModel()
+        {
+            IReadOnlyList<Core.Generation.ActivityPaletteCategory> categories =
+                Core.Generation.StudioActivityPalette.Categories();
+
+            var registry = new Core.Generation.ActivityPaletteRegistry(categories);
+            var catalog = new Core.Workflow.StudioActivityCatalog(categories, registry);
+
+            return new PaletteBuildResult
+            {
+                Registry = registry,
+                Catalog = catalog,
+                ToolboxCategories = new WFToolboxHelper().BuildModel(categories)
+            };
+        }
+
+        private void InstallActivityCatalog(PaletteBuildResult result)
+        {
+            Core.Generation.ActivityPaletteRegistry.Install(result.Registry);
+            Core.Workflow.StudioActivityCatalog.Install(result.Catalog);
+            Chat.Services.ChatEnvironment.ActivityCatalog = result.Catalog;
+        }
+
 
 
         private void InitializeLayoutRoot()
@@ -420,9 +507,7 @@ namespace RPA.Views
                         Log.Write("WARNING: No document panes found in deserialized layout!");
                     }
 
-                    _wfToolbox = new WFToolboxHelper().Build();
-                    WfToolboxBorder.Child = _wfToolbox;
-                    RefreshActivityCatalog();
+                    RefreshActivityPalette();
 
                     return;
                 }
@@ -440,9 +525,7 @@ namespace RPA.Views
             // Create default layout
             CreateDefaultLayout();
 
-            _wfToolbox = new WFToolboxHelper().Build();
-            WfToolboxBorder.Child = _wfToolbox;
-            RefreshActivityCatalog();
+            RefreshActivityPalette();
         }
 
         private List<LayoutDocumentPane> FindAllDocumentPanes(LayoutRoot layoutRoot)

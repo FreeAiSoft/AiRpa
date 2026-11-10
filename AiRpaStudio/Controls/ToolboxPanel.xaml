@@ -96,5 +96,18 @@
         <Border x:Name="ToolboxContainer" Grid.Row="1"
                 BorderThickness="0"
                 Margin="5 0 5 5"/>
+
+        <!-- Индикатор пересборки палитры: виден, пока тулбокс пересобирается в фоне. -->
+        <ProgressBar x:Name="LoadingProgress"
+                     Grid.Row="1"
+                     IsIndeterminate="True"
+                     Style="{StaticResource MaterialDesignCircularProgressBar}"
+                     Value="0"
+                     Width="48"
+                     Height="48"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     Visibility="Collapsed"
+                     Panel.ZIndex="10" />
     </Grid>
 </UserControl>

@@ -32,6 +32,22 @@ namespace RPA.Controls
             InitializeComponent();
         }
 
+        /// <summary>Показывает indeterminate-индикатор, пока палитра пересобирается в фоне.</summary>
+        public void ShowLoading()
+        {
+            LoadingProgress.Visibility = Visibility.Visible;
+            ToolboxContainer.Opacity = 0.35;
+            ToolboxContainer.IsHitTestVisible = false;
+        }
+
+        /// <summary>Скрывает индикатор и возвращает панель в интерактивное состояние.</summary>
+        public void HideLoading()
+        {
+            LoadingProgress.Visibility = Visibility.Collapsed;
+            ToolboxContainer.Opacity = 1.0;
+            ToolboxContainer.IsHitTestVisible = true;
+        }
+
         /// <summary>
         /// Устанавливает ToolboxControl для отображения
         /// </summary>

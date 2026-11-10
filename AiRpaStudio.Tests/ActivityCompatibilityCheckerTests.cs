@@ -249,6 +249,39 @@ public class ActivityCompatibilityCheckerTests
         }
     }
 
+    [Test]
+    public void Fixer_PreservesSingleUtf8Bom()
+    {
+        string dir = MakeTempDir();
+        try
+        {
+            string reference = "<Reference Include=\"System.Text.Json\"><HintPath>..\\packages\\System.Text.Json.8.0.5\\lib\\net462\\System.Text.Json.dll</HintPath></Reference>";
+            string csproj = WriteProject(dir, tfm: "v4.7.2", workflow: true, referenceXml: reference);
+            // Save the original project with a single UTF-8 BOM, as Visual Studio does for legacy .csproj.
+            File.WriteAllText(csproj, File.ReadAllText(csproj), new System.Text.UTF8Encoding(true));
+
+            ActivityCompatibilityReport report = new ActivityCompatibilityChecker().Check(csproj);
+            ActivityCompatibilityFixResult result = new ActivityCompatibilityFixer().ApplyFixes(report);
+
+            Assert.That(result.FixedCount, Is.EqualTo(1));
+
+            byte[] bytes = File.ReadAllBytes(csproj);
+            Assert.That(bytes.Length, Is.GreaterThanOrEqualTo(3));
+            Assert.That(bytes[0], Is.EqualTo(0xEF));
+            Assert.That(bytes[1], Is.EqualTo(0xBB));
+            Assert.That(bytes[2], Is.EqualTo(0xBF));
+            // A single BOM must be immediately followed by '<': a second BOM (or U+FEFF) would be 0xEF here.
+            Assert.That(bytes[3], Is.EqualTo((byte)'<'));
+            // Decoded without the preamble, the text must not start with U+FEFF and must keep a valid XML root.
+            string fixedText = new System.Text.UTF8Encoding(false).GetString(bytes, 3, bytes.Length - 3);
+            Assert.That(fixedText, Does.StartWith("<Project"));
+        }
+        finally
+        {
+            TryDelete(dir);
+        }
+    }
+
     private static string WriteProject(
         string dir,
         string tfm,

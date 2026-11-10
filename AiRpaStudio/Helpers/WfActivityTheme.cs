@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -51,9 +51,6 @@ namespace RPA.Helpers
         /// <summary>Маркер словаря с «нативными» стилями-заглушками (повторный вызов ничего не добавляет).</summary>
         internal const string NativeStylesMarker = "Studio.WfActivityTheme.NativeStyles";
 
-        /// <summary>Маркер неявного стиля подписи с цветом палитры (только режим кэша).</summary>
-        internal const string PaletteTextStyleMarker = "Studio.WfActivityTheme.PaletteText";
-
         /// <summary>Порог «светлой» кисти относительно поверхности палитры (как в <see cref="WfThemeStyles"/>).</summary>
         private const double LightThreshold = WfThemeStyles.LightPlateThreshold;
 
@@ -83,8 +80,6 @@ namespace RPA.Helpers
             typeof(ComboBoxItem)
         };
 
-        private static readonly ConditionalWeakTable<FrameworkElement, TextHook> TextHooks =
-            new ConditionalWeakTable<FrameworkElement, TextHook>();
 
         /// <summary>Подписки на раскладку корня дизайнера: достраивают активности, созданные после темизации.</summary>
         private static readonly ConditionalWeakTable<FrameworkElement, LayoutHook> LayoutHooks =
@@ -109,13 +104,10 @@ namespace RPA.Helpers
 
             // Режим кэша (WfColorResourcesOverride): плита, рамка и цвета внутри шаблона приходят из
             // связанных кистей палитры на этапе построения элемента, поэтому пост-покраска плиты не нужна.
-            // Остаётся текст: подпись активности наследует Foreground от WorkflowViewElement, а тот приходит
-            // из темы WF (чёрный) и ресурсным ключом не переопределяется. Цвет ставится синхронно в
-            // LayoutUpdated — до отрисовки кадра, поэтому кадра с чёрной подписью не бывает.
+            // Подпись наследует Foreground от контрола активности: его ставит связанной кистью
+            // class handler Loaded (HookCaptionForeground) — пост-покраска текста и LayoutUpdated-обход не нужны.
             if (WfColorResourcesOverride.IsInstalled)
             {
-                ThemeStaleText(root, palette);
-                HookTextLayout(root, palette);
                 return;
             }
 
@@ -178,15 +170,8 @@ namespace RPA.Helpers
 
         /// <summary>
         /// Кладёт в словарь пустые неявные стили для контролов, которые иначе получают стиль MaterialDesign
-        /// из <c>App.xaml</c>, и (в режиме кэша) неявный стиль подписи с цветом палитры.
-        /// <para>
-        /// Подпись активности наследует <see cref="TextElement.Foreground"/> от <c>WorkflowViewElement</c>,
-        /// а тот получает чёрный цвет из <b>темы WF</b> (не из <c>ColorResources.xaml</c>) — ресурсным ключом
-        /// его не переопределить. Неявный стиль <see cref="TextBlock"/> в словаре документа сильнее
-        /// унаследованного значения, поэтому подпись появляется сразу в палитре: без этого новая активность
-        /// (перетаскивание из панели) первую раскладку рисовалась бы чёрным текстом на тёмной плите, а
-        /// докрашивал бы её только отложенный проход по раскладке — то самое мерцание.
-        /// </para>
+        /// из <c>App.xaml</c> (кнопки, чекбоксы, поля ввода). Цвет подписи активности ставится отдельно —
+        /// связанной кистью на сам контрол <see cref="WorkflowViewElement"/> (см. <see cref="HookCaptionForeground"/>).
         /// </summary>
         internal static void UseNativeControlStyles(ResourceDictionary target, StudioThemeColors palette)
         {
@@ -207,18 +192,47 @@ namespace RPA.Helpers
 
                 target[NativeStylesMarker] = NativeStylesMarker;
             }
-
-            ApplyPaletteTextStyle(target, palette);
         }
 
+        /// <summary>Подписка класса на <see cref="FrameworkElement.LoadedEvent"/> (один раз за процесс).</summary>
+        private static bool _captionForegroundHooked;
+
         /// <summary>
-        /// Неявный стиль подписи дизайнера: <see cref="TextBlock.Foreground"/> из палитры, кисть связанная
-        /// (смена темы перекрашивает подписи без прохода по дереву). Только режим кэша: в прежнем режиме
-        /// подписи красит пост-покраска, и стиль остался бы со старым цветом после смены темы.
+        /// Ставит <see cref="Control.ForegroundProperty"/> активностям сразу при их появлении, без обхода
+        /// дерева. Class handler срабатывает и для наследников <see cref="WorkflowViewElement"/>
+        /// (<c>SequenceDesigner</c>, <c>ActivityTypeDesigner</c>, кастомные дизайнеры), на которые неявный
+        /// стиль по точному типу не действует. Кисть связанная, поэтому смена темы перекрашивает подписи
+        /// без повторного прохода.
         /// </summary>
-        private static void ApplyPaletteTextStyle(ResourceDictionary target, StudioThemeColors palette)
+        internal static void HookCaptionForeground()
         {
-            if (palette == null || !WfColorResourcesOverride.IsInstalled || target.Contains(PaletteTextStyleMarker))
+            if (_captionForegroundHooked)
+            {
+                return;
+            }
+
+            _captionForegroundHooked = true;
+            EventManager.RegisterClassHandler(
+                typeof(WorkflowViewElement),
+                FrameworkElement.LoadedEvent,
+                new RoutedEventHandler(OnWorkflowViewElementLoaded));
+        }
+
+        private static void OnWorkflowViewElementLoaded(object sender, RoutedEventArgs args)
+        {
+            if (sender is WorkflowViewElement activity)
+            {
+                ApplyCaptionForeground(activity, StudioPalette.Active);
+            }
+        }
+
+        private static void ApplyCaptionForeground(WorkflowViewElement activity, StudioThemeColors palette)
+        {
+            // Привязку не разрываем: цвет подписи/текста может приходить из модели.
+            if (activity == null
+                || palette == null
+                || !WfColorResourcesOverride.IsInstalled
+                || BindingOperations.IsDataBound(activity, Control.ForegroundProperty))
             {
                 return;
             }
@@ -227,17 +241,13 @@ namespace RPA.Helpers
                 StudioPalette.ForegroundToken,
                 palette);
 
-            if (foreground == null || target.Contains(typeof(TextBlock)))
+            if (foreground == null)
             {
                 return;
             }
 
-            var style = new Style(typeof(TextBlock));
-            style.Setters.Add(new Setter(TextBlock.ForegroundProperty, foreground));
-            target[typeof(TextBlock)] = style;
-            target[PaletteTextStyleMarker] = PaletteTextStyleMarker;
+            activity.SetValue(Control.ForegroundProperty, foreground);
         }
-
 
         /// <summary>Вариант без палитры: только стили-заглушки (прежний режим, вызовы без контекста темы).</summary>
         internal static void UseNativeControlStyles(ResourceDictionary target)
@@ -524,95 +534,6 @@ namespace RPA.Helpers
                     }));
             };
         }
-
-        /// <summary>
-        /// Ставит цвет текста активностям, у которых он ещё не из палитры (режим кэша). Кисть связанная,
-        /// поэтому смена темы перекрашивает подписи без повторного прохода по дереву.
-        /// </summary>
-        internal static void ThemeStaleText(DependencyObject root, StudioThemeColors palette)
-        {
-            SolidColorBrush foreground = WfColorResourcesOverride.CreatePaletteBrush(
-                StudioPalette.ForegroundToken,
-                palette);
-
-            if (root == null || palette == null || foreground == null)
-            {
-                return;
-            }
-
-            if (root is WorkflowViewElement self && IsStale(self, palette))
-            {
-                ApplyTextBrush(self, foreground, palette);
-            }
-
-            foreach (WorkflowViewElement activity in XamlHelper.FindVisualChildren<WorkflowViewElement>(root))
-            {
-                if (IsStale(activity, palette))
-                {
-                    ApplyTextBrush(activity, foreground, palette);
-                }
-            }
-        }
-
-        private static void ApplyTextBrush(
-            WorkflowViewElement activity,
-            SolidColorBrush foreground,
-            StudioThemeColors palette)
-        {
-            // Привязку не разрываем: цвет подписи/текста может приходить из модели.
-            if (activity == null
-                || foreground == null
-                || palette == null
-                || BindingOperations.IsDataBound(activity, Control.ForegroundProperty))
-            {
-                return;
-            }
-
-            if (activity.Foreground is SolidColorBrush current && current.Color == palette.Foreground)
-            {
-                return;
-            }
-
-            // Отметка обязательна: проход идёт из LayoutUpdated, и повторная запись цвета на каждом цикле
-            // раскладки зациклила бы диспетчер (проверено пробником: раскладка не выходила в idle).
-            Marks.Remove(activity);
-            Marks.Add(activity, new ActivityMark
-            {
-                Palette = palette,
-                Children = VisualTreeHelper.GetChildrenCount(activity)
-            });
-
-            activity.SetValue(Control.ForegroundProperty, foreground);
-        }
-
-        /// <summary>
-        /// Подписка на раскладку в режиме кэша: цвет текста ставится <b>синхронно</b> в обработчике
-        /// (<see cref="FrameworkElement.LayoutUpdated"/> вызывается до отрисовки кадра), поэтому новая
-        /// активность не успевает показаться с чёрной подписью — в отличие от отложенного прохода
-        /// <see cref="HookLayout"/>, который и давал видимую перекраску «вторым кадром».
-        /// </summary>
-        private static void HookTextLayout(FrameworkElement root, StudioThemeColors palette)
-        {
-            TextHook hook = TextHooks.GetValue(root, key => new TextHook());
-            hook.Palette = palette;
-
-            if (hook.Attached)
-            {
-                return;
-            }
-
-            hook.Attached = true;
-            root.LayoutUpdated += (sender, args) => ThemeStaleText(root, hook.Palette);
-        }
-
-        /// <summary>Подписка на раскладку для режима кэша (цвет текста).</summary>
-        private sealed class TextHook
-        {
-            public StudioThemeColors Palette { get; set; }
-
-            public bool Attached { get; set; }
-        }
-
 
         /// <summary>Темизирует только те активности, которым эта палитра ещё не поставлена (проход по раскладке).</summary>
         private static void ThemeStaleActivities(DependencyObject root, StudioThemeColors palette)

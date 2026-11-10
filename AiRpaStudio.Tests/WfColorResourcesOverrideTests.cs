@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 
@@ -349,36 +350,34 @@ public class WfColorResourcesOverrideTests
             Is.Null);
     }
 
+
     [Test]
-    public void ThemeStaleText_SetsBoundForegroundAndIsIdempotent()
+    public void HookCaptionForeground_IsIdempotentAndSafe()
     {
         Install(StudioPalette.Dark);
 
-        // Активность без плиты: проверяется только текстовая часть режима кэша.
-        var activity = new System.Windows.Controls.ContentControl();
-        var root = new System.Windows.Controls.Grid();
-        root.Children.Add(activity);
-        System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
-
-        Assert.DoesNotThrow(() => WfActivityTheme.ThemeStaleText(root, StudioPalette.Dark));
-        Assert.DoesNotThrow(() => WfActivityTheme.ForgetThemeMarks());
+        Assert.DoesNotThrow(() => WfActivityTheme.HookCaptionForeground());
+        Assert.DoesNotThrow(() => WfActivityTheme.HookCaptionForeground());
     }
 
     [Test]
-    public void Sources_TextPassUsesSynchronousLayoutHook()
+    public void Sources_CacheModeUsesLoadedClassHandler()
     {
-        // Регресс, найденный пробником: отложенный проход (BeginInvoke) даёт кадр с чёрной подписью, а
-        // запись цвета без отметки зацикливает раскладку (LayoutUpdated не выходит в idle).
         string source = ReadSource(Path.Combine("AiRpaStudio", "Helpers", "WfActivityTheme.cs"));
+        string installer = ReadSource(Path.Combine("AiRpaStudio", "Helpers", "WfColorResourcesOverride.cs"));
 
         Assert.Multiple(() =>
         {
-            Assert.That(source, Does.Contain("root.LayoutUpdated += (sender, args) => ThemeStaleText(root, hook.Palette);"),
-                "цвет текста ставится синхронно в LayoutUpdated, до отрисовки кадра");
-            Assert.That(source, Does.Contain("if (root is WorkflowViewElement self && IsStale(self, palette))"),
-                "проход по тексту идёт только по неотмеченным активностям — иначе раскладка зацикливается");
-            Assert.That(source, Does.Contain("Marks.Remove(activity);"),
-                "перед записью цвета активность помечается");
+            Assert.That(source, Does.Contain("EventManager.RegisterClassHandler"),
+                "Foreground активностей ставится class handler'ом Loaded, без обхода дерева");
+            Assert.That(source, Does.Contain("typeof(WorkflowViewElement)"),
+                "class handler регистрируется на базовый WorkflowViewElement и покрывает наследников");
+            Assert.That(source, Does.Not.Contain("ThemeStaleText"),
+                "пост-покраска подписи в режиме кэша не нужна");
+            Assert.That(source, Does.Not.Contain("HookTextLayout"),
+                "LayoutUpdated-обход текста удалён");
+            Assert.That(installer, Does.Contain("WfActivityTheme.HookCaptionForeground();"),
+                "подписка класса должна ставиться при установке словаря в кэш WF");
         });
     }
 

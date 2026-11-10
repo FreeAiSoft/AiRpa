@@ -501,9 +501,10 @@
   `ColorResources.xaml` подменяется в статическом кэше `CachedResourceDictionaryExtension.Cache` при старте
   (`App.StartupCore`, до `new EntryPoint().Run()`), кисти — связанные (`Color` привязан к источнику токена,
   поэтому смена темы не требует обхода дерева). Режимы взаимоисключающие: при успешной установке
-  `WfActivityTheme` плиту и рамку не красит (остаётся `ThemeStaleText` — синхронно в `LayoutUpdated`, потому
-  что подпись наследует чёрный `Foreground` темы WF; без отметки `Marks` раскладка зацикливается), при сбое
-  работает прежняя пост-покраска (аварийный switch `Studio.WfLegacyTheming`). Панель «Свойства» и Toolbox
+  `WfActivityTheme` плиту и рамку не красит: подпись наследует `Foreground` от контрола активности, а тот
+  ставит class handler `Loaded` (`HookCaptionForeground`) связанной кистью палитры до первого кадра — для
+  всех типов дизайнеров и без обхода дерева; при сбое работает прежняя пост-покраска (аварийный switch
+  `Studio.WfLegacyTheming`). Панель «Свойства» и Toolbox
   подменой не покрыты. Страж: `AiRpaStudio.Tests\WfColorResourcesOverrideTests.cs`; живая проверка обоих
   режимов — пробник `tools\designer-ui-diagnostics` (аргумент `cache` / `legacy`).
   Тесты: `AiRpaStudio.Tests\WfDesignerThemeTests.cs`.

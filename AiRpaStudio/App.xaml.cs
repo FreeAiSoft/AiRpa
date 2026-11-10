@@ -36,6 +36,8 @@ namespace RPA
             // перечисляет типы сборок (Assembly.GetExportedTypes), и копия библиотеки другой версии
             // в папке приложения роняла дизайнер модальным окном FileLoadException (HRESULT 0x80131040).
             AssemblyBindingUnifier.Install(AppDomain.CurrentDomain);
+
+            StartupTimer.Mark("App: конструктор завершён (обработчики падений + AssemblyBindingUnifier)");
         }
 
         private void Application_Startup(object sender, StartupEventArgs e)
@@ -54,6 +56,7 @@ namespace RPA
 
         private void StartupCore(StartupEventArgs e)
         {
+            StartupTimer.Mark("StartupCore: начало (после разбора App.xaml)");
             Languages.Add(new CultureInfo("en-US")); //Нейтральная культура для этого проекта
             Languages.Add(new CultureInfo("ru-RU"));
 
@@ -70,32 +73,41 @@ namespace RPA
                 Language = new CultureInfo(lang == "RU" ? "ru-RU" : "en-US");
             }
 
+            StartupTimer.Mark("StartupCore: язык и культуры установлены");
+
             // Check if application is started in MCP server mode
             if (e.Args.Contains("--mcp-server"))
             {
                 StartMcpServer(e.Args);
+                StartupTimer.Mark("StartupCore: MCP-сервер запущен");
             }
 
             // Кисти Studio.* и системные кисти — реальными Brush из активной палитры MaterialDesign
             // (см. Helpers\StudioBrushes.cs: <DynamicResource x:Key="..."/> в словаре даёт
             // ResourceReferenceExpression и валит XamlParseException на MenuItem).
             StudioBrushes.ApplyToApplication();
+            StartupTimer.Mark("StartupCore: StudioBrushes.ApplyToApplication()");
             // Шрифт Roboto для всего проекта (этап 12): ключи Studio.FontFamily* читают XAML,
             // тема AvalonDock и сторонние сборки (лог, чат).
             StudioFonts.ApplyToApplication();
+            StartupTimer.Mark("StartupCore: StudioFonts.ApplyToApplication()");
             // Ключи дизайнера WF (F-05): объявляются до создания первого WorkflowDesigner, иначе
             // RoslynExpressionEditor.xaml не находит DesignerViewBackground и поле остаётся прозрачным.
             WfDesignerTheme.ApplyToApplication();
+            StartupTimer.Mark("StartupCore: WfDesignerTheme.ApplyToApplication()");
             // Цвета WF — подменой словаря ColorResources.xaml в кэше шаблонов (F-05): установка обязана
             // пройти ДО первого WorkflowDesigner/DesignerMetadata().Register(), иначе первый кадр
             // активности рисуется дефолтами WF и видно мерцание (Helpers\WfColorResourcesOverride.cs).
             WfColorResourcesOverride.TryInstall(StudioPalette.Active);
+            StartupTimer.Mark("StartupCore: WfColorResourcesOverride.TryInstall()");
 
             // Скругление окон AvalonDock (план §7 M-03, W-06…W-08): окна ядра не ссылаются на сборку
             // студии, поэтому механизм скругления подставляется в них через мост.
             WindowCorner.EnableAvalonDockWindows();
+            StartupTimer.Mark("StartupCore: WindowCorner.EnableAvalonDockWindows()");
 
             new EntryPoint().Run();
+            StartupTimer.Mark("StartupCore: EntryPoint.Run() завершён");
         }
 
         private void StartMcpServer(string[] args)

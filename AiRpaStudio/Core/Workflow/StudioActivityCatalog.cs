@@ -1,8 +1,10 @@
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
 using RPA.Chat.Services.Workflow;
 using RPA.Core.Generation;
+using RPA.Logging;
 
 namespace RPA.Core.Workflow
 {
@@ -55,8 +57,18 @@ namespace RPA.Core.Workflow
             new Dictionary<string, ActivityInfo>(StringComparer.OrdinalIgnoreCase);
 
         internal StudioActivityCatalog(IEnumerable<ActivityPaletteCategory> categories)
+            : this(categories, new ActivityPaletteRegistry(categories))
         {
-            var registry = new ActivityPaletteRegistry(categories);
+        }
+
+        internal StudioActivityCatalog(IEnumerable<ActivityPaletteCategory> categories, ActivityPaletteRegistry registry)
+        {
+            Stopwatch sw = Stopwatch.StartNew();
+
+            registry = registry ?? new ActivityPaletteRegistry(categories);
+            Log.Write($"[Palette] StudioActivityCatalog: ActivityPaletteRegistry построен +{sw.ElapsedMilliseconds} ms (активностей={registry.All.Count})");
+
+            int typeCount = 0;
 
             // Архитектурное требование: каталог агента обязан покрывать весь тулбокс без исключений.
             // Обходим те же категории и типы, которые читает панель «Активности»; настоящие Activity
@@ -75,6 +87,8 @@ namespace RPA.Core.Workflow
                     {
                         continue;
                     }
+
+                    typeCount++;
 
                     PaletteActivityDescriptor descriptor = registry.Describe(type, category.Key);
                     ActivityInfo info = descriptor != null
@@ -96,6 +110,7 @@ namespace RPA.Core.Workflow
                     Index(info);
                 }
             }
+            Log.Write($"[Palette] StudioActivityCatalog: построен +{sw.ElapsedMilliseconds} ms (типов={typeCount}, активностей={_activities.Count}, категорий={_categories.Count})");
         }
 
         /// <summary>Каталог студии: встроенные активности WF плюс уже загруженные библиотеки активностей.</summary>
@@ -108,6 +123,15 @@ namespace RPA.Core.Workflow
         internal static void InvalidateDefault()
         {
             SharedCatalog = new Lazy<StudioActivityCatalog>(() => new StudioActivityCatalog(StudioActivityPalette.Categories()));
+        }
+
+        /// <summary>
+        /// Устанавливает заранее построенный каталог (фоновая пересборка палитры), чтобы
+        /// <see cref="Default"/> вернул его без повторного обхода типов.
+        /// </summary>
+        internal static void Install(StudioActivityCatalog catalog)
+        {
+            SharedCatalog = new Lazy<StudioActivityCatalog>(() => catalog ?? new StudioActivityCatalog(StudioActivityPalette.Categories()));
         }
 
         public int Count => _activities.Count;

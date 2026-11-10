@@ -77,6 +77,7 @@ namespace RPA.NuGet.Views
         private void NuGetPanel_Loaded(object sender, RoutedEventArgs e)
         {
             ApplyLayout(ActualWidth);
+            _viewModel.NotifyPanelShown();
             FocusSearchBoxDeferred();
         }
 

@@ -81,6 +81,36 @@ namespace RPA.Models
         }
 
         /// <summary>
+        /// Строит дерево классического проекта (project.json) без изменения состояния
+        /// <see cref="ProjectManager"/>. Только IO: чтение каталогов и project.json. Может
+        /// выполняться на фоновом потоке (этап 4 плана ускорения старта); применение дерева
+        /// делается на UI-потоке через <see cref="ApplyTree"/>.
+        /// </summary>
+        internal ProjectTreeBuildResult BuildFileTree(string dirPath)
+        {
+            // проверяем есть ли папка
+            if (!Directory.Exists(dirPath))
+            {
+                return new ProjectTreeBuildResult { Error = new Error($"Директория проекта {dirPath} не найдена.") };
+            }
+
+            // проверяем есть ли файл проекта
+            if (!File.Exists(Path.Combine(dirPath, Consts.projectFileName)))
+            {
+                return new ProjectTreeBuildResult { Error = new Error($"Файл проекта {Consts.projectFileName} не найден.") };
+            }
+
+            // корневой элемент
+            FSNode tempFSNode = new FSNode(dirPath);
+
+            //устанавливаем потомков
+            SetChilds(tempFSNode);
+
+            return new ProjectTreeBuildResult { Root = tempFSNode, ProjectFolder = dirPath };
+        }
+
+
+        /// <summary>
         /// Loads a Visual Studio .sln/.csproj into the file tree.
         /// </summary>
         public CallResult InitVsProjectTree(string path)
@@ -121,6 +151,59 @@ namespace RPA.Models
                 return new CallResult { Error = new Error(ex) };
             }
         }
+
+        /// <summary>
+        /// Строит дерево Visual Studio-проекта (.sln/.csproj) без изменения состояния
+        /// <see cref="ProjectManager"/>. Только IO/парсинг решения. Может выполняться на фоновом
+        /// потоке (этап 4 плана ускорения старта); применение — <see cref="ApplyTree"/> на UI-потоке.
+        /// </summary>
+        internal ProjectTreeBuildResult BuildVsProjectTree(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return new ProjectTreeBuildResult { Error = new Error("Путь к проекту не указан.") };
+            }
+
+            if (!File.Exists(path))
+            {
+                return new ProjectTreeBuildResult { Error = new Error($"Файл {path} не найден.") };
+            }
+
+            try
+            {
+                FSNode root;
+                if (path.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+                {
+                    root = VsProjectLoader.LoadSolution(path);
+                }
+                else if (path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+                {
+                    root = VsProjectLoader.LoadProject(path);
+                }
+                else
+                {
+                    return new ProjectTreeBuildResult { Error = new Error("Поддерживаются только файлы .sln и .csproj.") };
+                }
+
+                return new ProjectTreeBuildResult { Root = root, ProjectFolder = Path.GetDirectoryName(path) };
+            }
+            catch (Exception ex)
+            {
+                return new ProjectTreeBuildResult { Error = new Error(ex) };
+            }
+        }
+
+        /// <summary>
+        /// Применяет построенное дерево к состоянию менеджера. Вызывается на UI-потоке:
+        /// присваивает <see cref="ProjectFolder"/> и <see cref="FSNodes"/>, чьи изменения
+        /// привязаны к дереву проекта WPF.
+        /// </summary>
+        internal void ApplyTree(ProjectTreeBuildResult result)
+        {
+            ProjectFolder = result.ProjectFolder;
+            FSNodes = new ObservableCollection<FSNode> { result.Root };
+        }
+
 
 
         /// <summary>
@@ -903,4 +986,21 @@ namespace RPA.Models
             }
         }
     }
+
+    /// <summary>
+    /// Результат построения дерева проекта без изменения состояния <see cref="ProjectManager"/>.
+    /// Позволяет выполнить IO/парсинг на фоновом потоке (этап 4 плана ускорения старта), а применение
+    /// дерева (<see cref="ProjectManager.ApplyTree"/>) — на UI-потоке.
+    /// </summary>
+    internal sealed class ProjectTreeBuildResult
+    {
+        public FSNode Root { get; set; }
+
+        public string ProjectFolder { get; set; }
+
+        public Error Error { get; set; }
+
+        public bool Success => Error == null;
+    }
+
 }
