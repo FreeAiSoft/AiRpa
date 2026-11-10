@@ -134,7 +134,7 @@
         <Setter Property="FontSize" Value="11" />
     </Style>
 
-    <!-- Ссылка (Project URL, Report Abuse, Configure): подчёркнутый текст без рамки и фона. -->
+    <!-- Ссылка (Project URL, Configure): подчёркнутый текст без рамки и фона. -->
     <Style x:Key="NuGet.LinkButtonStyle" TargetType="Button">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource Studio.Foreground}" />

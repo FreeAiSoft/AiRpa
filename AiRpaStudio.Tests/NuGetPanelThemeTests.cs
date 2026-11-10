@@ -155,7 +155,7 @@ public class NuGetPanelThemeTests
             Assert.That(xaml, Does.Contain("Content=\"README\""), "нет вкладки README");
             Assert.That(xaml, Does.Contain("Content=\"Package Details\""), "нет вкладки Package Details");
             Assert.That(xaml, Does.Contain("Project URL"), "нет строки Project URL");
-            Assert.That(xaml, Does.Contain("Report Abuse"), "нет строки Report Abuse");
+            Assert.That(xaml, Does.Not.Contain("Report Abuse"), "ссылка Report Abuse на nuget.org удалена");
             Assert.That(xaml, Does.Contain("Tags"), "нет строки Tags");
 
             // Разделитель «список | детали» толщиной 1px (hairline, без второго фона).

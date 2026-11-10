@@ -61,6 +61,13 @@ namespace Agent.Core.Contracts
     {
         TokenUsage TotalTokenUsage { get; }
         int ContextWindowSize { get; }
+
+        /// <summary>Input (prompt) tokens of the most recently completed request, or 0 before the first response.</summary>
+        int LastRequestPromptTokens { get; }
+
+        /// <summary>Output (completion) tokens of the most recently completed request, or 0 before the first response.</summary>
+        int LastRequestCompletionTokens { get; }
+
         event EventHandler<TokenUsage> TokenUsageUpdated;
     }
 

@@ -964,7 +964,10 @@ namespace RPA.Chat.ViewModels
 
             var total = t.TotalTokenUsage;
             var window = t.ContextWindowSize;
-            var input = total.PromptTokens > 0 ? total.PromptTokens : _lastEstimatedInputTokens;
+            // Show the size of the last request's input against the window (not the cumulative
+            // session total): provider-reported prompt tokens, falling back to the estimate
+            // captured right before the request was sent.
+            var input = t.LastRequestPromptTokens > 0 ? t.LastRequestPromptTokens : _lastEstimatedInputTokens;
             ContextFillFraction = window > 0 ? Math.Min(1.0, (double)input / window) : 0.0;
             ContextUsageText = window > 0
                 ? "Context window: " + FormatTokens(input) + " / " + FormatTokens(window)

@@ -19,9 +19,8 @@ namespace RPA.NuGet.Services
     /// NuGet.Protocol 6.3.4 нет, а скачивание пакета у нас уже реализовано.
     /// </para>
     /// <para>
-    /// Пакет скачивается <b>из выбранного источника</b> (<see cref="NuGetSearchService.DownloadNupkgAsync"/>):
-    /// раньше путь был жёстко зашит на <c>api.nuget.org</c>, и для приватного/корпоративного/offline
-    /// источника README не появлялся никогда. Если источник версию не отдал (в проекте зафиксирована
+    /// Пакет скачивается <b>из выбранного источника</b> (<see cref="NuGetSearchService.DownloadNupkgAsync"/>)
+    /// без фолбэка на другие источники. Если источник версию не отдал (в проекте зафиксирована
     /// удалённая версия), пробуется другая версия из списка. Причина неудачи попадает в
     /// <see cref="LastReadmeError"/>, а не теряется в пустом <c>catch</c>: иначе пропавшая вкладка
     /// README выглядела как «пакет без README».
@@ -38,11 +37,8 @@ namespace RPA.NuGet.Services
         private static readonly ConcurrentDictionary<string, string> ReadmeCache =
             new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        private readonly NuGetPackageDownloader _downloader;
-
-        public NuGetPackageDetailsService(NuGetPackageDownloader downloader = null)
+        public NuGetPackageDetailsService()
         {
-            _downloader = downloader ?? new NuGetPackageDownloader();
         }
 
         /// <summary>Причина, по которой README не удалось получить (<c>null</c> — ошибки не было).</summary>
@@ -70,9 +66,10 @@ namespace RPA.NuGet.Services
                     if (found != null)
                         info = found;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     // Нет сети/источник недоступен — остаются данные из строки списка.
+                    NuGetLog.Warn("Package details search failed for " + fallback.Id + ": " + ex.GetBaseException().Message);
                 }
             }
 
@@ -84,7 +81,6 @@ namespace RPA.NuGet.Services
                 Authors = info.Authors,
                 LicenseUrl = info.LicenseUrl,
                 ProjectUrl = info.ProjectUrl,
-                ReportAbuseUrl = BuildReportAbuseUrl(info.Id, info.Version),
                 Tags = info.Tags,
                 Published = info.Published,
                 TotalDownloads = info.TotalDownloads,
@@ -131,7 +127,6 @@ namespace RPA.NuGet.Services
                 Authors = info.Authors,
                 LicenseUrl = info.LicenseUrl,
                 ProjectUrl = info.ProjectUrl,
-                ReportAbuseUrl = BuildReportAbuseUrl(info.Id, version),
                 Tags = info.Tags,
                 Published = info.Published,
                 TotalDownloads = info.TotalDownloads,
@@ -169,7 +164,7 @@ namespace RPA.NuGet.Services
             string fallbackVersion = null)
         {
             LastReadmeError = null;
-            NuGetLog.Info("README load: " + packageId + " " + version + " (fallback=" + fallbackVersion + ", source=" + (search != null ? search.SourceUrl : "direct") + ")");
+            NuGetLog.Info("README load: " + packageId + " " + version + " (fallback=" + fallbackVersion + ", source=" + (search != null ? search.SourceUrl : "none") + ")");
             if (string.IsNullOrWhiteSpace(packageId))
                 return null;
 
@@ -241,34 +236,27 @@ namespace RPA.NuGet.Services
 
         private async Task<byte[]> DownloadAsync(NuGetSearchService search, string id, string version)
         {
-            // 1. Выбранный источник: прокси/авторизация из NuGet.Config, отмена, корректный TLS-путь.
-            NuGetLog.Info("Download nupkg " + id + " " + version + " from selected source: " + (search != null ? search.SourceUrl : "direct"));
-            if (search != null)
+            // Выбранный источник: прокси/авторизация из NuGet.Config, отмена, корректный TLS-путь.
+            NuGetLog.Info("Download nupkg " + id + " " + version + " from selected source: " + (search != null ? search.SourceUrl : "none"));
+            if (search == null)
             {
-                try
-                {
-                    byte[] fromSource = await search.DownloadNupkgAsync(id, version).ConfigureAwait(false);
-                    if (fromSource != null && fromSource.Length > 0)
-                        return fromSource;
-
-                    LastReadmeError = "package " + id + " " + version + " is not available in the selected source";
-                }
-                catch (Exception ex)
-                {
-                    LastReadmeError = ex.GetBaseException().Message;
-                }
+                LastReadmeError = "no package source selected";
+                NuGetLog.Warn("Download aborted: no package source selected for " + id + " " + version);
+                return null;
             }
 
-            // 2. Прямая ссылка nuget.org — страховка, если источник версию не отдал.
             try
             {
-                byte[] direct = await _downloader.DownloadNupkgAsync(id, version).ConfigureAwait(false);
-                if (direct != null && direct.Length > 0)
-                    return direct;
+                byte[] fromSource = await search.DownloadNupkgAsync(id, version).ConfigureAwait(false);
+                if (fromSource != null && fromSource.Length > 0)
+                    return fromSource;
+
+                LastReadmeError = "package " + id + " " + version + " is not available in the selected source";
             }
             catch (Exception ex)
             {
                 LastReadmeError = ex.GetBaseException().Message;
+                NuGetLog.Error(ex, "Download failed for " + id + " " + version);
             }
 
             return null;
@@ -339,14 +327,6 @@ namespace RPA.NuGet.Services
         private static string Normalize(string path)
         {
             return path == null ? string.Empty : path.Replace('\\', '/');
-        }
-
-        private static string BuildReportAbuseUrl(string id, string version)
-        {
-            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(version))
-                return null;
-
-            return "https://www.nuget.org/packages/" + id + "/" + version + "/ReportAbuse";
         }
     }
 }

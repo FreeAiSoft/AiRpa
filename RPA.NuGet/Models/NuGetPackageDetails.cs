@@ -26,7 +26,7 @@ namespace RPA.NuGet.Models
 
         public string ProjectUrl { get; set; }
 
-        public string ReportAbuseUrl { get; set; }
+        // ReportAbuseUrl удалён: ссылка вела на www.nuget.org, что не подходит для прочих источников.
 
         public string Tags { get; set; }
 

@@ -123,9 +123,9 @@ namespace RPA.NuGet.ViewModels
 
         public bool HasProjectUrl => !string.IsNullOrWhiteSpace(ProjectUrl);
 
-        public string ReportAbuseUrl => Details?.ReportAbuseUrl;
+        // ReportAbuseUrl удалён: ссылка вела на www.nuget.org.
 
-        public bool HasReportAbuseUrl => !string.IsNullOrWhiteSpace(ReportAbuseUrl);
+        // HasReportAbuseUrl удалён.
 
         public string LicenseUrl => Details?.LicenseUrl;
 
@@ -316,8 +316,8 @@ namespace RPA.NuGet.ViewModels
             RaisePropertyChanged(nameof(HasDescription));
             RaisePropertyChanged(nameof(ProjectUrl));
             RaisePropertyChanged(nameof(HasProjectUrl));
-            RaisePropertyChanged(nameof(ReportAbuseUrl));
-            RaisePropertyChanged(nameof(HasReportAbuseUrl));
+            // ReportAbuseUrl удалён.
+            // HasReportAbuseUrl удалён.
             RaisePropertyChanged(nameof(LicenseUrl));
             RaisePropertyChanged(nameof(HasLicenseUrl));
             RaisePropertyChanged(nameof(Tags));

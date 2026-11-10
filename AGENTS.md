@@ -97,6 +97,13 @@
   фокус пользователя не перебивает), Ctrl+L идёт через ту же защищённую точку.
   Страж — `AiRpaStudio.Tests\NuGetPanelFocusTests.cs`.
 
+- URL NuGet API (`https://api.nuget.org/v3/index.json`) живёт **только** в первичной настройке
+  источников пакетов (`NuGetSourcesService`): при отсутствии/пустом `NuGet.Config` создаётся seed-источник
+  `nuget.org` с `IsEnabled=false`. В рабочем коде жёстких URL и фолбэков на nuget.org (иконки, README,
+  скачивание, «Report Abuse») нет; поиск/версии/скачивание идут **только** через выбранный источник,
+  весь процесс логируется через `NuGetLog`. Стражи — `NuGetPanelViewModelTests.Sources_WithoutConfig_SeedsDisabledNuGetOrgInConfig`,
+  `NuGetPanelLayoutTests.IconUrl_NoFallbackWhenSourceHasNoIconUrl`.
+
 ## 4.7.2-робот на 4.8-хосте (`CP-08`)
 
 - Студия (.NET Framework 4.8) запускает робота, собранного на **4.7.2**, в своём AppDomain: одна и та же

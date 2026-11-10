@@ -13,7 +13,7 @@ using RPA.NuGet.Models;
 namespace RPA.NuGet.Services
 {
     /// <summary>
-    /// Searches a NuGet package source (default: nuget.org) using NuGet.Protocol
+    /// Searches a NuGet package source using NuGet.Protocol
     /// and returns lightweight metadata used by the package manager UI.
     /// <para>
     /// Источник задаётся конструктором: панель создаёт сервис заново при смене «Package source».
@@ -25,17 +25,18 @@ namespace RPA.NuGet.Services
     /// </summary>
     public class NuGetSearchService
     {
-        public const string DefaultSourceUrl = "https://api.nuget.org/v3/index.json";
+        // URL nuget.org больше не хранится в коде: источник задаётся панелью из NuGet.Config.
 
         private readonly SourceRepository _repository;
 
-        public NuGetSearchService(string sourceUrl = DefaultSourceUrl)
+        public NuGetSearchService(string sourceUrl)
         {
             if (string.IsNullOrWhiteSpace(sourceUrl))
                 throw new ArgumentException("Source URL is required.", nameof(sourceUrl));
 
             SourceUrl = sourceUrl;
             _repository = Repository.Factory.GetCoreV3(sourceUrl);
+            NuGetLog.Info("Search service created for source: " + sourceUrl);
         }
 
         /// <summary>Адрес источника, к которому подключён этот экземпляр.</summary>
@@ -77,6 +78,8 @@ namespace RPA.NuGet.Services
                 query = string.Empty;
             }
 
+            NuGetLog.Info("Search: query=\"" + query + "\" skip=" + skip + " take=" + take
+                          + " prerelease=" + includePrerelease + " source=" + SourceUrl);
             var searchResource = await _repository.GetResourceAsync<PackageSearchResource>();
             var filter = new SearchFilter(includePrerelease: includePrerelease);
             IEnumerable<IPackageSearchMetadata> results = await searchResource.SearchAsync(
@@ -87,7 +90,9 @@ namespace RPA.NuGet.Services
                 NuGetProtocolLogger.Instance,
                 CancellationToken.None);
 
-            return results.Select(ToPackageInfo).ToList();
+            List<NuGetPackageInfo> packages = results.Select(ToPackageInfo).ToList();
+            NuGetLog.Info("Search result: " + packages.Count + " package(s) from source " + SourceUrl);
+            return packages;
         }
 
         /// <summary>
@@ -109,6 +114,7 @@ namespace RPA.NuGet.Services
             if (string.IsNullOrWhiteSpace(packageId))
                 return Array.Empty<string>();
 
+            NuGetLog.Info("GetVersions: id=" + packageId + " prerelease=" + includePrerelease + " source=" + SourceUrl);
             var resource = await _repository.GetResourceAsync<FindPackageByIdResource>();
             var cache = new SourceCacheContext();
             IEnumerable<NuGetVersion> versions = await resource.GetAllVersionsAsync(
@@ -121,7 +127,9 @@ namespace RPA.NuGet.Services
             if (!includePrerelease)
                 normalized = normalized.Where(v => NuGetVersion.TryParse(v, out var nv) && !nv.IsPrerelease);
 
-            return normalized.ToList();
+            List<string> versionList = normalized.ToList();
+            NuGetLog.Info("GetVersions result: " + versionList.Count + " version(s) for " + packageId + " from source " + SourceUrl);
+            return versionList;
         }
 
         /// <summary>
@@ -175,8 +183,8 @@ namespace RPA.NuGet.Services
         /// Скачивает <c>.nupkg</c> из того же источника, что и поиск: прокси и авторизация берутся из
         /// NuGet.Config, TLS и повторы — из NuGet.Protocol. <c>null</c> — пакета или версии в источнике нет.
         /// <para>
-        /// Нужен для README панели деталей: раньше путь был жёстко зашит на api.nuget.org, поэтому для
-        /// приватного, корпоративного или offline-источника README не появлялся никогда.
+        /// Пакет всегда скачивается из выбранного источника без фолбэка на другие источники.
+        /// 
         /// </para>
         /// </summary>
         public virtual async Task<byte[]> DownloadNupkgAsync(
@@ -190,6 +198,7 @@ namespace RPA.NuGet.Services
             if (!NuGetVersion.TryParse(version, out NuGetVersion parsed))
                 return null;
 
+            NuGetLog.Info("DownloadNupkg: id=" + packageId + " version=" + version + " source=" + SourceUrl);
             FindPackageByIdResource resource = await _repository.GetResourceAsync<FindPackageByIdResource>();
             using (var cache = new SourceCacheContext())
             using (var stream = new MemoryStream())
@@ -202,7 +211,10 @@ namespace RPA.NuGet.Services
                     NuGetProtocolLogger.Instance,
                     cancellationToken);
 
-                return copied && stream.Length > 0 ? stream.ToArray() : null;
+                byte[] data = copied && stream.Length > 0 ? stream.ToArray() : null;
+                NuGetLog.Info("DownloadNupkg result: " + (data == null ? "null" : data.Length + " bytes")
+                              + " for " + packageId + " " + version + " from source " + SourceUrl);
+                return data;
             }
         }
 

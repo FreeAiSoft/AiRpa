@@ -1,4 +1,4 @@
-﻿# NuGet Package Manager
+# NuGet Package Manager
 
 ## Overview
 
@@ -30,7 +30,7 @@ the list and a back button returns to the list.
   **Install / Update / Downgrade / Uninstall** button, an **Options** block
   (prerelease, run `msbuild -t:restore` after install) and the **README** /
   **Package Details** tabs (description, authors, license, publish date,
-  downloads, project URL, report abuse, tags).
+  downloads, project URL, tags).
 - A package README is read from the `.nupkg` downloaded **from the selected
   source** (private feeds included) and cached in memory; if it cannot be
   fetched, the reason is shown in the panel status line.

@@ -190,15 +190,15 @@ namespace RPA.NuGet.ViewModels
             RaisePropertyChanged(nameof(IsPopular));
         }
 
-        /// <summary>Загружает иконку (идемпотентно). Ошибки не пробрасываются: остаётся монограмм.</summary>
+        // Иконка грузится лениво и один раз; ошибки не пробрасываются — остаётся монограмм.
         /// <summary>
-        /// Address used to load the icon: source IconUrl, otherwise the nuget.org flat-container path
-        /// (…/{id}/{version}/icon - the .png variant responds 404).
+        /// Адрес иконки — только из метаданных источника; жёсткого фолбэка на nuget.org нет.
+        /// Без адреса строка показывает монограмм.
         /// </summary>
         public string IconSourceUrl =>
             !string.IsNullOrWhiteSpace(_iconUrl)
                 ? _iconUrl
-                : NuGetIconService.BuildDefaultIconUrl(Id, Package?.Version);
+                : _iconUrl;
 
         public async Task LoadIconAsync()
         {

@@ -14,7 +14,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <!-- NuGet.Client: versioning (resolver), packaging (nuspec/archive) and protocol
-         (nuget.org search/metadata). The deprecated NuGet.Resolver package is replaced
+         (search/metadata of the selected package source). The deprecated NuGet.Resolver package is replaced
          by NuGet.Versioning-based resolution in NuGetVersionResolver. -->
     <PackageReference Include="NuGet.Versioning" Version="6.3.4" />
     <PackageReference Include="NuGet.Packaging" Version="6.3.4" />

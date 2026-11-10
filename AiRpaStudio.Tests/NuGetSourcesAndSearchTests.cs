@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -413,7 +413,7 @@ public class NuGetSourcesAndSearchTests
                 "<?xml version=\"1.0\" encoding=\"utf-8\"?><packages></packages>");
 
             var search = new LocalFeedSearchService();
-            var install = new NuGetInstallService(new ThrowingNuGetDownloader());
+            var install = new NuGetInstallService(new NuGetPackageDownloader());
             NuGetProjectPackages project = NuGetProjectConfig.Load(projectPath);
 
             await install.InstallAsync(project, "Local.Package", "1.0.0", search);
@@ -610,14 +610,6 @@ public class NuGetSourcesAndSearchTests
         }
     }
 
-    /// <summary>Прямой загрузчик nuget.org запрещён: если вызван — тест падает.</summary>
-    private sealed class ThrowingNuGetDownloader : NuGetPackageDownloader
-    {
-        public override Task<byte[]> DownloadNupkgAsync(string id, string version)
-        {
-            throw new InvalidOperationException("nuget.org direct downloader must not be used when a source is selected");
-        }
-    }
 
     private static byte[] BuildPackage()
     {

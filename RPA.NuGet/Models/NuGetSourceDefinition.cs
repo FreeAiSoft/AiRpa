@@ -4,17 +4,17 @@ namespace RPA.NuGet.Models
 {
     /// <summary>
     /// Источник пакетов для выпадающего списка «Package source»: берётся из <c>NuGet.Config</c>
-    /// (уровни solution/user/global), при отсутствии конфигурации — nuget.org.
+    /// (уровни solution/user/global).
     /// </summary>
     public class NuGetSourceDefinition
     {
         public string Name { get; set; }
 
-        /// <summary>Адрес источника (<c>https://api.nuget.org/v3/index.json</c>).</summary>
+        /// <summary>Адрес источника (или путь к локальной папке для offline-пакетов).</summary>
         public string Url { get; set; }
 
-        /// <summary>Источник подставлен самой панелью: в конфигурации ничего не нашлось.</summary>
-        public bool IsFallback { get; set; }
+        /// <summary>Источник добавляется только через конфигурацию (NuGet.Config).</summary>
+        // IsFallback удалён: панель больше не подставляет nuget.org в памяти.
 
         /// <summary>Состояние галочки «Enabled» в оверлее источников.</summary>
         public bool IsEnabled { get; set; } = true;

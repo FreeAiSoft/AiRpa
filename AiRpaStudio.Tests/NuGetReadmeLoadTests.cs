@@ -91,7 +91,7 @@ public class NuGetReadmeLoadTests
             ["README.md"] = "# Из источника"
         }));
 
-        var service = new NuGetPackageDetailsService(new ThrowingDownloader());
+        var service = new NuGetPackageDetailsService();
         string readme = await service.TryReadReadmeAsync(source, "Cache.Package", "1.0.0");
 
         Assert.Multiple(() =>
@@ -120,7 +120,7 @@ public class NuGetReadmeLoadTests
             ["README.md"] = "# Последняя версия"
         }));
 
-        var service = new NuGetPackageDetailsService(new ThrowingDownloader());
+        var service = new NuGetPackageDetailsService();
         string readme = await service.TryReadReadmeAsync(source, "Fallback.Package", "0.9.0-removed", "2.0.0");
 
         Assert.Multiple(() =>
@@ -135,7 +135,7 @@ public class NuGetReadmeLoadTests
     public async Task TryReadReadme_ReportsFailureReasonInsteadOfSilence()
     {
         var source = new FakeSource();
-        var service = new NuGetPackageDetailsService(new ThrowingDownloader());
+        var service = new NuGetPackageDetailsService();
 
         string readme = await service.TryReadReadmeAsync(source, "Missing.Package", "1.0.0");
 
@@ -165,7 +165,7 @@ public class NuGetReadmeLoadTests
             ["README.md"] = "# Заголовок\n\nТекст."
         }));
 
-        var model = new NuGetPanelViewModel(source, new ThrowingDownloader(), new NuGetIconService(new HttpClient()));
+        var model = new NuGetPanelViewModel(source, new NuGetPackageDownloader(), new NuGetIconService(new HttpClient()));
         var panel = new RPA.NuGet.Views.NuGetPanel(model);
 
         model.BrowseItems.Add(new NuGetPackageItemViewModel(info));
@@ -281,12 +281,4 @@ public class NuGetReadmeLoadTests
         }
     }
 
-    /// <summary>Загрузчик, который всегда падает: тест не должен ходить в реальный nuget.org.</summary>
-    private sealed class ThrowingDownloader : NuGetPackageDownloader
-    {
-        public override Task<byte[]> DownloadNupkgAsync(string id, string version)
-        {
-            throw new InvalidOperationException("network is off in this test");
-        }
-    }
 }

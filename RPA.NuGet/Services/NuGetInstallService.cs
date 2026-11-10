@@ -47,7 +47,7 @@ namespace RPA.NuGet.Services
                 throw new ArgumentException("Package version is required.", nameof(version));
 
             NuGetLog.Info("Install " + id + " " + version + " (sdk=" + project.IsSdkStyle + ") project=" + project.ProjectPath
-                          + " source=" + (search != null ? search.SourceUrl : "direct"));
+                          + " source=" + (search != null ? search.SourceUrl : "none"));
             if (project.IsSdkStyle)
             {
                 // PackageReference: транзитивные зависимости разрешает msbuild restore —
@@ -72,24 +72,23 @@ namespace RPA.NuGet.Services
             NuGetProjectConfig.Save(project);
         }
 
-        /// <summary>Скачивает <c>.nupkg</c> из выбранного источника; без него — прямая ссылка nuget.org.</summary>
+        /// <summary>Скачивает <c>.nupkg</c> из выбранного источника; без него — ошибка (фолбэка нет).</summary>
         private async Task<byte[]> DownloadNupkgAsync(
             NuGetSearchService search,
             string id,
             string version,
             CancellationToken cancellationToken)
         {
-            if (search != null)
-            {
-                byte[] fromSource = await search.DownloadNupkgAsync(id, version, cancellationToken).ConfigureAwait(false);
-                if (fromSource != null && fromSource.Length > 0)
-                    return fromSource;
+            if (search == null)
+                throw new InvalidOperationException("No package source selected.");
 
-                throw new InvalidOperationException(
-                    "Package " + id + " " + version + " is not available in the selected source (" + search.SourceUrl + ").");
-            }
+            NuGetLog.Info("DownloadNupkg " + id + " " + version + " from source " + search.SourceUrl);
+            byte[] fromSource = await search.DownloadNupkgAsync(id, version, cancellationToken).ConfigureAwait(false);
+            if (fromSource != null && fromSource.Length > 0)
+                return fromSource;
 
-            return await _downloader.DownloadNupkgAsync(id, version).ConfigureAwait(false);
+            throw new InvalidOperationException(
+                "Package " + id + " " + version + " is not available in the selected source (" + search.SourceUrl + ").");
         }
 
         /// <summary>

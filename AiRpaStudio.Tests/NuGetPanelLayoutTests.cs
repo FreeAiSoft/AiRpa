@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -297,13 +297,12 @@ public class NuGetPanelLayoutTests
 
 
     [Test]
-    public void IconUrl_FallsBackToNuGetFlatContainerPath()
+    public void IconUrl_NoFallbackWhenSourceHasNoIconUrl()
     {
-        // Источник не отдал IconUrl — панель обязана знать стандартный путь (без .png: он даёт 404).
+        // Источник не отдал IconUrl — жёсткого фолбэка на nuget.org больше нет: строка покажет монограмм.
         var withoutUrl = new NuGetPackageItemViewModel(new NuGetPackageInfo { Id = "Newtonsoft.Json", Version = "13.0.4" });
 
-        Assert.That(withoutUrl.IconSourceUrl,
-            Is.EqualTo("https://api.nuget.org/v3-flatcontainer/newtonsoft.json/13.0.4/icon"));
+        Assert.That(withoutUrl.IconSourceUrl, Is.Null.Or.Empty);
 
         var withUrl = new NuGetPackageItemViewModel(new NuGetPackageInfo
         {
@@ -313,9 +312,7 @@ public class NuGetPanelLayoutTests
         });
 
         Assert.That(withUrl.IconSourceUrl, Is.EqualTo("https://example.org/icon.png"),
-            "адрес источника имеет приоритет над стандартным");
-
-        Assert.That(NuGetIconService.BuildDefaultIconUrl(null, "1.0.0"), Is.Null);
+            "адрес из метаданных источника используется как есть");
     }
 
     [Test, Apartment(ApartmentState.STA)]

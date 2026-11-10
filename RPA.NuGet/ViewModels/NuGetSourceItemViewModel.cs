@@ -22,7 +22,6 @@ namespace RPA.NuGet.ViewModels
             _name = definition.Name;
             _source = definition.Url;
             _isEnabled = definition.IsEnabled;
-            IsFallback = definition.IsFallback;
         }
 
         public string Name
@@ -44,17 +43,13 @@ namespace RPA.NuGet.ViewModels
             set => SetProperty(ref _isEnabled, value);
         }
 
-        /// <summary>Источник добавила сама панель: в конфигурации его ещё нет.</summary>
-        public bool IsFallback { get; }
-
         public NuGetSourceDefinition ToDefinition()
         {
             return new NuGetSourceDefinition
             {
                 Name = Name,
                 Url = Source,
-                IsEnabled = IsEnabled,
-                IsFallback = IsFallback
+                IsEnabled = IsEnabled
             };
         }
 

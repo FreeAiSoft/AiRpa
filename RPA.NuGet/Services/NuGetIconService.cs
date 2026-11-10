@@ -10,11 +10,14 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using RPA.NuGet.Models;
 
 namespace RPA.NuGet.Services
 {
     /// <summary>
-    /// Загружает иконки пакетов для строк списка и шапки деталей.
+    /// Загружает иконки пакетов для строк списка и шапки деталей. Адрес иконки приходит из
+    /// метаданных выбранного источника (<see cref="NuGetPackageInfo.IconUrl"/>); жёсткого фолбэка
+    /// на nuget.org больше нет — если источника-адреса нет, панель рисует монограмм.
     /// <para>
     /// Иконки кешируются дважды: в памяти (повторный выбор пакета не ходит в сеть) и на диске
     /// (<c>%LocalAppData%\AiRpaStudio\NuGetIcons</c>) — при следующем запуске студии панель
@@ -36,8 +39,8 @@ namespace RPA.NuGet.Services
         {
             try
             {
-                // У .NET Framework 4.8 по умолчанию SystemDefault, и соединение с nuget.org
-                // обрывается на записи. TLS 1.2 включаем явно — как это делает NuGet.Protocol.
+                // У .NET Framework 4.8 по умолчанию SystemDefault, и соединение с https-источником
+                // может обрываться на записи. TLS 1.2 включаем явно — как это делает NuGet.Protocol.
                 ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             }
             catch (NotSupportedException)
@@ -60,20 +63,6 @@ namespace RPA.NuGet.Services
         /// <summary>Текст последней ошибки загрузки (диагностика).</summary>
         public string LastError { get; private set; }
 
-        /// <summary>
-        /// Стандартный адрес иконки на nuget.org: путь flat-container без расширения
-        /// (<c>…/{id}/{version}/icon</c>). Именно такой адрес источник и указывает в метаданных;
-        /// вариант с <c>.png</c> отдаёт 404.
-        /// </summary>
-        public static string BuildDefaultIconUrl(string packageId, string version)
-        {
-            if (string.IsNullOrWhiteSpace(packageId) || string.IsNullOrWhiteSpace(version))
-                return null;
-
-            return "https://api.nuget.org/v3-flatcontainer/"
-                   + packageId.ToLowerInvariant() + "/" + version.ToLowerInvariant() + "/icon";
-        }
-
         /// <summary>Каталог дискового кеша иконок.</summary>
         public static string CacheDirectory => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -90,7 +79,10 @@ namespace RPA.NuGet.Services
             lock (MemoryCache)
             {
                 if (MemoryCache.TryGetValue(iconUrl, out ImageSource cached))
+                {
+                    NuGetLog.Debug("Icon loaded from memory cache: " + iconUrl);
                     return cached;
+                }
             }
 
             byte[] data = ReadCacheFile(iconUrl);
@@ -107,6 +99,7 @@ namespace RPA.NuGet.Services
             if (image == null)
             {
                 LastError = "icon is not a valid image";
+                NuGetLog.Warn("Icon is not a valid image: " + iconUrl);
                 return null;
             }
 
@@ -161,6 +154,7 @@ namespace RPA.NuGet.Services
         private async Task<byte[]> DownloadWithRetryAsync(string iconUrl)
         {
             Exception last = null;
+            NuGetLog.Info("Icon download: " + iconUrl);
 
             for (int attempt = 1; attempt <= Attempts; attempt++)
             {
@@ -172,7 +166,10 @@ namespace RPA.NuGet.Services
                         {
                             byte[] data = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
                             if (data.Length > 0 && data.Length <= MaxIconBytes)
+                            {
+                                NuGetLog.Debug("Icon downloaded: " + data.Length + " bytes from " + iconUrl);
                                 return data;
+                            }
 
                             last = new InvalidOperationException("unexpected icon size: " + data.Length);
                         }
@@ -194,6 +191,7 @@ namespace RPA.NuGet.Services
             }
 
             LastError = last == null ? "unknown error" : last.GetBaseException().Message;
+            NuGetLog.Warn("Icon download failed: " + iconUrl + " -> " + LastError);
             return null;
         }
 

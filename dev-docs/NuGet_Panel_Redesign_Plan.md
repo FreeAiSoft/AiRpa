@@ -330,10 +330,10 @@ Views\NuGetPanel.Styles.xaml
    `ArgumentNullException` («Ключ не может быть неопределенным»), исключение глушилось — картинка
    не создавалась **ни для одного пакета**. Теперь `CacheOption=OnLoad` без `IgnoreImageCache`
    (поток читается сразу, владельца не остаётся).
-2. **Адрес иконки.** Если источник не отдал `IconUrl`, панель подставляет стандартный путь
-   `https://api.nuget.org/v3-flatcontainer/{id}/{version}/icon` (`NuGetIconService.BuildDefaultIconUrl`).
-   Важно: путь **без** расширения — вариант с `.png` отдаёт 404. Вычисляемое свойство —
-   `NuGetPackageItemViewModel.IconSourceUrl`.
+2. **Адрес иконки.** Панель берёт только `IconUrl` из метаданных выбранного источника
+   (`NuGetPackageItemViewModel.IconSourceUrl`); жёсткого фолбэка на nuget.org больше нет —
+   без адреса строка показывает монограмм.
+   // (см. `NuGetPackageItemViewModel.IconSourceUrl`).
 3. **Сеть и поток.** В статическом конструкторе `NuGetIconService` явно включается TLS 1.2
    (у .NET Framework 4.8 по умолчанию `SystemDefault`, соединение с nuget.org обрывалось на записи),
    добавлены 3 попытки с паузами, `HttpClient` с `AutomaticDecompression`, а `BitmapImage`
@@ -422,7 +422,7 @@ Views\NuGetPanel.Styles.xaml
 | Причина | Проявление | Исправление |
 |---|---|---|
 | Пустые `catch` в `TryReadReadmeAsync` и `FindReadmeEntry` | любая ошибка (HTTP, TLS, битый zip) глушилась — вкладка молча исчезала | `NuGetPackageDetailsService.LastReadmeError`; панель пишет причину в строку состояния («README unavailable: …») |
-| Скачивание жёстко с `api.nuget.org` (`NuGetPackageDownloader`) | для приватного, корпоративного и offline-источника README не появлялся никогда | новый `NuGetSearchService.DownloadNupkgAsync` — `FindPackageByIdResource.CopyNupkgToStreamAsync` через **выбранный источник** (прокси и авторизация из `NuGet.Config`, TLS и повторы NuGet.Protocol); прямая ссылка осталась только страховкой |
+| Скачивание жёстко с `api.nuget.org` (`NuGetPackageDownloader`) | для приватного, корпоративного и offline-источника README не появлялся никогда | новый `NuGetSearchService.DownloadNupkgAsync` — `FindPackageByIdResource.CopyNupkgToStreamAsync` через **выбранный источник** (прокси и авторизация из `NuGet.Config`, TLS и повторы NuGet.Protocol); прямой ссылки на nuget.org больше нет |
 | `HttpClient` без TLS 1.2, повторов и таймаута | у .NET Framework 4.8 по умолчанию `SystemDefault` — соединение с nuget.org обрывалось (та же причина, что у иконок, §10.4) | статический конструктор с `SecurityProtocol |= Tls12`, 3 попытки, таймаут 60 с, `AutomaticDecompression` |
 | README искался только в корне пакета | пакеты с `docs\README.md` или `README.markdown` выглядели как «README нет» | порядок поиска: `<readme>` из nuspec → README в корне → README в любой папке (ближайший к корню); расширения `.md/.markdown/.txt` и файл без расширения |
 

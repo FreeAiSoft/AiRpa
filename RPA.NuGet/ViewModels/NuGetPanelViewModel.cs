@@ -69,13 +69,13 @@ namespace RPA.NuGet.ViewModels
             NuGetPackageDetailsService details = null,
             NuGetInstallService install = null)
         {
-            _search = search ?? new NuGetSearchService();
+            _search = search;
             // Явно переданный сервис — фиксированный источник (тесты, будущие сценарии):
             // список «Package source» в этом случае его не подменяет.
             _fixedSource = search != null;
             _icons = icons ?? new NuGetIconService();
             _sourcesService = sources ?? new NuGetSourcesService();
-            _detailsService = details ?? new NuGetPackageDetailsService(downloader);
+            _detailsService = details ?? new NuGetPackageDetailsService();
             _installService = install ?? new NuGetInstallService(downloader);
 
             Details = new NuGetPackageDetailsViewModel();
@@ -403,13 +403,24 @@ namespace RPA.NuGet.ViewModels
             get => _selectedSource;
             set
             {
-                if (!SetProperty(ref _selectedSource, value) || value == null)
+                if (!SetProperty(ref _selectedSource, value))
                     return;
+
+                if (value == null)
+                {
+                    if (!_fixedSource)
+                    {
+                        _search = null;
+                        NuGetLog.Info("Selected source cleared; search service disabled.");
+                    }
+                    return;
+                }
 
                 if (!_fixedSource)
                 {
                     _search = new NuGetSearchService(value.Url);
                     SaveSelectedSourceUrl?.Invoke(value.Url);
+                    NuGetLog.Info("Selected source: " + value.Url);
                 }
 
                 _updatesChecked = false;
@@ -668,6 +679,15 @@ namespace RPA.NuGet.ViewModels
             if (string.IsNullOrEmpty(query) && !IsLocalSourceSelected)
                 return;
 
+            if (_search == null)
+            {
+                StatusText = "Select a package source first.";
+                BrowseItems.Clear();
+                CanLoadMore = false;
+                SelectedItem = null;
+                return;
+            }
+
             ActiveTab = NuGetPackageTab.Browse;
             CancelSearch();
             var cts = _searchCts = new CancellationTokenSource();
@@ -712,6 +732,12 @@ namespace RPA.NuGet.ViewModels
             string query = SearchQuery?.Trim() ?? string.Empty;
             if (!CanLoadMore || (string.IsNullOrEmpty(query) && !IsLocalSourceSelected))
                 return;
+
+            if (_search == null)
+            {
+                StatusText = "Select a package source first.";
+                return;
+            }
 
             IsBusy = true;
             try
@@ -854,6 +880,11 @@ namespace RPA.NuGet.ViewModels
 
                     default:
                         StatusText = $"{NuGetPackageStateResolver.ActionText(action)} {id} {version}...";
+                        if (_search == null)
+                        {
+                            StatusText = "Select a package source first.";
+                            return;
+                        }
                         await _installService.InstallAsync(_project, id, version, _search);
                         ProgressValue = 70;
                         StatusText = $"{NuGetPackageStateResolver.ActionText(action)}ed {id} {version}.";
@@ -893,6 +924,12 @@ namespace RPA.NuGet.ViewModels
             ProgressValue = 20;
             try
             {
+                if (_search == null)
+                {
+                    StatusText = "Select a package source first.";
+                    return;
+                }
+
                 StatusText = $"Installing {item.Id} {version}...";
                 NuGetLog.Info("Install item: " + item.Id + " " + version + " project=" + _project.ProjectPath);
                 await _installService.InstallAsync(_project, item.Id, version, _search);
@@ -949,6 +986,12 @@ namespace RPA.NuGet.ViewModels
         {
             if (_project == null || UpdateItems.Count == 0)
                 return;
+
+            if (_search == null)
+            {
+                StatusText = "Select a package source first.";
+                return;
+            }
 
             List<NuGetPackageItemViewModel> targets = UpdateItems.ToList();
             IsBusy = true;
@@ -1033,6 +1076,12 @@ namespace RPA.NuGet.ViewModels
         {
             if (_project == null)
                 return;
+
+            if (checkUpdates && _search == null)
+            {
+                StatusText = "Select a package source first.";
+                return;
+            }
 
             int generation = _projectGeneration;
             IsBusy = true;
@@ -1178,6 +1227,7 @@ namespace RPA.NuGet.ViewModels
             {
                 StatusText = "All package sources are disabled: enable at least one in Package sources.";
                 _selectedSource = null;
+                _search = null;
                 RaisePropertyChanged(nameof(SelectedSource));
                 RaisePropertyChanged(nameof(EmptyText));
                 UpdateSourceMappingNotice();
@@ -1218,6 +1268,7 @@ namespace RPA.NuGet.ViewModels
             {
                 StatusText = "All package sources are disabled: enable at least one in Package sources.";
                 _selectedSource = null;
+                _search = null;
                 RaisePropertyChanged(nameof(SelectedSource));
                 RaisePropertyChanged(nameof(EmptyText));
                 UpdateSourceMappingNotice();
@@ -1274,8 +1325,6 @@ namespace RPA.NuGet.ViewModels
             SourceItems.Clear();
             foreach (NuGetSourceDefinition definition in definitions)
             {
-                if (definition.IsFallback)
-                    continue;
 
                 var item = new NuGetSourceItemViewModel(definition);
                 item.PropertyChanged += SourceItem_PropertyChanged;

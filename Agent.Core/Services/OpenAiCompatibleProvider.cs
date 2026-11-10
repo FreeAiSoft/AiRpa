@@ -63,6 +63,10 @@ namespace Agent.Core.Services
         private readonly TokenUsage _totalUsage = new TokenUsage();
         private readonly object _usageLock = new object();
 
+        // Per-request usage of the most recently completed request (not cumulative).
+        private int _lastPromptTokens;
+        private int _lastCompletionTokens;
+
         /// <summary>Raised on every retry attempt, carrying the provider's status code and response.</summary>
         public event EventHandler<RetryAttemptEventArgs> RetryAttempt;
 
@@ -117,6 +121,18 @@ namespace Agent.Core.Services
                     };
                 }
             }
+        }
+
+        /// <summary>Input (prompt) tokens reported for the most recent request, or 0 before the first response.</summary>
+        public int LastRequestPromptTokens
+        {
+            get { lock (_usageLock) return _lastPromptTokens; }
+        }
+
+        /// <summary>Output (completion) tokens reported for the most recent request, or 0 before the first response.</summary>
+        public int LastRequestCompletionTokens
+        {
+            get { lock (_usageLock) return _lastCompletionTokens; }
         }
 
         /// <summary>Context window size (tokens) of the configured model.</summary>
@@ -633,6 +649,8 @@ namespace Agent.Core.Services
 
             lock (_usageLock)
             {
+                _lastPromptTokens = prompt;
+                _lastCompletionTokens = completion;
                 _totalUsage.PromptTokens += prompt;
                 _totalUsage.CompletionTokens += completion;
                 _totalUsage.TotalTokens += total;

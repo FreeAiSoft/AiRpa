@@ -659,19 +659,6 @@
                                             Command="{Binding DataContext.OpenLinkCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             CommandParameter="{Binding ProjectUrl}" />
                                 </Grid>
-                                <Grid Margin="0,0,0,8"
-                                      Visibility="{Binding HasReportAbuseUrl, Converter={StaticResource BoolToVisibility}}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="110" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Report Abuse" Style="{StaticResource NuGet.LabelTextStyle}" />
-                                    <Button Grid.Column="1"
-                                            Content="{Binding ReportAbuseUrl}"
-                                            Style="{StaticResource NuGet.LinkButtonStyle}"
-                                            Command="{Binding DataContext.OpenLinkCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding ReportAbuseUrl}" />
-                                </Grid>
                                 <Grid Visibility="{Binding HasTags, Converter={StaticResource BoolToVisibility}}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="110" />

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -270,7 +270,7 @@ public class NuGetPanelViewModelTests
     }
 
     [Test]
-    public void Sources_WithoutConfig_FallBackToNuGetOrg()
+    public void Sources_WithoutConfig_SeedsDisabledNuGetOrgInConfig()
     {
         string empty = Path.Combine(Path.GetTempPath(), "nuget-empty-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(empty);
@@ -279,8 +279,20 @@ public class NuGetPanelViewModelTests
         {
             var sources = new NuGetSourcesService().Load(empty);
 
-            Assert.That(sources, Is.Not.Empty, "панель обязана предложить хотя бы один источник");
-            Assert.That(sources.Any(source => source.Url == NuGetSourcesService.NuGetOrgUrl || !source.IsFallback), Is.True);
+            string configPath = Path.Combine(empty, "NuGet.Config");
+            Assert.That(File.Exists(configPath), Is.True, "первичная настройка обязана создать NuGet.Config");
+
+            string config = File.ReadAllText(configPath);
+            Assert.Multiple(() =>
+            {
+                Assert.That(config, Does.Contain("nuget.org"), "seed-источник nuget.org записан в конфигурацию");
+                Assert.That(config, Does.Contain("https://api.nuget.org/v3/index.json"), "URL NuGet API живёт только здесь");
+                Assert.That(config, Does.Contain("disabledPackageSources"), "источник по умолчанию отключён");
+                Assert.That(config, Does.Contain("value=\"true\""), "nuget.org помечен как отключённый");
+            });
+
+            Assert.That(sources.Any(source => source.Name == "nuget.org" && !source.IsEnabled), Is.True,
+                "Load возвращает nuget.org отключённым");
         }
         finally
         {
