@@ -203,6 +203,11 @@ PublishScripts/
 **/[Pp]ackages/*
 # except build/, which is used as an MSBuild target.
 !**/[Pp]ackages/build/
+# Исходники продукта в папках, которые по совпадению называются "Packages"
+!Rpa.Orchestrator.Contracts/Packages/
+!Rpa.Orchestrator.Contracts/Packages/**
+!AiRpaStudio.Tests/Packages/
+!AiRpaStudio.Tests/Packages/**
 # Uncomment if necessary however generally it will be regenerated when needed
 #!**/[Pp]ackages/repositories.config
 # NuGet v3's project.json files produces more ignorable files
