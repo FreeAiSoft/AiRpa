@@ -8,6 +8,8 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Resources;
+using System.Runtime.CompilerServices;
 using RPA.Logging;
 
 namespace RPA.Core.Generation
@@ -325,6 +327,16 @@ namespace RPA.Core.Generation
         private static readonly ConcurrentDictionary<Type, PaletteActivityDescriptor> DescriptorCache =
             new ConcurrentDictionary<Type, PaletteActivityDescriptor>();
 
+        /// <summary>Кэш локализованных строк атрибутов: (тип ресурсов, ключ) → строка.</summary>
+        private static readonly ConcurrentDictionary<string, string> LocalizedStringCache =
+            new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
+        /// <summary>Кэш <see cref="ResourceManager"/> по типу ресурсов: создаётся один раз и переиспользуется.</summary>
+        private static readonly ConcurrentDictionary<string, ResourceManager> ResourceManagerCache =
+            new ConcurrentDictionary<string, ResourceManager>(StringComparer.Ordinal);
+        /// <summary>Кэш <see cref="CustomAttributeData"/> по члену типа: рефлексия атрибутов выполняется один раз на член.</summary>
+        private static readonly ConditionalWeakTable<MemberInfo, IList<CustomAttributeData>> AttributeDataCache =
+            new ConditionalWeakTable<MemberInfo, IList<CustomAttributeData>>();
+
         internal ActivityPaletteRegistry(IEnumerable<ActivityPaletteCategory> categories)
         {
             foreach (ActivityPaletteCategory category in categories ?? Enumerable.Empty<ActivityPaletteCategory>())
@@ -426,7 +438,13 @@ namespace RPA.Core.Generation
 
             if (DescriptorCache.TryGetValue(type, out PaletteActivityDescriptor cached))
             {
-                return cached;
+                if (string.Equals(cached.Category, category, StringComparison.Ordinal))
+                {
+                    return cached;
+                }
+
+                // Категория изменилась (перерегистрация библиотеки) — строим заново и перезаписываем кэш.
+                DescriptorCache.TryRemove(type, out _);
             }
 
             System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
@@ -522,11 +540,11 @@ namespace RPA.Core.Generation
         internal static string DisplayNameOf(Type type)
         {
             string name = KeyOf(type);
-            DisplayNameAttribute attribute = GetAttributeSafe<DisplayNameAttribute>(type, true);
+            string displayName = ReadDisplayName(type, true);
 
-            if (attribute != null && !string.IsNullOrWhiteSpace(attribute.DisplayName))
+            if (!string.IsNullOrWhiteSpace(displayName))
             {
-                name = attribute.DisplayName;
+                name = displayName;
             }
 
             return type.IsGenericTypeDefinition ? name + "<T>" : name;
@@ -534,8 +552,165 @@ namespace RPA.Core.Generation
 
         private static string DescriptionOf(Type type)
         {
-            DescriptionAttribute attribute = GetAttributeSafe<DescriptionAttribute>(type, true);
-            return attribute?.Description;
+            return ReadDescription(type, true);
+        }
+
+        /// <summary>
+        /// Кэш локализованных строк атрибутов <c>[Localized*]</c>: (тип ресурсов, ключ) → строка.
+        /// <see cref="ResourceManager"/> дорог в создании, поэтому создаём его один раз на пару.
+        /// </summary>
+        private static string GetLocalizedString(Type resourceType, string key)
+        {
+            if (resourceType == null || string.IsNullOrWhiteSpace(key))
+            {
+                return null;
+            }
+
+            string resourceKey = resourceType.AssemblyQualifiedName ?? resourceType.FullName ?? resourceType.Name;
+            ResourceManager resourceManager = ResourceManagerCache.GetOrAdd(resourceKey, _ =>
+            {
+                try
+                {
+                    return new ResourceManager(resourceType);
+                }
+                catch
+                {
+                    return null;
+                }
+            });
+
+            if (resourceManager == null)
+            {
+                return null;
+            }
+
+            string cacheKey = resourceKey + "|" + key;
+            return LocalizedStringCache.GetOrAdd(cacheKey, _ =>
+            {
+                try
+                {
+                    return resourceManager.GetString(key);
+                }
+                catch
+                {
+                    return null;
+                }
+            });
+        }
+
+        /// <summary>
+        /// Определяет, является ли атрибут локализованным (<c>[LocalizedDescription]</c>/
+        /// <c>[LocalizedDisplayName]</c>/<c>[LocalizedCategory]</c>). Такие атрибуты не инстанцируются:
+        /// их конструктор и геттер создают <see cref="ResourceManager"/> на каждое чтение.
+        /// </summary>
+        private static bool IsLocalizedAttribute(Type attributeType)
+        {
+            string fullName = attributeType.FullName;
+            return string.Equals(fullName, "ActivityLibraryBase.Attributes.LocalizedDescriptionAttribute", StringComparison.Ordinal)
+                   || string.Equals(fullName, "ActivityLibraryBase.Attributes.LocalizedDisplayNameAttribute", StringComparison.Ordinal)
+                   || string.Equals(fullName, "ActivityLibraryBase.Attributes.LocalizedCategoryAttribute", StringComparison.Ordinal);
+        }
+
+        /// <summary>Читает строку локализованного атрибута из метаданных (ключ + тип ресурсов).</summary>
+        private static string ReadLocalizedString(CustomAttributeData data)
+        {
+            IList<CustomAttributeTypedArgument> args = data.ConstructorArguments;
+            if (args.Count >= 2 && args[0].Value is string key)
+            {
+                Type resourceType = AsType(args[1].Value);
+                if (resourceType != null)
+                {
+                    return GetLocalizedString(resourceType, key);
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>Извлекает <see cref="Type"/> из значения <c>typeof(...)</c> в метаданных атрибута.</summary>
+        private static Type AsType(object value)
+        {
+            if (value is Type type)
+            {
+                return type;
+            }
+
+            if (value is string typeName && !string.IsNullOrWhiteSpace(typeName))
+            {
+                try
+                {
+                    return Type.GetType(typeName);
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+
+            return null;
+        }
+
+
+        /// <summary>Читает <see cref="DescriptionAttribute"/> (обычный или локализованный) без дорогого инстанцирования.</summary>
+        private static string ReadDescription(MemberInfo member, bool inherit)
+        {
+            return ReadStringAttribute<DescriptionAttribute>(member, inherit, attribute => attribute.Description);
+        }
+
+        /// <summary>Читает <see cref="DisplayNameAttribute"/> (обычный или локализованный) без дорогого инстанцирования.</summary>
+        private static string ReadDisplayName(MemberInfo member, bool inherit)
+        {
+            return ReadStringAttribute<DisplayNameAttribute>(member, inherit, attribute => attribute.DisplayName);
+        }
+
+        private static string ReadStringAttribute<T>(MemberInfo member, bool inherit, Func<T, string> valueSelector)
+            where T : Attribute
+        {
+            for (MemberInfo current = member; current != null; )
+            {
+                foreach (CustomAttributeData data in CustomAttributesOf(current))
+                {
+                    Type attributeType;
+                    try
+                    {
+                        attributeType = data.AttributeType;
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    if (!typeof(T).IsAssignableFrom(attributeType))
+                    {
+                        continue;
+                    }
+
+                    if (IsLocalizedAttribute(attributeType))
+                    {
+                        return ReadLocalizedString(data);
+                    }
+
+                    try
+                    {
+                        object[] args = data.ConstructorArguments.Select(argument => argument.Value).ToArray();
+                        T attribute = (T)data.Constructor.Invoke(args);
+                        return valueSelector(attribute);
+                    }
+                    catch
+                    {
+                        return null;
+                    }
+                }
+
+                if (!inherit)
+                {
+                    break;
+                }
+
+                current = (current as Type)?.BaseType;
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -628,14 +803,17 @@ namespace RPA.Core.Generation
 
         private static IList<CustomAttributeData> CustomAttributesOf(MemberInfo member)
         {
-            try
+            return AttributeDataCache.GetValue(member, _ =>
             {
-                return CustomAttributeData.GetCustomAttributes(member);
-            }
-            catch
-            {
-                return Array.Empty<CustomAttributeData>();
-            }
+                try
+                {
+                    return CustomAttributeData.GetCustomAttributes(member);
+                }
+                catch
+                {
+                    return Array.Empty<CustomAttributeData>();
+                }
+            });
         }
 
         private void Add(Type type, string category)
@@ -666,7 +844,7 @@ namespace RPA.Core.Generation
                     propertyType.GetGenericArguments()[0],
                     required: HasAttributeSafe(property, typeof(RequiredArgumentAttribute), true),
                     GetAttributeSafe<DefaultValueAttribute>(property, true)?.Value?.ToString(),
-                    GetAttributeSafe<DescriptionAttribute>(property, true)?.Description);
+                    ReadDescription(property, true));
             }
 
             if (!typeof(Argument).IsAssignableFrom(propertyType))
@@ -690,7 +868,7 @@ namespace RPA.Core.Generation
 
             bool required = HasAttributeSafe(property, typeof(RequiredArgumentAttribute), true);
             DefaultValueAttribute defaultAttribute = GetAttributeSafe<DefaultValueAttribute>(property, true);
-            DescriptionAttribute descriptionAttribute = GetAttributeSafe<DescriptionAttribute>(property, true);
+            string description = ReadDescription(property, true);
 
             return new PaletteArgumentDescriptor(
                 property.Name,
@@ -699,7 +877,7 @@ namespace RPA.Core.Generation
                 ValueTypeOf(propertyType),
                 required,
                 defaultAttribute?.Value?.ToString(),
-                descriptionAttribute?.Description);
+                description);
         }
 
         private static PaletteContainerDescriptor DescribeContainer(PropertyInfo property)
@@ -783,7 +961,7 @@ namespace RPA.Core.Generation
                 propertyType,
                 required: false,
                 GetAttributeSafe<DefaultValueAttribute>(property, true)?.Value?.ToString(),
-                GetAttributeSafe<DescriptionAttribute>(property, true)?.Description);
+                ReadDescription(property, true));
         }
 
         /// <summary>
