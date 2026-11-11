@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Activities;
 using System.Activities.Statements;
 using System.Collections.Generic;
@@ -336,17 +336,17 @@ namespace RPA.Core.Generation
         private int _diskCacheMisses;
 
         /// <summary>Кэш метаданных типа на процесс: рефлексия выполняется один раз на тип.</summary>
-        private static readonly ConcurrentDictionary<Type, PaletteActivityDescriptor> DescriptorCache =
+        private static ConcurrentDictionary<Type, PaletteActivityDescriptor> DescriptorCache =
             new ConcurrentDictionary<Type, PaletteActivityDescriptor>();
 
         /// <summary>Кэш локализованных строк атрибутов: (тип ресурсов, ключ) → строка.</summary>
-        private static readonly ConcurrentDictionary<string, string> LocalizedStringCache =
+        private static ConcurrentDictionary<string, string> LocalizedStringCache =
             new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
         /// <summary>Кэш <see cref="ResourceManager"/> по типу ресурсов: создаётся один раз и переиспользуется.</summary>
-        private static readonly ConcurrentDictionary<string, ResourceManager> ResourceManagerCache =
+        private static ConcurrentDictionary<string, ResourceManager> ResourceManagerCache =
             new ConcurrentDictionary<string, ResourceManager>(StringComparer.Ordinal);
         /// <summary>Кэш <see cref="CustomAttributeData"/> по члену типа: рефлексия атрибутов выполняется один раз на член.</summary>
-        private static readonly ConditionalWeakTable<MemberInfo, IList<CustomAttributeData>> AttributeDataCache =
+        private static ConditionalWeakTable<MemberInfo, IList<CustomAttributeData>> AttributeDataCache =
             new ConditionalWeakTable<MemberInfo, IList<CustomAttributeData>>();
 
         internal ActivityPaletteRegistry(IEnumerable<ActivityPaletteCategory> categories)
@@ -389,6 +389,12 @@ namespace RPA.Core.Generation
             PaletteDiskCache.Save(_diskCacheKey, _descriptors);
         }
 
+
+        /// <summary>Дисковый кэш был прочитан успешно (файл существовал и прошёл валидацию). Тестовый шов.</summary>
+        internal bool DiskCacheLoaded => _diskCacheLoaded;
+
+        /// <summary>Число типов, для которых дисковый кэш не дал дескриптор. Тестовый шов.</summary>
+        internal int DiskCacheMisses => _diskCacheMisses;
         /// <summary>Реестр студии: встроенные активности WF плюс уже загруженные библиотеки активностей.</summary>
         internal static ActivityPaletteRegistry Default => DefaultRegistry.Value;
 
@@ -404,6 +410,24 @@ namespace RPA.Core.Generation
             // точечно через InvalidateTypes.
             DefaultRegistry = new Lazy<ActivityPaletteRegistry>(() => new ActivityPaletteRegistry(StudioActivityPalette.Categories()));
         }
+        /// <summary>
+        /// Полный сброс кэшей рефлексии (кнопка «Сбросить кэши оптимизаций»). Дескрипторы,
+        /// локализованные строки, ResourceManager и атрибуты членов пересоздаются пустыми, а Lazy
+        /// реестра инвалидируется, чтобы следующий доступ пересобрал палитру заново.
+        /// </summary>
+        internal static void ResetCaches()
+        {
+            DescriptorCache = new ConcurrentDictionary<Type, PaletteActivityDescriptor>();
+            LocalizedStringCache = new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
+            ResourceManagerCache = new ConcurrentDictionary<string, ResourceManager>(StringComparer.Ordinal);
+            AttributeDataCache = new ConditionalWeakTable<MemberInfo, IList<CustomAttributeData>>();
+            InvalidateDefault();
+        }
+
+        /// <summary>Число закэшированных дескрипторов (тестовый шов для сброса кэшей).</summary>
+        internal static int CachedDescriptorCount => DescriptorCache.Count;
+
+
 
         /// <summary>
         /// Точечно удаляет из кэша дескрипторы указанных типов (например, удалённых NuGet-пакетов)

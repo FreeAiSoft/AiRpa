@@ -123,6 +123,9 @@
   <data name="key_for_find_resource_main" xml:space="preserve">
     <value>key_for_find_resource_main</value>
   </data>
+  <data name="lang_main_reset_caches" xml:space="preserve">
+    <value>Сбросить кэши оптимизаций</value>
+  </data>
   <data name="lang_main_settings" xml:space="preserve">
     <value>Настройки</value>
   </data>

@@ -243,7 +243,7 @@ namespace RPA.NuGet.Services
             return element == null ? null : (element.Value ?? string.Empty).Trim();
         }
 
-        private static string ComputeFingerprint(string directory)
+        internal static string ComputeFingerprint(string directory)
         {
             if (!Directory.Exists(directory))
                 return null;
@@ -260,17 +260,18 @@ namespace RPA.NuGet.Services
             return Hash(string.Join("\n", fileSignatures));
         }
 
-        private static string GetCachePath(string directory)
-        {
-            string root = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "AiRpaStudio",
-                "NuGetIndex");
+        /// <summary>Корень дискового индекса локальных источников (общий с <see cref="NuGetOptimizationCache"/>).</summary>
+        internal static string RootDirectory => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "AiRpaStudio",
+            "NuGetIndex");
 
+        internal static string GetCachePath(string directory)
+        {
             string normalized = Path.GetFullPath(directory)
                 .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-            return Path.Combine(root, Hash(normalized) + ".json");
+            return Path.Combine(RootDirectory, Hash(normalized) + ".json");
         }
 
         private static string Hash(string text)

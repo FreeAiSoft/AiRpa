@@ -464,6 +464,16 @@ namespace RPA.NuGet.ViewModels
                 _ = SearchAsync();
         }
 
+        /// <summary>
+        /// Сбрасывает кэши оптимизации панели: in-memory мемоизацию текущего сервиса поиска.
+        /// Дисковый индекс локального источника чистится хостом через
+        /// <see cref="NuGetOptimizationCache.InvalidateAll"/>.
+        /// </summary>
+        public void ResetCaches()
+        {
+            _search?.ClearMemoization();
+        }
+
         // --- Оверлей «Package sources» ---
 
         /// <summary>Оверлей добавления/удаления источников пакетов открыт.</summary>

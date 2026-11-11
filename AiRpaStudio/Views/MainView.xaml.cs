@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Activities.Presentation;
 using System.Activities.Presentation.View;
 using System.Collections.Generic;
@@ -107,6 +107,8 @@ namespace RPA.Views
             WfOutlineViewBorder = new Border { Margin = new Thickness(0, 5, 0, 5) };
             WfPropertyBorder = new Border { BorderThickness = new Thickness(0) };
             LogViewerControl = new LogControlLibrary.Controls.LogViewerControl();
+            // Этапы загрузки выводятся в панель «Log» (только [Startup]-метки; остальной журнал — log.txt).
+            StartupTimer.Attach(message => LogViewerControl.AddLog(LogControlLibrary.Models.LogLevel.Info, message));
             docGroup ??= new LayoutDocumentPane();
             projectManagerControl = new ProjectManagerControl();
             Binding binding = new Binding("FSNodes");
@@ -780,6 +782,14 @@ namespace RPA.Views
             {
                 ErrorDialog.ShowException(ex, "Проверка совместимости проекта", this);
             }
+        }
+
+        /// <summary>Сброс всех кэшей оптимизаций (палитра, NuGet-индекс и мемоизация) из меню «Настройки».</summary>
+        private void ResetCachesMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            RPA.Core.Services.StudioCacheReset.ResetAll();
+            nuGetPanel?.ViewModel?.ResetCaches();
+            RefreshActivityPalette();
         }
 
         private void ShowNuGetPanel()

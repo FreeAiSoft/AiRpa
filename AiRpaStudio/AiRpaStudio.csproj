@@ -339,6 +339,7 @@
     <Compile Include="Core\Services\DesignerContextMenuState.cs" />
     <Compile Include="Core\Services\DesignerVariableContextMenuPolicy.cs" />
     <Compile Include="Core\Services\DesignerVariableContextMenuService.cs" />
+    <Compile Include="Core\Services\StudioCacheReset.cs" />
     <Compile Include="CSharpExpressionEditor\CSharpExpressionHelper.cs" />
     <Compile Include="CSharpExpressionEditor\DocumentViewModel.cs" />
     <Compile Include="CSharpExpressionEditor\ExpressionHelper.cs" />

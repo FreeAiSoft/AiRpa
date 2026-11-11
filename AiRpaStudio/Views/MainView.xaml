@@ -591,6 +591,10 @@
                           SnapsToDevicePixels="True"
                           ToolTip="Load Workspace Layout"
                           Header="Load Layout" />
+                <MenuItem SnapsToDevicePixels="True"
+                          ToolTip="Clear optimization caches"
+                          Header="{DynamicResource lang_main_reset_caches}"
+                          Click="ResetCachesMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Tools"
                       Foreground="{DynamicResource Studio.MenuForeground}">

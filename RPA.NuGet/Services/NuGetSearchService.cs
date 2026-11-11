@@ -47,6 +47,24 @@ namespace RPA.NuGet.Services
             _repository = Repository.Factory.GetCoreV3(sourceUrl);
             NuGetLog.Info("Search service created for source: " + sourceUrl);
         }
+        /// <summary>
+        /// Сбрасывает in-memory мемоизацию локального источника (поиск/версии/карточки).
+        /// Кнопка «Сбросить кэши оптимизаций» вызывает этот метод через
+        /// <see cref="NuGetOptimizationCache"/> и <see cref="NuGetPanelViewModel.ResetCaches"/>.
+        /// </summary>
+        public void ClearMemoization()
+        {
+            lock (_localMemoLock)
+            {
+                _localSearchMemo.Clear();
+                _localVersionsMemo.Clear();
+                _localPackageInfoMemo.Clear();
+            }
+
+            NuGetLog.Info("Local source memoization cleared for source: " + SourceUrl);
+        }
+
+
 
         /// <summary>Адрес источника, к которому подключён этот экземпляр.</summary>
         public string SourceUrl { get; }
