@@ -45,7 +45,7 @@ namespace RPA.Helpers
         {
             "mscorlib", "WindowsBase", "PresentationCore", "PresentationFramework", "ReachFramework",
             "Accessibility", "UIAutomationClient", "UIAutomationTypes", "WindowsFormsIntegration",
-            "ActivitiesTracker", "RpaCommon", "LogControlLibrary", "FW.EasyMvvm", "EasyMvvm",
+            "ActivityLibraryBase", "ActivitiesTracker", "RpaCommon", "LogControlLibrary", "FW.EasyMvvm", "EasyMvvm",
             "MaterialDesignThemes", "MaterialDesignColors", "Material.Icons", "Material.Icons.WPF"
         };
 

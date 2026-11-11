@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using RPA.Core.Generation;
+using RPA.Helpers;
 using RPA.NuGet.Models;
 using RPA.NuGet.Services;
 
@@ -150,7 +151,7 @@ namespace RPA.Core.Workflow
                     {
                         try
                         {
-                            _ = Assembly.LoadFrom(dllPath);
+                            _ = LoadWithoutDuplicating(dllPath);
                         }
                         catch (Exception)
                         {
@@ -182,6 +183,16 @@ namespace RPA.Core.Workflow
 
             string simpleName = fullName.Split(',')[0];
 
+            // Уже загруженная в домен сборка возвращается как есть: вторая копия того же типа из
+            // lib-папки пакета даёт InvalidCastException (LoadFrom-контекст против Default-контекста).
+            Assembly loaded = FindLoaded(simpleName);
+            if (loaded != null)
+                return loaded;
+
+            // Хозяйские сборки студии из пакетов не подменяем (та же защита, что у RobotAssemblyResolver).
+            if (IsHostOwnedAssemblyName(simpleName))
+                return null;
+
             // Fast path: dependency ships next to the package assemblies.
             foreach (string directory in searchDirectories)
             {
@@ -190,7 +201,7 @@ namespace RPA.Core.Workflow
                 {
                     try
                     {
-                        return Assembly.LoadFrom(candidate);
+                        return LoadWithoutDuplicating(candidate);
                     }
                     catch (Exception)
                     {
@@ -207,7 +218,7 @@ namespace RPA.Core.Workflow
                     string found = Directory.GetFiles(fallbackRoot, simpleName + ".dll", SearchOption.AllDirectories)
                         .FirstOrDefault();
                     if (found != null)
-                        return Assembly.LoadFrom(found);
+                        return LoadWithoutDuplicating(found);
                 }
                 catch (Exception)
                 {
@@ -217,6 +228,54 @@ namespace RPA.Core.Workflow
 
             return null;
         }
+
+        /// <summary>
+        /// Возвращает уже загруженную в домен сборку по простому имени, либо <c>null</c>.
+        /// Сравнение по <see cref="AssemblyName.Name"/> без учёта регистра.
+        /// </summary>
+        private static Assembly FindLoaded(string simpleName)
+        {
+            if (string.IsNullOrWhiteSpace(simpleName))
+            {
+                return null;
+            }
+
+            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try
+                {
+                    if (string.Equals(assembly.GetName().Name, simpleName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return assembly;
+                    }
+                }
+                catch (Exception)
+                {
+                    // Динамические или повреждённые сборки пропускаем.
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Загружает сборку без создания второй копии уже загруженного типа: если сборка с тем же
+        /// именем уже есть в домене, возвращается она, иначе — <see cref="Assembly.LoadFrom(string)"/>.
+        /// </summary>
+        private static Assembly LoadWithoutDuplicating(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                return null;
+            }
+
+            Assembly loaded = FindLoaded(Path.GetFileNameWithoutExtension(path));
+            return loaded ?? Assembly.LoadFrom(path);
+        }
+
+        /// <summary>Хозяйская сборка студии — из пакетов робота не загружается.</summary>
+        internal static bool IsHostOwnedAssemblyName(string simpleName)
+            => RobotAssemblyResolver.IsHostOwnedAssemblyName(simpleName);
 
         private static string FindLibDirectory(NuGetProjectPackages project, string projectDir, string id, string version)
         {
@@ -304,7 +363,11 @@ namespace RPA.Core.Workflow
             Assembly assembly;
             try
             {
-                assembly = Assembly.LoadFrom(dllPath);
+                assembly = LoadWithoutDuplicating(dllPath);
+                if (assembly == null)
+                {
+                    return null;
+                }
             }
             catch (Exception)
             {

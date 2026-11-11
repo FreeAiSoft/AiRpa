@@ -152,6 +152,43 @@ public class NuGetProjectIntegrationTests
             TryDeleteDirectory(directory);
         }
     }
+    [Test]
+    public void ResolveAssembly_ReturnsAlreadyLoadedAssembly_InsteadOfLoadingCopy()
+    {
+        string directory = MakeTempDir();
+        try
+        {
+            // Та же сборка уже загружена в домен (текущая тестовая сборка), а её файл лежит и в lib-папке пакета.
+            // Раньше ResolveAssembly возвращал Assembly.LoadFrom(копия) — второй экземпляр того же типа, из-за
+            // чего дизайнер падал с InvalidCastException (ActivityTop из LoadFrom-контекста против Default-контекста).
+            Assembly self = typeof(NuGetProjectIntegrationTests).Assembly;
+            File.Copy(self.Location, Path.Combine(directory, self.GetName().Name + ".dll"));
+
+            Assembly resolved = NuGetActivityPaletteLoader.ResolveAssembly(
+                self.FullName,
+                new List<string> { directory },
+                null);
+
+            Assert.That(resolved, Is.SameAs(self),
+                "уже загруженная сборка не должна подменяться копией из lib-папки пакета");
+        }
+        finally
+        {
+            TryDeleteDirectory(directory);
+        }
+    }
+
+    [TestCase("ActivityLibraryBase", true)]
+    [TestCase("RpaCommon", true)]
+    [TestCase("Activities.Flow", true)]
+    [TestCase("Newtonsoft.Json", false)]
+    [TestCase("MyRobot.Helpers", false)]
+    public void IsHostOwnedAssemblyName_Table(string name, bool expected)
+    {
+        Assert.That(NuGetActivityPaletteLoader.IsHostOwnedAssemblyName(name), Is.EqualTo(expected));
+    }
+
+
 
     [Test]
     public void ProjectManagerControl_CollectionChangedHandler_DoesNotThrow()

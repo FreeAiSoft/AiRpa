@@ -137,6 +137,7 @@ public class RobotAssemblyResolverTests
     [TestCase("Activities", true)]
     [TestCase("Activities.Browser", true)]
     [TestCase("ActivitiesTracker", true)]
+    [TestCase("ActivityLibraryBase", true)]
     [TestCase("RPA", true)]
     [TestCase("RpaCommon", true)]
     [TestCase("FW.EasyMvvm", true)]
