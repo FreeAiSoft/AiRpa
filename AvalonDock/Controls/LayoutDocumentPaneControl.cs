@@ -120,9 +120,11 @@ namespace AvalonDock.Controls
 					{
 						layoutContent.TabItem.Model = null;
 						layoutContent.TabItem.ContextMenu = null;
+						// Визуальный контейнер вкладки удаляет сам ItemsControl (TabControl генерирует
+						// TabItem в ItemsPanel). Явный Children.Remove() у DocumentPaneTabPanel
+						// недопустим: Panel используется как ItemsPanel — это падает с
+						// InvalidOperationException при перетаскивании вкладки в плавающее окно.
 						layoutContent.TabItem.Content = null;
-						var panel = layoutContent.TabItem.FindVisualAncestor<Panel>();
-						if (panel != null) panel.Children.Remove(layoutContent.TabItem);
 						layoutContent.TabItem = null;
 					}
 				}

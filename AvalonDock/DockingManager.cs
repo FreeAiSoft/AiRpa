@@ -1890,6 +1890,11 @@ namespace AvalonDock
 			if (!(anchorable is LayoutAnchorable model)) return;
 			model.CloseAnchorable();
 			RemoveViewFromLogicalChild(anchorable);
+			// Симметрично закрытию LayoutDocument: отсоединяем контент от логического дерева,
+			// иначе повторное открытие того же UIElement падает в InternalAddLogicalChild.
+			if (anchorable.Content is UIElement uIElement)
+				InternalRemoveLogicalChild(uIElement);
+			anchorable.Content = null;
 		}
 
 		internal void ExecuteHideCommand(LayoutAnchorable anchorable) => anchorable?.Hide();

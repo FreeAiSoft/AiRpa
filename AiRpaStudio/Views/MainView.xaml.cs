@@ -493,6 +493,7 @@ namespace RPA.Views
                         else if (contentId == "NuGet")
                         {
                             args.Content = nuGetPanel;
+                            args.Model.CanClose = true; // гарантия: крестик закрытия у вкладки NuGet виден всегда
                             nuGetContent = args.Model as LayoutContent;
                         }
 
