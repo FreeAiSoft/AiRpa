@@ -230,6 +230,21 @@ public class LogAndChatThemeTests
         // Буквы уровня в строке лога берут тот же ключ: строка ключа не должна разъехаться с палитрой.
         Assert.That(LogLevelToColorConverter.ForegroundKey, Is.EqualTo(StudioBrushes.ForegroundKey),
             "конвертер цвета уровня обязан читать тот же ключ палитры, что пишет StudioBrushes");
+        // Регрессия: буквы уровня красились одноразовым Binding + конвертером — при смене темы
+        // привязка не пересчитывалась, и Trace оставался в цвете старой темы. Теперь базовый цвет —
+        // DynamicResource Studio.Foreground, а Debug…Fatal ставятся DataTrigger-ами на кисти конвертера.
+        Assert.That(xaml, Does.Not.Contain("Foreground=\"{Binding Level, Converter={StaticResource LogLevelToColorConverter}}\""),
+            "буквы уровня не должны краситься Binding+конвертером: привязка не реагирует на смену темы");
+        Assert.That(xaml, Does.Contain("<Setter Property=\"Foreground\" Value=\"{DynamicResource Studio.Foreground}\"/>"),
+            "базовый цвет букв уровня обязан быть DynamicResource Studio.Foreground (Trace и значение по умолчанию)");
+
+        foreach (string level in new[] { "Debug", "Info", "Warning", "Error", "Fatal" })
+        {
+            Assert.That(xaml, Does.Contain("Value=\"{x:Static models:LogLevel." + level + "}\""),
+                $"буквы уровня {level} должны краситься DataTrigger-ом по LogLevel.{level}");
+            Assert.That(xaml, Does.Contain("Path=" + level + "Brush}"),
+                $"буквы уровня {level} должны брать кисть {level}Brush конвертера, а не hex");
+        }
 
         // Вне палитры остаётся запасной средний тон: ни белого, ни чёрного, иначе он не читается в одной из тем.
         Brush fallback = new LogLevelToColorConverter().TraceBrush;

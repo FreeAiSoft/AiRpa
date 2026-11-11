@@ -598,7 +598,7 @@
     `SemanticKeys`): классика «синий/зелёный/оранжевый/красный/тёмно-красный», цвета непрозрачные
     (alpha 255) и одинаковы в обеих темах. Trace — не цвет, а основной текст панели: иконка и буквы
     уровня красятся `Studio.Foreground` (белый `#F1F1F1` в тёмной теме, чёрный `#1F1F1F` в светлой),
-    конвертер `LogLevelToColorConverter` читает этот ключ из ресурсов приложения по строке; строки
+    базовый цвет букв — `{DynamicResource Studio.Foreground}` в стиле ячейки (реагирует на смену темы), а Debug…Fatal — DataTrigger-ами на кисти `LogLevelToColorConverter`; строки
     Trace фона не получают вовсе — ни в покое, ни под курсором. Стражи — `LogAndChatThemeTests.
     LogViewer_FilterIconsUseSemanticLevelKeys`, `..._AreClassicSemanticsAndOpaque`, `..._DoNotDependOnTheme`,
     `LogViewer_TraceIconAndLettersUseStudioForeground`, `LogViewer_TraceRowsHaveNoBackgroundAtAll`.

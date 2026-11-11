@@ -450,13 +450,36 @@
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBox Text="{Binding Level}"
-                                         Foreground="{Binding Level, Converter={StaticResource LogLevelToColorConverter}}"
                                          FontWeight="Bold"
                                          FontSize="11"
                                          IsReadOnly="True"
                                          BorderThickness="0"
                                          Background="Transparent"
-                                         IsTabStop="False"/>
+                                         IsTabStop="False">
+                                    <TextBox.Style>
+                                        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                            <!-- Trace/default: основной цвет текста панели, реагирует на смену темы. -->
+                                            <Setter Property="Foreground" Value="{DynamicResource Studio.Foreground}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Level}" Value="{x:Static models:LogLevel.Debug}">
+                                                    <Setter Property="Foreground" Value="{Binding Source={StaticResource LogLevelToColorConverter}, Path=DebugBrush}"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Level}" Value="{x:Static models:LogLevel.Info}">
+                                                    <Setter Property="Foreground" Value="{Binding Source={StaticResource LogLevelToColorConverter}, Path=InfoBrush}"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Level}" Value="{x:Static models:LogLevel.Warning}">
+                                                    <Setter Property="Foreground" Value="{Binding Source={StaticResource LogLevelToColorConverter}, Path=WarningBrush}"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Level}" Value="{x:Static models:LogLevel.Error}">
+                                                    <Setter Property="Foreground" Value="{Binding Source={StaticResource LogLevelToColorConverter}, Path=ErrorBrush}"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Level}" Value="{x:Static models:LogLevel.Fatal}">
+                                                    <Setter Property="Foreground" Value="{Binding Source={StaticResource LogLevelToColorConverter}, Path=FatalBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBox.Style>
+                                </TextBox>
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
