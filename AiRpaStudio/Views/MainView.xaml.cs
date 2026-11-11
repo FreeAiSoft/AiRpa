@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Activities.Presentation;
 using System.Activities.Presentation.View;
 using System.Collections.Generic;
@@ -17,6 +17,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
 using AvalonDock.Layout;
+using AvalonDock;
 using AvalonDock.Layout.Serialization;
 using FW.EasyMvvm.Core;
 using Material.Icons;
@@ -69,6 +70,12 @@ namespace RPA.Views
         private bool _resetLayout;
         private bool _paletteRebuildInProgress;
 
+        /// <summary>Каркас окна инициализирован (панели созданы, раскладка подготовлена к подъёму).</summary>
+        private bool _shellInitialized;
+
+        /// <summary>Раскладка, подготовленная до первого кадра и поднимаемая в DockingManager после него.</summary>
+        private AvalonDock.Layout.LayoutRoot _preparedLayoutRoot;
+
         /// <summary>Результат фоновой пересборки палитры: данные, безопасные для построения вне UI-потока.</summary>
         private sealed class PaletteBuildResult
         {
@@ -88,12 +95,9 @@ namespace RPA.Views
             Services.AppSettings.SetDockingManager(dockManager);// DockingManager можно отловить только здесь, такие дела
             StartupTimer.Mark("MainView: SetDockingManager()");
 
-            InitializeControls();
-            StartupTimer.Mark("MainView: InitializeControls()");
-            InitializeLayoutRoot();
-            StartupTimer.Mark("MainView: InitializeLayoutRoot()");
-            InitializeLayoutAutoSave();
-            StartupTimer.Mark("MainView: InitializeLayoutAutoSave()");
+            // П. 3.3: тяжёлые панели и раскладка переносятся в MainView_Loaded (EnsureShellInitialized),
+            // чтобы первый рендер view.Show() рисовал только лёгкий каркас окна.
+            StartupTimer.Mark("MainView: каркас окна готов (тяжёлые панели отложены до первого кадра)");
         }
 
         private void InitializeControls()
@@ -103,7 +107,7 @@ namespace RPA.Views
             WfOutlineViewBorder = new Border { Margin = new Thickness(0, 5, 0, 5) };
             WfPropertyBorder = new Border { BorderThickness = new Thickness(0) };
             LogViewerControl = new LogControlLibrary.Controls.LogViewerControl();
-            docGroup = new LayoutDocumentPane();
+            docGroup ??= new LayoutDocumentPane();
             projectManagerControl = new ProjectManagerControl();
             Binding binding = new Binding("FSNodes");
             _ = BindingOperations.SetBinding(projectManagerControl, ProjectManagerControl.ItemsSourceProperty, binding);
@@ -415,13 +419,19 @@ namespace RPA.Views
                 Core.Generation.StudioActivityPalette.Categories();
 
             var registry = new Core.Generation.ActivityPaletteRegistry(categories);
+            registry.PersistDiskCache();
             var catalog = new Core.Workflow.StudioActivityCatalog(categories, registry);
+
+            Dictionary<Type, string> displayNames = registry.All
+                .ToDictionary(descriptor => descriptor.Type, descriptor => descriptor.DisplayName);
 
             return new PaletteBuildResult
             {
                 Registry = registry,
                 Catalog = catalog,
-                ToolboxCategories = new WFToolboxHelper().BuildModel(categories)
+                // Отображаемые имена берём из уже построенного реестра (в т.ч. из дискового кэша),
+                // чтобы CreateCategory не рефлексировал атрибуты типов повторно (дорого на Browser/OS).
+                ToolboxCategories = new WFToolboxHelper().BuildModel(categories, displayNames)
             };
         }
 
@@ -434,14 +444,18 @@ namespace RPA.Views
 
 
 
-        private void InitializeLayoutRoot()
+        private LayoutRoot PrepareLayout()
         {
             // Try to load layout from saved settings
             if (!string.IsNullOrEmpty(Properties.Settings.Default.ADLayout))
             {
                 try
                 {
-                    XmlLayoutSerializer layoutSerializer = new XmlLayoutSerializer(dockManager);
+                    // Десериализация в невидимый (staging) DockingManager: XmlLayoutSerializer сам
+                    // присваивает Layout менеджеру, а подъём доков в реальный dockManager откладывается
+                    // до первого кадра (п. 3.3).
+                    DockingManager staging = new DockingManager();
+                    XmlLayoutSerializer layoutSerializer = new XmlLayoutSerializer(staging);
 
                     // Set up the callback to restore content during deserialization
                     layoutSerializer.LayoutSerializationCallback += (s, args) =>
@@ -497,7 +511,7 @@ namespace RPA.Views
                     }
 
                     // Find and assign docGroup
-                    List<LayoutDocumentPane> documentPanes = FindAllDocumentPanes(dockManager.Layout);
+                    List<LayoutDocumentPane> documentPanes = FindAllDocumentPanes(staging.Layout);
                     if (documentPanes.Count > 0)
                     {
                         docGroup = documentPanes[0];
@@ -507,9 +521,15 @@ namespace RPA.Views
                         Log.Write("WARNING: No document panes found in deserialized layout!");
                     }
 
-                    RefreshActivityPalette();
+                    LayoutRoot prepared = staging.Layout;
 
-                    return;
+                    // Отсоединяем раскладку от невидимого staging-менеджера: иначе LayoutItem-ы и
+                    // логические дочерние элементы останутся привязаны к нему, и перенос в реальный
+                    // dockManager упадёт с «уже является логическим дочерним элементом».
+                    staging.Layout = new LayoutRoot { RootPanel = new LayoutPanel() };
+
+                    return prepared;
+
                 }
                 catch (Exception ex)
                 {
@@ -523,10 +543,52 @@ namespace RPA.Views
             }
 
             // Create default layout
-            CreateDefaultLayout();
+            return CreateDefaultLayout();
+
+        }
+
+        /// <summary>
+        /// Отложенная инициализация тяжёлых панелей и подготовка раскладки (п. 3.3): вызывается в
+        /// <see cref="MainView_Loaded"/> до создания <see cref="DocGroupHelper"/>, чтобы <c>docGroup</c>
+        /// был финализирован до восстановления вкладок.
+        /// </summary>
+        private void EnsureShellInitialized()
+        {
+            if (_shellInitialized)
+            {
+                return;
+            }
+            _shellInitialized = true;
+
+            InitializeControls();
+            StartupTimer.Mark("MainView: InitializeControls()");
+
+            _preparedLayoutRoot = PrepareLayout();
+            StartupTimer.Mark("MainView: PrepareLayout()");
+
+            // Подъём доков откладывается до первого кадра: пустой DockingManager уже отрисован,
+            // а тяжёлые панели и раскладка добавляются следующим циклом диспетчера.
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(AttachPreparedLayout));
+        }
+
+        /// <summary>
+        /// Поднимает подготовленную раскладку в DockingManager после первого кадра и запускает
+        /// пересборку палитры «Активности» (она тоже асинхронна).
+        /// </summary>
+        private void AttachPreparedLayout()
+        {
+            if (_preparedLayoutRoot != null)
+            {
+                dockManager.Layout = _preparedLayoutRoot;
+                _preparedLayoutRoot = null;
+            }
+
+            InitializeLayoutAutoSave();
+            StartupTimer.Mark("MainView: раскладка поднята после первого кадра");
 
             RefreshActivityPalette();
         }
+
 
         private List<LayoutDocumentPane> FindAllDocumentPanes(LayoutRoot layoutRoot)
         {
@@ -555,7 +617,7 @@ namespace RPA.Views
             return result;
         }
 
-        private void CreateDefaultLayout()
+        private LayoutRoot CreateDefaultLayout()
         {
             Log.Write("Creating default layout");
 
@@ -669,9 +731,9 @@ namespace RPA.Views
 
             // Set the layout
             layoutRoot.RootPanel = layoutPanel;
-            dockManager.Layout = layoutRoot;
-
             Log.Write("Default layout created successfully");
+
+            return layoutRoot;
         }
 
         public void OnSendMessage(string message)
@@ -836,6 +898,10 @@ namespace RPA.Views
         private void MainView_Loaded(object sender, RoutedEventArgs e)
         {
             ApplyMaximizeMargin();
+            // Создаём панели и готовим раскладку ДО создания DocGroupHelper: он фиксирует ссылку на
+            // docGroup, а docGroup окончательно определяется при десериализации/построении раскладки.
+            EnsureShellInitialized();
+
 
             // Панель документов: закрытие вкладки активирует соседнюю (дизайнер или редактор кода).
             tabsCloseCoordinator = new DocumentTabsCloseCoordinator(docGroup);

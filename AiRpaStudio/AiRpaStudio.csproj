@@ -312,6 +312,7 @@
     <Compile Include="Core\Generation\StudioWorkflowDesignerHost.cs" />
     <Compile Include="Core\Generation\ActivityPaletteFactory.cs" />
     <Compile Include="Core\Generation\ActivityPaletteRegistry.cs" />
+    <Compile Include="Core\Generation\PaletteDiskCache.cs" />
     <Compile Include="Core\Workflow\StudioActivityCatalog.cs" />
     <Compile Include="Core\Workflow\NuGetActivityPaletteLoader.cs" />
     <Compile Include="Core\Workflow\StudioActivityPaletteNotifier.cs" />

@@ -9,6 +9,10 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.ComponentModel;
+using System.Drawing;
+using System.Drawing.Design;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using RPA.Controls;
 using RPA.Core.Generation;
 using RPA.Logging;
@@ -22,6 +26,32 @@ namespace RPA.Helpers
         /// <summary>Кэш отображаемых имён типов: FixName вычисляется один раз на тип.</summary>
         private static readonly ConcurrentDictionary<Type, string> DisplayNameCache =
             new ConcurrentDictionary<Type, string>();
+
+        /// <summary>Подготовленные в фоне <see cref="ToolboxItem"/> до переноса на UI-поток.</summary>
+        private static readonly ConditionalWeakTable<ToolboxItemWrapper, ToolboxItemPreload> PreloadedItems =
+            new ConditionalWeakTable<ToolboxItemWrapper, ToolboxItemPreload>();
+
+        private static readonly FieldInfo ToolboxItemField =
+            typeof(ToolboxItemWrapper).GetField("toolboxItem", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo ToolTypeField =
+            typeof(ToolboxItemWrapper).GetField("toolType", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo DefaultDisplayNameField =
+            typeof(ToolboxItemWrapper).GetField("defaultDisplayName", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo DefaultBitmapField =
+            typeof(ToolboxItemWrapper).GetField("defaultBitmap", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly MethodInfo LoadBitmapMethod =
+            typeof(ToolboxItemWrapper).GetMethod("LoadBitmap", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly MethodInfo ChangeToolboxDisplayNameMethod =
+            typeof(ToolboxItemWrapper).GetMethod("ChangeToolboxDisplayName", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        /// <summary>Данные, вычисленные в фоне и вносимые в <see cref="ToolboxItemWrapper"/> на UI-потоке.</summary>
+        private sealed class ToolboxItemPreload
+        {
+            internal ToolboxItem ToolboxItem;
+            internal Type ToolType;
+            internal string DefaultDisplayName;
+            internal Bitmap DefaultBitmap;
+        }
 
         /// <summary>
         /// Сброс счётчика панели (карточка <c>AG-08</c>): <see cref="Build"/> вызывается не только при старте,
@@ -82,6 +112,12 @@ namespace RPA.Helpers
         /// </summary>
         internal List<ToolboxCategory> BuildModel(IReadOnlyList<ActivityPaletteCategory> categories)
         {
+            return BuildModel(categories, null);
+        }
+
+        internal List<ToolboxCategory> BuildModel(IReadOnlyList<ActivityPaletteCategory> categories, IReadOnlyDictionary<Type, string> displayNames)
+        {
+            Stopwatch createSw = Stopwatch.StartNew();
             var result = new List<ToolboxCategory>();
             foreach (ActivityPaletteCategory category in categories ?? Array.Empty<ActivityPaletteCategory>())
             {
@@ -90,8 +126,13 @@ namespace RPA.Helpers
                     continue;
                 }
 
-                result.Add(CreateCategory(category.Types.ToList(), CategoryDisplayName(category.Key)));
+                result.Add(CreateCategory(category.Types.ToList(), CategoryDisplayName(category.Key), displayNames));
             }
+            Log.Write($"[Palette] WFToolboxHelper.BuildModel: CreateCategory +{createSw.ElapsedMilliseconds} ms, категорий={result.Count}");
+
+            Stopwatch preloadSw = Stopwatch.StartNew();
+            PreloadToolboxItems(result);
+            Log.Write($"[Palette] WFToolboxHelper.BuildModel: preload ToolboxItem +{preloadSw.ElapsedMilliseconds} ms, категорий={result.Count}");
             return result;
         }
 
@@ -116,6 +157,11 @@ namespace RPA.Helpers
 
                 try
                 {
+                    foreach (ToolboxItemWrapper tool in category.Tools)
+                    {
+                        CompleteToolboxItem(tool);
+                    }
+
                     wfToolbox.Categories.Add(category);
                     ActivitiesCount += category.Tools.Count;
                 }
@@ -134,13 +180,113 @@ namespace RPA.Helpers
         /// </summary>
         internal ToolboxCategory CreateCategory(List<Type> types, string categoryName)
         {
+            return CreateCategory(types, categoryName, null);
+        }
+
+        internal ToolboxCategory CreateCategory(List<Type> types, string categoryName, IReadOnlyDictionary<Type, string> displayNames)
+        {
             ToolboxCategory toolboxCategory = new ToolboxCategory(categoryName);
-            foreach (Type type in types.OrderBy(FixName, StringComparer.OrdinalIgnoreCase))
+            foreach (Type type in types.OrderBy(type => GetDisplayName(type, displayNames), StringComparer.OrdinalIgnoreCase))
             {
-                toolboxCategory.Add(new ToolboxItemWrapper(type, FixName(type)));
+                toolboxCategory.Add(new ToolboxItemWrapper(type, GetDisplayName(type, displayNames)));
             }
             return toolboxCategory;
         }
+
+        /// <summary>Берёт имя из заранее подготовленного реестра, иначе вычисляет через <see cref="FixName"/>.</summary>
+        private string GetDisplayName(Type type, IReadOnlyDictionary<Type, string> displayNames)
+        {
+            if (displayNames != null && displayNames.TryGetValue(type, out string name))
+            {
+                return name;
+            }
+
+            return FixName(type);
+        }
+
+        /// <summary>Выполняет дорогую часть <c>ResolveToolboxItem</c> (рефлексия + ToolboxItem) в фоне.</summary>
+        private static void PreloadToolboxItems(IEnumerable<ToolboxCategory> categories)
+        {
+            foreach (ToolboxCategory category in categories ?? Enumerable.Empty<ToolboxCategory>())
+            {
+                foreach (ToolboxItemWrapper tool in category.Tools)
+                {
+                    PreloadToolboxItem(tool);
+                }
+            }
+        }
+
+        private static void PreloadToolboxItem(ToolboxItemWrapper tool)
+        {
+            if (tool.IsValid)
+            {
+                return;
+            }
+
+            try
+            {
+                Type toolType = Assembly.Load(tool.AssemblyName).GetType(tool.ToolName, true, true);
+                ValidateTool(toolType);
+                ToolboxItem toolboxItem = CreateToolboxItem(toolType);
+
+                PreloadedItems.Add(tool, new ToolboxItemPreload
+                {
+                    ToolboxItem = toolboxItem,
+                    ToolType = toolType,
+                    DefaultDisplayName = toolboxItem.DisplayName,
+                    // Иконка резолвится лениво при отрисовке (см. CompleteToolboxItem) — не в фоне.
+                    DefaultBitmap = null
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"Панель «Активности»: фоновая подготовка «{tool.ToolName}» не удалась — {ex.GetBaseException().Message}");
+            }
+        }
+
+        /// <summary>Доводит подготовленный в фоне элемент до состояния, которое обычно создаёт <c>ResolveToolboxItem</c>.</summary>
+        private static void CompleteToolboxItem(ToolboxItemWrapper tool)
+        {
+            if (tool.IsValid || !PreloadedItems.TryGetValue(tool, out ToolboxItemPreload preload))
+            {
+                return;
+            }
+
+            ToolboxItemField.SetValue(tool, preload.ToolboxItem);
+            DefaultDisplayNameField.SetValue(tool, preload.DefaultDisplayName);
+            DefaultBitmapField.SetValue(tool, preload.DefaultBitmap);
+            ToolTypeField.SetValue(tool, preload.ToolType);
+
+            // WPF-часть (иконки) и подстановка отображаемого имени остаются на UI-потоке.
+            _ = LoadBitmapMethod.Invoke(tool, null);
+            _ = ChangeToolboxDisplayNameMethod.Invoke(tool, null);
+        }
+
+        private static ToolboxItem CreateToolboxItem(Type toolType)
+        {
+            ToolboxItemAttribute[] attributes =
+                toolType.GetCustomAttributes(typeof(ToolboxItemAttribute), true) as ToolboxItemAttribute[];
+            if (attributes != null && attributes.Length > 0)
+            {
+                return Activator.CreateInstance(attributes[0].ToolboxItemType) as ToolboxItem;
+            }
+
+            return new ToolboxItem(toolType);
+        }
+
+        private static void ValidateTool(Type toolType)
+        {
+            bool invalid = toolType.IsAbstract
+                || toolType.IsInterface
+                || !toolType.IsVisible
+                || toolType.GetConstructor(Type.EmptyTypes) == null;
+
+            if (invalid)
+            {
+                throw new NotSupportedException($"Тип «{toolType.FullName}» не может быть активностью тулбокса.");
+            }
+        }
+
 
         /// <summary>
         /// Display name of a category: localization for built-in keys, the key itself

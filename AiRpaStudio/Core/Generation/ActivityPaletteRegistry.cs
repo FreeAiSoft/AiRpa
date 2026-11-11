@@ -323,6 +323,18 @@ namespace RPA.Core.Generation
         private readonly List<PaletteActivityDescriptor> _descriptors = new List<PaletteActivityDescriptor>();
         private readonly List<string> _categories = new List<string>();
 
+        /// <summary>Ключ дискового кэша для текущего состава палитры (см. <see cref="PaletteDiskCache"/>).</summary>
+        private readonly string _diskCacheKey;
+
+        /// <summary>Дескрипторы, прочитанные из дискового кэша (пустой словарь, если кэша нет).</summary>
+        private readonly Dictionary<Type, PaletteActivityDescriptor> _diskCacheDescriptors;
+
+        /// <summary>Дисковый кэш был прочитан успешно (файл существовал и прошёл валидацию).</summary>
+        private readonly bool _diskCacheLoaded;
+
+        /// <summary>Число типов, для которых дисковый кэш не дал дескриптор (пришлось рефлексировать).</summary>
+        private int _diskCacheMisses;
+
         /// <summary>Кэш метаданных типа на процесс: рефлексия выполняется один раз на тип.</summary>
         private static readonly ConcurrentDictionary<Type, PaletteActivityDescriptor> DescriptorCache =
             new ConcurrentDictionary<Type, PaletteActivityDescriptor>();
@@ -339,13 +351,18 @@ namespace RPA.Core.Generation
 
         internal ActivityPaletteRegistry(IEnumerable<ActivityPaletteCategory> categories)
         {
-            foreach (ActivityPaletteCategory category in categories ?? Enumerable.Empty<ActivityPaletteCategory>())
-            {
-                if (string.IsNullOrWhiteSpace(category.Key))
-                {
-                    continue;
-                }
+            ActivityPaletteCategory[] categoryList = (categories ?? Enumerable.Empty<ActivityPaletteCategory>())
+                .Where(category => category != null && !string.IsNullOrWhiteSpace(category.Key))
+                .ToArray();
 
+            _diskCacheKey = PaletteDiskCache.ComputeKey(categoryList);
+            Dictionary<Type, PaletteActivityDescriptor> diskCache = PaletteDiskCache.Load(_diskCacheKey);
+            _diskCacheLoaded = diskCache != null;
+            _diskCacheDescriptors = diskCache ?? new Dictionary<Type, PaletteActivityDescriptor>();
+            _diskCacheMisses = 0;
+
+            foreach (ActivityPaletteCategory category in categoryList)
+            {
                 if (!_categories.Contains(category.Key))
                 {
                     _categories.Add(category.Key);
@@ -356,6 +373,20 @@ namespace RPA.Core.Generation
                     Add(type, category.Key);
                 }
             }
+        }
+
+        /// <summary>
+        /// Записывает построенные дескрипторы в дисковый кэш. Вызывается на «полной» сборке палитры
+        /// (<c>MainView.BuildPaletteModel</c>). Если все дескрипторы уже взяты из кэша, запись пропускается.
+        /// </summary>
+        internal void PersistDiskCache()
+        {
+            if (_diskCacheMisses == 0)
+            {
+                return;
+            }
+
+            PaletteDiskCache.Save(_diskCacheKey, _descriptors);
         }
 
         /// <summary>Реестр студии: встроенные активности WF плюс уже загруженные библиотеки активностей.</summary>
@@ -380,9 +411,18 @@ namespace RPA.Core.Generation
         /// </summary>
         internal static void InvalidateTypes(IEnumerable<Type> types)
         {
-            foreach (Type type in types ?? Enumerable.Empty<Type>())
+            Type[] removed = (types ?? Enumerable.Empty<Type>())
+                .Where(type => type != null)
+                .ToArray();
+
+            foreach (Type type in removed)
             {
                 DescriptorCache.TryRemove(type, out _);
+            }
+
+            if (removed.Length > 0)
+            {
+                PaletteDiskCache.Invalidate();
             }
 
             DefaultRegistry = new Lazy<ActivityPaletteRegistry>(() => new ActivityPaletteRegistry(StudioActivityPalette.Categories()));
@@ -435,6 +475,17 @@ namespace RPA.Core.Generation
             {
                 return null;
             }
+
+            // Дисковый кэш холодного старта: дескриптор берётся из файла, рефлексия не выполняется.
+            if (_diskCacheDescriptors.TryGetValue(type, out PaletteActivityDescriptor diskCached)
+                && string.Equals(diskCached.Category, category, StringComparison.Ordinal))
+            {
+                DescriptorCache.TryAdd(type, diskCached);
+                return diskCached;
+            }
+
+            // Диск не покрыл тип (промах или сменилась категория) — отражаем и перепишем кэш.
+            _diskCacheMisses++;
 
             if (DescriptorCache.TryGetValue(type, out PaletteActivityDescriptor cached))
             {
@@ -1143,7 +1194,13 @@ namespace RPA.Core.Generation
         /// </summary>
         internal static int RegisterUserLibrary(string categoryKey, IEnumerable<Type> types)
         {
-            return MergeLibrary(CreatedLibraries, categoryKey, types);
+            int added = MergeLibrary(CreatedLibraries, categoryKey, types);
+            if (added > 0)
+            {
+                PaletteDiskCache.Invalidate();
+            }
+
+            return added;
         }
 
         /// <summary>
@@ -1152,6 +1209,10 @@ namespace RPA.Core.Generation
         /// </summary>
         internal static void ReplacePackageLibraries(IEnumerable<ActivityPaletteCategory> categories)
         {
+            // Дисковый кэш здесь не чистим: на холодном старте ReplacePackageLibraries вызывается при
+            // первом сканировании пакетов, и удаление валидного кэша откатило бы выигрыш холодного старта.
+            // Изменение состава пакетов меняет ключ кэша (MVID сборок + имена типов), поэтому устаревший
+            // файл просто не читается; новый пишется после пересборки в PersistDiskCache.
             PackageLibraries.Clear();
 
             foreach (ActivityPaletteCategory category in categories ?? Enumerable.Empty<ActivityPaletteCategory>())

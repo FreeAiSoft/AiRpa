@@ -1,283 +1,199 @@
-# План правок: ускорение запуска AiRpaStudio
+# План правок: ускорение запуска AiRpaStudio (актуальное состояние кода)
 
-## 0. Приоритет (новый): фоновая пересборка палитры с индикатором прогресса
+> Переписано по факту репозитория. Лог `AiRpaStudio\bin\Debug\log.txt` снят со **старой** сборки
+> (там ещё синхронный `WFToolboxHelper.Build` на UI-потоке и двойной `Describe`). После пересборки
+> замер нужно повторить: часть цифр ниже уже не воспроизводится.
 
-> Требование: пересборка палитры «Активности» должна идти в фоне, не блокируя UI,
-> а пока она идёт — в области тулбокса показывается indeterminate-прогресс.
+## 0. Резюме
 
-### 0.1 Цель
+Основные источники задержки при старте:
 
-1. Убрать заморозку окна на время пересборки палитры (`RefreshActivityPalette` + `RefreshActivityCatalog`).
-2. Пока идёт пересборка, в панели «Активности» виден спиннер:
+1. **Пересборка палитры «Активности»** — рефлексия Browser/OS-типов и резолв дизайнеров тулбокса.
+2. **Первый рендер окна** (`view.Show()` в `MvvmFactory.CreateWindow`) — синхронная инициализация панелей и десериализация раскладки.
+3. **Локальный NuGet-источник** — долгий поиск по папке (уже решён кэшем индекса).
 
-```xml
-<ProgressBar
-  IsIndeterminate="True"
-  Style="{StaticResource MaterialDesignCircularProgressBar}"
-  Value="0" />
-```
+Из плана уже сделано: фоновый конвейер палитры, кэш дескрипторов, уход от двойного `Describe`,
+кэш локального NuGet-источника, ленивый NuGet-поиск, фоновое сканирование пакетных активностей,
+асинхронная загрузка проекта/сессии. Осталось добить: **дисковый кэш палитры (холодный старт)**,
+**ленивые иконки/дизайнеры тулбокса** и **ускорение первого рендера окна**.
 
-3. Старая палитра остаётся видимой (или слегка затемняется), новая подменяется атомарно — без «прыжка» и без пустой панели.
+## 1. Базовые замеры (из старого `log.txt`)
 
-### 0.2 Текущая картина (замер из второго запуска, `3:35:03`)
-
-`RefreshActivityPalette` на UI-потоке = **41 654 ms** (`3:35:16:995 → 3:35:58:650`).
-
-| Фаза | Время | Где |
+| Метка | Время | Комментарий |
 | --- | --- | --- |
-| `WFToolboxHelper.Build` (тулбокс, 56 типов) | 11 785 ms | `MainView.RefreshActivityPalette` |
-| `ActivityPaletteRegistry построен` (51 активность) | 14 921 ms | `StudioActivityCatalog` |
-| `StudioActivityCatalog построен` (всего, 56 типов) | 29 855 ms | `RefreshActivityCatalog` |
-| Итог | 41 654 ms | — |
+| `MvvmFactory.CreateWindow()` | ~8.6–12.8 с | синхронный первый рендер окна |
+| `RefreshActivityPalette` / `RefreshActivityCatalog` | ~41.6 с | пересборка палитры |
+| ├ `WFToolboxHelper.Build` (тулбокс) | ~11.8 с | Browser ~10.3 с + OS ~1.4 с |
+| ├ `ActivityPaletteRegistry` (51 активность) | ~14.9 с | `Describe` Browser 90–673 мс/тип, OS ~180–190 мс/тип |
+| └ `StudioActivityCatalog` | ~29.9 с | повторный `Describe` тех же 56 типов |
+| NuGet (локальный источник) | ~0.1 с | уже кэшируется |
 
-Ключевые наблюдения:
+Эти цифры — до правок. Двойной `Describe` и синхронный тулбокс в текущем коде устранены.
 
-- `Describe` выполняется **дважды** на одних и тех же типах: один раз внутри `new ActivityPaletteRegistry(...)`, второй раз в цикле `StudioActivityCatalog` через `registry.Describe(...)`. Это ~15 с дублирующей рефлексии.
-- Browser-типы дороги в `Describe` (90–673 ms каждый) из-за `[LocalizedDescription]`/`[LocalizedDisplayName]`/`[LocalizedCategory]`: их геттеры создают `new ResourceManager(...)` и делают lookup ресурса на каждое чтение атрибута.
-- В тулбоксе каждый `ToolboxItemWrapper` для Browser стоит ~181–213 ms (итого ~4.1 с), ещё ~6 с уходит в финальный `wfToolbox.Categories.Add(категория)` (realization иконок/дизайнеров).
+## 2. Что уже сделано (по фактическому коду)
 
-### 0.3 Затрагиваемые файлы
+### 2.1. NuGet: кэш локального источника
 
-| Файл | Что делаем |
-| --- | --- |
-| `AiRpaStudio\Controls\ToolboxPanel.xaml` / `.xaml.cs` | индикатор загрузки: `ShowLoading()`/`HideLoading()` |
-| `AiRpaStudio\Views\MainView.xaml.cs` | `RefreshActivityPalette` → async-конвейер «прогресс → фон → UI-подмена» |
-| `AiRpaStudio\Helpers\WFToolboxHelper.cs` | разделить `Build()` на фоновую модель и UI-контрол |
-| `AiRpaStudio\Core\Generation\ActivityPaletteRegistry.cs` | кэш дескрипторов, чтение атрибутов без инстанцирования |
-| `AiRpaStudio\Core\Workflow\StudioActivityCatalog.cs` | переиспользовать реестр (убрать двойной `Describe`) |
-| `AiRpaStudio\Core\Workflow\NuGetActivityPaletteLoader.cs` | проверить/исправить чтение атрибутов и типов в фоне |
-
-### 0.4 Архитектура решения
-
-Разделяем пересборку на две фазы:
-
-- **Фоновая фаза** (`Task.Run`): всё, что не зависит от WPF — `StudioActivityPalette.Categories()` уже загруженных сборок, `ActivityPaletteRegistry`, `StudioActivityCatalog`, кэш дескрипторов, список `(категория, типы, displayName)`.
-- **UI-фаза**: построение `ToolboxControl`/`ToolboxItemWrapper` из подготовленных данных, `ToolboxPanel.SetToolboxControl`, `ApplyTheme`, атомарная подмена `WfToolboxBorder.Child`.
-
-Правило потоков:
-
-- `ToolboxControl`, `ToolboxPanel`, `ToolboxCategory`, `ToolboxItemWrapper` — WPF/WF-объекты: создавать и мутировать только на UI-потоке, пока не доказано обратное.
-- Рефлексия (`GetTypes`, чтение атрибутов, `Describe`), сборка реестра/каталога — чистый CPU/IO, безопасно в `Task.Run`.
-
-### 0.5 Шаги (по порядку)
-
-#### Шаг 1. Индикатор загрузки в `ToolboxPanel`
-
-**`ToolboxPanel.xaml`**: добавить поверх контейнера тулбокса (в `Grid`, перекрывая `ToolboxContainer` в `Grid.Row=1`) спиннер со скрытым состоянием:
-
-```xml
-<ProgressBar x:Name="LoadingProgress"
-             Grid.Row="1"
-             IsIndeterminate="True"
-             Style="{StaticResource MaterialDesignCircularProgressBar}"
-             Value="0"
-             Width="48"
-             Height="48"
-             HorizontalAlignment="Center"
-             VerticalAlignment="Center"
-             Visibility="Collapsed" />
-```
-
-Примечание: стиль `MaterialDesignCircularProgressBar` приходит из `MaterialDesignThemes.Wpf` (сборка уже подключена). Если в контексте панели стиль не резолвится — добавить `pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Defaults.xaml` в `App.xaml`/ресурсы панели либо временно использовать обычный `ProgressBar IsIndeterminate="True"`.
-
-**`ToolboxPanel.xaml.cs`**:
-
-```csharp
-public void ShowLoading()
-{
-    LoadingProgress.Visibility = Visibility.Visible;
-    ToolboxContainer.Opacity = 0.35;      // старая палитра видна, но приглушена
-    ToolboxContainer.IsHitTestVisible = false;
-}
-
-public void HideLoading()
-{
-    LoadingProgress.Visibility = Visibility.Collapsed;
-    ToolboxContainer.Opacity = 1.0;
-    ToolboxContainer.IsHitTestVisible = true;
-}
-```
-
-#### Шаг 2. Async-конвейер в `MainView`
-
-`RefreshActivityPalette()` превращается в `async void RefreshActivityPalette()` (или `async Task` с `_ =` у вызывающих):
-
-```
-[UI] если нет доступа к Dispatcher → BeginInvoke и return
-[UI] _wfToolbox?.ShowLoading()  (если панель уже существует; иначе показать прогресс в WfToolboxBorder)
-[фон]  Task.Run:
-         var model = PaletteModelBuilder.Build()   // реестр + каталог + (категория, типы, имя)
-[UI]  _wfToolbox = BuildToolboxControl(model)      // WFToolboxHelper.BuildControl
-[UI]  WfToolboxBorder.Child = _wfToolbox
-[UI]  _wfToolbox.ApplyTheme()
-[UI]  RefreshActivityCatalog(model)                // подставить уже готовый реестр/каталог
-[UI]  _wfToolbox.HideLoading()  (в finally)
-```
-
-Все три вызова `_wfToolbox = new WFToolboxHelper().Build(); WfToolboxBorder.Child = _wfToolbox;` (в `InitializeLayoutRoot`, `CreateDefaultLayout`, `RefreshActivityPalette`) сводятся к этому одному конвейеру.
-
-#### Шаг 3. Кэш дескрипторов + устранение двойного `Describe`
-
-- В `ActivityPaletteRegistry` завести статический `ConcurrentDictionary<Type, PaletteActivityDescriptor>` (или кэш по имени сборки), чтобы при повторном рефреше OS/Browser не рефлексировались заново.
-- В `StudioActivityCatalog` использовать уже построенный реестр (`registry.All`/`registry.Find`), а не вызывать `registry.Describe(...)` второй раз. Это убирает ~15 с.
-
-#### Шаг 4. Чтение атрибутов без инстанцирования
-
-- Заменить `member.GetCustomAttribute<T>(inherit)` + try/catch на `CustomAttributeData.GetCustomAttributes(member)` / `member.CustomAttributes`: они не резолвят типы атрибутов и не бросают `FileNotFound`/`TypeLoad`.
-- Кэшировать локализованные строки: `LocalizedDescriptionAttribute`/`LocalizedDisplayNameAttribute`/`LocalizedCategoryAttribute` хранить статический кэш `(resourceType, key) → строка`, чтобы не создавать `ResourceManager` при каждом чтении. Либо кэшировать готовый `PaletteActivityDescriptor` (Шаг 3) — тогда атрибуты читаются один раз.
-
-#### Шаг 5. Удешевить тулбокс для пакетных активностей
-
-- `WFToolboxHelper.Build()` разделить: `BuildModel` (фон) и `BuildControl` (UI).
-- Проверить, можно ли создавать `ToolboxItemWrapper` вне UI-потока (это model-объекты `System.Activities.Presentation.Toolbox`, а не визуальные); если да — перенести создание wrappers в фон, а на UI оставить только `wfToolbox.Categories.Add` + `SetToolboxControl`.
-- Отложить загрузку иконок/дизайнеров: не резолвить `ToolboxBitmapAttribute`/`DesignerAttribute` в момент сборки, а лениво при первом раскрытии категории/показе элемента.
-- Разобраться с ~6 с в `wfToolbox.Categories.Add` для Browser (realization) — вероятно, это следствие резолва дизайнеров; ленивая загрузка должна его убрать.
-
-#### Шаг 6. Первичная сборка при старте — через тот же механизм
-
-`InitializeLayoutRoot`/`CreateDefaultLayout` сейчас строят палитру синхронно. Направить их в тот же `RefreshActivityPalette`-конвейер: окно показывается сразу, палитра появляется с прогрессом, затем подменяется.
-
-### 0.6 Риски и ограничения
-
-- `WorkflowDesigner` и `ToolboxControl` тред-аффинны к UI: в фон выносим только рефлексию/реестр/каталог и (по возможности) model-обёртки.
-- Параллельный вызов `RefreshActivityPalette` (например, install пакета во время старта) — защититься флагом «пересборка уже идёт» или последним победителем, чтобы не гонять два ребилда одновременно.
-- Статический кэш дескрипторов обязан сбрасываться в `InvalidateDefault()`/`ResetUserLibraries()`/`ResetPackageLibraries()`, иначе agent-каталог и панель разойдутся с новыми активностями.
-
-### 0.7 Приёмка (для этого блока)
-
-- Во время пересборки UI отзывчив, в панели «Активности» виден спиннер.
-- Новая палитра подменяется атомарно, старая не «мигает» пустотой.
-- После прогрева кэша полная пересборка (реестр + каталог + тулбокс) < 1–2 с.
-- Повторный рефреш (install/uninstall/новая активность) не перечитывает уже известные типы.
-- Регрессия: `AiRpaStudio.Tests\WFToolboxHelperTests`, `ToolboxDragContractTests`, `ToolboxThemeTests`, `ActivityCatalogTests`, `ActivityPaletteRefreshTests`, `NuGetPaletteSyncTests`, `NuGetProjectIntegrationTests` — зелёные.
-
-## 1. Контекст и симптом
-
-Приложение стартует ~59 секунд. Замер из `AiRpaStudio\bin\Debug\log.txt`:
-
-| Метка | Время (total) | Комментарий |
+| Что | Где | Статус |
 | --- | --- | --- |
-| `MainView: InitializeControls()` | 2067 ms | создание контролов, в т.ч. NuGet-панели |
-| `LoadVsProjectIntoStudio: RestoreSessionState()` | **+42866 ms** | основная задержка |
-| `MvvmFactory.CreateWindow()` | **+12827 ms** | вторая задержка |
-| `StartupCore: EntryPoint.Run()` завершён | **59251 ms** | итог |
+| Дисковый кэш индекса локальной папки | `RPA.NuGet\Services\LocalPackageIndexCache.cs` | ✅ сделано |
+| Мемоизация `SearchAsync`/`GetVersionsAsync`/`GetPackageInfoAsync` в памяти | `RPA.NuGet\Services\NuGetSearchService.cs` (`_localSearchMemo`, `_localVersionsMemo`, `_localPackageInfoMemo`) | ✅ сделано |
 
-Ключевые факты из лога:
+### 2.2. NuGet: ленивый поиск и лишние запросы при старте
 
-- `Search: query="Activities.Browser"` отправлен в `22:12:52.052`, результат пришёл только в `22:13:48.249` — **один локальный поиск занял ~56 секунд**.
-- `GetVersions` для `Activities.Browser` возвращает **56 версий**, для `ActivityLibraryBase` — **44 версии**; запросы повторяются несколько раз.
-- README и иконки пакетов скачиваются сразу при старте, до того как панель NuGet реально открыта пользователем.
-- Палитра «Активности» пересобирается в процессе восстановления сессии (`Палитра «Активности» пересобрана` в `22:13:34.707`).
+| Что | Где | Статус |
+| --- | --- | --- |
+| `LoadProject` считает установленные без проверки обновлений | `RPA.NuGet\ViewModels\NuGetPanelViewModel.cs` → `RefreshInstalledItems(checkUpdates: false)` | ✅ сделано |
+| Поиск не стартует до показа панели (`_isPanelVisible`) | `OnSourceChangedAsync` → `if (!_isPanelVisible) return;` | ✅ сделано |
+| Отложенный поиск при первом открытии панели | `NotifyPanelShown()`, вызов из `NuGetPanel_Loaded` | ✅ сделано |
+| README — лениво по выбору карточки | `SelectedItem` → `LoadDetailsAsync` → `LoadReadmeAsync` | ✅ сделано |
 
-## 2. Диагноз (первопричина)
+### 2.3. Не блокировать появление окна
 
-Долго грузится не WPF/инициализация окна, а две операции, которые выполняются в момент загрузки проекта **до/во время показа окна**:
+| Что | Где | Статус |
+| --- | --- | --- |
+| `SetProjectFolder` + `ScanNuGetActivities` отложены до `ApplicationIdle` | `MainView.OnProjectManagerPropertyChanged` | ✅ сделано |
 
-1. **Медленный поиск по локальному NuGet-источнику** `nuget_local`.
-   `NuGetSearchService.SearchAsync` для локальной папки ходит через `PackageSearchResource.SearchAsync` без какого-либо кэша. Каждый запуск и каждый повторный запрос заново перебирает `.nupkg`.
+### 2.4. Сканирование пакетных активностей в фоне
 
-2. **Синхронное восстановление сессии + пересборка палитры активностей пакетов.**
-   `Main.Loaded` → `LoadVsProjectIntoStudio` → `ProjectManager.InitVsProjectTree` → `PropertyChanged(ProjectFolder)` → `MainView.OnProjectManagerPropertyChanged` → `nuGetPanel.SetProjectFolder(...)` (это запускает `LoadSources` → `SelectedSource` → `OnSourceChangedAsync` → `SearchAsync` для локального источника) **и** `ScanNuGetActivities(...)` (`NuGetActivityPaletteLoader.LoadFromProject` — `Assembly.LoadFrom` всех DLL пакетов + `GetTypes` + `RefreshActivityPalette`).
+| Что | Где | Статус |
+| --- | --- | --- |
+| `NuGetActivityPaletteLoader.LoadFromProject` в `Task.Run`, `RefreshActivityPalette` на UI | `MainView.ScanNuGetActivitiesAsync` | ✅ сделано |
 
-Обе ветки выполняются на UI-потоке и блокируют появление окна. `RestoreSessionState` дополнительно открывает сохранённые документы.
+### 2.5. Асинхронная загрузка проекта/сессии
 
-## 3. Затрагиваемые файлы
+| Что | Где | Статус |
+| --- | --- | --- |
+| `Main.Loaded` → `LoadProjectIntoStudioAsync`; дерево в `Task.Run`, core через `OnUiThreadAsync` | `AiRpaStudio\Models\Main.cs` | ✅ сделано |
 
-| Файл | Что делаем |
-| --- | --- |
-| `RPA.NuGet\Services\NuGetSearchService.cs` | кэш индекса локального источника; мемоизация `SearchAsync`/`GetVersionsAsync`/`GetPackageInfoAsync` |
-| `RPA.NuGet\ViewModels\NuGetPanelViewModel.cs` | ленивый поиск; не запускать `SearchAsync`/`RefreshInstalledAsync(checkUpdates:true)` при старте |
-| `AiRpaStudio\Views\MainView.xaml.cs` | отложить `SetProjectFolder`/`ScanNuGetActivities`; сканирование палитры в фоне |
-| `AiRpaStudio\Core\Workflow\NuGetActivityPaletteLoader.cs` | вынести тяжёлое сканирование DLL из UI-потока |
-| `AiRpaStudio\Models\Main.cs` | (опционально, этап 4) асинхронная загрузка проекта/сессии после показа окна |
-| `nuget_local\` (данные) | операционная чистка: сократить число версий пакетов |
+### 2.6. Фоновая пересборка палитры + кэш рефлексии
 
-## 4. Этапы правок
+| Что | Где | Статус |
+| --- | --- | --- |
+| Async-конвейер `RefreshActivityPaletteAsync` → `Task.Run(BuildPaletteModel)` | `MainView.xaml.cs` | ✅ сделано |
+| Индикатор `ShowLoading()`/`HideLoading()` + `ProgressBar` | `ToolboxPanel.xaml` / `.xaml.cs` | ✅ сделано |
+| `WFToolboxHelper` разделён на `BuildModel` (фон) / `BuildControl` (UI) | `WFToolboxHelper.cs` | ✅ сделано |
+| Кэш дескрипторов `DescriptorCache` (в памяти) | `ActivityPaletteRegistry.cs` | ✅ сделано |
+| Устранён двойной `Describe` — каталог переиспользует реестр | `StudioActivityCatalog.cs` | ✅ сделано |
+| Чтение атрибутов без инстанцирования (`CustomAttributeData`) | `ActivityPaletteRegistry.GetAttributeSafe` / `ReadStringAttribute` | ✅ сделано |
+| Кэш локализованных строк + `ResourceManager` | `LocalizedStringCache` / `ResourceManagerCache` | ✅ сделано |
+| Кэш `CustomAttributeData` по члену | `ConditionalWeakTable<MemberInfo, ...>` | ✅ сделано |
+| Подстановка готовых реестра/каталога без повторной сборки | `ActivityPaletteRegistry.Install` / `StudioActivityCatalog.Install` | ✅ сделано |
 
-### Этап 0. Быстрая мера: не блокировать появление окна (низкий риск, заметный UX-выигрыш)
+## 3. Что НЕ сделано (backlog, по приоритету)
 
-**Файл:** `AiRpaStudio\Views\MainView.xaml.cs`
+### 3.1. Дисковый кэш палитры для холодного старта — **главный остаток**
 
-- `OnProjectManagerPropertyChanged` (строки ~171–177) сейчас сразу делает:
-  - `_ = nuGetPanel.SetProjectFolder(...)` — при этом `LoadSources` → `SelectedSource` → `OnSourceChangedAsync` → `SearchAsync`;
-  - `ScanNuGetActivities(...)`.
-- Изменение: выполнять эти действия после показа окна, через `Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, ...)`, а не в момент смены `ProjectFolder`. Окно успевает отрисоваться до старта тяжёлой работы.
+**Проблема.** `DescriptorCache` живёт только в памяти процесса. Первый запуск по-прежнему платит
+~15 с рефлексии Browser/OS (теперь один раз и в фоне, но всё равно до готовности палитры).
 
-Результат: главное окно появляется за ~2 с, «висящего» старта нет.
+**Что делать.**
 
-### Этап 1. Кэш индекса локального NuGet-источника (главный выигрыш по времени)
+- Сериализовать `PaletteActivityDescriptor` (ключ, displayName, категория, тип, описание, аргументы,
+  контейнеры) в `%LOCALAPPDATA%\AiRpaStudio\PaletteCache\<hash>.json`.
+- Ключ инвалидации — хэш (MVID + имя + версия) задействованных DLL пакетов + версия схемы кэша.
+  Для встроенных WF-типов хэш фиксирован по версии сборки `System.Activities`.
+- На холодном старте читать дескрипторы из кэша, рефлексию делать только для промахов.
+- Сбрасывать/обновлять кэш в `RegisterUserLibrary`/`ReplacePackageLibraries`/`InvalidateTypes`.
 
-**Файл:** `RPA.NuGet\Services\NuGetSearchService.cs` (+ новый тип в `RPA.NuGet\Services`)
+**Эффект.** Холодный старт палитры с ~15 с до десятков–сотен мс после первого прогрева.
 
-- Добавить `LocalPackageIndexCache`:
-  - для `IsLocal == true` один раз читать каталог источника и строить индекс `packageId → версии + базовые метаданные` (из `.nuspec` внутри `.nupkg` через `System.IO.Compression`);
-  - сохранять индекс на диск (`%LOCALAPPDATA%\AiRpaStudio\NuGetIndex\<hash>.json`);
-  - инвалидировать по хэшу файлов/`LastWriteTimeUtc`/набору `.nupkg`.
-- `SearchAsync`, `GetVersionsAsync`, `GetPackageInfoAsync` для локального источника должны идти через кэш, а не через `PackageSearchResource` / `FindPackageByIdResource`.
-- Добавить мемоизацию в памяти на время жизни `NuGetSearchService` (повторные `GetVersions`/одинаковые `Search` не ходят в источник).
+### 3.2. Ленивые иконки/дизайнеры тулбокса
 
-Результат: локальный поиск из ~56 с становится миллисекундами после первого прогрева кэша; повторный запуск быстрый.
+**Проблема.** `ToolboxItemWrapper` теперь создаётся в фоне (`BuildModel`), но финальный
+`wfToolbox.Categories.Add(category)` в `BuildControl` выполняется на UI-потоке и всё ещё резолвит
+`ToolboxBitmapAttribute`/`DesignerAttribute` (~6 с для Browser + ~1 с для OS).
 
-### Этап 2. Убрать лишние запросы при старте (низкий риск)
+**Что делать.**
 
-**Файл:** `RPA.NuGet\ViewModels\NuGetPanelViewModel.cs`
+- Не резолвить bitmap/дизайнеры при добавлении категории; грузить их лениво при первом раскрытии
+  категории или показе элемента (кастомный `ToolboxItemWrapper`/перехват realization).
+- Проверить, можно ли перенести `Categories.Add` целиком в фон (если WF это допускает) — иначе
+  оставить на UI, но без дорогой realization до востребования.
 
-- `LoadProject` (строки ~564–591): убрать `_ = RefreshInstalledAsync(checkUpdates: true)` при первичной загрузке. Обновления вычислять лениво — при переходе на вкладки Installed/Updates.
-- `SelectedSource` / `OnSourceChangedAsync` (строки ~401–431, ~1458–1464): при старте не вызывать `SearchAsync`, пока панель NuGet не показана пользователем. Поиск запускать при первом открытии панели (и уже после прогрева кэша из этапа 1).
-- Скачивание README/иконок отложить до фактического выбора элемента пользователем (а не «первого результата» при автопоиске).
+**Эффект.** `BuildControl` на UI-потоке с ~6–7 с до миллисекунд; окно не замирает.
 
-Результат: при старте нет длинного `Search` и серии `GetVersions`/`Download nupkg`/`Icon download`.
+### 3.3. Ускорение первого рендера окна (`view.Show()`)
 
-### Этап 3. Сканирование активностей пакетов — в фоне (средний риск)
+**Проблема.** `MvvmFactory.CreateWindow` синхронно вызывает `view.Show()`, а `MainView` в
+конструкторе синхронно делает `InitializeControls` (ChatPanel, NuGetPanel, темы) и
+`InitializeLayoutRoot` (десериализация AvalonDock `ADLayout`). Это ~8.6–12.8 с до появления окна.
 
-**Файлы:** `AiRpaStudio\Views\MainView.xaml.cs`, `AiRpaStudio\Core\Workflow\NuGetActivityPaletteLoader.cs`
+**Что делать.**
 
-- `NuGetActivityPaletteLoader.LoadFromProject` выполняет `Assembly.LoadFrom` всех DLL пакетов и `BuildCategory` (`GetTypes`) — это CPU/IO, не для UI-потока.
-- Изменение: `MainView.ScanNuGetActivities` запускать `LoadFromProject` в `Task.Run`, результат (`NuGetPaletteScanResult.Changed`) возвращать на UI-поток и только там вызывать `RefreshActivityPalette()`.
+- Разнести создание тяжёлых панелей (Chat/Log/Outline/Properties/NuGet) на ленивую инициализацию
+  по первому открытию вкладки.
+- Десериализацию раскладки в `InitializeLayoutRoot` оставить, но не ждать её до первого кадра:
+  показать пустой каркас, затем поднять доки через `Dispatcher`.
+- Замерить вклад каждой фазы отдельно (`InitializeComponent`, `InitializeControls`,
+  `InitializeLayoutRoot`) и точечно чинить самую дорогую.
 
-Результат: пересборка палитры не блокирует отрисовку окна и не растягивает `RestoreSessionState`.
+**Эффект.** Главное окно появляется раньше, «висящего» старта нет.
 
-### Этап 4. Асинхронная загрузка проекта/сессии (высокий риск, максимальный UX)
+### 3.4. Параллельный `Describe`
 
-**Файл:** `AiRpaStudio\Models\Main.cs`
+**Проблема.** 56 типов рефлексируются последовательно (`foreach` в `ActivityPaletteRegistry`).
 
-- `Loaded()` (строки ~105–130) сейчас синхронно вызывает `LoadVsProjectIntoStudio`/`LoadProject`.
-- Цель: показывать окно, затем грузить проект/сессию в фоне; открытие вкладок и обновление дерева — через `Dispatcher`.
-- Внимание: `WorkflowDesigner` тред-аффинен к UI; в фон можно выносить только IO/парсинг/сканирование пакетов, а создание/привязку дизайнеров оставлять на UI-потоке.
+**Что делать.**
 
-Результат: окно доступно сразу; прогресс-индикатор вместо «замороженного» старта.
+- `Parallel.ForEach` по типам при сборке реестра/каталога (сборка метаданных и
+  `ResourceManager.GetString` потокобезопасны; `ConcurrentDictionary` уже есть).
+- Обязательно сохранять детерминированный порядок категорий/активностей после распараллеливания.
 
-### Этап 5. Операционная гигиена локального фида
+**Эффект.** Холодная рефлексия Browser/OS с ~15 с до нескольких секунд (пока нет дискового кэша).
 
-**Файл:** `nuget_local\` (данные)
+### 3.5. Кэш `StudioActivityPalette.Categories()`
 
-- В `nuget_local` много версий одного пакета (`Activities.Browser` — 56, `ActivityLibraryBase` — 44). `GetVersions` перебирает их все.
-- Рекомендация: оставить только актуальные версии либо положиться на кэш из этапа 1 (после кэширования число версий перестаёт быть проблемой).
+**Проблема.** Метод каждый раз заново делает `Assembly.Load` и пересобирает список категорий;
+он вызывается из `Default`-лази, `BuildPaletteModel` и тестов.
 
-## 5. Порядок внедрения
+**Что делать.**
 
-1. **Этап 0** — окно появляется сразу (быстрый UX-фикс).
-2. **Этап 1** — кэш индекса локального источника (убирает ~56 с поиска).
-3. **Этап 2** — ленивые NuGet-запросы (убирает дубли и лишнюю работу).
-4. **Этап 3** — фоновое сканирование активностей пакетов.
-5. **Этап 4** — асинхронная загрузка проекта (по необходимости, после 0–3).
-6. **Этап 5** — чистка фида (опционально).
+- Кэшировать снапшот `Categories()` и сбрасывать в `RegisterUserLibrary`/
+  `ReplacePackageLibraries`/`ResetUserLibraries`/`ResetPackageLibraries`.
 
-## 6. Критерии приёмки / метрики
+### 3.6. Иконки Browse загружаются автоматически
 
-Базовые значения (из `log.txt`): полный старт **59251 ms**, `RestoreSessionState` **42866 ms**, `MvvmFactory.CreateWindow` **12827 ms**.
+**Проблема.** При формировании карточек Browse `CreateItem` → `item.LoadIconAsync()` грузит иконки
+сразу, хотя README уже ленивый. Иконки можно отложить до отображения карточки (виртуализация).
 
-Целевые значения после правок:
+### 3.7. Чистка dead-кода
 
-- Главное окно отображается **< 2 с** после запуска.
-- Полная готовность (проект + палитра) на тёплом кэше — **< 5 с**.
-- Первый запуск после изменения `nuget_local` — прогрев индекса **< 2 с**.
-- В логе при старте нет `Search`/`GetVersions`/`Icon download`/`README load`, пока панель NuGet не открыта.
-- Регрессия: существующие тесты панели NuGet (`AiRpaStudio.Tests\NuGet*Tests.cs`) и стражи палитры остаются зелёными.
+**Проблема.** Старый синхронный `WFToolboxHelper.Build()` и `AddToolboxCategory()` остались в классе,
+но из `MainView` больше не вызываются. Их следует удалить, чтобы не было двух путей сборки палитры.
 
-## 7. Как проверять
+### 3.8. Операционная гигиена локального фида
 
-- Перезапустить студию, измерить по `StartupTimer`-меткам в `log.txt`.
-- Повторить запуск второй раз (тёплый кэш) и сравнить с базовыми 59251 ms.
-- Открыть панель NuGet вручную и убедиться, что поиск/версии/README работают как раньше.
-- Прогнать `AiRpaStudio.Tests` (особенно `NuGetSourcesAndSearchTests`, `NuGetPanelViewModelTests`, `NuGetReadmeLoadTests`, `NuGetProjectIntegrationTests`).
+**Проблема.** В `nuget_local` 56 версий `Activities.Browser` и 44 `ActivityLibraryBase`. После кэша
+индекса это не критично для поиска, но замедляет первый прогрев индекса и раздувает список версий.
+
+## 4. Порядок внедрения остатка
+
+1. **3.1 Дисковый кэш палитры** — самый большой выигрыш для холодного старта.
+2. **3.2 Ленивые иконки/дизайнеры тулбокса** — убирает последний крупный UI-блок в пересборке.
+3. **3.3 Ускорение `view.Show()`** — максимальный UX-эффект «окно сразу».
+4. **3.4 Параллельный `Describe`** — страховка, пока дисковый кэш не прогрелся.
+5. **3.5–3.8** — гигиена и мелкие оптимизации.
+
+## 5. Критерии приёмки (обновлённые)
+
+- Главное окно появляется **< 2 с** после запуска.
+- Полная готовность (проект + палитра) на тёплом кэше — **< 3–5 с**.
+- Холодный старт (первый после изменения `nuget_local`/пакетов) — прогрев кэша палитры и NuGet
+  индекса **< 2–3 с**, без заморозки UI.
+- Пересборка палитры (install/uninstall/новая активность) на тёплом кэше — **< 1–2 с**,
+  UI отзывчив, в панели «Активности» виден спиннер, подмена атомарная.
+- Повторный рефреш не перечитывает уже известные типы.
+- В логе при старте нет `Search`/`GetVersions`/`Icon download`/`README load`, пока панель NuGet
+  не открыта.
+- Регрессия: тесты палитры (`WFToolboxHelperTests`, `ToolboxDragContractTests`, `ToolboxThemeTests`,
+  `ActivityCatalogTests`, `ActivityPaletteRefreshTests`, `NuGetPaletteSyncTests`,
+  `NuGetProjectIntegrationTests`) и NuGet (`NuGetSourcesAndSearchTests`, `NuGetPanelViewModelTests`,
+  `NuGetReadmeLoadTests`, `NuGetProjectIntegrationTests`) — зелёные.
+
+## 6. Как проверять
+
+- Пересобрать `AiRpa.sln` (Release), запустить студию, измерить по `StartupTimer`-меткам в `log.txt`.
+- Повторить запуск (тёплый кэш) и сравнить с базовыми 59.2 с / 41.6 с.
+- Вручную открыть панель NuGet: поиск/версии/README работают как раньше.
+- Прогнать `AiRpaStudio.Tests` (особенно перечисленные в разделе 5).
