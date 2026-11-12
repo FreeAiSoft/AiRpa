@@ -63,6 +63,7 @@ namespace RPA.Helpers
         public const string SemanticRunKey = "Studio.Semantic.Run";
         public const string SemanticPauseKey = "Studio.Semantic.Pause";
         public const string SemanticStopKey = "Studio.Semantic.Stop";
+        public const string SemanticSaveKey = "Studio.Semantic.Save";
         public const string SemanticFolderIconKey = "Studio.Semantic.FolderIcon";
         public const string SemanticXamlFileIconKey = "Studio.Semantic.XamlFileIcon";
         public const string SemanticJsonFileIconKey = "Studio.Semantic.JsonFileIcon";
@@ -122,6 +123,7 @@ namespace RPA.Helpers
             SemanticRunKey,
             SemanticPauseKey,
             SemanticStopKey,
+            SemanticSaveKey,
             SemanticFolderIconKey,
             SemanticXamlFileIconKey,
             SemanticJsonFileIconKey,
@@ -233,6 +235,7 @@ namespace RPA.Helpers
             Set(target, SemanticRunKey, Color.FromRgb(0x22, 0x8B, 0x22));
             Set(target, SemanticPauseKey, Color.FromRgb(0xFF, 0xA5, 0x00));
             Set(target, SemanticStopKey, Color.FromRgb(0xDC, 0x14, 0x3C));
+            Set(target, SemanticSaveKey, Color.FromRgb(0x19, 0x76, 0xD2));
             Set(target, SemanticFolderIconKey, Color.FromRgb(0xFF, 0x45, 0x00));
             Set(target, SemanticXamlFileIconKey, Color.FromRgb(0x4C, 0xAF, 0x50));
             Set(target, SemanticJsonFileIconKey, Color.FromRgb(0x21, 0x96, 0xF3));
@@ -241,15 +244,15 @@ namespace RPA.Helpers
             // и одинаковы в обеих темах — это семантика, а не оформление.
             Set(target, SemanticValidationKey, Color.FromRgb(0x29, 0xB6, 0xF6));
 
-            // Фильтры панели «Log»: классическая кодировка уровней — цвета непрозрачные, чтобы глиф
-            // читался на панели и в тёмной, и в светлой теме (полупрозрачный тон «растворялся»).
-            // Trace — не цвет, а основной текст панели (Studio.Foreground): белый в тёмной теме,
+            // Фильтры панели «Log»: приглушённые тона уровней, согласованные с буквами уровня в строках
+            // (LogLevelToColorConverter), — цвета непрозрачные, чтобы глиф читался на панели и в тёмной,
+            // и в светлой теме. Trace — не цвет, а основной текст панели (Studio.Foreground): белый в тёмной,
             // чёрный в светлой, поэтому в семантике его нет.
-            Set(target, SemanticLogDebugKey, Color.FromRgb(0x00, 0x00, 0xFF));
-            Set(target, SemanticLogInfoKey, Color.FromRgb(0x00, 0x80, 0x00));
-            Set(target, SemanticLogWarningKey, Color.FromRgb(0xFF, 0xA5, 0x00));
-            Set(target, SemanticLogErrorKey, Color.FromRgb(0xFF, 0x00, 0x00));
-            Set(target, SemanticLogFatalKey, Color.FromRgb(0x8B, 0x00, 0x00));
+            Set(target, SemanticLogDebugKey, Color.FromRgb(0x5B, 0x9B, 0xD5));
+            Set(target, SemanticLogInfoKey, Color.FromRgb(0x4E, 0x9A, 0x45));
+            Set(target, SemanticLogWarningKey, Color.FromRgb(0xC0, 0x8A, 0x00));
+            Set(target, SemanticLogErrorKey, Color.FromRgb(0xD1, 0x4B, 0x4B));
+            Set(target, SemanticLogFatalKey, Color.FromRgb(0xA6, 0x3A, 0x3A));
         }
 
         private static void ApplySystemBrushes(ResourceDictionary target, StudioThemeColors palette)

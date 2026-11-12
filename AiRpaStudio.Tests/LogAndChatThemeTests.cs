@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Markup;
@@ -146,6 +146,32 @@ public class LogAndChatThemeTests
         Assert.That(ChannelOf(LogFilter("Error"), 'R'), Is.GreaterThan(ChannelOf(LogFilter("Error"), 'G')), "Error — красный");
         Assert.That(ChannelOf(LogFilter("Fatal"), 'R'), Is.GreaterThan(ChannelOf(LogFilter("Fatal"), 'G')), "Fatal — красный");
         Assert.That(ChannelOf(LogFilter("Error"), 'R'), Is.GreaterThan(ChannelOf(LogFilter("Fatal"), 'R')), "Fatal темнее Error");
+    }
+
+    [Test]
+    public void LogFilterIconBrushes_AreMutedAndMatchRowLevelColors()
+    {
+        var target = new ResourceDictionary();
+        StudioBrushes.Apply(target);
+
+        Assert.That(ColorOf(target[StudioBrushes.SemanticLogDebugKey]),
+            Is.EqualTo(Color.FromRgb(0x5B, 0x9B, 0xD5)), "Debug — приглушённый синий");
+        Assert.That(ColorOf(target[StudioBrushes.SemanticLogInfoKey]),
+            Is.EqualTo(Color.FromRgb(0x4E, 0x9A, 0x45)), "Info — приглушённый зелёный");
+        Assert.That(ColorOf(target[StudioBrushes.SemanticLogWarningKey]),
+            Is.EqualTo(Color.FromRgb(0xC0, 0x8A, 0x00)), "Warning — приглушённый янтарный");
+        Assert.That(ColorOf(target[StudioBrushes.SemanticLogErrorKey]),
+            Is.EqualTo(Color.FromRgb(0xD1, 0x4B, 0x4B)), "Error — приглушённый красный");
+        Assert.That(ColorOf(target[StudioBrushes.SemanticLogFatalKey]),
+            Is.EqualTo(Color.FromRgb(0xA6, 0x3A, 0x3A)), "Fatal — приглушённый тёмно-красный");
+
+        // Синхронизация с буквами уровня в строках лога: иконка и текст не должны «разъезжаться».
+        var rowColors = new LogLevelToColorConverter();
+        Assert.That(ColorOf(target[StudioBrushes.SemanticLogDebugKey]), Is.EqualTo(ColorOf(rowColors.DebugBrush)));
+        Assert.That(ColorOf(target[StudioBrushes.SemanticLogInfoKey]), Is.EqualTo(ColorOf(rowColors.InfoBrush)));
+        Assert.That(ColorOf(target[StudioBrushes.SemanticLogWarningKey]), Is.EqualTo(ColorOf(rowColors.WarningBrush)));
+        Assert.That(ColorOf(target[StudioBrushes.SemanticLogErrorKey]), Is.EqualTo(ColorOf(rowColors.ErrorBrush)));
+        Assert.That(ColorOf(target[StudioBrushes.SemanticLogFatalKey]), Is.EqualTo(ColorOf(rowColors.FatalBrush)));
     }
 
     [Test]

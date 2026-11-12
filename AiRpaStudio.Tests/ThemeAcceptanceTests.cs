@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Media;
@@ -209,6 +209,7 @@ public class ThemeAcceptanceTests
         Color run = ColorOf(dark, StudioBrushes.SemanticRunKey);
         Color pause = ColorOf(dark, StudioBrushes.SemanticPauseKey);
         Color stop = ColorOf(dark, StudioBrushes.SemanticStopKey);
+        Color save = ColorOf(dark, StudioBrushes.SemanticSaveKey);
 
         // Семантика кодируется цветом, поэтому chroma > 6 — в отличие от нейтральной палитры.
         Assert.That(StudioPalette.Chroma(run), Is.GreaterThan(6));
@@ -217,6 +218,10 @@ public class ThemeAcceptanceTests
         Assert.That(stop.R, Is.GreaterThan(stop.G), "«стоп» — красный");
         Assert.That(stop.R, Is.GreaterThan(stop.B), "«стоп» — красный");
         Assert.That(pause.R, Is.GreaterThan(pause.B), "«пауза» — тёплая");
+
+        Assert.That(StudioPalette.Chroma(save), Is.GreaterThan(6));
+        Assert.That(save.B, Is.GreaterThan(save.R), "«сохранить» — синий");
+        Assert.That(save.B, Is.GreaterThan(save.G), "«сохранить» — синий");
 
         foreach (string key in StudioBrushes.SemanticKeys)
         {
@@ -230,11 +235,11 @@ public class ThemeAcceptanceTests
     {
         string main = WithoutComments(Read(@"AiRpaStudio\Views\MainView.xaml"));
 
+        Assert.That(main, Does.Contain("Studio.Semantic.Save"),
+            "иконки «Сохранить»/«Сохранить всё» должны брать цвет из семантики");
         Assert.That(main, Does.Contain("Studio.Semantic.Run"), "иконка «Запустить» должна брать цвет из семантики");
         Assert.That(main, Does.Contain("Studio.Semantic.Pause"), "иконка «Пауза» должна брать цвет из семантики");
         Assert.That(main, Does.Contain("Studio.Semantic.Stop"), "иконка «Остановить» должна брать цвет из семантики");
-        Assert.That(main, Does.Not.Contain("#4169E1"),
-            "кнопки сохранения были синими (акцент) — они декоративные, им нужен Studio.ToolbarForeground");
 
         string project = WithoutComments(Read(@"AiRpaStudio\Controls\ProjectManagerControl.xaml"));
 

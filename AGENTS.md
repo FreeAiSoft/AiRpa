@@ -595,7 +595,7 @@
     (`LogLevelToColorConverter`/`...HoverConverter`/`...BackgroundConverter`): средние тона и
     полупрозрачные накладки, чтобы читались и в тёмной, и в светлой теме.
     Иконки фильтров Debug…Fatal берут цвет из семантики `Studio.Semantic.Log.*` (входят в
-    `SemanticKeys`): классика «синий/зелёный/оранжевый/красный/тёмно-красный», цвета непрозрачные
+    `SemanticKeys`): приглушённые тона, согласованные с буквами уровня, цвета непрозрачные
     (alpha 255) и одинаковы в обеих темах. Trace — не цвет, а основной текст панели: иконка и буквы
     уровня красятся `Studio.Foreground` (белый `#F1F1F1` в тёмной теме, чёрный `#1F1F1F` в светлой),
     базовый цвет букв — `{DynamicResource Studio.Foreground}` в стиле ячейки (реагирует на смену темы), а Debug…Fatal — DataTrigger-ами на кисти `LogLevelToColorConverter`; строки
@@ -649,8 +649,8 @@
     Единственные исключения — `#E81123`/`#FFFFFF` кнопки закрытия в `Themes\StudioTheme.xaml`.
   * В студии запрещён `MaterialDesign.Brush.*`: значения берутся из `StudioPalette`
     (`MaterialDesign` остаётся только базой контролов, его `Primary`/`Secondary` нейтральны, см. M-04).
-  * Семантика (не акцент!) — `StudioBrushes.SemanticKeys`: `Studio.Semantic.Run`/`Pause`/`Stop`
-    (тулбар), `Studio.Semantic.FolderIcon`/`XamlFileIcon`/`JsonFileIcon` (дерево проекта), `Studio.Semantic.Validation` (бейдж ошибки поля выражения) и `Studio.Semantic.Log.Debug`/`Info`/`Warning`/`Error`/`Fatal` (фильтры панели «Log») — всего 12 ключей. Значения
+  * Семантика (не акцент!) — `StudioBrushes.SemanticKeys`: `Studio.Semantic.Run`/`Pause`/`Stop`/`Save`
+    (тулбар), `Studio.Semantic.FolderIcon`/`XamlFileIcon`/`JsonFileIcon` (дерево проекта), `Studio.Semantic.Validation` (бейдж ошибки поля выражения) и `Studio.Semantic.Log.Debug`/`Info`/`Warning`/`Error`/`Fatal` (фильтры панели «Log») — всего 13 ключей. Значения
     фиксированы для обеих тем (`chroma > 6`), создаются кодом; декоративные иконки должны использовать
     `Studio.ToolbarForeground`, а не цвет.
   * «Третьих» палитр нет: `Themes\StudioTheme.Dark.xaml`, `Themes\StudioTheme.Light.xaml` и

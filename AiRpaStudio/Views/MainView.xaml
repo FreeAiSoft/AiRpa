@@ -635,23 +635,23 @@
                     </Button>
                     <Button ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Command.Text}"
                             Command="{Binding Cmd}"
-                            Foreground="{DynamicResource Studio.ToolbarForeground}"
                             CommandParameter="CmdWorkflowSave"
                             IsEnabled="{Binding CanSave}"
                             Style="{StaticResource LogLevelButtonLastStyle}">
                         <materialIcons:MaterialIcon Kind="ContentSaveOutline"
                                                     Width="20"
-                                                    Height="20" />
+                                                    Height="20"
+                                                    Foreground="{DynamicResource Studio.Semantic.Save}" />
                     </Button>
                     <Button ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Command.Text}"
                             Command="{Binding Cmd}"
-                            Foreground="{DynamicResource Studio.ToolbarForeground}"
                             CommandParameter="CmdWorkflowSaveAll"
                             IsEnabled="{Binding CanSaveAll}"
                             Style="{StaticResource LogLevelButtonLastStyle}">
                         <materialIcons:MaterialIcon Kind="ContentSaveAllOutline"
                                                     Width="20"
-                                                    Height="20" />
+                                                    Height="20"
+                                                    Foreground="{DynamicResource Studio.Semantic.Save}" />
                     </Button>
 
                     <Separator Margin="5"
@@ -662,32 +662,32 @@
                     <Button ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Command.Text}"
                             Command="{Binding Cmd}"
                             CommandParameter="CmdWorkflowRun"
-                            Foreground="{DynamicResource Studio.Semantic.Run}"
                             IsEnabled="{Binding CustomWfDesignerState, Converter={StaticResource CanRunConverter}}"
                             Style="{StaticResource LogLevelButtonStyle}">
                         <materialIcons:MaterialIcon Kind="Play"
                                                     Width="24"
-                                                    Height="24" />
+                                                    Height="24"
+                                                    Foreground="{DynamicResource Studio.Semantic.Run}" />
                     </Button>
                     <Button ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Command.Text}"
                             Command="{Binding Cmd}"
                             CommandParameter="CmdWorkflowPause"
-                            Foreground="{DynamicResource Studio.Semantic.Pause}"
                             IsEnabled="{Binding CustomWfDesignerState, Converter={StaticResource CanPauseConverter}}"
                             Style="{StaticResource LogLevelButtonStyle}">
                         <materialIcons:MaterialIcon Kind="Pause"
                                                     Width="24"
-                                                    Height="24" />
+                                                    Height="24"
+                                                    Foreground="{DynamicResource Studio.Semantic.Pause}" />
                     </Button>
                     <Button ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Command.Text}"
                             Command="{Binding Cmd}"
                             CommandParameter="CmdWorkflowStop"
-                            Foreground="{DynamicResource Studio.Semantic.Stop}"
                             IsEnabled="{Binding CustomWfDesignerState, Converter={StaticResource CanStopConverter}}"
                             Style="{StaticResource LogLevelButtonLastStyle}">
                         <materialIcons:MaterialIcon Kind="Stop"
                                                     Width="24"
-                                                    Height="24" />
+                                                    Height="24"
+                                                    Foreground="{DynamicResource Studio.Semantic.Stop}" />
                     </Button>
 
                     <Separator Margin="5"
