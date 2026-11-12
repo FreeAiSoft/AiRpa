@@ -14,6 +14,7 @@ using Microsoft.Win32;
 using Newtonsoft.Json;
 using RPA.Entities;
 using RPA.Enums;
+using RPA.Core.Workflow;
 using RPA.Core.Generation;
 
 using RPA.Helpers;
@@ -89,6 +90,7 @@ namespace RPA.Core
         private ActivityRunner _activityRunner;
         private bool _canSave;
         private bool _canSaveAll;
+        private WorkflowTypeRegistry _looseTypeRegistry;
 
         #endregion Fields
 
@@ -572,6 +574,43 @@ namespace RPA.Core
                 .FirstOrDefault(d => ((WorkflowFileItem)d.Context.Items.First(i => i.ItemType == typeof(WorkflowFileItem))).LoadedFile == sourceFile);
         }
 
+        /// <summary>
+        /// Реестр вложенных XAML-активностей для открытия файла loose-путём (без сборки и без DLL).
+        /// Возвращает <c>null</c> для файлов вне текущего WF-проекта и для не-WF проектов: тогда
+        /// работает штатный путь дизайнера. Реестр строится один раз на проект и кэшируется до
+        /// смены проекта (<see cref="LoadProject(Project)"/> сбрасывает кэш).
+        /// </summary>
+        internal WorkflowTypeRegistry GetLooseRegistryFor(string filePath)
+        {
+            if (Project == null
+                || !Project.IsWorkflowProject
+                || string.IsNullOrWhiteSpace(Project.ProjectDirPath))
+            {
+                return null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(filePath))
+            {
+                string projectDir = Path.GetFullPath(Project.ProjectDirPath)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar;
+
+                string fullPath = Path.GetFullPath(filePath);
+
+                if (!fullPath.StartsWith(projectDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    return null;
+                }
+            }
+
+            if (_looseTypeRegistry == null)
+            {
+                _looseTypeRegistry = LooseXamlProjectService.BuildRegistry(Project);
+            }
+
+            return _looseTypeRegistry;
+        }
+
         internal void LoadProject(string projectDirPath)
         {
             try
@@ -603,6 +642,7 @@ namespace RPA.Core
                 WorkflowDesigners.Clear();
                 ActiveWorkflowDesignerEx = null;
                 Project = project;
+                _looseTypeRegistry = null;
 
                 if (project == null || string.IsNullOrWhiteSpace(project.ProjectDirPath))
                 {
@@ -618,7 +658,9 @@ namespace RPA.Core
 
                 // Остальные вкладки восстанавливает Main.RestoreSessionState: у него есть и вкладки
                 // дизайнера, и вкладки редактора кода, и сохранённая активная вкладка.
-                ActiveWorkflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(pathToMainActivity);
+                // Loose-реестр теперь берётся кэшированно через GetLooseRegistryFor (см. ниже).
+
+                ActiveWorkflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(pathToMainActivity, GetLooseRegistryFor(pathToMainActivity));
             }
             catch (Exception ex)
             {

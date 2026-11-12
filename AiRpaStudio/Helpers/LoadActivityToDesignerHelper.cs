@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Activities.Debugger;
 using System.Activities.Presentation;
 using System.Activities.Presentation.Debug;
@@ -16,6 +16,7 @@ using System.Windows.Controls.Primitives;
 using Microsoft.CSharp.Activities;
 using Newtonsoft.Json;
 using RPA.Core;
+using RPA.Core.Workflow;
 using RPA.CSharpExpressionEditor;
 
 namespace RPA.Helpers
@@ -26,7 +27,8 @@ namespace RPA.Helpers
         /// Creates a new Workflow Designer instance with C# Expression Editor
         /// </summary>
         /// <param name="sourceFile">Workflow FileName</param>
-        internal static WorkflowDesignerEx LoadActivityToDesigner(string sourceFile)
+        /// <param name="looseTypeRegistry">Реестр вложенных XAML-активностей для loose-загрузки (<c>null</c> — штатный путь).</param>
+        internal static WorkflowDesignerEx LoadActivityToDesigner(string sourceFile, WorkflowTypeRegistry looseTypeRegistry = null)
         {
             if (!sourceFile.EndsWith(".xaml", StringComparison.OrdinalIgnoreCase)
                 || !File.Exists(sourceFile))
@@ -48,8 +50,15 @@ namespace RPA.Helpers
                 // инструменте, ломается в другом» (`конвейер генерации XAML`, п. 2.3).
                 WfDesignerEnvironment.Configure(workflowDesignerEx);
 
-                //load Workflow Xaml
-                workflowDesignerEx.Load(sourceFile);
+                if (looseTypeRegistry != null)
+                {
+                    LooseXamlDesignerLoader.Open(workflowDesignerEx, sourceFile, looseTypeRegistry);
+                }
+                else
+                {
+                    //load Workflow Xaml
+                    workflowDesignerEx.Load(sourceFile);
+                }
 #pragma warning disable IDE0004 // Remove Unnecessary Cast
 
                 CustomWfDesigner.GetInstance().WorkflowDesigners.Add(workflowDesignerEx);
@@ -81,7 +90,10 @@ namespace RPA.Helpers
             // файл может быть занят другим процессом (OneDrive, антивирус, индексатор, вторая копия
             // студии, ранее открытый StreamReader) — раньше необработанный IOException из Save
             // всплывал наружу и ронял отладчик в CustomWfDesigner.WorkflowOpen().
-            SaveAfterLoad(workflowDesignerEx, sourceFile);
+            if (looseTypeRegistry == null && !IsInsideWorkflowProject(sourceFile))
+            {
+                SaveAfterLoad(workflowDesignerEx, sourceFile);
+            }
 
             return workflowDesignerEx;
         }
@@ -93,6 +105,30 @@ namespace RPA.Helpers
         /// с <see cref="IOException"/> наружу. Ранее необработанное исключение из Save останавливало
         /// отладчик в <see cref="CustomWfDesigner.WorkflowOpen"/>.
         /// </summary>
+        /// <summary>
+        /// Файл принадлежит текущему WF-проекту студии. Такие файлы открываются loose-путём (без сборки
+        /// и без DLL), поэтому штатная «нормализация после загрузки» (<c>designer.Save</c>) их не должна
+        /// касаться: эталонный проект обязан только читаться, а не перезаписываться при открытии.
+        /// </summary>
+        private static bool IsInsideWorkflowProject(string sourceFile)
+        {
+            var project = CustomWfDesigner.GetInstance().Project;
+
+            if (project == null
+                || !project.IsWorkflowProject
+                || string.IsNullOrWhiteSpace(project.ProjectDirPath)
+                || string.IsNullOrWhiteSpace(sourceFile))
+            {
+                return false;
+            }
+
+            string projectDir = Path.GetFullPath(project.ProjectDirPath)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+
+            return Path.GetFullPath(sourceFile).StartsWith(projectDir, StringComparison.OrdinalIgnoreCase);
+        }
+
         private static void SaveAfterLoad(WorkflowDesigner designer, string sourceFile)
         {
             const int attempts = 3;

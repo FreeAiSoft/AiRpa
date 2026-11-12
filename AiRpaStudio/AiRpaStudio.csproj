@@ -314,6 +314,14 @@
     <Compile Include="Core\Generation\ActivityPaletteRegistry.cs" />
     <Compile Include="Core\Generation\PaletteDiskCache.cs" />
     <Compile Include="Core\Workflow\StudioActivityCatalog.cs" />
+    <Compile Include="Core\Workflow\XamlTypeFacade.cs" />
+    <Compile Include="Core\Workflow\XamlTypeFacadeBuilder.cs" />
+    <Compile Include="Core\Workflow\WorkflowTypeRegistry.cs" />
+    <Compile Include="Core\Workflow\LooseActivityXamlSchemaContext.cs" />
+    <Compile Include="Core\Workflow\LooseXamlDocumentPersistenceService.cs" />
+    <Compile Include="Core\Workflow\LooseXamlRoundTripSerializer.cs" />
+    <Compile Include="Core\Workflow\LooseXamlProjectService.cs" />
+    <Compile Include="Core\Workflow\LooseXamlDesignerLoader.cs" />
     <Compile Include="Core\Workflow\NuGetActivityPaletteLoader.cs" />
     <Compile Include="Core\Workflow\StudioActivityPaletteNotifier.cs" />
     <Compile Include="Core\Workflow\StudioWorkflowEditSession.cs" />

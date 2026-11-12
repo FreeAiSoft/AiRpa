@@ -168,17 +168,65 @@ namespace RPA.Core.Services
 
         private static void EvaluateAssign(ActivityExpressionCheck check, Type expressionType, List<string> messages)
         {
-            if (check.Environment.TryGetType(check.ExpressionText, out Type rightType))
+            // Правая часть Assign — любое C#-выражение: литерал, вызов метода, обращение к члену,
+            // оператор. «Не существует в контексте» говорится только про голый идентификатор, которого
+            // нет ни среди переменных, ни среди аргументов: иначе литерал «"Hello from RPA-1"» помечается
+            // как несуществующее имя.
+            if (IsBareIdentifier(check.ExpressionText)
+                && !check.Environment.Contains(check.ExpressionText))
             {
-                if (check.ExpressionItemType != null && !check.ExpressionItemType.IsAssignableFrom(rightType))
-                {
-                    messages.Add($"не возможно присвоить тип {rightType} переменной типа {check.TargetType}.");
-                }
-
+                messages.Add($"{check.ExpressionText} не существует в текущем контексте.");
                 return;
             }
 
-            messages.Add($"{check.ExpressionText} не существует в текущем контексте.");
+            if (expressionType != null
+                && check.TargetType != null
+                && !check.TargetType.IsAssignableFrom(expressionType))
+            {
+                messages.Add($"не возможно присвоить тип {expressionType} переменной типа {check.TargetType}.");
+            }
+        }
+
+        /// <summary>
+        /// «Голый идентификатор»: строка, которая может быть ссылкой на переменную или аргумент
+        /// (<c>output</c>). Литералы (<c>"text"</c>), ключевые слова (<c>true</c>, <c>false</c>,
+        /// <c>null</c>) и любые составные выражения (<c>output + "!"</c>, <c>output.Length</c>) сюда не
+        /// попадают: для них сообщение «не существует в контексте» — ложная диагностика.
+        /// </summary>
+        private static bool IsBareIdentifier(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return false;
+            }
+
+            string name = text.Trim();
+
+            if (name == "true" || name == "false" || name == "null"
+                || name == "this" || name == "base")
+            {
+                return false;
+            }
+
+            if (name.StartsWith("@", StringComparison.Ordinal))
+            {
+                name = name.Substring(1);
+            }
+
+            if (name.Length == 0 || char.IsDigit(name[0]))
+            {
+                return false;
+            }
+
+            foreach (char symbol in name)
+            {
+                if (!char.IsLetterOrDigit(symbol) && symbol != '_')
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static (Type Type, List<string> Errors) SafeCheck(

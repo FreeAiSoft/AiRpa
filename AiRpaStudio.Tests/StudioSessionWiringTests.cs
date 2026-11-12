@@ -81,6 +81,22 @@ public class StudioSessionWiringTests
         });
     }
 
+    [Test]
+    public void Main_LoadProjectCore_SetsRestoreFlagBeforeLoadProject()
+    {
+        string method = MethodBody(ReadSource(@"AiRpaStudio\Models\Main.cs"), "LoadProjectCore");
+
+        int flag = method.IndexOf("_isRestoringSession = true;", StringComparison.Ordinal);
+        int loadProject = method.IndexOf("CustomWfDesigner.LoadProject(", StringComparison.Ordinal);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(flag, Is.GreaterThanOrEqualTo(0), "восстановление глушится флагом");
+            Assert.That(loadProject, Is.GreaterThan(flag),
+                "флаг обязан включаться ДО CustomWfDesigner.LoadProject: внутри тот чистит вкладки и вызывает SaveSessionState");
+        });
+    }
+
     /// <summary>Тело метода по имени (грубая, но устойчивая к форматированию выборка).</summary>
     private static string MethodBody(string source, string methodName)
     {

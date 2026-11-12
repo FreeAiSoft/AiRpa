@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using RPA.Core.Workflow;
 using RPA.Helpers;
 
 namespace RPA.Core.Generation
@@ -20,16 +21,16 @@ namespace RPA.Core.Generation
     internal sealed class StudioWorkflowDesignerHost : IWorkflowDesignerHost
     {
         private readonly CustomWfDesigner _designer;
-        private readonly Func<string, WorkflowDesignerEx> _load;
+        private readonly Func<string, WorkflowTypeRegistry, WorkflowDesignerEx> _load;
         private readonly Action<string> _log;
 
         internal StudioWorkflowDesignerHost(
             CustomWfDesigner designer = null,
-            Func<string, WorkflowDesignerEx> load = null,
+            Func<string, WorkflowTypeRegistry, WorkflowDesignerEx> load = null,
             Action<string> log = null)
         {
             _designer = designer ?? CustomWfDesigner.GetInstance();
-            _load = load ?? LoadActivityToDesignerHelper.LoadActivityToDesigner;
+            _load = load ?? ((path, registry) => LoadActivityToDesignerHelper.LoadActivityToDesigner(path, registry));
             _log = log;
         }
 
@@ -69,7 +70,8 @@ namespace RPA.Core.Generation
 
         public DesignerTab Open(string filePath)
         {
-            WorkflowDesignerEx designer = _load(filePath);
+            WorkflowTypeRegistry registry = _designer.GetLooseRegistryFor(filePath);
+            WorkflowDesignerEx designer = _load(filePath, registry);
             if (designer == null)
             {
                 return null;

@@ -184,15 +184,19 @@ namespace RPA.Models
 
                 ProjectManager.ApplyTree(tree);
 
-                // Единый объект проекта попадает в дизайнер и в VS-режиме (раньше тут был пустой Project).
-                CustomWfDesigner.LoadProject(tree.Root?.Project);
-
-                Properties.Settings.Default.LastLoadedProjectPath = path;
-                Properties.Settings.Default.Save();
-
+                // Suppress session persistence until the tab set is restored:
+                // CustomWfDesigner.LoadProject below calls WorkflowDesigners.Clear() and opens
+                // MainActivity, and each change raises SaveSessionState. Enabling the flag first
+                // keeps an empty/single-tab intermediate state from overwriting the saved tabs.
                 _isRestoringSession = true;
                 try
                 {
+                    // Единый объект проекта попадает в дизайнер и в VS-режиме (раньше тут был пустой Project).
+                    CustomWfDesigner.LoadProject(tree.Root?.Project);
+
+                    Properties.Settings.Default.LastLoadedProjectPath = path;
+                    Properties.Settings.Default.Save();
+
                     StartupTimer.Mark("LoadProject: RestoreSessionState()");
                     RestoreSessionState(path);
                 }

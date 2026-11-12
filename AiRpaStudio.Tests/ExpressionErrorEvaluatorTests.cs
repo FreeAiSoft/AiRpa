@@ -159,6 +159,69 @@ public class ExpressionErrorEvaluatorTests
     }
 
     [Test]
+    public void Evaluate_AssignValue_StringLiteral_MatchesTarget_HasNoErrors()
+    {
+        ActivityExpressionCheck check = Check(ExpressionCheckKind.AssignValue, "\"Hello from RPA-1\"");
+        check.TargetType = typeof(string);
+
+        FakeCompiler compiler = new FakeCompiler { Type = typeof(string) };
+
+        Assert.That(ExpressionErrorEvaluator.Evaluate(new[] { check }, compiler), Is.Empty);
+    }
+
+    [Test]
+    public void Evaluate_AssignValue_StringLiteral_WrongTarget_ReportsMismatch()
+    {
+        ActivityExpressionCheck check = Check(ExpressionCheckKind.AssignValue, "\"Hello from RPA-1\"");
+        check.TargetType = typeof(int);
+
+        FakeCompiler compiler = new FakeCompiler { Type = typeof(string) };
+
+        IReadOnlyList<ActivityValidationError> errors =
+            ExpressionErrorEvaluator.Evaluate(new[] { check }, compiler);
+
+        Assert.That(errors.Select(e => e.Message), Is.EqualTo(new[]
+        {
+            "Value: не возможно присвоить тип System.String переменной типа System.Int32."
+        }));
+    }
+
+    [Test]
+    public void Evaluate_AssignValue_ComplexExpression_IsNotReportedAsMissingName()
+    {
+        ActivityExpressionCheck check = Check(ExpressionCheckKind.AssignValue, "output + \"!\"");
+        check.TargetType = typeof(string);
+        check.Environment = Env(("output", typeof(string)));
+
+        FakeCompiler compiler = new FakeCompiler { Type = typeof(string) };
+
+        Assert.That(ExpressionErrorEvaluator.Evaluate(new[] { check }, compiler), Is.Empty);
+    }
+
+    [Test]
+    public void Evaluate_AssignValue_MemberAccess_IsNotReportedAsMissingName()
+    {
+        ActivityExpressionCheck check = Check(ExpressionCheckKind.AssignValue, "output.Length");
+        check.TargetType = typeof(int);
+        check.Environment = Env(("output", typeof(string)));
+
+        FakeCompiler compiler = new FakeCompiler { Type = typeof(int) };
+
+        Assert.That(ExpressionErrorEvaluator.Evaluate(new[] { check }, compiler), Is.Empty);
+    }
+
+    [Test]
+    public void Evaluate_AssignValue_BooleanKeyword_UsesCompiledType()
+    {
+        ActivityExpressionCheck check = Check(ExpressionCheckKind.AssignValue, "true");
+        check.TargetType = typeof(bool);
+
+        FakeCompiler compiler = new FakeCompiler { Type = typeof(bool) };
+
+        Assert.That(ExpressionErrorEvaluator.Evaluate(new[] { check }, compiler), Is.Empty);
+    }
+
+    [Test]
     public void Evaluate_CompilerThrows_TurnsIntoNoteNotCrash()
     {
         ActivityExpressionCheck check = Check(ExpressionCheckKind.Expression, "text");

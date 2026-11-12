@@ -115,6 +115,20 @@ public class DocumentTabsCloseWiringTests
         });
     }
 
+    [Test]
+    public void DocGroupHelper_HandlesDesignerMoveForSessionRestore()
+    {
+        string source = ReadSource(@"AiRpaStudio\Helpers\DocGroupHelper.cs");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(source, Does.Contain("NotifyCollectionChangedAction.Move"),
+                "восстановление порядка вкладок (WorkflowDesigners.Move) не должно падать с NotImplementedException");
+            Assert.That(source, Does.Contain("ReorderDesignerTabsToModelOrder()"),
+                "визуальный порядок вкладок дизайнера обязан следовать за моделью после восстановления сессии");
+        });
+    }
+
     /// <summary>Тело метода по имени (грубая, но устойчивая к форматированию выборка).</summary>
     private static string MethodBody(string source, string methodName)
     {

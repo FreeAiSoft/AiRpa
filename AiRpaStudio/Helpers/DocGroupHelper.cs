@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Activities.Presentation;
 using System.Collections.Specialized;
 using System.ComponentModel;
@@ -189,10 +190,66 @@ namespace RPA.Helpers
                 docGroup.Children.Clear();
                 syncWFControlsDelegate(null);
             }
+            else if (e.Action == NotifyCollectionChangedAction.Move)
+            {
+                ReorderDesignerTabsToModelOrder();
+            }
             else
             {
                 throw new NotImplementedException();
             }
+        }
+
+        /// <summary>
+        /// Reorders designer document tabs to match WorkflowDesigners order. Code/XAML editor
+        /// tabs keep their slots: session restore never reorders them.
+        /// </summary>
+        private void ReorderDesignerTabsToModelOrder()
+        {
+            List<int> slots = new List<int>();
+            List<LayoutDocument> designerTabs = new List<LayoutDocument>();
+
+            for (int i = 0; i < docGroup.Children.Count; i++)
+            {
+                if (docGroup.Children[i] is LayoutDocument document && IsDesignerTab(document))
+                {
+                    slots.Add(i);
+                    designerTabs.Add(document);
+                }
+            }
+
+            if (designerTabs.Count < 2)
+            {
+                return;
+            }
+
+            Dictionary<object, int> modelOrder = _mainViewModel.WorkflowDesigners
+                .Select((designer, index) => new { designer, index })
+                .ToDictionary(item => (object)item.designer.View, item => item.index);
+
+            List<LayoutDocument> ordered = designerTabs
+                .OrderBy(document => modelOrder.TryGetValue(document.Content, out int index) ? index : int.MaxValue)
+                .ToList();
+
+            // Detach designer tabs, then put them back in model order at the same slots so that
+            // interleaved code-editor tabs stay put.
+            for (int i = 0; i < designerTabs.Count; i++)
+            {
+                docGroup.Children.Remove(designerTabs[i]);
+            }
+
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                docGroup.Children.Insert(slots[i], ordered[i]);
+            }
+        }
+
+        private static bool IsDesignerTab(LayoutDocument document)
+        {
+            return document != null
+                && document.Content is FrameworkElement view
+                && view.Tag is string tag
+                && tag.Length > 0;
         }
 
         private void DataContext_PropertyChanged(object sender, PropertyChangedEventArgs e)

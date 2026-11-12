@@ -8,6 +8,8 @@ using RPA.Helpers;
 using RPA.Chat.Services.Workflow;
 using RPA.Core.Workflow;
 using System.Activities.Presentation.Model;
+using System.Activities;
+using System.Activities.Presentation;
 using System.Activities.Presentation.Services;
 using AiRpaStudio.Tests.Generation;
 
@@ -909,6 +911,47 @@ public sealed class DesignerBenchProxy : MarshalByRefObject
     {
         DesignerRenderReport report = DesignerRenderProbe.Render(xamlPath);
         return DesignerBenchReport.From(report);
+    }
+
+    public LooseOpenReport LooseOpen(string mainXaml, string[] projectXamlFiles)
+    {
+        DesignerTestHost host = DesignerTestHost.Shared;
+
+        return host.Invoke(() =>
+        {
+            var report = new LooseOpenReport();
+
+            try
+            {
+                WorkflowTypeRegistry registry = WorkflowTypeRegistry.Scan(projectXamlFiles);
+                var designer = new WorkflowDesignerEx();
+                WfDesignerEnvironment.Configure(designer);
+                LooseXamlDesignerLoader.Open(designer, mainXaml, registry);
+
+                report.LoadSucceeded = true;
+                report.WorkflowFileItem = designer.Context.Items.GetValue<WorkflowFileItem>()?.LoadedFile;
+
+                ModelService modelService = designer.Context.Services.GetService<ModelService>();
+                var builder = modelService?.Root?.GetCurrentValue() as ActivityBuilder;
+                if (builder?.Implementation != null)
+                {
+                    report.FacadeNames = WorkflowInspectionServices.GetActivities(builder.Implementation)
+                        .OfType<DynamicActivity>()
+                        .Select(activity => activity.Name)
+                        .OrderBy(name => name, StringComparer.Ordinal)
+                        .ToList();
+                }
+
+                report.Description = "loose-загрузка выполнена; фасадов: " + report.FacadeNames.Count;
+            }
+            catch (Exception ex)
+            {
+                report.Error = ErrorText.Of(ex);
+                report.Description = "loose-загрузка упала: " + report.Error;
+            }
+
+            return report;
+        });
     }
 
     /// <summary>
