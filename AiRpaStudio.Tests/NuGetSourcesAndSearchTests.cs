@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -157,18 +157,14 @@ public class NuGetSourcesAndSearchTests
     }
 
     [Test]
-    public void SourcesOverlay_AddEditRemove_WritesNuGetConfig()
+    public void SourcesOverlay_AddEditRemove_PersistsProjectSources()
     {
         string directory = CreateTempDirectory();
         try
         {
-            File.WriteAllText(Path.Combine(directory, "NuGet.Config"),
-                "<?xml version=\"1.0\" encoding=\"utf-8\"?><configuration><packageSources><clear />"
-                + "<add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" />"
-                + "</packageSources></configuration>");
-
+            var nugetOrg = new NuGetSourceDefinition { Name = "nuget.org", Url = "https://api.nuget.org/v3/index.json", IsEnabled = true };
             var model = new NuGetPanelViewModel(new CountingSearchService());
-            LoadProjectInto(model, directory);
+            InMemoryProjectSources store = LoadProjectInto(model, directory, new[] { nugetOrg });
 
             model.OpenSourcesCommand.Execute(null);
             Assert.That(model.SourceItems.Select(item => item.Name), Does.Contain("nuget.org"));
@@ -184,8 +180,10 @@ public class NuGetSourcesAndSearchTests
             {
                 Assert.That(model.IsEditingSource, Is.False);
                 Assert.That(model.SourceItems.Select(item => item.Name), Does.Contain("studio-source"));
-                Assert.That(ReadConfig(directory), Does.Contain("studio-source"),
-                    "источник записан в NuGet.Config");
+                Assert.That(store.Items.Select(item => item.Name), Does.Contain("studio-source"),
+                    "источник записан в per-project хранилище");
+                Assert.That(File.Exists(Path.Combine(directory, "NuGet.Config")), Is.False,
+                    "студия не должна создавать NuGet.Config в каталоге проекта");
             });
 
             // Edit
@@ -194,8 +192,8 @@ public class NuGetSourcesAndSearchTests
             model.EditingSourceUrl = "https://example.org/v3/other.json";
             model.SaveSourceCommand.Execute(null);
 
-            Assert.That(ReadConfig(directory), Does.Contain("https://example.org/v3/other.json"),
-                "правка адреса сохраняется");
+            Assert.That(store.Items.First(item => item.Name == "studio-source").Url,
+                Is.EqualTo("https://example.org/v3/other.json"), "правка адреса сохраняется");
 
             // Remove
             model.SelectedSourceItem = model.SourceItems.First(item => item.Name == "studio-source");
@@ -204,7 +202,8 @@ public class NuGetSourcesAndSearchTests
             Assert.Multiple(() =>
             {
                 Assert.That(model.SourceItems.Select(item => item.Name), Does.Not.Contain("studio-source"));
-                Assert.That(ReadConfig(directory), Does.Not.Contain("studio-source"), "источник удалён из файла");
+                Assert.That(store.Items.Select(item => item.Name), Does.Not.Contain("studio-source"),
+                    "источник удалён из per-project хранилища");
             });
         }
         finally
@@ -212,20 +211,15 @@ public class NuGetSourcesAndSearchTests
             Directory.Delete(directory, true);
         }
     }
-
     [Test]
     public void SourcesOverlay_ValidatesNameAndDuplicates()
     {
         string directory = CreateTempDirectory();
         try
         {
-            File.WriteAllText(Path.Combine(directory, "NuGet.Config"),
-                "<?xml version=\"1.0\" encoding=\"utf-8\"?><configuration><packageSources><clear />"
-                + "<add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" />"
-                + "</packageSources></configuration>");
-
+            var nugetOrg = new NuGetSourceDefinition { Name = "nuget.org", Url = "https://api.nuget.org/v3/index.json", IsEnabled = true };
             var model = new NuGetPanelViewModel(new CountingSearchService());
-            LoadProjectInto(model, directory);
+            LoadProjectInto(model, directory, new[] { nugetOrg });
             model.OpenSourcesCommand.Execute(null);
 
             model.AddSourceCommand.Execute(null);
@@ -266,22 +260,16 @@ public class NuGetSourcesAndSearchTests
             Directory.Delete(directory, true);
         }
     }
-
     [Test]
     public void SourcesOverlay_EnabledLocalSourceIsOfferedAndDisabledIsNot()
     {
         string directory = CreateTempDirectory();
         try
         {
-            File.WriteAllText(Path.Combine(directory, "NuGet.Config"),
-                "<?xml version=\"1.0\" encoding=\"utf-8\"?><configuration><packageSources><clear />"
-                + "<add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" />"
-                + "<add key=\"local\" value=\"" + Path.Combine(directory, "offline") + "\" />"
-                + "</packageSources>"
-                + "<disabledPackageSources><clear /></disabledPackageSources></configuration>");
-
+            var nugetOrg = new NuGetSourceDefinition { Name = "nuget.org", Url = "https://api.nuget.org/v3/index.json", IsEnabled = true };
+            var local = new NuGetSourceDefinition { Name = "local", Url = Path.Combine(directory, "offline"), IsEnabled = true };
             var model = new NuGetPanelViewModel();
-            LoadProjectInto(model, directory);
+            InMemoryProjectSources store = LoadProjectInto(model, directory, new[] { nugetOrg, local });
 
             Assert.Multiple(() =>
             {
@@ -294,13 +282,14 @@ public class NuGetSourcesAndSearchTests
             Assert.That(model.SourceItems.Select(item => item.Name), Does.Contain("local"),
                 "но в оверлее она видна — как в Visual Studio");
 
-            NuGetSourceItemViewModel local = model.SourceItems.First(item => item.Name == "local");
-            local.IsEnabled = false;
+            NuGetSourceItemViewModel localItem = model.SourceItems.First(item => item.Name == "local");
+            localItem.IsEnabled = false;
 
-            Assert.That(model.Sources.Select(source => source.Name), Does.Not.Contain("local"), "disabled source disappears from the Package source combo");
+            Assert.That(model.Sources.Select(source => source.Name), Does.Not.Contain("local"),
+                "disabled source disappears from the Package source combo");
 
-            Assert.That(ReadConfig(directory), Does.Contain("disabledPackageSources").Or.Contain("local"),
-                "состояние Enabled сохраняется в конфигурацию");
+            Assert.That(store.Items.First(item => item.Name == "local").IsEnabled, Is.False,
+                "состояние Enabled сохраняется в per-project хранилище");
         }
         finally
         {
@@ -440,15 +429,11 @@ public class NuGetSourcesAndSearchTests
         string directory = CreateTempDirectory();
         try
         {
-            File.WriteAllText(Path.Combine(directory, "NuGet.Config"),
-                "<?xml version=\"1.0\" encoding=\"utf-8\"?><configuration><packageSources><clear />"
-                + "<add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" />"
-                + "<add key=\"corp\" value=\"https://corp.example.org/v3/index.json\" />"
-                + "</packageSources></configuration>");
-
+            var nugetOrg = new NuGetSourceDefinition { Name = "nuget.org", Url = "https://api.nuget.org/v3/index.json", IsEnabled = true };
+            var corp = new NuGetSourceDefinition { Name = "corp", Url = "https://corp.example.org/v3/index.json", IsEnabled = true };
             var model = new NuGetPanelViewModel();
             model.LoadSelectedSourceUrl = () => "https://corp.example.org/v3/index.json";
-            LoadProjectInto(model, directory);
+            LoadProjectInto(model, directory, new[] { nugetOrg, corp });
 
             Assert.Multiple(() =>
             {
@@ -469,19 +454,15 @@ public class NuGetSourcesAndSearchTests
         string directory = CreateTempDirectory();
         try
         {
-            File.WriteAllText(Path.Combine(directory, "NuGet.Config"),
-                "<?xml version=\"1.0\" encoding=\"utf-8\"?><configuration><packageSources><clear />"
-                + "<add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" />"
-                + "<add key=\"corp\" value=\"https://corp.example.org/v3/index.json\" />"
-                + "</packageSources></configuration>");
-
+            var nugetOrg = new NuGetSourceDefinition { Name = "nuget.org", Url = "https://api.nuget.org/v3/index.json", IsEnabled = true };
+            var corp = new NuGetSourceDefinition { Name = "corp", Url = "https://corp.example.org/v3/index.json", IsEnabled = true };
             string savedUrl = null;
             var model = new NuGetPanelViewModel();
             model.SaveSelectedSourceUrl = url => savedUrl = url;
-            LoadProjectInto(model, directory);
+            LoadProjectInto(model, directory, new[] { nugetOrg, corp });
 
-            NuGetSourceDefinition corp = model.Sources.First(source => source.Name == "corp");
-            model.SelectedSource = corp;
+            NuGetSourceDefinition corpSource = model.Sources.First(source => source.Name == "corp");
+            model.SelectedSource = corpSource;
 
             Assert.That(savedUrl, Is.EqualTo("https://corp.example.org/v3/index.json"),
                 "смена источника записывает его URL через хук воркспейса");
@@ -494,13 +475,35 @@ public class NuGetSourcesAndSearchTests
 
     // ================= Служебное =================
 
-    private static void LoadProjectInto(NuGetPanelViewModel model, string directory)
+    private static InMemoryProjectSources LoadProjectInto(
+        NuGetPanelViewModel model,
+        string directory,
+        IEnumerable<NuGetSourceDefinition> sources = null)
     {
         string project = Path.Combine(directory, "Demo.csproj");
         File.WriteAllText(project, "<Project Sdk=\"Microsoft.NET.Sdk\"><ItemGroup /></Project>");
+        var store = new InMemoryProjectSources(sources);
+        model.LoadProjectSources = store.Load;
+        model.SaveProjectSources = store.Save;
         Assert.That(model.LoadProject(project), Is.True);
+        return store;
     }
 
+    private sealed class InMemoryProjectSources
+    {
+        private List<NuGetSourceDefinition> _sources;
+
+        public InMemoryProjectSources(IEnumerable<NuGetSourceDefinition> sources)
+        {
+            _sources = (sources ?? Enumerable.Empty<NuGetSourceDefinition>()).ToList();
+        }
+
+        public IReadOnlyList<NuGetSourceDefinition> Load() => _sources.ToList();
+
+        public void Save(IReadOnlyList<NuGetSourceDefinition> sources) => _sources = sources.ToList();
+
+        public IReadOnlyList<NuGetSourceDefinition> Items => _sources;
+    }
     private static string ReadConfig(string directory)
     {
         string path = Path.Combine(directory, "NuGet.Config");

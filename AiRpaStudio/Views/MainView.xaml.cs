@@ -180,6 +180,24 @@ namespace RPA.Views
                         url);
                 Properties.Settings.Default.Save();
             };
+
+            // Список источников проекта живёт в собственном JSON-хранилище студии
+            // (%AppData%\AiRpaStudio\NuGet\nuget_sources.json), а не в NuGet.Config проекта.
+            nuGetPanel.ViewModel.LoadProjectSources = () =>
+                NuGetProjectSourcesStore.Read(
+                    ReadNuGetProjectSourcesJson(),
+                    ProjectManager.GetInstance().ProjectFolder);
+
+            nuGetPanel.ViewModel.SaveProjectSources = sources =>
+            {
+                NuGetPaths.EnsureDirectories();
+                string json = NuGetProjectSourcesStore.Write(
+                    ReadNuGetProjectSourcesJson(),
+                    ProjectManager.GetInstance().ProjectFolder,
+                    sources);
+                File.WriteAllText(NuGetPaths.ProjectSourcesFile, json);
+            };
+
             // Re-detect the .csproj whenever the current studio project folder changes.
             ProjectManager.GetInstance().PropertyChanged += OnProjectManagerPropertyChanged;
             // После install/uninstall пакета перечитываем References и активности в палитре.
@@ -202,6 +220,14 @@ namespace RPA.Views
                 }));
             }
         }
+
+        private static string ReadNuGetProjectSourcesJson()
+        {
+            return File.Exists(NuGetPaths.ProjectSourcesFile)
+                ? File.ReadAllText(NuGetPaths.ProjectSourcesFile)
+                : null;
+        }
+
 
         private void OnChatThemeChanged()
         {

@@ -15,7 +15,6 @@
             <BooleanToVisibilityConverter x:Key="BoolToVis" />
             <conv:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
             <conv:MarkdownToElementConverter x:Key="MarkdownToElement" />
-            <conv:ModeBorderBrushConverter x:Key="ModeBorderBrushConverter" />
 
             <!-- Transparent icon button (toolbar / input / overlays) -->
             <Style x:Key="IconButtonStyle" TargetType="Button">
@@ -158,7 +157,7 @@
                 <Setter Property="VerticalContentAlignment" Value="Center" />
                 <Setter Property="CaretBrush" Value="{DynamicResource Dark.Text}" />
             </Style>
-            <!-- Composer input field: border takes the active mode accent while focused or hovered. -->
+            <!-- Composer input field: border is tinted with the active mode accent. -->
             <Style x:Key="ComposerTextBoxStyle" TargetType="TextBox">
                 <Setter Property="Background" Value="{DynamicResource Dark.Control}" />
                 <Setter Property="Foreground" Value="{DynamicResource Dark.Text}" />
@@ -175,12 +174,8 @@
                                     BorderThickness="{TemplateBinding BorderThickness}"
                                     SnapsToDevicePixels="True">
                                 <Border.BorderBrush>
-                                    <MultiBinding Converter="{StaticResource ModeBorderBrushConverter}">
-                                        <Binding Path="DataContext.ModeAccentBrush" RelativeSource="{RelativeSource TemplatedParent}" />
-                                        <Binding Path="IsKeyboardFocused" RelativeSource="{RelativeSource TemplatedParent}" />
-                                        <Binding Path="IsMouseOver" RelativeSource="{RelativeSource TemplatedParent}" />
-                                        <Binding Path="BorderBrush" RelativeSource="{RelativeSource TemplatedParent}" />
-                                    </MultiBinding>
+                                    <Binding Path="DataContext.ModeAccentBrush" RelativeSource="{RelativeSource TemplatedParent}" />
+
                                 </Border.BorderBrush>
                                 <ScrollViewer x:Name="PART_ContentHost" Focusable="False"
                                               HorizontalScrollBarVisibility="Hidden"
@@ -357,7 +352,7 @@
                                 </Border>
                             </Grid>
                             <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
+                                <Trigger SourceName="Bd" Property="IsMouseOver" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Dark.ControlHover}" />
                                 </Trigger>
                                 <Trigger Property="IsSelected" Value="True">
@@ -384,7 +379,7 @@
                                 </Border>
                             </Grid>
                             <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
+                                <Trigger SourceName="Bd" Property="IsMouseOver" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Dark.ControlHover}" />
                                 </Trigger>
                                 <Trigger Property="IsSelected" Value="True">

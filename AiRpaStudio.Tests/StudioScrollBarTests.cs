@@ -262,6 +262,32 @@ public class StudioScrollBarTests
             "HeaderSite обязан ссылаться на явный стиль, иначе заголовок «Reasoning» сжимается");
     }
 
+    // ---------------------------------------------------------------- переключатель вкладок чата
+
+    [Test]
+    public void MainTabItem_HoverTriggerTargetsHeaderOnly()
+    {
+        XElement style = KeyedStyle(@"RPA.Chat\Views\ChatPanel.xaml", "MainTabItemStyle", "TabItem");
+        XElement hover = TemplateTrigger(TemplateOf(style), "IsMouseOver", "True");
+
+        Assert.That(hover, Is.Not.Null, "у вкладки чата должен быть hover-триггер подсветки заголовка");
+        Assert.That((string)hover.Attribute("SourceName"), Is.EqualTo("Bd"),
+            "hover вкладки обязан срабатывать только на шапке (SourceName=\"Bd\"): иначе наведение " +
+            "на любой контрол внутри содержимого вкладки подсвечивает сам переключатель таба");
+    }
+
+    [Test]
+    public void SettingsNavItem_HoverTriggerTargetsHeaderOnly()
+    {
+        XElement style = KeyedStyle(@"RPA.Chat\Views\ChatPanel.xaml", "SettingsNavItemStyle", "ListBoxItem");
+        XElement hover = TemplateTrigger(TemplateOf(style), "IsMouseOver", "True");
+
+        Assert.That(hover, Is.Not.Null, "у пункта навигации настроек должен быть hover-триггер подсветки шапки");
+        Assert.That((string)hover.Attribute("SourceName"), Is.EqualTo("Bd"),
+            "hover пункта навигации обязан срабатывать только на шапке (SourceName=\"Bd\"), а не на всём содержимом");
+    }
+
+
     [Test]
     public void ImplicitScrollBarStyle_ShrinksRealScrollViewerToTenPixels()
     {

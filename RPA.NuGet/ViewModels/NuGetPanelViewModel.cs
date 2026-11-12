@@ -60,6 +60,7 @@ namespace RPA.NuGet.ViewModels
         private string _editingSourceUrl;
         private string _sourceEditError;
         private NuGetSourceItemViewModel _selectedSourceItem;
+        private NuGetSourceDefinition _selectedExternalSource;
         private bool _isPanelVisible;
 
         public NuGetPanelViewModel(
@@ -106,6 +107,9 @@ namespace RPA.NuGet.ViewModels
             SaveSourceCommand = new RelayCommand(_ => SaveSource());
             CancelSourceEditCommand = new RelayCommand(_ => CancelSourceEdit());
             OpenConfigFileCommand = new RelayCommand(_ => OpenNuGetConfig());
+            ImportSourceCommand = new RelayCommand(_ => ImportSelectedExternalSource(), _ => SelectedExternalSource != null);
+            ExportProjectSourcesToConfigCommand = new RelayCommand(_ => ExportProjectSourcesToConfig());
+            CreateNuGetConfigCommand = new RelayCommand(_ => CreateNuGetConfig());
             RefreshCommand = new AsyncRelayCommand(_ => RefreshAsync(), _ => HasProject && !IsBusy);
         }
 
@@ -126,6 +130,13 @@ namespace RPA.NuGet.ViewModels
         /// <summary>Сохраняет URL выбранного источника для текущего воркспейса (подключается хостом-студией).</summary>
         public Action<string> SaveSelectedSourceUrl { get; set; }
 
+        /// <summary>Читает per-project список источников (подключается хостом-студией).</summary>
+        public Func<IReadOnlyList<NuGetSourceDefinition>> LoadProjectSources { get; set; }
+
+        /// <summary>Сохраняет per-project список источников (подключается хостом-студией).</summary>
+        public Action<IReadOnlyList<NuGetSourceDefinition>> SaveProjectSources { get; set; }
+
+
 
         public ObservableCollection<NuGetPackageItemViewModel> BrowseItems { get; } =
             new ObservableCollection<NuGetPackageItemViewModel>();
@@ -142,6 +153,10 @@ namespace RPA.NuGet.ViewModels
         /// <summary>Строки оверлея «Package sources» (редактируемая копия конфигурации).</summary>
         public ObservableCollection<NuGetSourceItemViewModel> SourceItems { get; } =
             new ObservableCollection<NuGetSourceItemViewModel>();
+
+        /// <summary>Внешние источники из NuGet.Config (машина/решение) — только чтение, можно импортировать.</summary>
+        public ObservableCollection<NuGetSourceDefinition> ExternalSources { get; } =
+            new ObservableCollection<NuGetSourceDefinition>();
 
         /// <summary>Правая панель деталей.</summary>
         public NuGetPackageDetailsViewModel Details { get; }
@@ -206,6 +221,16 @@ namespace RPA.NuGet.ViewModels
 
         /// <summary>Открыть NuGet.Config в оболочке (кнопка в оверлее).</summary>
         public RelayCommand OpenConfigFileCommand { get; }
+
+        /// <summary>Импортировать выбранный внешний источник (NuGet.Config машины/решения) в источники проекта.</summary>
+        public RelayCommand ImportSourceCommand { get; }
+
+        /// <summary>Явно экспортировать источники проекта в NuGet.Config.</summary>
+        public RelayCommand ExportProjectSourcesToConfigCommand { get; }
+
+        /// <summary>Явно создать NuGet.Config рядом с проектом из источников проекта.</summary>
+        public RelayCommand CreateNuGetConfigCommand { get; }
+
 
         public AsyncRelayCommand RefreshCommand { get; }
 
@@ -543,6 +568,17 @@ namespace RPA.NuGet.ViewModels
 
                 EditSourceCommand.RaiseCanExecuteChanged();
                 RemoveSourceCommand.RaiseCanExecuteChanged();
+            }
+        }
+
+        /// <summary>Выбранный внешний источник (NuGet.Config) в секции импорта.</summary>
+        public NuGetSourceDefinition SelectedExternalSource
+        {
+            get => _selectedExternalSource;
+            set
+            {
+                if (SetProperty(ref _selectedExternalSource, value))
+                    ImportSourceCommand.RaiseCanExecuteChanged();
             }
         }
 
@@ -1228,10 +1264,6 @@ namespace RPA.NuGet.ViewModels
 
         private void LoadSources()
         {
-            string folder = string.IsNullOrWhiteSpace(_projectPath)
-                ? null
-                : Path.GetDirectoryName(_projectPath);
-
             if (_fixedSource)
             {
                 Sources.Clear();
@@ -1245,7 +1277,7 @@ namespace RPA.NuGet.ViewModels
 
             // В выпадающий список попадают все включённые источники (сетевые и локальные папки);
             // выключенные строки видны только в оверлее «Package sources».
-            IReadOnlyList<NuGetSourceDefinition> sources = _sourcesService.Load(folder)
+            IReadOnlyList<NuGetSourceDefinition> sources = (LoadProjectSources?.Invoke() ?? Enumerable.Empty<NuGetSourceDefinition>())
                 .Where(source => source.IsEnabled)
                 .ToList();
 
@@ -1277,12 +1309,11 @@ namespace RPA.NuGet.ViewModels
         private void ReloadSources()
         {
             string previousUrl = _selectedSource?.Url;
-            string folder = GetProjectFolder();
 
             if (_fixedSource)
                 return;
 
-            IReadOnlyList<NuGetSourceDefinition> definitions = _sourcesService.Load(folder)
+            IReadOnlyList<NuGetSourceDefinition> definitions = (LoadProjectSources?.Invoke() ?? Enumerable.Empty<NuGetSourceDefinition>())
                 .Where(source => source.IsEnabled)
                 .ToList();
 
@@ -1349,8 +1380,7 @@ namespace RPA.NuGet.ViewModels
 
         private void ReloadSourceItems()
         {
-            string folder = GetProjectFolder();
-            IReadOnlyList<NuGetSourceDefinition> definitions = _sourcesService.Load(folder);
+            IReadOnlyList<NuGetSourceDefinition> definitions = (LoadProjectSources?.Invoke() ?? Enumerable.Empty<NuGetSourceDefinition>()).ToList();
 
             SourceItems.Clear();
             foreach (NuGetSourceDefinition definition in definitions)
@@ -1362,6 +1392,7 @@ namespace RPA.NuGet.ViewModels
             }
 
             SelectedSourceItem = SourceItems.FirstOrDefault();
+            LoadExternalSources();
         }
 
         /// <summary>Галочка «Enabled» сохраняется сразу — как в Visual Studio.</summary>
@@ -1463,12 +1494,12 @@ namespace RPA.NuGet.ViewModels
             PersistSources();
         }
 
-        /// <summary>Записывает список в <c>NuGet.Config</c> и обновляет выпадающий список источников.</summary>
+        /// <summary>Записывает per-project список источников и обновляет выпадающий список источников.</summary>
         private void PersistSources()
         {
             try
             {
-                _sourcesService.Save(GetProjectFolder(), SourceItems.Select(item => item.ToDefinition()).ToList());
+                SaveProjectSources?.Invoke(SourceItems.Select(item => item.ToDefinition()).ToList());
                 SourceEditError = null;
                 ReloadSources();
                 StatusText = "Package sources updated.";
@@ -1479,6 +1510,106 @@ namespace RPA.NuGet.ViewModels
                 StatusText = SourceEditError;
             }
         }
+
+        private void LoadExternalSources()
+        {
+            ExternalSources.Clear();
+
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (NuGetSourceDefinition source in _sourcesService.LoadMachineAndUserSources()
+                         .Concat(_sourcesService.LoadSolutionSources(GetProjectFolder())))
+            {
+                if (source == null || string.IsNullOrWhiteSpace(source.Url))
+                    continue;
+
+                if (seen.Add(source.Url))
+                    ExternalSources.Add(source);
+            }
+
+            SelectedExternalSource = ExternalSources.FirstOrDefault();
+        }
+
+        private void ImportSelectedExternalSource()
+        {
+            if (SelectedExternalSource == null)
+                return;
+
+            var copy = new NuGetSourceDefinition
+            {
+                Name = SelectedExternalSource.Name,
+                Url = SelectedExternalSource.Url,
+                IsEnabled = true
+            };
+
+            if (SourceItems.Any(item =>
+                    string.Equals(item.Name, copy.Name, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(item.Source, copy.Url, StringComparison.OrdinalIgnoreCase)))
+            {
+                SourceEditError = "A source with this name or address already exists.";
+                StatusText = SourceEditError;
+                return;
+            }
+
+            var item = new NuGetSourceItemViewModel(copy);
+            item.PropertyChanged += SourceItem_PropertyChanged;
+            SourceItems.Add(item);
+            SelectedSourceItem = item;
+            SourceEditError = null;
+            PersistSources();
+        }
+
+        private void ExportProjectSourcesToConfig()
+        {
+            try
+            {
+                string path = ResolveProjectConfigPath();
+                _sourcesService.WriteConfig(path, CurrentProjectSources());
+                SourceEditError = null;
+                StatusText = "Project sources exported to " + path;
+            }
+            catch (Exception ex)
+            {
+                SourceEditError = "Failed to export package sources: " + ex.Message;
+                StatusText = SourceEditError;
+            }
+        }
+
+        private void CreateNuGetConfig()
+        {
+            try
+            {
+                string path = ResolveProjectConfigPath();
+                if (File.Exists(path))
+                {
+                    StatusText = "NuGet.Config already exists: " + path;
+                    return;
+                }
+
+                _sourcesService.WriteConfig(path, CurrentProjectSources());
+                SourceEditError = null;
+                StatusText = "NuGet.Config created: " + path;
+            }
+            catch (Exception ex)
+            {
+                SourceEditError = "Failed to create NuGet.Config: " + ex.Message;
+                StatusText = SourceEditError;
+            }
+        }
+
+        private string ResolveProjectConfigPath()
+        {
+            string folder = GetProjectFolder();
+            return string.IsNullOrWhiteSpace(folder)
+                ? Path.Combine(Directory.GetCurrentDirectory(), "NuGet.Config")
+                : Path.Combine(folder, "NuGet.Config");
+        }
+
+        private IReadOnlyList<NuGetSourceDefinition> CurrentProjectSources()
+        {
+            return LoadProjectSources?.Invoke() ?? new List<NuGetSourceDefinition>();
+        }
+
+
 
         private string GetProjectFolder()
         {

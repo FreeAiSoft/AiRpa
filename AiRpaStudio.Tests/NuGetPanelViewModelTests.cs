@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -269,34 +270,56 @@ public class NuGetPanelViewModelTests
         }
     }
 
+
     [Test]
-    public void Sources_WithoutConfig_SeedsDisabledNuGetOrgInConfig()
+    public void Sources_WithoutConfig_DoesNotCreateNuGetConfig()
     {
         string empty = Path.Combine(Path.GetTempPath(), "nuget-empty-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(empty);
 
         try
         {
-            var sources = new NuGetSourcesService().Load(empty);
+            var service = new NuGetSourcesService();
+            var sources = service.Load(empty);
 
-            string configPath = Path.Combine(empty, "NuGet.Config");
-            Assert.That(File.Exists(configPath), Is.True, "первичная настройка обязана создать NuGet.Config");
-
-            string config = File.ReadAllText(configPath);
             Assert.Multiple(() =>
             {
-                Assert.That(config, Does.Contain("nuget.org"), "seed-источник nuget.org записан в конфигурацию");
-                Assert.That(config, Does.Contain("https://api.nuget.org/v3/index.json"), "URL NuGet API живёт только здесь");
-                Assert.That(config, Does.Contain("disabledPackageSources"), "источник по умолчанию отключён");
-                Assert.That(config, Does.Contain("value=\"true\""), "nuget.org помечен как отключённый");
+                Assert.That(sources, Is.Not.Null);
+                Assert.That(File.Exists(Path.Combine(empty, "NuGet.Config")), Is.False,
+                    "студия не должна создавать NuGet.Config в каталоге чужого проекта");
+                Assert.That(Directory.GetFiles(empty), Is.Empty,
+                    "чтение источников не должно оставлять файлы в каталоге проекта");
             });
-
-            Assert.That(sources.Any(source => source.Name == "nuget.org" && !source.IsEnabled), Is.True,
-                "Load возвращает nuget.org отключённым");
         }
         finally
         {
             Directory.Delete(empty, true);
+        }
+    }
+
+
+    [Test]
+    public void ProjectSources_AreLoadedThroughHook()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            string project = Path.Combine(directory, "Demo.csproj");
+            File.WriteAllText(project, "<Project Sdk=\"Microsoft.NET.Sdk\"><ItemGroup /></Project>");
+
+            var model = new NuGetPanelViewModel();
+            model.LoadProjectSources = () => new List<NuGetSourceDefinition>
+            {
+                new NuGetSourceDefinition { Name = "corp", Url = "https://corp.example.org/v3/index.json", IsEnabled = true }
+            };
+
+            Assert.That(model.LoadProject(project), Is.True);
+            Assert.That(model.Sources.Select(source => source.Name), Does.Contain("corp"),
+                "источники проекта читаются через хук, а не из NuGet.Config проекта");
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
         }
     }
 

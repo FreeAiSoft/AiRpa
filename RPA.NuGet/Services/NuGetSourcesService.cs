@@ -9,33 +9,24 @@ using RPA.NuGet.Models;
 namespace RPA.NuGet.Services
 {
     /// <summary>
-    /// Источники пакетов для выпадающего списка «Package source». Читает обычную цепочку
-    /// <c>NuGet.Config</c> (solution → user → global, как это делает NuGet restore) и сообщает,
-    /// настроено ли сопоставление источников (package source mapping) — панель показывает это
-    /// предупреждением, как Visual Studio.
+    /// Чтение источников пакетов NuGet с машины/решения и запись по явному запросу (экспорт/создание
+    /// конфигурации). Per-project список источников студии здесь не хранится и не пишется: он живёт в
+    /// собственном хранилище AiRpaStudio, а панель подключает его хуками.
+    /// <para>
+    /// Сервис НЕ создаёт и не изменяет <c>NuGet.Config</c> автоматически — только читает существующие
+    /// конфиги, а запись возможна исключительно через явные методы (<see cref="Save"/>).
+    /// </para>
     /// </summary>
     public class NuGetSourcesService
     {
-        /// <summary>Единственное место, где в коде хранится URL NuGet API — seed первичной настройки.</summary>
-        private const string DefaultNuGetSourceUrl = "https://api.nuget.org/v3/index.json";
-
-        private const string DefaultNuGetSourceName = "nuget.org";
-
         public const string SourceMappingSection = "packageSourceMapping";
 
         /// <summary>
-        /// Источники, доступные проекту в <paramref name="projectDirectory"/>. Если рядом с проектом
-        /// (или на уровне пользователя) нет <c>NuGet.Config</c> с источниками — создаётся отключённый
-        /// источник nuget.org (первичная настройка источников).
+        /// Объединённый список источников из цепочки <c>NuGet.Config</c> (solution → user → machine),
+        /// как это делает NuGet restore. Ничего не пишет и не создаёт файлы.
         /// </summary>
         public IReadOnlyList<NuGetSourceDefinition> Load(string projectDirectory)
         {
-            // Первичная настройка: если конфигурации нет или в ней нет источников, создаём
-            // отключённый источник nuget.org. URL NuGet API живёт только здесь и только как seed.
-            string configPath = ResolveSeedConfigPath(projectDirectory);
-            if (!ConfigHasPackageSources(configPath))
-                EnsureDefaultSource(configPath);
-
             ISettings settings = TryLoadSettings(projectDirectory);
             if (settings == null)
             {
@@ -55,8 +46,63 @@ namespace RPA.NuGet.Services
         }
 
         /// <summary>
-        /// Записывает список источников в ближайший <c>NuGet.Config</c> (уровня solution/user):
-        /// имя, адрес и состояние «Enabled» (NuGet хранит выключенные источники отдельной секцией).
+        /// Источники уровня машины и пользователя (как «Package Sources» в Visual Studio). Только чтение;
+        /// источники помечаются <see cref="NuGetSourceOrigin.Machine"/>/<see cref="NuGetSourceOrigin.User"/>
+        /// и <see cref="NuGetSourceDefinition.IsReadOnly"/> = true.
+        /// </summary>
+        public IReadOnlyList<NuGetSourceDefinition> LoadMachineAndUserSources()
+        {
+            var files = new List<ConfigFile>();
+            foreach (string directory in MachineConfigDirectories())
+            {
+                if (!Directory.Exists(directory))
+                    continue;
+
+                foreach (string path in Directory.EnumerateFiles(directory, "*.config", SearchOption.TopDirectoryOnly))
+                    files.Add(new ConfigFile { Path = path, Origin = NuGetSourceOrigin.Machine });
+            }
+
+            string userConfig = UserConfigPath();
+            if (File.Exists(userConfig))
+                files.Add(new ConfigFile { Path = userConfig, Origin = NuGetSourceOrigin.User });
+
+            return MergeConfigFiles(files);
+        }
+
+        /// <summary>
+        /// Источники уровня решения: <c>NuGet.Config</c>/<c>nuget.config</c> в каждой папке от корня
+        /// диска до каталога проекта. Только чтение (<see cref="NuGetSourceOrigin.Solution"/>).
+        /// </summary>
+        public IReadOnlyList<NuGetSourceDefinition> LoadSolutionSources(string projectDirectory)
+        {
+            var files = new List<ConfigFile>();
+            string current = string.IsNullOrWhiteSpace(projectDirectory)
+                ? Directory.GetCurrentDirectory()
+                : projectDirectory;
+
+            // Идём от корня вниз к проекту — порядок от низшего приоритета к высшему.
+            var chain = new Stack<string>();
+            for (DirectoryInfo directory = new DirectoryInfo(current); directory != null; directory = directory.Parent)
+                chain.Push(directory.FullName);
+
+            while (chain.Count > 0)
+            {
+                string folder = chain.Pop();
+                string nugetConfig = Path.Combine(folder, "NuGet.Config");
+                string lowerConfig = Path.Combine(folder, "nuget.config");
+
+                if (File.Exists(nugetConfig))
+                    files.Add(new ConfigFile { Path = nugetConfig, Origin = NuGetSourceOrigin.Solution });
+                if (File.Exists(lowerConfig))
+                    files.Add(new ConfigFile { Path = lowerConfig, Origin = NuGetSourceOrigin.Solution });
+            }
+
+            return MergeConfigFiles(files);
+        }
+
+        /// <summary>
+        /// Записывает список источников в ближайший <c>NuGet.Config</c> (уровня solution/user).
+        /// Используется только для явного действия пользователя «Export to NuGet.Config».
         /// </summary>
         public void Save(string projectDirectory, IEnumerable<NuGetSourceDefinition> sources)
         {
@@ -81,6 +127,54 @@ namespace RPA.NuGet.Services
             provider.SavePackageSources(packageSources);
             NuGetLog.Info("NuGet sources saved: " + packageSources.Count + " source(s)");
         }
+
+        /// <summary>
+        /// Явно записывает источники в <c>NuGet.Config</c> по указанному пути (создаёт/перезаписывает файл).
+        /// Используется только по команде пользователя («Create/Export NuGet.Config»).
+        /// </summary>
+        public void WriteConfig(string configPath, IEnumerable<NuGetSourceDefinition> sources)
+        {
+            if (string.IsNullOrWhiteSpace(configPath))
+                throw new ArgumentNullException(nameof(configPath));
+            if (sources == null)
+                throw new ArgumentNullException(nameof(sources));
+
+            var document = new XDocument(new XElement("configuration"));
+            XElement root = document.Root;
+
+            var packageSources = new XElement("packageSources");
+            var disabled = new XElement("disabledPackageSources");
+
+            foreach (NuGetSourceDefinition source in sources)
+            {
+                if (source == null || string.IsNullOrWhiteSpace(source.Url))
+                    continue;
+
+                string name = string.IsNullOrWhiteSpace(source.Name) ? source.Url : source.Name.Trim();
+                packageSources.Add(new XElement("add",
+                    new XAttribute("key", name),
+                    new XAttribute("value", source.Url.Trim())));
+
+                if (!source.IsEnabled)
+                {
+                    disabled.Add(new XElement("add",
+                        new XAttribute("key", name),
+                        new XAttribute("value", "true")));
+                }
+            }
+
+            root.Add(packageSources);
+            if (disabled.Elements("add").Any())
+                root.Add(disabled);
+
+            string directory = Path.GetDirectoryName(configPath);
+            if (!string.IsNullOrEmpty(directory))
+                Directory.CreateDirectory(directory);
+
+            document.Save(configPath);
+            NuGetLog.Info("NuGet.Config written: " + configPath);
+        }
+
 
         /// <summary>Настроено ли сопоставление источников (<c>&lt;packageSourceMapping&gt;</c> в NuGet.Config).</summary>
         public bool IsSourceMappingConfigured(string projectDirectory)
@@ -130,106 +224,12 @@ namespace RPA.NuGet.Services
                 {
                     Name = string.IsNullOrWhiteSpace(source.Name) ? source.Source : source.Name,
                     Url = source.Source,
-                    IsEnabled = source.IsEnabled
+                    IsEnabled = source.IsEnabled,
+                    Origin = NuGetSourceOrigin.Solution,
                 });
             }
 
             return result;
-        }
-
-        /// <summary>
-        /// Есть ли в конкретном <c>NuGet.Config</c> явно объявленные источники. Проверяем файл,
-        /// а не объединённую цепочку: так первичная настройка срабатывает и при наличии
-        /// пользовательского/глобального конфига.
-        /// </summary>
-        private static bool ConfigHasPackageSources(string configPath)
-        {
-            try
-            {
-                if (!File.Exists(configPath))
-                    return false;
-
-                XDocument document = XDocument.Load(configPath);
-                XElement packageSources = document.Root?.Element("packageSources");
-                return packageSources != null && packageSources.Elements("add").Any();
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Первичная настройка источников пакетов: записывает источник nuget.org
-        /// (URL api.nuget.org) отключённым.
-        /// </summary>
-        private void EnsureDefaultSource(string configPath)
-        {
-            try
-            {
-                NuGetLog.Info("Seeding disabled nuget.org source into " + configPath);
-                WriteSeedConfig(configPath);
-            }
-            catch (Exception ex)
-            {
-                NuGetLog.Error(ex, "Failed to seed disabled nuget.org source");
-            }
-        }
-
-        private static string ResolveSeedConfigPath(string projectDirectory)
-        {
-            if (!string.IsNullOrWhiteSpace(projectDirectory) && Directory.Exists(projectDirectory))
-                return Path.Combine(projectDirectory, "NuGet.Config");
-
-            return Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "NuGet",
-                "NuGet.Config");
-        }
-
-        private void WriteSeedConfig(string configPath)
-        {
-            XDocument document = File.Exists(configPath) ? XDocument.Load(configPath) : new XDocument(new XElement("configuration"));
-            XElement root = document.Root;
-            if (root == null)
-            {
-                root = new XElement("configuration");
-                document.Add(root);
-            }
-
-            XElement packageSources = root.Element("packageSources");
-            if (packageSources == null)
-            {
-                packageSources = new XElement("packageSources");
-                root.AddFirst(packageSources);
-            }
-
-            if (packageSources.Elements("add").Any(e =>
-                    string.Equals((string)e.Attribute("key"), DefaultNuGetSourceName, StringComparison.OrdinalIgnoreCase)))
-            {
-                return;
-            }
-
-            packageSources.Add(new XElement("add",
-                new XAttribute("key", DefaultNuGetSourceName),
-                new XAttribute("value", DefaultNuGetSourceUrl)));
-
-            XElement disabled = root.Element("disabledPackageSources");
-            if (disabled == null)
-            {
-                disabled = new XElement("disabledPackageSources");
-                root.Add(disabled);
-            }
-
-            disabled.Add(new XElement("add",
-                new XAttribute("key", DefaultNuGetSourceName),
-                new XAttribute("value", "true")));
-
-            string directory = Path.GetDirectoryName(configPath);
-            if (!string.IsNullOrEmpty(directory))
-                Directory.CreateDirectory(directory);
-
-            document.Save(configPath);
         }
 
         private static IEnumerable<PackageSource> LoadPackageSources(ISettings settings)
@@ -262,6 +262,147 @@ namespace RPA.NuGet.Services
             {
                 return null;
             }
+        }
+
+        private static IEnumerable<string> MachineConfigDirectories()
+        {
+            yield return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+                "NuGet", "Config");
+            yield return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                "NuGet", "Config");
+        }
+
+        private static string UserConfigPath()
+        {
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "NuGet",
+                "NuGet.Config");
+        }
+
+        /// <summary>
+        /// Сливает файлы в порядке приоритета (сначала машина, затем пользователь, затем решение) и
+        /// помечает происхождение. По ключу источника «ближайший» файл побеждает, как в NuGet.
+        /// </summary>
+        private static List<NuGetSourceDefinition> MergeConfigFiles(IEnumerable<ConfigFile> files)
+        {
+            var merged = new Dictionary<string, NuGetSourceDefinition>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (ConfigFile file in files)
+            {
+                if (!File.Exists(file.Path))
+                    continue;
+
+                ConfigReadResult parsed;
+                try
+                {
+                    parsed = ReadConfig(file.Path);
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+
+                if (parsed.ClearsPackageSources)
+                    merged.Clear();
+
+                foreach (RawSource raw in parsed.Sources)
+                {
+                    if (string.IsNullOrWhiteSpace(raw.Url))
+                        continue;
+
+                    string key = string.IsNullOrWhiteSpace(raw.Key) ? raw.Url : raw.Key;
+                    var definition = new NuGetSourceDefinition
+                    {
+                        Name = string.IsNullOrWhiteSpace(raw.Name) ? raw.Url : raw.Name,
+                        Url = raw.Url,
+                        IsEnabled = raw.IsEnabled,
+                        Origin = file.Origin,
+                    };
+                    merged[key] = definition;
+                }
+            }
+
+            return merged.Values
+                .OrderBy(source => source.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static ConfigReadResult ReadConfig(string path)
+        {
+            var document = XDocument.Load(path);
+            var result = new ConfigReadResult();
+
+            XElement root = document.Root;
+            if (root == null)
+                return result;
+
+            XElement packageSources = root.Element("packageSources");
+            XElement disabled = root.Element("disabledPackageSources");
+
+            if (packageSources != null)
+                result.ClearsPackageSources = packageSources.Element("clear") != null;
+
+            var disabledKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (disabled != null)
+            {
+                if (disabled.Element("clear") != null)
+                    disabledKeys.Clear();
+
+                foreach (XElement add in disabled.Elements("add"))
+                {
+                    string key = (string)add.Attribute("key");
+                    if (string.IsNullOrWhiteSpace(key))
+                        continue;
+
+                    bool isDisabled = string.Equals((string)add.Attribute("value"), "true", StringComparison.OrdinalIgnoreCase);
+                    if (isDisabled)
+                        disabledKeys.Add(key);
+                }
+            }
+
+            if (packageSources != null)
+            {
+                foreach (XElement add in packageSources.Elements("add"))
+                {
+                    string key = (string)add.Attribute("key");
+                    string value = (string)add.Attribute("value");
+                    if (string.IsNullOrWhiteSpace(value))
+                        continue;
+
+                    result.Sources.Add(new RawSource
+                    {
+                        Key = key,
+                        Name = key,
+                        Url = value,
+                        IsEnabled = !disabledKeys.Contains(key ?? value)
+                    });
+                }
+            }
+
+            return result;
+        }
+
+        private sealed class ConfigFile
+        {
+            public string Path;
+            public NuGetSourceOrigin Origin;
+        }
+
+        private sealed class ConfigReadResult
+        {
+            public bool ClearsPackageSources;
+            public readonly List<RawSource> Sources = new List<RawSource>();
+        }
+
+        private sealed class RawSource
+        {
+            public string Key;
+            public string Name;
+            public string Url;
+            public bool IsEnabled;
         }
     }
 }

@@ -3,7 +3,7 @@ using System;
 namespace RPA.NuGet.Models
 {
     /// <summary>
-    /// Источник пакетов для выпадающего списка «Package source»: берётся из <c>NuGet.Config</c>
+    /// Источник пакетов для выпадающего списка «Package source»: берётся из per-project хранилища студии или <c>NuGet.Config</c>
     /// (уровни solution/user/global).
     /// </summary>
     public class NuGetSourceDefinition
@@ -13,11 +13,21 @@ namespace RPA.NuGet.Models
         /// <summary>Адрес источника (или путь к локальной папке для offline-пакетов).</summary>
         public string Url { get; set; }
 
-        /// <summary>Источник добавляется только через конфигурацию (NuGet.Config).</summary>
+        /// <summary>Источник добавляется/редактируется только через оверлей «Package sources».</summary>
         // IsFallback удалён: панель больше не подставляет nuget.org в памяти.
 
         /// <summary>Состояние галочки «Enabled» в оверлее источников.</summary>
         public bool IsEnabled { get; set; } = true;
+
+        /// <summary>Откуда взят источник: собственное хранилище проекта или внешний NuGet.Config.</summary>
+        public NuGetSourceOrigin Origin { get; set; } = NuGetSourceOrigin.Project;
+
+        /// <summary>
+        /// Внешние источники (Solution/User/Machine) менять нельзя — их можно только импортировать
+        /// копией в источники проекта.
+        /// </summary>
+        public bool IsReadOnly => Origin != NuGetSourceOrigin.Project;
+
 
         /// <summary>
         /// Источник доступен по сети. Локальные папки-источники (offline-пакеты) в списке видны

@@ -397,6 +397,8 @@
     <Compile Include="Core\Validation\ExpressionFieldVerdicts.cs" />
     <Compile Include="Core\WorkflowSessionState.cs" />
     <Compile Include="Core\NuGetSourceSelectionStore.cs" />
+    <Compile Include="Core\NuGetPaths.cs" />
+    <Compile Include="Core\NuGetProjectSourcesStore.cs" />
     <!-- РџР°РЅРµР»СЊ РґРѕРєСѓРјРµРЅС‚РѕРІ: Р°РєС‚РёРІР°С†РёСЏ СЃРѕСЃРµРґРЅРµР№ РІРєР»Р°РґРєРё РїСЂРё Р·Р°РєСЂС‹С‚РёРё (РєР°Рє РІ Visual Studio). -->
     <Compile Include="Core\DocumentTabPolicy.cs" />
     <Compile Include="Core\DocumentTabsCloseCoordinator.cs" />

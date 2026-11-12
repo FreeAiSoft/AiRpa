@@ -4,6 +4,8 @@ using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Media;
 using LogControlLibrary.Converters;
+using RPA.Chat.Services;
+using RPA.Chat.ViewModels;
 using RPA.Helpers;
 
 namespace AiRpaStudio.Tests;
@@ -366,14 +368,54 @@ public class LogAndChatThemeTests
     }
 
     [Test]
-    public void ChatViewModel_ModeAccentsAreNeutral()
+    public void ChatViewModel_ModeAccentsAreSemantic()
     {
         string source = ReadSource(@"RPA.Chat\ViewModels\ChatViewModel.cs");
 
-        foreach (string accent in new[] { "#64B5F6", "#1976D2", "#4CAF50", "#F44336" })
+        foreach (string accent in new[] { "#2196F3", "#4CAF50", "#F44336" })
         {
-            Assert.That(source, Does.Not.Contain(accent),
-                $"акцент режима {accent} в ChatViewModel заменяется нейтральным тоном (акцент запрещён §1)");
+            Assert.That(source, Does.Contain(accent),
+                $"семантический акцент режима {accent} отсутствует в ChatViewModel");
+        }
+    }
+
+    [Test]
+    public void ChatViewModel_ModeAccents_MatchSemanticColors()
+    {
+        string temp = Path.Combine(Path.GetTempPath(), "AiRpaStudio.Tests." + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(temp);
+        ChatPaths.OverrideDataDirectory(temp);
+        try
+        {
+            ChatViewModel viewModel = new();
+            Color plan = ColorOf(viewModel.ModeItems[0].Accent);
+            Color act = ColorOf(viewModel.ModeItems[1].Accent);
+            Color help = ColorOf(viewModel.ModeItems[2].Accent);
+
+            Assert.That(plan.B, Is.GreaterThan(plan.R), "Plan should be blue");
+            Assert.That(act.G, Is.GreaterThan(act.R), "Act should be green");
+            Assert.That(help.R, Is.GreaterThan(help.G), "Help should be red");
+
+            viewModel.ModeName = "Act";
+            Assert.That(ColorOf(viewModel.ModeAccentBrush), Is.EqualTo(act));
+            viewModel.ModeName = "Help";
+            Assert.That(ColorOf(viewModel.ModeAccentBrush), Is.EqualTo(help));
+            viewModel.ModeName = "Plan";
+            Assert.That(ColorOf(viewModel.ModeAccentBrush), Is.EqualTo(plan));
+        }
+        finally
+        {
+            ChatPaths.OverrideDataDirectory(null);
+            try
+            {
+                Directory.Delete(temp, true);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
         }
     }
 

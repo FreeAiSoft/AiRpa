@@ -56,7 +56,7 @@
   Separator/SeparatorStrong/Foreground/ForegroundMuted` + `Studio.Semantic.Validation`), шрифт —
   только `{DynamicResource Studio.FontFamily}`, иконки — векторные `Path` (новых зависимостей в
   `RPA.NuGet` нет). Стражи: `AiRpaStudio.Tests\NuGetPanelThemeTests.cs`.
-- Оверлей «Package sources» (`SourcesOverlay`) накрывает строки 0–2 корневого `Grid` (`Grid.RowSpan="3"`), а не строку состояния: её непрозрачная полоса с 1px-разделителем рисовалась поверх оверлея и «резала» подпись «Sources are stored in NuGet.Config…». Страж — `AiRpaStudio.Tests\NuGetPanelLayoutTests.cs` (`SourcesOverlay_FootnoteIsNotClippedByStatusBar`).
+- Оверлей «Package sources» (`SourcesOverlay`) накрывает строки 0–2 корневого `Grid` (`Grid.RowSpan="3"`), а не строку состояния: её непрозрачная полоса с 1px-разделителем рисовалась поверх оверлея и «резала» подпись «Project sources are stored in AiRpaStudio…». Страж — `AiRpaStudio.Tests\NuGetPanelLayoutTests.cs` (`SourcesOverlay_FootnoteIsNotClippedByStatusBar`).
 
 - Выбор источника в комбобоксе персистится **на воркспейс** в настройке `NuGetSelectedSources`
   (JSON-словарь `workspaceFolder → sourceUrl`); парсинг/запись — `Core\NuGetSourceSelectionStore.cs`,
@@ -97,11 +97,20 @@
   фокус пользователя не перебивает), Ctrl+L идёт через ту же защищённую точку.
   Страж — `AiRpaStudio.Tests\NuGetPanelFocusTests.cs`.
 
-- URL NuGet API (`https://api.nuget.org/v3/index.json`) живёт **только** в первичной настройке
-  источников пакетов (`NuGetSourcesService`): при отсутствии/пустом `NuGet.Config` создаётся seed-источник
-  `nuget.org` с `IsEnabled=false`. В рабочем коде жёстких URL и фолбэков на nuget.org (иконки, README,
-  скачивание, «Report Abuse») нет; поиск/версии/скачивание идут **только** через выбранный источник,
-  весь процесс логируется через `NuGetLog`. Стражи — `NuGetPanelViewModelTests.Sources_WithoutConfig_SeedsDisabledNuGetOrgInConfig`,
+- Список источников пакетов проекта — **собственное per-project хранилище AiRpaStudio**, а не
+  `NuGet.Config` проекта: JSON-словарь `workspaceFolder → [sources]` в `%AppData%\AiRpaStudio\NuGet\nuget_sources.json`
+  (`Core\NuGetProjectSourcesStore.cs` + `Core\NuGetPaths.cs`), панель читает/пишет хуками
+  `LoadProjectSources`/`SaveProjectSources`. Студия **никогда** не создаёт и не правит `NuGet.Config`
+  в каталоге проекта автоматически.
+- Внешние источники из `NuGet.Config` (машина/пользователь/решение) читаются **только на чтение**
+  (`NuGetSourcesService.LoadMachineAndUserSources`/`LoadSolutionSources`) и показываются в оверлее
+  отдельной секцией; их можно импортировать копией в источники проекта (`ImportSourceCommand`).
+- Создание/редактирование/экспорт `NuGet.Config` — только по явным кнопкам оверлея
+  (`CreateNuGetConfigCommand`, `ExportProjectSourcesToConfigCommand`, `OpenConfigFileCommand`), через
+  `NuGetSourcesService.WriteConfig`/`Save`. Жёстких URL nuget.org в рабочем коде нет: поиск/версии/
+  скачивание идут только через выбранный источник, всё логируется через `NuGetLog`.
+  Стражи — `NuGetProjectSourcesStoreTests`, `NuGetSourcesConfigTests`,
+  `NuGetPanelViewModelTests.Sources_WithoutConfig_DoesNotCreateNuGetConfig`,
   `NuGetPanelLayoutTests.IconUrl_NoFallbackWhenSourceHasNoIconUrl`.
 
 ## 4.7.2-робот на 4.8-хосте (`CP-08`)
@@ -606,9 +615,9 @@
     (ни одного `<SolidColorBrush>` в контролах, иначе переключение темы не доходит до элемента).
     В студии словарь на лету перекрывает мост `RPA.Chat\Themes\ChatStudioBridge.cs`: таблица
     «ключ чата → ключ `Studio.*`» + `Apply(ResourceDictionary, ResourceDictionary)` (зовётся из
-    `ChatPanel.ApplyTheme`), без ресурсов студии мост ничего не меняет. Акцентных цветов нет:
-    `Dark.Accent`/`Dark.Primary`/`Dark.ControlPressed` — нейтральные `Selected`/`Foreground`,
-    режимы Plan/Act/Help различаются яркостью серого в `ChatViewModel`.
+    `ChatPanel.ApplyTheme`), без ресурсов студии мост ничего не меняет. Поверхностные акценты
+    нейтральны (`Dark.Accent`/`Dark.Primary`/`Dark.ControlPressed` → `Selected`/`Foreground`);
+    режимы Plan/Act/Help — голубой/зелёный/красный в `ChatViewModel`: активная кнопка залита акцентом с белым текстом, неактивные прозрачные (при наведении — мягкая серая подсветка) (`SegmentedToggle`), рамка поля ввода красится в цвет режима.
     Тесты: `AiRpaStudio.Tests\ChatThemeBridgeTests.cs`, `LogAndChatThemeTests.cs`.
   * Порядок смены темы (обязателен, иначе чат отстаёт на один переключатель): `ChatViewModel.IsDarkTheme`
     сначала вызывает хук `ThemeApplying` (на него подписана студия в `MainView.InitializeControls`:

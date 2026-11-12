@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="RPA.NuGet.Views.NuGetPanel"
+<UserControl x:Class="RPA.NuGet.Views.NuGetPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="clr-namespace:RPA.NuGet.Converters"
@@ -72,6 +72,26 @@
                                Foreground="{DynamicResource Studio.ForegroundMuted}" />
                 </Grid>
             </DataTemplate>
+
+            <!-- Строка внешнего источника (NuGet.Config машины/решения): только чтение. -->
+            <DataTemplate x:Key="NuGet.ExternalSourceRowTemplate">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="70" />
+                        <ColumnDefinition Width="1.1*" />
+                        <ColumnDefinition Width="2*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding Origin}" Margin="4,0,4,0"
+                               VerticalAlignment="Center" Foreground="{DynamicResource Studio.ForegroundMuted}" />
+                    <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="2,0,8,0"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource Studio.Foreground}" />
+                    <TextBlock Grid.Column="2" Text="{Binding Url}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource Studio.ForegroundMuted}" />
+                </Grid>
+            </DataTemplate>
+
 
             <!-- Строка списка пакетов: иконка, идентификатор, авторы, описание, версия и кнопки
                  установки/удаления, которые появляются при наведении мыши на плашку. -->
@@ -688,6 +708,9 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <!-- Заголовок -->
@@ -831,19 +854,54 @@
                             </StackPanel>
                         </Button>
                     </StackPanel>
-
-                    <Button HorizontalAlignment="Right"
-                            VerticalAlignment="Center"
-                            Content="Open NuGet.Config"
-                            Style="{StaticResource NuGet.LinkButtonStyle}"
-                            Command="{Binding OpenConfigFileCommand}" />
+                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="Open NuGet.Config"
+                                Style="{StaticResource NuGet.LinkButtonStyle}"
+                                Command="{Binding OpenConfigFileCommand}" />
+                        <Button Content="Export to NuGet.Config"
+                                Margin="10,0,0,0"
+                                Style="{StaticResource NuGet.LinkButtonStyle}"
+                                Command="{Binding ExportProjectSourcesToConfigCommand}" />
+                        <Button Content="Create NuGet.Config"
+                                Margin="10,0,0,0"
+                                Style="{StaticResource NuGet.LinkButtonStyle}"
+                                Command="{Binding CreateNuGetConfigCommand}" />
+                    </StackPanel>
                 </Grid>
 
                 <TextBlock x:Name="SourcesOverlayFootnote" Grid.Row="5"
                            Margin="0,8,0,0"
                            TextWrapping="Wrap"
-                           Text="Sources are stored in NuGet.Config."
+                           Text="Project sources are stored in AiRpaStudio. NuGet.Config is read and exported on demand."
                            Style="{StaticResource NuGet.MutedTextStyle}" />
+                <TextBlock Grid.Row="6"
+                           Margin="0,14,0,4"
+                           FontWeight="Bold"
+                           Text="Sources from NuGet.Config (read-only)"
+                           Foreground="{DynamicResource Studio.Foreground}" />
+
+                <ListBox Grid.Row="7"
+                         Margin="0,2,0,0"
+                         MaxHeight="120"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ItemTemplate="{StaticResource NuGet.ExternalSourceRowTemplate}"
+                         ItemsSource="{Binding ExternalSources}"
+                         SelectedItem="{Binding SelectedExternalSource, Mode=TwoWay}">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource NuGet.OverlayRowStyle}">
+                            <Setter Property="Padding" Value="0,3" />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <Button Grid.Row="8"
+                        Margin="0,6,0,0"
+                        HorizontalAlignment="Right"
+                        Content="Add to project"
+                        Style="{StaticResource NuGet.RowButtonStyle}"
+                        Command="{Binding ImportSourceCommand}" />
             </Grid>
         </Border>
 

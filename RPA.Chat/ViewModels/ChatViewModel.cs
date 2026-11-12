@@ -115,9 +115,9 @@ namespace RPA.Chat.ViewModels
             messagesView.Filter = m => !ReferenceEquals(m, _messages.FirstOrDefault());
             _messages.CollectionChanged += OnMessagesCollectionChanged;
 
-            _modeItems.Add(new SegmentedToggleItem { Label = "Plan", Value = "Plan", Accent = ModeBrush("#6E6E6E"), ToolTip = "Plan mode" });
-            _modeItems.Add(new SegmentedToggleItem { Label = "Act", Value = "Act", Accent = ModeBrush("#8C8C8C"), ToolTip = "Act mode" });
-            _modeItems.Add(new SegmentedToggleItem { Label = "Help", Value = "Help", Accent = ModeBrush("#A0A0A0"), ToolTip = "Help mode" });
+            _modeItems.Add(new SegmentedToggleItem { Label = "Plan", Value = "Plan", Accent = ModeBrush(AccentHex(AgentMode.Plan)), ToolTip = "Plan mode" });
+            _modeItems.Add(new SegmentedToggleItem { Label = "Act", Value = "Act", Accent = ModeBrush(AccentHex(AgentMode.Act)), ToolTip = "Act mode" });
+            _modeItems.Add(new SegmentedToggleItem { Label = "Help", Value = "Help", Accent = ModeBrush(AccentHex(AgentMode.Help)), ToolTip = "Help mode" });
 
             SendCommand = new AsyncRelayCommand(SendAsync, () => !IsSending);
             StopCommand = new RelayCommand(Stop, () => IsSending);
@@ -249,11 +249,8 @@ namespace RPA.Chat.ViewModels
 
         public AgentMode Mode => _mode;
 
-        /// <summary>Accent brush of the currently selected mode (Plan/Act/Help), used to tint the focused input border.</summary>
-        public Brush ModeAccentBrush =>
-            _mode == AgentMode.Act ? ModeBrush("#8C8C8C")
-            : _mode == AgentMode.Help ? ModeBrush("#A0A0A0")
-            : ModeBrush("#6E6E6E");
+        /// <summary>Accent brush of the currently selected mode (Plan/Act/Help), used to tint the composer input border.</summary>
+        public Brush ModeAccentBrush => ModeBrush(AccentHex(_mode));
 
         public bool CanSend => !IsSending;
 
@@ -502,6 +499,18 @@ namespace RPA.Chat.ViewModels
         public RelayCommand DocsHomeCommand { get; }
         public RelayCommand DocsCloseCommand { get; }
         public RelayCommand RefreshPromptsCommand { get; }
+
+        // Semantic mode accents: Plan = blue, Act = green, Help = red.
+        private const string PlanAccentHex = "#2196F3";
+        private const string ActAccentHex = "#4CAF50";
+        private const string HelpAccentHex = "#F44336";
+
+        private static string AccentHex(AgentMode mode)
+        {
+            return mode == AgentMode.Act ? ActAccentHex
+                : mode == AgentMode.Help ? HelpAccentHex
+                : PlanAccentHex;
+        }
 
         private static Brush ModeBrush(string hex)
         {
@@ -1846,15 +1855,4 @@ namespace RPA.Chat.ViewModels
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
 
