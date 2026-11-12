@@ -101,7 +101,7 @@
         <ProgressBar x:Name="LoadingProgress"
                      Grid.Row="1"
                      IsIndeterminate="True"
-                     Style="{StaticResource MaterialDesignCircularProgressBar}"
+                     Style="{DynamicResource MaterialDesignCircularProgressBar}"
                      Value="0"
                      Width="48"
                      Height="48"

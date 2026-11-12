@@ -56,13 +56,7 @@ public class TfmMatrixGuardTests
         new KnownProject("RPA.NuGet", "net48", "хост",
             "панель NuGet внутри студии"),
         new KnownProject("Shared", "net5.0", "CP-05",
-            "общие модели цепочки IpApiClient/ProxyChecker; роботы не ссылаются"),
-        new KnownProject("IpApiClient", "net6.0", "CP-05",
-            "клиент IP-API для ProxyChecker; вне 4.7.2-рантайма"),
-        new KnownProject("ProxyChecker", "net6.0-windows", "CP-05",
-            "SDK-style net6.0-windows, вне 4.7.2-рантайма; сборка починена 03.11.2026 по TD-12: добавлена ссылка на EasyMvvm"),
-        new KnownProject("EasyMvvm", "net6.0-windows", "CP-05",
-            "отдельный от FW.EasyMvvm проект (net6), в решение не входит; используется ProxyChecker"),
+            "общие модели; роботы не ссылаются"),
         new KnownProject("Net48Robot", "net48", "CP-09",
             "эталонный робот SDK-style на net48 (AiRpaStudio\\TestProcess\\Net48Robot): проверяет второй формат проекта и restore, в поставку не входит; пара к Net472Robot")
 

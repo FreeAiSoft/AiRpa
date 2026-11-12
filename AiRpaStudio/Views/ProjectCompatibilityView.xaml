@@ -103,7 +103,7 @@
                      HorizontalScrollBarVisibility="Disabled"
                      VerticalScrollBarVisibility="Auto"
                      Padding="8"
-                     FontFamily="Consolas"
+                     FontFamily="{DynamicResource Studio.CodeFontFamily}"
                      Background="{DynamicResource Studio.SurfaceAlt}"
                      Foreground="{DynamicResource Studio.Foreground}"
                      BorderBrush="{DynamicResource Studio.SeparatorStrong}" />

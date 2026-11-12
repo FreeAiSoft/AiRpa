@@ -713,6 +713,9 @@
     <None Include="Docs\en\*.md">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <!-- Dev-документы в корне Docs: только исходники (не копируются в output и не попадают в HelpDocumentation). -->
+    <None Include="Docs\Workflow_Agent_Contract.md" />
+    <None Include="Docs\Designer_Variable_ContextMenu_Principles.md" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="VsProject\VsProjectOpener.cs" />

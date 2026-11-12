@@ -15,9 +15,9 @@ namespace AiRpaStudio.Tests;
 /// <para>
 /// Правило: пользовательская документация (`AiRpaStudio\Docs`) хранится строго по локалям —
 /// в корне каталога `Docs` должны находиться только папки `ru` и `en`, а каждый `.md` обязан
-/// лежать внутри `ru/` или `en/`. Никаких `.md` (и вообще файлов) в корне `Docs` быть не может:
-/// их подхватил бы `HelpDocumentation.ReadAll()`/`DocumentationIndex.Build()` как «документацию без
-/// локали», и она попадала бы в выдачу чата вне зависимости от выбранного языка.
+/// лежать внутри `ru/` или `en/`. Исключение — два dev-документа в корне `Docs` (см. `AllowedRootDocs`).
+/// Прочие файлы в корне запрещены: их подхватил бы `HelpDocumentation.ReadAll()`/`DocumentationIndex.Build()`
+/// как «документацию без локали», и она попадала бы в выдачу чата вне зависимости от выбранного языка.
 /// </para>
 /// <para>
 /// Дополнительно страж держит главную страницу русской справки `ru\index.md`: она обязана
@@ -30,6 +30,16 @@ public class DocsLocaleGuardTests
 {
     private const string DocsRelative = @"AiRpaStudio\Docs";
     private const string RuMainPage = "index.md";
+
+    /// <summary>
+    /// Dev-документы в корне Docs, которые не являются пользовательской справкой и не попадают в
+    /// HelpDocumentation (не копируются в output wildcard-ами ru/en). Допускаются стражем точечно — по имени файла.
+    /// </summary>
+    private static readonly string[] AllowedRootDocs =
+    {
+        "Workflow_Agent_Contract.md",
+        "Designer_Variable_ContextMenu_Principles.md"
+    };
 
     [Test]
     public void DocsDirectory_ContainsOnlyLocaleFolders()
@@ -47,7 +57,8 @@ public class DocsLocaleGuardTests
                 string full = IOPath.Combine(docs, name);
                 bool isLocaleDir = (name == "ru" || name == "en")
                     && Directory.Exists(full);
-                return !isLocaleDir;
+                bool isAllowedRootDoc = File.Exists(full) && AllowedRootDocs.Contains(name);
+                return !isLocaleDir && !isAllowedRootDoc;
             })
             .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -71,7 +82,8 @@ public class DocsLocaleGuardTests
             .Where(rel => !rel.StartsWith("ru" + IOPath.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
                        && !rel.StartsWith("en" + IOPath.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
                        && !string.Equals(rel, "ru", StringComparison.OrdinalIgnoreCase)
-                       && !string.Equals(rel, "en", StringComparison.OrdinalIgnoreCase))
+                       && !string.Equals(rel, "en", StringComparison.OrdinalIgnoreCase)
+                       && !AllowedRootDocs.Contains(rel))
             .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
             .ToList();
 

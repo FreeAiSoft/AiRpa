@@ -138,7 +138,7 @@ namespace RPA.Core.Generation
             }
             catch (Exception ex)
             {
-                Log.Write($"[Palette] Не удалось прочитать дисковый кэш палитры: {ex.Message}");
+                Log.Write($"[Palette] Не удалось прочитать дисковый кэш палитры: {ex}");
                 return null;
             }
         }
@@ -183,7 +183,7 @@ namespace RPA.Core.Generation
             }
             catch (Exception ex)
             {
-                Log.Write($"[Palette] Не удалось записать дисковый кэш палитры: {ex.Message}");
+                Log.Write($"[Palette] Не удалось записать дисковый кэш палитры: {ex}");
             }
         }
 

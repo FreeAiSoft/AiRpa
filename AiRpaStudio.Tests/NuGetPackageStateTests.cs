@@ -371,7 +371,7 @@ public class NuGetPackageStateTests
         // привязывалась к Item.Icon напрямую, а Item присваивался без уведомления (иконка вдобавок
         // приходит позже вызова LoadIconAsync). Проверяем фолбэк и приход картинки.
         var item = new NuGetPackageItemViewModel(
-            new NuGetPackageInfo { Id = "Newtonsoft.Json", Version = "13.0.4" },
+            new NuGetPackageInfo { Id = "Newtonsoft.Json", Version = "13.0.4", IconUrl = "https://example.org/icon.png" },
             _ => Task.FromResult<ImageSource>(new DrawingImage()));
 
         var details = new NuGetPackageDetailsViewModel();

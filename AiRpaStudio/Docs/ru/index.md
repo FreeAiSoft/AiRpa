@@ -33,3 +33,4 @@ Windows Workflow Foundation. Позволяет собирать процесс�
 - ⚙️ [Настройки](settings.md) — язык, тема, AI-провайдер, прокси.
 - 🔌 [MCP-сервер](mcp-server.md) — интеграция по Model Context Protocol.
 - 🤖 [Добавление активностей через AI](ai-activities.md) — текстовые команды для чата.
+- 🧰 [Разработка активностей](activity-development.md) — создание собственных библиотек активностей.

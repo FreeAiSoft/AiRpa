@@ -78,13 +78,17 @@ public class NuGetPanelLayoutTests
 
         try
         {
-            model.BrowseItems.Add(new NuGetPackageItemViewModel(new NuGetPackageInfo
+            var item = new NuGetPackageItemViewModel(new NuGetPackageInfo
             {
                 Id = "Newtonsoft.Json",
                 Version = "13.0.4",
                 Authors = "James Newton-King"
-            }));
-            model.SelectedItem = model.BrowseItems[0];
+            });
+            model.BrowseItems.Add(item);
+            // Load short details directly (no fire-and-forget SelectedItem) so width measurement is deterministic.
+            var shortDetails = new NuGetPackageDetails { Id = "Newtonsoft.Json", Version = "13.0.4" };
+            shortDetails.Versions.Add(new NuGetPackageVersionInfo { Version = "13.0.4", Label = "13.0.4" });
+            model.Details.Load(shortDetails, item, installedVersion: null, sourceName: "nuget.org");
             panel.UpdateLayout();
             Pump();
 
@@ -109,7 +113,7 @@ public class NuGetPanelLayoutTests
             // Длинная подпись «Latest stable 13.0.4» расширяет поле, а не обрезается.
             var details = new NuGetPackageDetails { Id = "Newtonsoft.Json", Version = "13.0.4" };
             details.Versions.Add(new NuGetPackageVersionInfo { Version = "13.0.4", IsLatestStable = true, Label = "Latest stable 13.0.4" });
-            model.Details.Load(details, model.BrowseItems[0], installedVersion: null, sourceName: "nuget.org");
+            model.Details.Load(details, item, installedVersion: null, sourceName: "nuget.org");
             panel.UpdateLayout();
             Pump();
 
