@@ -23,6 +23,35 @@ namespace RPA.NuGet.Models
         public NuGetSourceOrigin Origin { get; set; } = NuGetSourceOrigin.Project;
 
         /// <summary>
+        /// Путь к <c>NuGet.Config</c>, из которого взят внешний источник (Solution/User/Machine).
+        /// Для источников per-project хранилища — <c>null</c>.
+        /// </summary>
+        public string SourceConfigPath { get; set; }
+
+        /// <summary>
+        /// Человекочитаемая метка происхождения для группировки в секции импорта
+        /// («Machine»/«User»/«Solution»/«Project»).
+        /// </summary>
+        public string OriginLabel
+        {
+            get
+            {
+                switch (Origin)
+                {
+                    case NuGetSourceOrigin.Machine:
+                        return "Machine";
+                    case NuGetSourceOrigin.User:
+                        return "User";
+                    case NuGetSourceOrigin.Solution:
+                        return "Solution";
+                    default:
+                        return "Project";
+                }
+            }
+        }
+
+
+        /// <summary>
         /// Внешние источники (Solution/User/Machine) менять нельзя — их можно только импортировать
         /// копией в источники проекта.
         /// </summary>

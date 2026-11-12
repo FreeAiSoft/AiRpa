@@ -93,7 +93,7 @@ namespace RPA.NuGet.Services
 
                 if (File.Exists(nugetConfig))
                     files.Add(new ConfigFile { Path = nugetConfig, Origin = NuGetSourceOrigin.Solution });
-                if (File.Exists(lowerConfig))
+                else if (File.Exists(lowerConfig))
                     files.Add(new ConfigFile { Path = lowerConfig, Origin = NuGetSourceOrigin.Solution });
             }
 
@@ -276,6 +276,12 @@ namespace RPA.NuGet.Services
 
         private static string UserConfigPath()
         {
+            // NuGet позволяет переопределить пользовательский конфиг переменной окружения
+            // (dotnet restore / msbuild -t:restore читают её точно так же).
+            string overridePath = Environment.GetEnvironmentVariable("NUGET_CONFIG_FILE");
+            if (!string.IsNullOrWhiteSpace(overridePath))
+                return overridePath;
+
             return Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "NuGet",
@@ -320,6 +326,7 @@ namespace RPA.NuGet.Services
                         Url = raw.Url,
                         IsEnabled = raw.IsEnabled,
                         Origin = file.Origin,
+                        SourceConfigPath = file.Path,
                     };
                     merged[key] = definition;
                 }

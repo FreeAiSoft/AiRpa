@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
@@ -22,10 +22,6 @@ namespace RPA
         private StdioMcpServerHost _mcpStdioHost;
         private HttpMcpServerHost _mcpHttpHost;
 
-        // ВРЕМЕННО (диагностика замерзаний интерфейса): ловим имя сборки, которую CLR не может привязать.
-        private static readonly HashSet<string> _loggedLoadFailures = new HashSet<string>(StringComparer.Ordinal);
-        private static readonly object _loadFailureLogLock = new object();
-
         public App()
         {
             // Обработчики падений подключаются ДО InitializeComponent/Startup: ошибка в App.xaml,
@@ -41,59 +37,7 @@ namespace RPA
             // в папке приложения роняла дизайнер модальным окном FileLoadException (HRESULT 0x80131040).
             AssemblyBindingUnifier.Install(AppDomain.CurrentDomain);
 
-            // ВРЕМЕННО (диагностика замерзаний интерфейса): first-chance FileLoadException -> имя сборки и стек.
-            AppDomain.CurrentDomain.FirstChanceException += OnFirstChanceException;
-
             StartupTimer.Mark("App: конструктор завершён (обработчики падений + AssemblyBindingUnifier)");
-        }
-
-        // ВРЕМЕННО (диагностика замерзаний интерфейса): first-chance FileLoadException -> имя сборки и стек.
-        private void OnFirstChanceException(object sender, System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs e)
-        {
-            try
-            {
-                if (!(e?.Exception is System.IO.FileLoadException fle))
-                {
-                    return;
-                }
-
-                // Одинаковые причины (одна и та же сборка) логируем один раз, чтобы не заспамить лог.
-                string key = (fle.Message ?? string.Empty) + " | " + (fle.FileName ?? string.Empty);
-                bool first;
-                lock (_loadFailureLogLock)
-                {
-                    first = _loggedLoadFailures.Add(key);
-                }
-
-                if (!first)
-                {
-                    return;
-                }
-
-                string fusion = string.Empty;
-                try { fusion = fle.FusionLog; } catch { }
-
-                System.Diagnostics.Debug.WriteLine("[FileLoadException-DIAG] " + fle.Message);
-                System.Diagnostics.Debug.WriteLine("[FileLoadException-DIAG] FileName=" + fle.FileName);
-                System.Diagnostics.Debug.WriteLine("[FileLoadException-DIAG] FusionLog=" + fusion);
-                System.Diagnostics.Debug.WriteLine("[FileLoadException-DIAG] Stack:" + Environment.NewLine + Environment.StackTrace);
-
-                try
-                {
-                    Log.Write("[FileLoadException-DIAG] " + fle.Message
-                              + " | FileName=" + fle.FileName
-                              + " | FusionLog=" + fusion);
-                    Log.Write("[FileLoadException-DIAG] Stack:" + Environment.NewLine + Environment.StackTrace);
-                }
-                catch
-                {
-                    // Лог может быть не готов на раннем этапе — это нормально.
-                }
-            }
-            catch
-            {
-                // Обработчик диагностики никогда не должен влиять на работу приложения.
-            }
         }
 
         private void Application_Startup(object sender, StartupEventArgs e)

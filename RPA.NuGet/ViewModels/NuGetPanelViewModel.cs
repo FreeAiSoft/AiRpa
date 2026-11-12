@@ -1,10 +1,12 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.ComponentModel;
+using System.Windows.Data;
 using RPA.NuGet.Commands;
 using RPA.NuGet.Models;
 using RPA.NuGet.Services;
@@ -62,6 +64,7 @@ namespace RPA.NuGet.ViewModels
         private NuGetSourceItemViewModel _selectedSourceItem;
         private NuGetSourceDefinition _selectedExternalSource;
         private bool _isPanelVisible;
+        private readonly ListCollectionView _externalSourcesView;
 
         public NuGetPanelViewModel(
             NuGetSearchService search = null,
@@ -111,6 +114,9 @@ namespace RPA.NuGet.ViewModels
             ExportProjectSourcesToConfigCommand = new RelayCommand(_ => ExportProjectSourcesToConfig());
             CreateNuGetConfigCommand = new RelayCommand(_ => CreateNuGetConfig());
             RefreshCommand = new AsyncRelayCommand(_ => RefreshAsync(), _ => HasProject && !IsBusy);
+            RefreshExternalSourcesCommand = new RelayCommand(_ => LoadExternalSources());
+            _externalSourcesView = new ListCollectionView(ExternalSources);
+            _externalSourcesView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(NuGetSourceDefinition.OriginLabel)));
         }
 
         /// <summary>Просьба открыть внешнюю ссылку (её выполняет представление: <c>Process.Start</c>).</summary>
@@ -158,6 +164,8 @@ namespace RPA.NuGet.ViewModels
         public ObservableCollection<NuGetSourceDefinition> ExternalSources { get; } =
             new ObservableCollection<NuGetSourceDefinition>();
 
+        /// <summary>Внешние источники, сгруппированные по происхождению (Machine/User/Solution).</summary>
+        public ICollectionView ExternalSourcesView => _externalSourcesView;
         /// <summary>Правая панель деталей.</summary>
         public NuGetPackageDetailsViewModel Details { get; }
 
@@ -233,6 +241,9 @@ namespace RPA.NuGet.ViewModels
 
 
         public AsyncRelayCommand RefreshCommand { get; }
+
+        /// <summary>Перечитать внешние источники из NuGet.Config (машина/пользователь/решение).</summary>
+        public RelayCommand RefreshExternalSourcesCommand { get; }
 
         // --- Состояние ---
 

@@ -58,15 +58,16 @@ namespace RPA.CSharpExpressionEditor
 
             foreach (string assembly in assemblies.AllAssemblyNamesInContext)
             {
-                System.Reflection.Assembly asm = null;
-                try
+                // WinRT contracts (Windows.UI, Windows.Foundation, ...) come from the document's
+                // ReferencesForImplementation but cannot be loaded via Assembly.Load(string):
+                // that throws FileLoadException HRESULT 0x80131515 ("operation not supported") and
+                // keeps the UI thread busy (the "Namespaces" panel retries every ~250 ms).
+                if (IsWindowsRuntimeContract(assembly))
                 {
-                    asm = System.Reflection.Assembly.Load(assembly);
+                    continue;
                 }
-                catch (Exception)
-                {
-                    //Console.WriteLine(ex.ToString());
-                }
+
+                System.Reflection.Assembly asm = LoadAssembly(assembly);
                 if (asm != null)
                 {
                     if (File.Exists(asm.Location) && !asm.Location.Contains(".resources.dll") &&
@@ -84,6 +85,45 @@ namespace RPA.CSharpExpressionEditor
             UsingNamespaces = string.Join("", importedNamespaces.ImportedNamespaces.Select(ns => "using " + ns + ";\n").ToArray());
 
             RoslynExpressionValidator.Instance.UsingNamespaces = UsingNamespaces;
+        }
+
+        /// <summary>
+        /// True for WinRT contracts (ContentType=WindowsRuntime). They are not needed by the
+        /// expression editor and cannot be loaded via Assembly.Load(string).
+        /// </summary>
+        private static bool IsWindowsRuntimeContract(string assembly)
+        {
+            if (string.IsNullOrWhiteSpace(assembly))
+            {
+                return false;
+            }
+
+            try
+            {
+                System.Reflection.AssemblyName name = new System.Reflection.AssemblyName(assembly);
+                return name.ContentType == System.Reflection.AssemblyContentType.WindowsRuntime;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Loads an assembly without throwing: an unresolvable or broken reference
+        /// (FileLoadException / FileNotFoundException / BadImageFormatException) must not break
+        /// the expression editor context update.
+        /// </summary>
+        private static System.Reflection.Assembly LoadAssembly(string assembly)
+        {
+            try
+            {
+                return System.Reflection.Assembly.Load(assembly);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
     }
 }

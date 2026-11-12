@@ -105,6 +105,11 @@
 - Внешние источники из `NuGet.Config` (машина/пользователь/решение) читаются **только на чтение**
   (`NuGetSourcesService.LoadMachineAndUserSources`/`LoadSolutionSources`) и показываются в оверлее
   отдельной секцией; их можно импортировать копией в источники проекта (`ImportSourceCommand`).
+- Канонические места конфигов NuGet: машинные — `%ProgramFiles(x86)%\NuGet\Config\*.config` и
+  `%ProgramFiles%\NuGet\Config\*.config`; пользовательский — `%AppData%\NuGet\NuGet.Config` (или
+  `NUGET_CONFIG_FILE`, если задан); уровня решения — `NuGet.Config`/`nuget.config` в папке решения
+  и всех родительских папках до корня диска. Источник помечается `Origin` (Machine/User/Solution),
+  `SourceConfigPath` хранит путь к файлу, в оверлее импорта источники сгруппированы по `OriginLabel`.
 - Создание/редактирование/экспорт `NuGet.Config` — только по явным кнопкам оверлея
   (`CreateNuGetConfigCommand`, `ExportProjectSourcesToConfigCommand`, `OpenConfigFileCommand`), через
   `NuGetSourcesService.WriteConfig`/`Save`. Жёстких URL nuget.org в рабочем коде нет: поиск/версии/

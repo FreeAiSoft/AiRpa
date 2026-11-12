@@ -184,6 +184,100 @@ public class NuGetSourcesConfigTests
     }
 
     // --- служебное ---
+    [Test]
+    public void LoadSolutionSources_ClearRemovesInheritedSources()
+    {
+        string root = CreateTempDirectory();
+        string project = Path.Combine(root, "proj");
+        Directory.CreateDirectory(project);
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "NuGet.Config"),
+                "<?xml version=\"1.0\" encoding=\"utf-8\"?><configuration><packageSources>"
+                + "<add key=\"inherited\" value=\"https://inherited.example.org/v3/index.json\" />"
+                + "</packageSources></configuration>");
+            File.WriteAllText(Path.Combine(project, "NuGet.Config"),
+                "<?xml version=\"1.0\" encoding=\"utf-8\"?><configuration><packageSources><clear />"
+                + "<add key=\"corp\" value=\"https://corp.example.org/v3/index.json\" />"
+                + "</packageSources></configuration>");
+
+            var service = new NuGetSourcesService();
+            IReadOnlyList<NuGetSourceDefinition> sources = service.LoadSolutionSources(project);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(sources.Select(source => source.Name), Does.Not.Contain("inherited"),
+                    "clear в ближайшем конфиге удаляет унаследованные источники");
+                Assert.That(sources.Select(source => source.Name), Does.Contain("corp"));
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Test]
+    public void LoadSolutionSources_IgnoresCredentialsAndFallbackFolders()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "NuGet.Config"),
+                "<?xml version=\"1.0\" encoding=\"utf-8\"?><configuration>"
+                + "<packageSources><add key=\"corp_creds\" value=\"https://corp.example.org/v3/index.json\" /></packageSources>"
+                + "<packageSourceCredentials><corp_creds><add key=\"Username\" value=\"user\" /></corp_creds></packageSourceCredentials>"
+                + "<fallbackPackageFolders><add key=\"fallback\" value=\"C:\\fallback\" /></fallbackPackageFolders>"
+                + "</configuration>");
+
+            var service = new NuGetSourcesService();
+            IReadOnlyList<NuGetSourceDefinition> sources = service.LoadSolutionSources(directory);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(sources.Select(source => source.Name), Does.Contain("corp_creds"));
+                Assert.That(sources.Select(source => source.Name), Does.Not.Contain("fallback"),
+                    "fallbackPackageFolders не являются источниками пакетов");
+                Assert.That(sources.Count(source => source.Name == "corp_creds"), Is.EqualTo(1),
+                    "credentials/fallback не должны порождать дубли источников");
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Test]
+    public void LoadSolutionSources_SetsSourceConfigPathAndOriginLabel()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            string configPath = Path.Combine(directory, "NuGet.Config");
+            File.WriteAllText(configPath,
+                "<?xml version=\"1.0\" encoding=\"utf-8\"?><configuration><packageSources>"
+                + "<add key=\"corp_path\" value=\"https://corp.example.org/v3/index.json\" />"
+                + "</packageSources></configuration>");
+
+            var service = new NuGetSourcesService();
+            IReadOnlyList<NuGetSourceDefinition> sources = service.LoadSolutionSources(directory);
+
+            NuGetSourceDefinition corp = sources.Single(source => source.Name == "corp_path");
+            Assert.Multiple(() =>
+            {
+                Assert.That(corp.SourceConfigPath, Is.EqualTo(configPath),
+                    "внешний источник хранит путь к своему NuGet.Config");
+                Assert.That(corp.OriginLabel, Is.EqualTo("Solution"));
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+
 
     private static InMemoryStore LoadProject(NuGetPanelViewModel model, string directory, IEnumerable<NuGetSourceDefinition> sources = null)
     {
