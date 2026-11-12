@@ -106,6 +106,12 @@ namespace RPA.Entities
         /// </summary>
         public bool IsMissing { get; set; }
 
+        /// <summary>
+        /// Единый доменный объект проекта, привязанный к корневому узлу дерева (Project/VsProject).
+        /// Для узла Solution остаётся null: решение — контейнер, его проекты лежат в дочерних узлах.
+        /// </summary>
+        public Project Project { get; set; }
+
         public FSNode(string fullPath, FSNodeType fSNodeType = FSNodeType.Project)
         {
             RuntimeFullPath = fullPath;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text.RegularExpressions;
 
@@ -38,10 +38,10 @@ public class StudioSessionWiringTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(source, Does.Contain("RestoreSessionState(rootProjectFolder)"),
-                "классический проект (project.json) восстанавливает вкладки после загрузки главной активности");
+            Assert.That(source, Does.Contain("private void LoadProjectCore(string path, ProjectTreeBuildResult tree)"),
+                "native и VS-проекты обязаны применять дерево единым путём");
             Assert.That(source, Does.Contain("RestoreSessionState(path)"),
-                "проект Visual Studio (.sln/.csproj) обязан восстанавливать вкладки — раньше он не открывал ничего");
+                "оба режима восстанавливают вкладки единым вызовом RestoreSessionState(path)");
         });
     }
 

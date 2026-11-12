@@ -10,6 +10,7 @@ using RPA.Entities;
 using RPA.Enums;
 using RPA.Helpers;
 using RPA.VsProject;
+using RPA.ProjectModel;
 using RpaCommon;
 
 namespace RPA.Models
@@ -54,29 +55,13 @@ namespace RPA.Models
 
         public CallResult InitFileTree(string dirPath)
         {
-            // проверяем есть ли папка
-            if (!Directory.Exists(dirPath))
+            ProjectTreeBuildResult tree = BuildTree(dirPath);
+            if (!tree.Success)
             {
-                return new CallResult() { Error = new Error($"Директория проекта {dirPath} не найдена.") };
+                return new CallResult { Error = tree.Error };
             }
 
-            // проверяем есть ли файл проекта
-            if (!File.Exists(Path.Combine(dirPath, Consts.projectFileName)))
-            {
-                return new CallResult() { Error = new Error($"Файл проекта {Consts.projectFileName} не найден.") };
-            }
-
-            ProjectFolder = dirPath;
-
-            // корневой элемент
-            FSNode tempFSNode = new FSNode(dirPath);
-
-            //устанавливаем потомков
-            SetChilds(tempFSNode);
-
-            // устанавливаем коллекцию
-            FSNodes = new ObservableCollection<FSNode>() { tempFSNode };
-
+            ApplyTree(tree);
             return new CallResult();
         }
 
@@ -88,25 +73,7 @@ namespace RPA.Models
         /// </summary>
         internal ProjectTreeBuildResult BuildFileTree(string dirPath)
         {
-            // проверяем есть ли папка
-            if (!Directory.Exists(dirPath))
-            {
-                return new ProjectTreeBuildResult { Error = new Error($"Директория проекта {dirPath} не найдена.") };
-            }
-
-            // проверяем есть ли файл проекта
-            if (!File.Exists(Path.Combine(dirPath, Consts.projectFileName)))
-            {
-                return new ProjectTreeBuildResult { Error = new Error($"Файл проекта {Consts.projectFileName} не найден.") };
-            }
-
-            // корневой элемент
-            FSNode tempFSNode = new FSNode(dirPath);
-
-            //устанавливаем потомков
-            SetChilds(tempFSNode);
-
-            return new ProjectTreeBuildResult { Root = tempFSNode, ProjectFolder = dirPath };
+            return BuildTree(dirPath);
         }
 
 
@@ -115,41 +82,14 @@ namespace RPA.Models
         /// </summary>
         public CallResult InitVsProjectTree(string path)
         {
-            if (string.IsNullOrWhiteSpace(path))
+            ProjectTreeBuildResult tree = BuildTree(path);
+            if (!tree.Success)
             {
-                return new CallResult { Error = new Error("Путь к проекту не указан.") };
+                return new CallResult { Error = tree.Error };
             }
 
-            if (!File.Exists(path))
-            {
-                return new CallResult { Error = new Error($"Файл {path} не найден.") };
-            }
-
-            try
-            {
-                FSNode root;
-                if (path.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
-                {
-                    root = VsProjectLoader.LoadSolution(path);
-                }
-                else if (path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
-                {
-                    root = VsProjectLoader.LoadProject(path);
-                }
-                else
-                {
-                    return new CallResult { Error = new Error("Поддерживаются только файлы .sln и .csproj.") };
-                }
-
-                ProjectFolder = Path.GetDirectoryName(path);
-                FSNodes = new ObservableCollection<FSNode> { root };
-
-                return new CallResult();
-            }
-            catch (Exception ex)
-            {
-                return new CallResult { Error = new Error(ex) };
-            }
+            ApplyTree(tree);
+            return new CallResult();
         }
 
         /// <summary>
@@ -159,38 +99,7 @@ namespace RPA.Models
         /// </summary>
         internal ProjectTreeBuildResult BuildVsProjectTree(string path)
         {
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                return new ProjectTreeBuildResult { Error = new Error("Путь к проекту не указан.") };
-            }
-
-            if (!File.Exists(path))
-            {
-                return new ProjectTreeBuildResult { Error = new Error($"Файл {path} не найден.") };
-            }
-
-            try
-            {
-                FSNode root;
-                if (path.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
-                {
-                    root = VsProjectLoader.LoadSolution(path);
-                }
-                else if (path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
-                {
-                    root = VsProjectLoader.LoadProject(path);
-                }
-                else
-                {
-                    return new ProjectTreeBuildResult { Error = new Error("Поддерживаются только файлы .sln и .csproj.") };
-                }
-
-                return new ProjectTreeBuildResult { Root = root, ProjectFolder = Path.GetDirectoryName(path) };
-            }
-            catch (Exception ex)
-            {
-                return new ProjectTreeBuildResult { Error = new Error(ex) };
-            }
+            return BuildTree(path);
         }
 
         /// <summary>
@@ -202,6 +111,33 @@ namespace RPA.Models
         {
             ProjectFolder = result.ProjectFolder;
             FSNodes = new ObservableCollection<FSNode> { result.Root };
+        }
+
+        /// <summary>
+        /// Единая сборка дерева проекта/решения из любого источника через <see cref="ProjectLoader"/>.
+        /// Не меняет состояние менеджера (может выполняться в фоне); применение — <see cref="ApplyTree"/>.
+        /// </summary>
+        internal ProjectTreeBuildResult BuildTree(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return new ProjectTreeBuildResult { Error = new Error("Путь к проекту не указан.") };
+            }
+
+            try
+            {
+                ProjectLoadResult loaded = ProjectLoader.Load(path);
+                if (!loaded.Success)
+                {
+                    return new ProjectTreeBuildResult { Error = new Error(loaded.Error) };
+                }
+
+                return new ProjectTreeBuildResult { Root = loaded.Root, ProjectFolder = loaded.ProjectFolder };
+            }
+            catch (Exception ex)
+            {
+                return new ProjectTreeBuildResult { Error = new Error(ex) };
+            }
         }
 
 
@@ -538,9 +474,26 @@ namespace RPA.Models
         }
 
         /// <summary>
-        /// Переименовывает проект (обновляет имя в project.json и в дереве)
+        /// Переименовывает проект: встроенный (project.json) обновляет Name, проект Visual Studio
+        /// (.csproj) переименовывает файл проекта и ссылку на него в .sln. Выбор — по единому объекту Project.
         /// </summary>
         internal CallResult RenameProject(FSNode projectNode, string newName)
+        {
+            if (projectNode == null)
+            {
+                return new CallResult { Error = new Error("Узел проекта не указан") };
+            }
+
+            if (projectNode.Project != null && projectNode.Project.Format == ProjectFormat.VsProject)
+            {
+                return RenameVsProjectCore(projectNode, newName);
+            }
+
+            return RenameNativeProject(projectNode, newName);
+        }
+
+        /// <summary>Переименовывает встроенный проект: обновляет Name в project.json и в дереве.</summary>
+        private CallResult RenameNativeProject(FSNode projectNode, string newName)
         {
             if (projectNode.FSNodeType != FSNodeType.Project)
             {
@@ -586,16 +539,17 @@ namespace RPA.Models
         }
 
         /// <summary>
-        /// Переименовывает проект Visual Studio: переименовывается только файл проекта (.csproj)
-        /// и ссылка на него в .sln; содержимое проекта не меняется.
+        /// Переименовывает проект Visual Studio (обратная совместимость). Реальная работа — в
+        /// <see cref="RenameProject"/>: выбор формата идёт по единому объекту <see cref="FSNode.Project"/>.
         /// </summary>
         internal CallResult RenameVsProject(FSNode projectNode, string newName)
         {
-            if (projectNode == null)
-            {
-                return new CallResult { Error = new Error("Узел проекта не указан") };
-            }
+            return RenameProject(projectNode, newName);
+        }
 
+        /// <summary>Переименовывает только файл проекта (.csproj) и ссылку на него в .sln.</summary>
+        private CallResult RenameVsProjectCore(FSNode projectNode, string newName)
+        {
             if (projectNode.FSNodeType != FSNodeType.VsProject)
             {
                 return new CallResult { Error = new Error("Указанный узел не является проектом Visual Studio") };

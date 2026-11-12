@@ -4,6 +4,7 @@ using System.Linq;
 
 using NUnit.Framework;
 
+using RPA.ProjectModel;
 using RPA.VsProject;
 
 namespace AiRpaStudio.Tests;

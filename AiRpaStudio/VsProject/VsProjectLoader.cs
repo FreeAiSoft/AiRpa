@@ -6,6 +6,7 @@ using System.Linq;
 using RPA.Entities;
 using RPA.Enums;
 using RPA.Helpers;
+using RPA.ProjectModel;
 
 namespace RPA.VsProject
 {
@@ -85,9 +86,13 @@ namespace RPA.VsProject
                 children.Insert(0, references);
             }
 
+            Project project = ProjectMapper.FromVsProjectInfo(info);
+            project.SetProjectDir(Path.GetDirectoryName(projectPath));
+
             FSNode root = new FSNode(projectPath, FSNodeType.VsProject)
             {
                 Name = info.Name,
+                Project = project,
                 Childs = children
             };
 

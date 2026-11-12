@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="RPA.Controls.ProjectManagerControl"
+<UserControl x:Class="RPA.Controls.ProjectManagerControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -56,6 +56,11 @@
                       IsEnabled="False"
                       x:Name="AddRefence"
                       Click="AddRefence_Click"
+                      Focusable="False"/>
+            <Separator/>
+            <MenuItem Header="Преобразовать в VS-проект"
+                      x:Name="ConvertToVsProjectMenuItem"
+                      Click="ConvertToVsProjectMenuItem_Click"
                       Focusable="False"/>
         </ContextMenu>
         <ContextMenu x:Key="ProjectFileContext" Opened="ContextMenu_Opened" Focusable="False">
@@ -163,6 +168,11 @@
             <MenuItem Header="{DynamicResource lang_cm_build_msbuild}"
                       x:Name="VsRootBuildWithMsBuildMenuItem"
                       Click="BuildWithMsBuildMenuItem_Click"
+                      Focusable="False" />
+            <Separator />
+            <MenuItem Header="Преобразовать во встроенный проект"
+                      x:Name="ConvertToNativeProjectMenuItem"
+                      Click="ConvertToNativeProjectMenuItem_Click"
                       Focusable="False" />
         </ContextMenu>
         

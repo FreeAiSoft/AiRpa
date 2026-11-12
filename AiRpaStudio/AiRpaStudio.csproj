@@ -360,6 +360,11 @@
     <Compile Include="EntryPoint.cs" />
     <Compile Include="Enums\FSNodeType.cs" />
     <Compile Include="Enums\ProjectType.cs" />
+    <Compile Include="Enums\ProjectFormat.cs" />
+    <Compile Include="Core\Project\ProjectMapper.cs" />
+    <Compile Include="Core\Project\ProjectConversionService.cs" />
+    <Compile Include="Core\Project\ProjectModelTypes.cs" />
+    <Compile Include="Core\Project\ProjectLoader.cs" />
     <Compile Include="Enums\WorkflowState.cs" />
     <Compile Include="Helpers\AssembliesHelper.cs" />
     <Compile Include="Helpers\XamlHelper.cs" />

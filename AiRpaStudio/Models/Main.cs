@@ -121,74 +121,27 @@ namespace RPA.Models
                 return;
             }
 
-            if (IsVsProjectPath(lastProjectPath))
-            {
-                _ = LoadProjectIntoStudioAsync(lastProjectPath);
-                StartupTimer.Mark("Main.Loaded: LoadVsProjectIntoStudio() запланирован");
-            }
-            else
-            {
-                _ = LoadProjectIntoStudioAsync(lastProjectPath);
-                StartupTimer.Mark("Main.Loaded: LoadProject() запланирован");
-            }
+            _ = LoadProjectIntoStudioAsync(lastProjectPath);
+            StartupTimer.Mark("Main.Loaded: LoadProjectIntoStudio() запланирован");
 
         }
         /// <summary>
         /// Этап 4 (StartupPerformance_Fix_Plan.md): асинхронная загрузка проекта/сессии после показа
-        /// главного окна. IO и парсинг дерева выполняются в фоне, а создание/привязка дизайнеров и
-        /// восстановление вкладок возвращаются на UI-поток через Dispatcher.
+        /// главного окна. IO и парсинг дерева выполняются в фоне через единый ProjectLoader
+        /// (ProjectManager.BuildTree), а создание/привязка дизайнеров и восстановление вкладок
+        /// возвращаются на UI-поток через Dispatcher.
         /// </summary>
-        private async Task LoadProjectIntoStudioAsync(string lastProjectPath)
-        {
-            if (IsVsProjectPath(lastProjectPath))
-            {
-                await LoadVsProjectIntoStudioAsync(lastProjectPath);
-            }
-            else
-            {
-                await LoadProjectAsync(lastProjectPath);
-            }
-        }
-
-        private async Task LoadProjectAsync(string rootProjectFolder)
-        {
-            if (string.IsNullOrWhiteSpace(rootProjectFolder))
-            {
-                return;
-            }
-
-            StartupTimer.Mark("LoadProjectAsync: начало (этап 4)");
-
-            if (!Directory.Exists(rootProjectFolder) || !File.Exists(Path.Combine(rootProjectFolder, Consts.projectFileName)))
-            {
-                await OnUiThreadAsync(() => ClearInvalidLastProjectPath(rootProjectFolder));
-                return;
-            }
-
-            ProjectTreeBuildResult tree;
-            try
-            {
-                tree = await Task.Run(() => ProjectManager.BuildFileTree(rootProjectFolder)).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                await OnUiThreadAsync(() => CustomWfDesigner.GetInstance().Log($"Ошибка загрузки проекта: {ex}", (int)RpaCommon.Enums.LogLevel.Error));
-                return;
-            }
-
-            await OnUiThreadAsync(() => LoadProjectCore(rootProjectFolder, tree));
-        }
-
-        private async Task LoadVsProjectIntoStudioAsync(string path)
+        private async Task LoadProjectIntoStudioAsync(string path)
         {
             if (string.IsNullOrWhiteSpace(path))
             {
                 return;
             }
 
-            StartupTimer.Mark("LoadVsProjectIntoStudioAsync: начало (этап 4)");
+            StartupTimer.Mark("LoadProjectIntoStudioAsync: начало (этап 4)");
 
-            if (!File.Exists(path))
+            bool exists = Directory.Exists(path) || File.Exists(path);
+            if (!exists)
             {
                 await OnUiThreadAsync(() => ClearInvalidLastProjectPath(path));
                 return;
@@ -197,7 +150,7 @@ namespace RPA.Models
             ProjectTreeBuildResult tree;
             try
             {
-                tree = await Task.Run(() => ProjectManager.BuildVsProjectTree(path)).ConfigureAwait(false);
+                tree = await Task.Run(() => ProjectManager.BuildTree(path)).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -209,10 +162,15 @@ namespace RPA.Models
                 return;
             }
 
-            await OnUiThreadAsync(() => LoadVsProjectIntoStudioCore(path, tree));
+            await OnUiThreadAsync(() => LoadProjectCore(path, tree));
         }
 
-        private void LoadProjectCore(string rootProjectFolder, ProjectTreeBuildResult tree)
+        /// <summary>
+        /// Единое применение загруженного дерева: native (project.json) и VS (.sln/.csproj) идут одним
+        /// путём — применяем дерево, открываем MainActivity через единый <see cref="Project"/> и
+        /// восстанавливаем вкладки сессии.
+        /// </summary>
+        private void LoadProjectCore(string path, ProjectTreeBuildResult tree)
         {
             try
             {
@@ -220,49 +178,14 @@ namespace RPA.Models
                 if (!tree.Success)
                 {
                     OnSendMessage(tree.Error.Message);
-                    ClearInvalidLastProjectPath(rootProjectFolder);
+                    ClearInvalidLastProjectPath(path);
                     return;
                 }
 
                 ProjectManager.ApplyTree(tree);
 
-                _isRestoringSession = true;
-                try
-                {
-                    StartupTimer.Mark("LoadProject: CustomWfDesigner.LoadProject()");
-                    CustomWfDesigner.LoadProject(rootProjectFolder);
-                    Properties.Settings.Default.LastLoadedProjectPath = rootProjectFolder;
-                    Properties.Settings.Default.Save();
-
-                    StartupTimer.Mark("LoadProject: RestoreSessionState()");
-                    RestoreSessionState(rootProjectFolder);
-                }
-                finally
-                {
-                    _isRestoringSession = false;
-                }
-
-                SaveSessionState();
-                StartupTimer.Mark("LoadProject: SaveSessionState()");
-            }
-            catch (Exception ex)
-            {
-                CustomWfDesigner.GetInstance().Log($"Ошибка загрузки проекта: {ex}", (int)RpaCommon.Enums.LogLevel.Error);
-            }
-        }
-
-        private void LoadVsProjectIntoStudioCore(string path, ProjectTreeBuildResult tree)
-        {
-            try
-            {
-                StartupTimer.Mark("LoadVsProjectIntoStudio: ProjectManager.ApplyTree() применено");
-                if (!tree.Success)
-                {
-                    OnSendMessage(tree.Error.Message);
-                    return;
-                }
-
-                ProjectManager.ApplyTree(tree);
+                // Единый объект проекта попадает в дизайнер и в VS-режиме (раньше тут был пустой Project).
+                CustomWfDesigner.LoadProject(tree.Root?.Project);
 
                 Properties.Settings.Default.LastLoadedProjectPath = path;
                 Properties.Settings.Default.Save();
@@ -270,7 +193,7 @@ namespace RPA.Models
                 _isRestoringSession = true;
                 try
                 {
-                    StartupTimer.Mark("LoadVsProjectIntoStudio: RestoreSessionState()");
+                    StartupTimer.Mark("LoadProject: RestoreSessionState()");
                     RestoreSessionState(path);
                 }
                 finally
@@ -279,8 +202,7 @@ namespace RPA.Models
                 }
 
                 SaveSessionState();
-                StartupTimer.Mark("LoadVsProjectIntoStudio: SaveSessionState() и завершение");
-                CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_vs_project_loaded", path), (int)RpaCommon.Enums.LogLevel.Info);
+                StartupTimer.Mark("LoadProject: SaveSessionState()");
             }
             catch (Exception ex)
             {
@@ -327,50 +249,26 @@ namespace RPA.Models
             }
         }
 
-        private void LoadProject(string rootProjectFolder)
+        private void LoadProject(string path)
         {
             StartupTimer.Mark("LoadProject: начало");
-            if (string.IsNullOrWhiteSpace(rootProjectFolder))
+            if (string.IsNullOrWhiteSpace(path))
             {
                 return;
             }
 
-            if (!Directory.Exists(rootProjectFolder) || !File.Exists(Path.Combine(rootProjectFolder, Consts.projectFileName)))
+            bool exists = Directory.Exists(path) || File.Exists(path);
+            if (!exists)
             {
-                ClearInvalidLastProjectPath(rootProjectFolder);
+                ClearInvalidLastProjectPath(path);
                 return;
             }
 
             try
             {
-                StartupTimer.Mark("LoadProject: ProjectManager.InitFileTree()");
-                CallResult resp = ProjectManager.InitFileTree(rootProjectFolder);
-                if (!resp.Success)
-                {
-                    OnSendMessage(resp.Error.Message);
-                    ClearInvalidLastProjectPath(rootProjectFolder);
-                    return;
-                }
-
-                _isRestoringSession = true;
-                try
-                {
-                    StartupTimer.Mark("LoadProject: CustomWfDesigner.LoadProject()");
-                    CustomWfDesigner.LoadProject(rootProjectFolder);
-                    Properties.Settings.Default.LastLoadedProjectPath = rootProjectFolder;
-                    Properties.Settings.Default.Save();
-
-                    // Порядок вкладок, вкладки редактора кода и активная вкладка — из сохранённой сессии.
-                    StartupTimer.Mark("LoadProject: RestoreSessionState()");
-                    RestoreSessionState(rootProjectFolder);
-                }
-                finally
-                {
-                    _isRestoringSession = false;
-                }
-
-                SaveSessionState();
-                StartupTimer.Mark("LoadProject: SaveSessionState()");
+                StartupTimer.Mark("LoadProject: ProjectManager.BuildTree()");
+                ProjectTreeBuildResult tree = ProjectManager.BuildTree(path);
+                LoadProjectCore(path, tree);
             }
             catch (Exception ex)
             {
@@ -774,57 +672,13 @@ namespace RPA.Models
             }
         }
 
+        /// <summary>
+        /// Обратная совместимость: загрузка VS-проекта идёт единым путём <see cref="LoadProject(string)"/>,
+        /// который диспетчеризует native/VS через <see cref="ProjectManager.BuildTree"/>.
+        /// </summary>
         private void LoadVsProjectIntoStudio(string path)
         {
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                return;
-            }
-
-            StartupTimer.Mark("LoadVsProjectIntoStudio: начало");
-            if (!File.Exists(path))
-            {
-                ClearInvalidLastProjectPath(path);
-                return;
-            }
-
-            try
-            {
-                StartupTimer.Mark("LoadVsProjectIntoStudio: ProjectManager.InitVsProjectTree()");
-                CallResult resp = ProjectManager.InitVsProjectTree(path);
-                if (!resp.Success)
-                {
-                    OnSendMessage(resp.Error.Message);
-                    return;
-                }
-
-                Properties.Settings.Default.LastLoadedProjectPath = path;
-                Properties.Settings.Default.Save();
-
-                // Проект Visual Studio не открывал ни одного документа: сохранение вкладок подписывалось
-                // только внутри CustomWfDesigner.LoadProject (классический проект), поэтому при перезапуске
-                // вкладок не было, хотя при закрытии они были.
-                _isRestoringSession = true;
-                try
-                {
-                    StartupTimer.Mark("LoadVsProjectIntoStudio: RestoreSessionState()");
-                    RestoreSessionState(path);
-                }
-                finally
-                {
-                    _isRestoringSession = false;
-                }
-
-                SaveSessionState();
-
-                StartupTimer.Mark("LoadVsProjectIntoStudio: SaveSessionState() и завершение");
-                CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_vs_project_loaded", path), (int)RpaCommon.Enums.LogLevel.Info);
-            }
-            catch (Exception ex)
-            {
-                CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_vs_project_load_error", ErrorText.Of(ex)), (int)RpaCommon.Enums.LogLevel.Error);
-                OnSendMessage(LocalizeHelper.Get("lang_msg_vs_project_load_error", ErrorText.Of(ex)));
-            }
+            LoadProject(path);
         }
 
         /// <summary>

@@ -16,6 +16,7 @@ using RPA.Core;
 using RPA.Entities;
 using RPA.Helpers;
 using RPA.Models;
+using RPA.ProjectModel;
 using RPA.ViewModels;
 
 namespace RPA.Controls
@@ -844,6 +845,71 @@ namespace RPA.Controls
             MainViewModel mainViewModel = (MainViewModel)DataContext;
             Models.Main main = (Models.Main)mainViewModel.Model;
             main.CmdOpenNuGetPanel(projectFolder);
+        }
+
+        /// <summary>
+        /// «Преобразовать в VS-проект»: дополняет единый проект .csproj/.sln и перезагружает дерево.
+        /// </summary>
+        private void ConvertToVsProjectMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            ConvertProject(sender, toVs: true);
+        }
+
+        /// <summary>
+        /// «Преобразовать во встроенный проект»: пишет project.json и перезагружает дерево.
+        /// </summary>
+        private void ConvertToNativeProjectMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            ConvertProject(sender, toVs: false);
+        }
+
+        /// <summary>
+        /// Программная конвертация одного и того же <see cref="Project"/> между форматами и последующее
+        /// обновление дерева и сохранённого пути. Native → VS и VS → Native идут через
+        /// <see cref="ProjectConversionService"/> без создания второго объекта проекта.
+        /// </summary>
+        private void ConvertProject(object sender, bool toVs)
+        {
+            if (!(sender is MenuItem mnu))
+            {
+                return;
+            }
+
+            FrameworkElement target = ((ContextMenu)mnu.Parent).PlacementTarget as FrameworkElement;
+            if (!(target?.Tag is FSNode projectNode) || projectNode.Project == null)
+            {
+                return;
+            }
+
+            Project project = projectNode.Project;
+
+            ProjectConversionResult result = toVs
+                ? ProjectConversionService.ConvertToVsProject(project)
+                : ProjectConversionService.ConvertToNative(project);
+
+            if (!result.Success)
+            {
+                ErrorDialog.Show(string.Join(Environment.NewLine, result.Errors), Window.GetWindow(this));
+                return;
+            }
+
+            string reloadPath = toVs ? result.ProjectFilePath : project.ProjectDirPath;
+            if (string.IsNullOrWhiteSpace(reloadPath))
+            {
+                reloadPath = toVs ? project.ProjectDirPath : result.ProjectJsonPath;
+            }
+
+            Properties.Settings.Default.LastLoadedProjectPath = reloadPath;
+            Properties.Settings.Default.Save();
+
+            RpaCommon.CallResult reloadResult = toVs
+                ? Services.ProjectManager.InitVsProjectTree(reloadPath)
+                : Services.ProjectManager.InitFileTree(reloadPath);
+
+            if (reloadResult.Error != null)
+            {
+                ErrorDialog.Show(reloadResult.Error.Message, Window.GetWindow(this));
+            }
         }
 
         /// <summary>

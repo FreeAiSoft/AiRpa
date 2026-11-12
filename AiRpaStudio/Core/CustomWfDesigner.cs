@@ -576,11 +576,45 @@ namespace RPA.Core
         {
             try
             {
+                Project project = ObjectHelper.InitObject<Project>(Path.Combine(projectDirPath, Consts.projectFileName));
+                if (project == null)
+                {
+                    project = new Project();
+                }
+
+                project.SetProjectDir(projectDirPath);
+                LoadProject(project);
+            }
+            catch (Exception ex)
+            {
+                Log(ErrorText.Of(ex), (int)RpaCommon.Enums.LogLevel.Error);
+            }
+        }
+
+        /// <summary>
+        /// Загружает единый объект <see cref="Project"/> в дизайнер: заполняет <see cref="Project"/>
+        /// и открывает MainActivity. Работает и для встроенного (project.json), и для Visual Studio
+        /// (.csproj) формата.
+        /// </summary>
+        internal void LoadProject(Project project)
+        {
+            try
+            {
                 WorkflowDesigners.Clear();
                 ActiveWorkflowDesignerEx = null;
-                Project = ObjectHelper.InitObject<Project>(Path.Combine(projectDirPath, Consts.projectFileName));
-                Project.SetProjectDir(projectDirPath);
-                string pathToMainActivity = Path.Combine(projectDirPath, Project.MainActivity);
+                Project = project;
+
+                if (project == null || string.IsNullOrWhiteSpace(project.ProjectDirPath))
+                {
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(project.MainActivity))
+                {
+                    return;
+                }
+
+                string pathToMainActivity = Path.Combine(project.ProjectDirPath, project.MainActivity);
 
                 // Остальные вкладки восстанавливает Main.RestoreSessionState: у него есть и вкладки
                 // дизайнера, и вкладки редактора кода, и сохранённая активная вкладка.

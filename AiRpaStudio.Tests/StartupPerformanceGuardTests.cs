@@ -69,10 +69,8 @@ public class StartupPerformanceGuardTests
         {
             Assert.That(main, Does.Contain("_ = LoadProjectIntoStudioAsync(lastProjectPath)"),
                 "Main.Loaded обязан стартовать загрузку проекта асинхронно");
-            Assert.That(main, Does.Contain("Task.Run(() => ProjectManager.BuildFileTree(rootProjectFolder))"),
-                "дерево классического проекта строится в фоне");
-            Assert.That(main, Does.Contain("Task.Run(() => ProjectManager.BuildVsProjectTree(path))"),
-                "дерево VS-проекта строится в фоне");
+            Assert.That(main, Does.Contain("Task.Run(() => ProjectManager.BuildTree(path))"),
+                "дерево проекта (native и VS) строится в фоне единым путём");
             Assert.That(main, Does.Contain("OnUiThreadAsync"),
                 "создание/привязка дизайнеров возвращается на UI-поток через OnUiThreadAsync");
         });
