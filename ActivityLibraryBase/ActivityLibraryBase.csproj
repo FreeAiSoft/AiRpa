@@ -94,6 +94,7 @@
     <None Include=".editorconfig" />
     <None Include="ActivityLibraryBase.nuspec" />
     <None Include="package.version" />
+    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\ActivityLibraryBaseResorces.resx">
@@ -115,7 +116,7 @@
     <PackageBaseVersion>1.0.0</PackageBaseVersion>
     <PackageVersionFile>$(MSBuildProjectDirectory)\package.version</PackageVersionFile>
   </PropertyGroup>
-  <Target Name="PackActivityLibraryBase" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' And Exists('$(NuGetExe)')">
+  <Target Name="PackActivityLibraryBase" AfterTargets="Build" Condition="'$(Configuration)' == 'Publish' And Exists('$(NuGetExe)')">
     <ReadLinesFromFile File="$(PackageVersionFile)" Condition="Exists('$(PackageVersionFile)')">
       <Output TaskParameter="Lines" ItemName="_PackageVersionLines" />
     </ReadLinesFromFile>

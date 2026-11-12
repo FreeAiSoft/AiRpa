@@ -30,6 +30,14 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Publish|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Publish\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
@@ -63,6 +71,7 @@
     <None Include=".editorconfig" />
     <None Include="RpaCommon.nuspec" />
     <None Include="package.version" />
+    <None Include="README.md" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup />
@@ -73,7 +82,7 @@
     <PackageBaseVersion>1.0.0</PackageBaseVersion>
     <PackageVersionFile>$(MSBuildProjectDirectory)\package.version</PackageVersionFile>
   </PropertyGroup>
-  <Target Name="PackRpaCommon" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' And Exists('$(NuGetExe)')">
+  <Target Name="PackRpaCommon" AfterTargets="Build" Condition="'$(Configuration)' == 'Publish' And Exists('$(NuGetExe)')">
     <ReadLinesFromFile File="$(PackageVersionFile)" Condition="Exists('$(PackageVersionFile)')">
       <Output TaskParameter="Lines" ItemName="_PackageVersionLines" />
     </ReadLinesFromFile>

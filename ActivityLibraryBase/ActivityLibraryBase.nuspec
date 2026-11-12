@@ -10,8 +10,13 @@
     <description>Базовые классы активностей для Windows Workflow Foundation (net472).</description>
     <copyright>Copyright © 2025</copyright>
     <tags>RPA Workflow Activities Base</tags>
+    <readme>README.md</readme>
+    <dependencies>
+      <group targetFramework="net472" />
+    </dependencies>
   </metadata>
   <files>
     <file src="bin\$configuration$\ActivityLibraryBase.dll" target="lib\net472" />
+    <file src="README.md" target="" />
   </files>
 </package>

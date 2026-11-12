@@ -32,7 +32,12 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Publish|AnyCPU'">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
     <OutputPath>bin\Publish\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
@@ -185,6 +190,7 @@
     <None Include="packages.config" />
     <None Include="Activities.Browser.nuspec" />
     <None Include="package.version" />
+    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\ActivitiesBrowser.resx">
@@ -239,7 +245,7 @@
     <PackageBaseVersion>1.0.0</PackageBaseVersion>
     <PackageVersionFile>$(MSBuildProjectDirectory)\package.version</PackageVersionFile>
   </PropertyGroup>
-  <Target Name="PackActivitiesBrowser" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' And Exists('$(NuGetExe)')">
+  <Target Name="PackActivitiesBrowser" AfterTargets="Build" Condition="'$(Configuration)' == 'Publish' And Exists('$(NuGetExe)')">
     <ReadLinesFromFile File="$(PackageVersionFile)" Condition="Exists('$(PackageVersionFile)')">
       <Output TaskParameter="Lines" ItemName="_PackageVersionLines" />
     </ReadLinesFromFile>

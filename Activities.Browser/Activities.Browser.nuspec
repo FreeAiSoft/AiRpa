@@ -10,6 +10,7 @@
     <description>Библиотека активностей для автоматизации работы с веб-браузером (Windows Workflow Foundation, net472).</description>
     <copyright>Copyright © 2025</copyright>
     <tags>RPA Workflow Activities Browser Puppeteer</tags>
+    <readme>README.md</readme>
     <dependencies>
       <group targetFramework="net472">
         <dependency id="PuppeteerSharp" version="20.2.2" />
@@ -37,7 +38,6 @@
   </metadata>
   <files>
     <file src="bin\$configuration$\Activities.Browser.dll" target="lib\net472" />
-
-
+    <file src="README.md" target="" />
   </files>
 </package>

@@ -10,6 +10,7 @@
     <description>Общие модели и вспомогательные типы для RPA (net472).</description>
     <copyright>Copyright © 2025</copyright>
     <tags>RPA Workflow Common</tags>
+    <readme>README.md</readme>
     <dependencies>
       <group targetFramework="net472">
         <dependency id="Newtonsoft.Json" version="13.0.3" />
@@ -18,5 +19,6 @@
   </metadata>
   <files>
     <file src="bin\$configuration$\RpaCommon.dll" target="lib\net472" />
+    <file src="README.md" target="" />
   </files>
 </package>
