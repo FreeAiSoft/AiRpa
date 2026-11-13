@@ -21,36 +21,6 @@ namespace RPA.Helpers
         {
             _workflowDesigner = designer;
             _customWfDesigner = CustomWfDesigner.GetInstance();
-            BreakpointsChanged += CmdSvc_BreakpointsChanged;
-        }
-
-        private void CmdSvc_BreakpointsChanged(object sender, EventArgs e)
-        {
-            ModelItem mi = _workflowDesigner.Context.Items.GetValue<Selection>().PrimarySelection;
-            if (!(mi?.GetCurrentValue() is Activity activity))
-            {
-                return;
-            }
-
-            if (!_workflowDesigner.DesignerSourceLocationMapping.ContainsKey(activity))
-            {
-                return;
-            }
-
-            SourceLocation srcLoc = _workflowDesigner.DesignerSourceLocationMapping[activity];
-            if (!_workflowDesigner.BreakpointList.Contains(srcLoc))
-            {
-                _workflowDesigner.Context.Services.GetService<IDesignerDebugView>().UpdateBreakpoint(srcLoc, BreakpointTypes.Bounded | BreakpointTypes.Enabled);
-                _workflowDesigner.BreakpointList.Add(srcLoc);
-            }
-            else
-            {
-                _workflowDesigner.Context.Services.GetService<IDesignerDebugView>().UpdateBreakpoint(srcLoc, BreakpointTypes.None);
-                _ = _workflowDesigner.BreakpointList.Remove(srcLoc);
-            }
-
-            // Автоматически сохраняем точки останова после изменения
-            AutoSaveBreakpoints();
         }
 
         public bool CanExecuteCommand(int commandId)
@@ -66,55 +36,68 @@ namespace RPA.Helpers
             switch (commandId)
             {
                 case CommandValues.InsertBreakpoint:
-                    if (!TryGetSourceLocation(parameters, out SourceLocation insertLocation)
-                        && !TryGetSelectedSourceLocation(out insertLocation))
+                    if (!TryResolveSourceLocation(parameters, out SourceLocation insertLocation))
                     {
                         return;
                     }
 
                     _workflowDesigner.Context.Services.GetService<IDesignerDebugView>().UpdateBreakpoint(insertLocation, GetBreakpointTypes(parameters) | BreakpointTypes.Enabled);
-                    BreakpointsChanged?.Invoke(this, new EventArgs());
+                    AddToBreakpointList(insertLocation);
                     AutoSaveBreakpoints();
                     break;
+
                 case CommandValues.DeleteBreakpoint:
-                    if (!TryGetSourceLocation(parameters, out SourceLocation deleteLocation)
-                        && !TryGetSelectedSourceLocation(out deleteLocation))
+                    if (!TryResolveSourceLocation(parameters, out SourceLocation deleteLocation))
                     {
                         return;
                     }
 
                     _workflowDesigner.Context.Services.GetService<IDesignerDebugView>().UpdateBreakpoint(deleteLocation, BreakpointTypes.None);
-                    BreakpointsChanged?.Invoke(this, new EventArgs());
+                    RemoveFromBreakpointList(deleteLocation);
                     AutoSaveBreakpoints();
                     break;
+
                 case CommandValues.EnableBreakpoint:
-                    if (!TryGetSourceLocation(parameters, out SourceLocation enableLocation)
-                        && !TryGetSelectedSourceLocation(out enableLocation))
+                    if (!TryResolveSourceLocation(parameters, out SourceLocation enableLocation))
                     {
                         return;
                     }
 
                     _workflowDesigner.Context.Services.GetService<IDesignerDebugView>().UpdateBreakpoint(enableLocation, BreakpointTypes.Enabled | BreakpointTypes.Bounded);
-                    BreakpointsChanged?.Invoke(this, new EventArgs());
+                    AddToBreakpointList(enableLocation);
                     AutoSaveBreakpoints();
                     break;
+
                 case CommandValues.DisableBreakpoint:
-                    if (!TryGetSourceLocation(parameters, out SourceLocation disableLocation)
-                        && !TryGetSelectedSourceLocation(out disableLocation))
+                    if (!TryResolveSourceLocation(parameters, out SourceLocation disableLocation))
                     {
                         return;
                     }
 
                     _workflowDesigner.Context.Services.GetService<IDesignerDebugView>().UpdateBreakpoint(disableLocation, BreakpointTypes.Bounded);
-                    BreakpointsChanged?.Invoke(this, new EventArgs());
+                    RemoveFromBreakpointList(disableLocation);
                     AutoSaveBreakpoints();
                     break;
+
                 case CommandValues.ShowProperties:
                     ShowPropertiesRequested?.Invoke(this, new EventArgs());
                     break;
+
                 default:
                     break;
             }
+        }
+
+        /// <summary>
+        /// Резолвит <see cref="SourceLocation"/> команды: сначала из параметров, переданных
+        /// <c>DesignerView</c>, затем из собственного <see cref="WorkflowDesignerEx.DesignerSourceLocationMapping"/>
+        /// по текущему выделению. Второй путь нужен, когда <see cref="IDesignerDebugView.SelectedLocation"/>
+        /// вернул <c>null</c> — при loose-открытии штатный маппинг дизайнера пуст, а ручной валиден.
+        /// </summary>
+        private bool TryResolveSourceLocation(Dictionary<string, object> parameters, out SourceLocation sourceLocation)
+        {
+            return TryGetSourceLocation(parameters, out sourceLocation)
+                || TryGetSelectedSourceLocation(out sourceLocation);
         }
 
         /// <summary>
@@ -140,12 +123,6 @@ namespace RPA.Helpers
         /// <summary>
         /// Извлекает <see cref="SourceLocation"/> текущего выделения из собственного
         /// <see cref="WorkflowDesignerEx.DesignerSourceLocationMapping"/>.
-        /// <para>
-        /// Запасной путь, когда <see cref="IDesignerDebugView.SelectedLocation"/> вернул <c>null</c>:
-        /// при loose-открытии штатный маппинг дизайнера пуст, и первый доступ к <c>SelectedLocation</c>
-        /// перезаписывает ручной маппинг. Собственный словарь <see cref="WorkflowDesignerEx"/>
-        /// при этом остаётся валидным, поэтому точка останова резолвится из него.
-        /// </para>
         /// </summary>
         private bool TryGetSelectedSourceLocation(out SourceLocation sourceLocation)
         {
@@ -165,6 +142,22 @@ namespace RPA.Helpers
             {
                 SourceLocationMappingDiagnostics.WriteException(ex, "CommandService.TryGetSelectedSourceLocation failed");
                 return false;
+            }
+        }
+
+        private void AddToBreakpointList(SourceLocation sourceLocation)
+        {
+            if (sourceLocation != null && !_workflowDesigner.BreakpointList.Contains(sourceLocation))
+            {
+                _workflowDesigner.BreakpointList.Add(sourceLocation);
+            }
+        }
+
+        private void RemoveFromBreakpointList(SourceLocation sourceLocation)
+        {
+            if (sourceLocation != null)
+            {
+                _ = _workflowDesigner.BreakpointList.Remove(sourceLocation);
             }
         }
 

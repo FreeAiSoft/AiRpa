@@ -196,6 +196,11 @@ namespace LogControlLibrary.ViewModels
         /// </summary>
         public ICommand DeselectAllLevelsCommand { get; }
 
+        /// <summary>
+        /// Команда копирования отфильтрованных логов в буфер обмена
+        /// </summary>
+        public ICommand CopyAllLogsCommand { get; }
+
         #endregion
 
         #region Конструктор
@@ -229,6 +234,7 @@ namespace LogControlLibrary.ViewModels
             ExportLogsCommand = new RelayCommand(() => ExportLogs(), CanExportLogs);
             SelectAllLevelsCommand = new RelayCommand(SelectAllLevels);
             DeselectAllLevelsCommand = new RelayCommand(DeselectAllLevels);
+            CopyAllLogsCommand = new RelayCommand(CopyAllLogs, CanCopyAllLogs);
 
             // Применяем начальные фильтры
             ApplyFilters();
@@ -442,6 +448,35 @@ namespace LogControlLibrary.ViewModels
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Error);
             }
+        }
+
+        /// <summary>
+        /// Копирование отфильтрованных логов в буфер обмена
+        /// </summary>
+        private void CopyAllLogs()
+        {
+            try
+            {
+                var logsToCopy = _filteredLogsViewSource.View.Cast<ILogEntry>().ToList();
+                if (logsToCopy.Count == 0)
+                    return;
+
+                var text = _exportService.BuildTextExport(logsToCopy);
+                System.Windows.Clipboard.SetText(text);
+            }
+            catch
+            {
+                // Буфер обмена занят другим процессом — игнорируем
+            }
+        }
+
+        /// <summary>
+        /// Проверка возможности копирования логов
+        /// </summary>
+        /// <returns>True, если есть хотя бы одна запись</returns>
+        private bool CanCopyAllLogs()
+        {
+            return _allLogs.Count > 0;
         }
 
         /// <summary>

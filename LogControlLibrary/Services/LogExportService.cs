@@ -77,6 +77,31 @@ namespace LogControlLibrary.Services
         }
 
         /// <summary>
+        /// Формирует текстовое представление логов для копирования в буфер обмена и текстового экспорта.
+        /// </summary>
+        /// <param name="logs">Коллекция логов</param>
+        /// <returns>Отформатированный текст лога</returns>
+        public string BuildTextExport(IEnumerable<ILogEntry> logs)
+        {
+            if (logs == null)
+                throw new ArgumentNullException(nameof(logs));
+
+            var logList = logs.ToList();
+
+            var builder = new StringBuilder();
+            builder.AppendLine($"# Экспорт логов - {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            builder.AppendLine($"# Всего записей: {logList.Count}");
+            builder.AppendLine();
+
+            foreach (var log in logList)
+            {
+                builder.AppendLine($"[{log.Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{log.Level,-7}] {log.Message}");
+            }
+
+            return builder.ToString();
+        }
+
+        /// <summary>
         /// Экспорт логов в текстовый формат
         /// </summary>
         /// <param name="logs">Коллекция логов</param>
@@ -85,20 +110,11 @@ namespace LogControlLibrary.Services
         /// <returns>Task для асинхронного выполнения</returns>
         private async Task ExportToTextAsync(IEnumerable<ILogEntry> logs, string filePath, Encoding encoding)
         {
+            var text = BuildTextExport(logs);
+
             using (var writer = new StreamWriter(filePath, false, encoding))
             {
-            
-                // Записываем заголовок
-                await writer.WriteLineAsync($"# Экспорт логов - {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-                await writer.WriteLineAsync($"# Всего записей: {logs.Count()}");
-                await writer.WriteLineAsync();
-    
-                // Записываем логи
-                foreach (var log in logs)
-                {
-                    var line = $"[{log.Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{log.Level,-7}] {log.Message}";
-                    await writer.WriteLineAsync(line);
-                }
+                await writer.WriteAsync(text);
             }
         }
 

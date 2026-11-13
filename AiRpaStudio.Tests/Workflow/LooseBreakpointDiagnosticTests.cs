@@ -80,6 +80,8 @@ namespace AiRpaStudio.Tests.Workflow
                         "лог должен фиксировать защиту ручного маппинга от перезаписи.");
                     Assert.That(log, Does.Contain("RepairDebuggerServiceModelItemMapping"),
                         "лог должен фиксировать досопоставление ModelItem для вложенных активностей.");
+                    Assert.That(log, Does.Contain("LooseXamlDocumentPersistenceService.Load:"),
+                        "лог должен фиксировать loose-загрузку документа.");
                 });
             }
             finally
@@ -132,6 +134,7 @@ namespace AiRpaStudio.Tests.Workflow
             string[] xamlFiles = Directory.GetFiles(rpa1, "*.xaml", SearchOption.TopDirectoryOnly);
             string mainXaml = Path.Combine(rpa1, "Main.xaml");
             string breakpointsFile = mainXaml + ".breakpoints";
+            string originalBreakpoints = File.Exists(breakpointsFile) ? File.ReadAllText(breakpointsFile) : null;
 
             try
             {
@@ -160,7 +163,7 @@ namespace AiRpaStudio.Tests.Workflow
             }
             finally
             {
-                TryDeleteFile(breakpointsFile);
+                RestoreFile(breakpointsFile, originalBreakpoints);
             }
         }
 
@@ -182,6 +185,26 @@ namespace AiRpaStudio.Tests.Workflow
             Assert.That(Directory.Exists(rpa1), Is.True, "нет эталонного проекта RPA-1: " + rpa1);
             return rpa1;
         }
+
+        private static void RestoreFile(string path, string originalContent)
+        {
+            try
+            {
+                if (originalContent != null)
+                {
+                    File.WriteAllText(path, originalContent);
+                }
+                else
+                {
+                    TryDeleteFile(path);
+                }
+            }
+            catch (Exception)
+            {
+                // восстановление побочного файла не должно ронять тест
+            }
+        }
+
 
         private static void TryDeleteFile(string path)
         {

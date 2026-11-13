@@ -310,6 +310,11 @@
                             ToolTip="Сбросить все фильтры">
                         <materialIcons:MaterialIcon Kind="Refresh" Width="16" Height="16"/>
                     </Button>
+                    <Button Command="{Binding CopyAllLogsCommand}"
+                            Style="{StaticResource LogLevelButtonStyle}"
+                            ToolTip="Копировать всё">
+                        <materialIcons:MaterialIcon Kind="ContentCopy" Width="16" Height="16"/>
+                    </Button>
                     
                     <!-- Кнопка настроек -->
                     <Button x:Name="SettingsButton"

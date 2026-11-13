@@ -98,5 +98,62 @@ namespace AiRpaStudio.Tests
             Assert.That(text, Does.Contain("Sequence"));
             Assert.That(text, Does.Contain("DisplayName=Seq"));
         }
+
+        [Test]
+        public void DescribeSourceLocation_Null_ReturnsMarker()
+        {
+            Assert.That(
+                SourceLocationMappingDiagnostics.Describe((SourceLocation)null),
+                Is.EqualTo("<null>"));
+        }
+
+        [Test]
+        public void DescribeActivity_Null_ReturnsMarker()
+        {
+            Assert.That(
+                SourceLocationMappingDiagnostics.Describe((System.Activities.Activity)null),
+                Is.EqualTo("<null>"));
+        }
+
+        [Test]
+        public void WriteException_LogsContextAndStackTrace()
+        {
+            Exception exception = CaptureException();
+
+            SourceLocationMappingDiagnostics.WriteException(exception, "ctx");
+
+            string text = File.ReadAllText(SourceLocationMappingDiagnostics.LogPath);
+            Assert.That(text, Does.Contain("ctx: boom"));
+            Assert.That(text, Does.Contain("InvalidOperationException"));
+            Assert.That(text, Does.Contain("CaptureException"), "стек должен попадать в лог.");
+        }
+
+        [Test]
+        public void WriteException_Null_DoesNotWrite()
+        {
+            SourceLocationMappingDiagnostics.WriteException(null, "ctx");
+
+            Assert.That(File.ReadAllText(SourceLocationMappingDiagnostics.LogPath), Is.EqualTo(string.Empty));
+        }
+
+        [Test]
+        public void LogPath_BlankValue_ResetsToDefault()
+        {
+            SourceLocationMappingDiagnostics.LogPath = "   ";
+
+            Assert.That(SourceLocationMappingDiagnostics.LogPath, Does.Contain("airpa-sourcelocation-mapping.log"));
+        }
+
+        private static Exception CaptureException()
+        {
+            try
+            {
+                throw new InvalidOperationException("boom");
+            }
+            catch (InvalidOperationException ex)
+            {
+                return ex;
+            }
+        }
     }
 }
