@@ -49,6 +49,14 @@ namespace RPA.Helpers
                         CustomWfDesigner.GetInstance().LogViewerControl.AddLog((LogControlLibrary.Models.LogLevel)logItem.LogLevel, logItem.Message);
                     }, DispatcherPriority.Send);
 
+                SourceLocation diagRuntime = GetSourceLocation(runtimeMapping, trackingEventArgs.Activity);
+                SourceLocation diagDesigner = GetSourceLocation(workflowDesignerEx.DesignerSourceLocationMapping, trackingEventArgs.Activity);
+                SourceLocationMappingDiagnostics.Write(
+                    "TrackHandler: activity=" + SourceLocationMappingDiagnostics.Describe(trackingEventArgs.Activity)
+                    + " runtime=" + SourceLocationMappingDiagnostics.Describe(diagRuntime)
+                    + " designer=" + SourceLocationMappingDiagnostics.Describe(diagDesigner)
+                    + " chosen=" + SourceLocationMappingDiagnostics.Describe(diagRuntime ?? diagDesigner));
+
                 SourceLocation sourceLocation = GetSourceLocation(
                     runtimeMapping,
                     workflowDesignerEx.DesignerSourceLocationMapping,
@@ -56,7 +64,7 @@ namespace RPA.Helpers
 
                 if (sourceLocation != null)
                 {
-                    ShowDebug(sourceLocation, workflowDesignerEx, resumeRuntimeFromHost, dispatcher);
+                    ShowDebug(trackingEventArgs.Activity, sourceLocation, workflowDesignerEx, resumeRuntimeFromHost, dispatcher);
                 }
                 else
                 {
@@ -85,7 +93,7 @@ namespace RPA.Helpers
         /// а <c>WaitOne()</c> остаётся на фоновом потоке прогона — иначе точка останова заморозила бы
         /// студию.
         /// </summary>
-        private static void ShowDebug(SourceLocation srcLoc, WorkflowDesignerEx workflowDesignerEx, AutoResetEvent resumeRuntimeFromHost, Dispatcher dispatcher)
+        private static void ShowDebug(Activity activity, SourceLocation srcLoc, WorkflowDesignerEx workflowDesignerEx, AutoResetEvent resumeRuntimeFromHost, Dispatcher dispatcher)
         {
             bool isBreakpointHit = false;
 
@@ -93,6 +101,11 @@ namespace RPA.Helpers
             {
                 SourceLocation normalized = Normalize(srcLoc);
                 WorkflowDesignerEx targetDesigner = ResolveTargetDesigner(normalized, workflowDesignerEx);
+                SourceLocationMappingDiagnostics.Write(
+                    "TrackHandler.ShowDebug: src=" + SourceLocationMappingDiagnostics.Describe(srcLoc)
+                    + " normalized=" + SourceLocationMappingDiagnostics.Describe(normalized)
+                    + " targetDesigner=" + (targetDesigner == null ? "<null>" : "#" + targetDesigner.GetHashCode()));
+
 
                 if (targetDesigner == null)
                 {
@@ -100,13 +113,14 @@ namespace RPA.Helpers
                     return;
                 }
 
-                targetDesigner.DebugManagerView.CurrentLocation = normalized;
+                SourceLocation displayLocation = ResolveDesignerLocation(targetDesigner.DesignerSourceLocationMapping, activity) ?? normalized;
+                targetDesigner.DebugManagerView.CurrentLocation = displayLocation;
 
                 // Check if this is where any BP is set
                 foreach (SourceLocation src in targetDesigner.BreakpointList)
                 {
-                    if (src.StartLine == normalized.StartLine &&
-                        src.EndLine == normalized.EndLine)
+                    if (src.StartLine == displayLocation.StartLine &&
+                        src.EndLine == displayLocation.EndLine)
                     {
                         if (targetDesigner.LastBreakpoint != src) // защита от двойной остановки
                         {
@@ -120,6 +134,12 @@ namespace RPA.Helpers
 
                 if (isBreakpointHit)
                 {
+                    // Уже открытая вкладка с точкой останова должна стать видимой: сеттер
+                    // ActiveWorkflowDesignerEx через DocGroupHelper.SetSelectedTab переключает панель
+                    // документов на нужную вкладку. Закрытый скрипт уже активируется в
+                    // ResolveTargetDesigner при открытии, поэтому активация безопасна во всех трёх
+                    // случаях: текущий дизайнер, уже открытая вкладка, только что открытый файл.
+                    CustomWfDesigner.GetInstance().ActiveWorkflowDesignerEx = targetDesigner;
                     CustomWfDesigner.GetInstance().CustomWfDesignerState = CustomWfDesignerState.Breakpoint;
                 }
             });
@@ -248,6 +268,48 @@ namespace RPA.Helpers
         {
             return GetSourceLocation(runtimeMapping, activity)
                 ?? GetSourceLocation(designerSourceLocationMapping, activity);
+        }
+
+        /// <summary>
+        /// Ищет в маппинге целевого дизайнера локацию той же активности по последней компоненте
+        /// <see cref="Activity.Id"/> (QualifiedId). Дизайнер открыт loose, поэтому его дерево короче
+        /// рантаймного ровно на корень x:Class: у дизайнера <c>Sequence=1</c>, а в рантайме <c>1.1</c>;
+        /// у ребёнка дизайнера <c>6</c>, в рантайме <c>1.6</c>. Последняя компонента однозначна внутри
+        /// одного файла, поэтому сопоставление надёжно.
+        /// </summary>
+        internal static SourceLocation ResolveDesignerLocation(Dictionary<object, SourceLocation> designerMapping, Activity activity)
+        {
+            if (designerMapping == null || activity == null)
+            {
+                return null;
+            }
+
+            string lastId = LastIdComponent(activity.Id);
+            if (lastId == null)
+            {
+                return null;
+            }
+
+            foreach (KeyValuePair<object, SourceLocation> entry in designerMapping)
+            {
+                if (entry.Key is Activity keyActivity && LastIdComponent(keyActivity.Id) == lastId)
+                {
+                    return entry.Value;
+                }
+            }
+
+            return null;
+        }
+
+        internal static string LastIdComponent(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return null;
+            }
+
+            int index = id.LastIndexOf('.');
+            return index >= 0 ? id.Substring(index + 1) : id;
         }
 
         public static SourceLocation GetSourceLocation(Dictionary<object, SourceLocation> designerSourceLocationMapping, Activity activity)

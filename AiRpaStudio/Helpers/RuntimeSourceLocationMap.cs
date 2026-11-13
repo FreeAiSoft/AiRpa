@@ -138,6 +138,9 @@ namespace RPA.Helpers
                 foreach (KeyValuePair<object, SourceLocation> entry in mapping)
                 {
                     result[entry.Key] = entry.Value;
+                    SourceLocationMappingDiagnostics.Write(
+                        "RuntimeSourceLocationMap: entry key=" + DescribeKey(entry.Key)
+                        + " -> " + SourceLocationMappingDiagnostics.Describe(entry.Value));
                 }
 
                 SourceLocationMappingDiagnostics.Write(
@@ -150,5 +153,15 @@ namespace RPA.Helpers
                     "RuntimeSourceLocationMap: failed on " + SourceLocationMappingDiagnostics.Describe(activity));
             }
         }
+        private static string DescribeKey(object key)
+        {
+            if (key is Activity activity)
+            {
+                return SourceLocationMappingDiagnostics.Describe(activity);
+            }
+
+            return key?.GetType().FullName ?? "<null>";
+        }
+
     }
 }
