@@ -1,9 +1,11 @@
 using System;
+using System.Activities.Debugger;
 using System.Activities.Presentation.Hosting;
 using System.Activities.XamlIntegration;
 using System.IO;
 using System.Xaml;
 using System.Xml;
+using RPA.Logging;
 
 namespace RPA.Core.Workflow
 {
@@ -36,14 +38,22 @@ namespace RPA.Core.Workflow
             }
 
             string xaml = File.ReadAllText(fileName);
-            var schemaContext = new LooseActivityXamlSchemaContext(_registry);
+            SourceLocationMappingDiagnostics.Write($"LooseXamlDocumentPersistenceService.Load: file={fileName} length={xaml.Length}");
 
+            var schemaContext = new LooseActivityXamlSchemaContext(_registry);
+            SourceLocationMappingDiagnostics.Write($"LooseXamlDocumentPersistenceService.Load: schemaContext={schemaContext.GetType().FullName}");
+
+            // XamlDebuggerXmlReader обязателен: обычная загрузка (XamlXmlReader) оставляет отладочные
+            // символы <sads:DebugSymbol.Symbol> сырой строкой, и SourceLocationProvider.CollectMapping
+            // не строит карту SourceLocation. Без неё DebuggerService.CurrentLocation всегда null, а вставка
+            // точки останова падает с ArgumentNullException (пустой SourceLocation как ключ словаря).
             using (var textReader = new StringReader(xaml))
-            using (var xmlReader = XmlReader.Create(textReader, new XmlReaderSettings { XmlResolver = null }))
-            using (var xamlReader = new XamlXmlReader(xmlReader, schemaContext))
-            using (var builderReader = ActivityXamlServices.CreateBuilderReader(xamlReader, schemaContext))
+            using (var debuggerReader = new XamlDebuggerXmlReader(textReader, schemaContext))
+            using (var builderReader = ActivityXamlServices.CreateBuilderReader(debuggerReader, schemaContext))
             {
-                return XamlServices.Load(builderReader);
+                object loaded = XamlServices.Load(builderReader);
+                SourceLocationMappingDiagnostics.Write($"LooseXamlDocumentPersistenceService.Load: loaded={(loaded == null ? "<null>" : loaded.GetType().FullName)}");
+                return loaded;
             }
         }
 

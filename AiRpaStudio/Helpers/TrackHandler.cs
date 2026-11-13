@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Activities;
 using System.Activities.Debugger;
 using System.Activities.Tracking;
@@ -9,7 +9,6 @@ using System.Windows;
 using System.Windows.Threading;
 using ActivitiesTracker.Entities;
 using RPA.Core;
-using RPA.Enums;
 using RPA.Extensions;
 using RPA.Logging;
 
@@ -21,93 +20,98 @@ namespace RPA.Helpers
             TrackingEventArgs trackingEventArgs,
             WorkflowDesignerEx workflowDesignerEx,
             AutoResetEvent resumeRuntimeFromHost,
-            ref WorkflowState workflowState,
-            ref Activity subWorkflowActivity,
             bool isNeedPause,
             out Dictionary<string, object> arguments)
         {
             arguments = null;
 
+            Dispatcher dispatcher = ((Window)CustomWfDesigner.GetInstance().ViewModel.View).Dispatcher;
+
             if (isNeedPause)
             {
-                ((Window)CustomWfDesigner.GetInstance().ViewModel.View).Dispatcher.Invoke(
-                        () =>
-                        {
-                            CustomWfDesigner.GetInstance().LogViewerControl.AddLog(LogControlLibrary.Models.LogLevel.Trace, "pause");
-                        }, DispatcherPriority.Send);
+                dispatcher.Invoke(
+                    () =>
+                    {
+                        CustomWfDesigner.GetInstance().LogViewerControl.AddLog(LogControlLibrary.Models.LogLevel.Trace, "pause");
+                    }, DispatcherPriority.Send);
                 _ = resumeRuntimeFromHost.WaitOne();
             }
 
             if (trackingEventArgs.Activity != null)
             {
                 LogItem logItem = trackingEventArgs.GetLogItem();
-                ((Window)CustomWfDesigner.GetInstance().ViewModel.View).Dispatcher.Invoke(
-                        () =>
-                        {
-                            CustomWfDesigner.GetInstance().LogViewerControl.AddLog((LogControlLibrary.Models.LogLevel)logItem.LogLevel, logItem.Message);
-                        }, DispatcherPriority.Send);
 
+                dispatcher.Invoke(
+                    () =>
+                    {
+                        CustomWfDesigner.GetInstance().LogViewerControl.AddLog((LogControlLibrary.Models.LogLevel)logItem.LogLevel, logItem.Message);
+                    }, DispatcherPriority.Send);
 
                 SourceLocation sourceLocation = GetSourceLocation(workflowDesignerEx.DesignerSourceLocationMapping, trackingEventArgs.Activity);
+
                 if (sourceLocation != null)
                 {
-                    ShowDebug(sourceLocation, workflowDesignerEx, resumeRuntimeFromHost);
+                    ShowDebug(sourceLocation, workflowDesignerEx, resumeRuntimeFromHost, dispatcher);
                 }
                 else
                 {
-                    CustomWfDesigner.GetInstance().Log($"Not found SourceLocation for {trackingEventArgs.Activity}");
+                    dispatcher.Invoke(
+                        () =>
+                        {
+                            CustomWfDesigner.GetInstance().Log($"Not found SourceLocation for {trackingEventArgs.Activity}");
+                        });
                 }
             }
 
-            // Запуск вложенной активности
+            // Запуск вложенной активности: параметры отдаются вызывающей стороне (ActivityRunner),
+            // которая запускает дочерний прогон событийно, а не поллингом по DispatcherTimer.
             if (trackingEventArgs.ActivityInfo?.TypeName == "Activities.Flow.RunScript")
             {
                 if (((ActivityStateRecord)trackingEventArgs.Record).State == "Executing")
                 {
-                    workflowState = WorkflowState.NeedRunSubWorkflow;
-                    subWorkflowActivity = trackingEventArgs.Activity;
                     arguments = trackingEventArgs.ActivityParameters;
                 }
             }
         }
 
         /// <summary>
-        /// Здесь устанавливается жёлтая рамка на исполняемой активности
-        /// и происходит блокирование потока при попадании в точку останова
+        /// Здесь устанавливается жёлтая рамка на исполняемой активности и происходит блокирование
+        /// потока при попадании в точку останова. Подсветка и состояние ставятся на UI-потоке,
+        /// а <c>WaitOne()</c> остаётся на фоновом потоке прогона — иначе точка останова заморозила бы
+        /// студию.
         /// </summary>
-        /// <param name="srcLoc"></param>
-        private static void ShowDebug(SourceLocation srcLoc, WorkflowDesignerEx workflowDesignerEx, AutoResetEvent resumeRuntimeFromHost)
+        private static void ShowDebug(SourceLocation srcLoc, WorkflowDesignerEx workflowDesignerEx, AutoResetEvent resumeRuntimeFromHost, Dispatcher dispatcher)
         {
-            workflowDesignerEx.DebugManagerView.CurrentLocation = srcLoc;
-
-            // Check if this is where any BP is set
             bool isBreakpointHit = false;
-            foreach (SourceLocation src in workflowDesignerEx.BreakpointList)
+
+            dispatcher.Invoke(() =>
             {
-                if (src.StartLine == srcLoc.StartLine &&
-                    src.EndLine == srcLoc.EndLine)
+                workflowDesignerEx.DebugManagerView.CurrentLocation = srcLoc;
+
+                // Check if this is where any BP is set
+                foreach (SourceLocation src in workflowDesignerEx.BreakpointList)
                 {
-                    if (workflowDesignerEx.LastBreakpoint != src) // хуйня для предотвращения двойной остановки
+                    if (src.StartLine == srcLoc.StartLine &&
+                        src.EndLine == srcLoc.EndLine)
                     {
-                        ((Window)CustomWfDesigner.GetInstance().ViewModel.View).Dispatcher.Invoke(
-                        () =>
+                        if (workflowDesignerEx.LastBreakpoint != src) // хуйня для предотвращения двойной остановки
                         {
                             CustomWfDesigner.GetInstance().LogViewerControl.AddLog(LogControlLibrary.Models.LogLevel.Trace, "breakpoint hit");
-                        }, DispatcherPriority.Send);
-                        isBreakpointHit = true;
-                        workflowDesignerEx.LastBreakpoint = src;
+                            isBreakpointHit = true;
+                            workflowDesignerEx.LastBreakpoint = src;
+                        }
+                        break;
                     }
-                    break;
                 }
-            }
+
+                if (isBreakpointHit)
+                {
+                    CustomWfDesigner.GetInstance().CustomWfDesignerState = CustomWfDesignerState.Breakpoint;
+                }
+            });
 
             if (isBreakpointHit)
             {
-                ((Window)CustomWfDesigner.GetInstance().ViewModel.View).Dispatcher.Invoke(
-                        () =>
-                        {
-                            CustomWfDesigner.GetInstance().CustomWfDesignerState = CustomWfDesignerState.Breakpoint;
-                        });
                 _ = resumeRuntimeFromHost.WaitOne();
             }
         }

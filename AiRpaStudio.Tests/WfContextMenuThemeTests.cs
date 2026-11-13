@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -178,6 +178,92 @@ public class WfContextMenuThemeTests
             window.Close();
         }
     }
+
+
+    [Test]
+    public void CreateEditingContextMenu_RendersNestedSubmenuItems()
+    {
+        var designer = new Grid { Name = WfDesignerTheme.DesignerViewElementName };
+        Window window = ShowWindow(designer);
+
+        try
+        {
+            ContextMenu menu = WfDesignerTheme.CreateEditingContextMenu(StudioPalette.Dark);
+            MenuItem parent = menu.Items.OfType<MenuItem>().First();
+            _ = parent.Items.Add(new MenuItem { Header = "Вставить точку останова" });
+            _ = parent.Items.Add(new MenuItem { Header = "Удалить точку останова" });
+
+            Open(menu, designer, window);
+
+            parent.IsSubmenuOpen = true;
+            Pump(window);
+
+            Popup popup = parent.Template?.FindName("PART_Popup", parent) as Popup;
+            Assert.That(popup, Is.Not.Null, "PART_Popup обязан быть в шаблоне пункта меню");
+            Assert.That(popup.IsOpen, Is.True, "подменю не открылось");
+
+            List<string> texts = Walk(popup.Child)
+                .OfType<TextBlock>()
+                .Where(text => !string.IsNullOrEmpty(text.Text))
+                .Select(text => text.Text)
+                .ToList();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(texts, Does.Contain("Вставить точку останова"),
+                    "вложенные пункты не отрисовываются: в PART_Popup нет ItemsPresenter");
+                Assert.That(texts, Does.Contain("Удалить точку останова"),
+                    "вложенные пункты не отрисовываются: в PART_Popup нет ItemsPresenter");
+            });
+
+            Close(menu, window);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [Test]
+    public void CreateEditingContextMenu_ShowsSubmenuChevron()
+    {
+        var designer = new Grid { Name = WfDesignerTheme.DesignerViewElementName };
+        Window window = ShowWindow(designer);
+
+        try
+        {
+            ContextMenu menu = WfDesignerTheme.CreateEditingContextMenu(StudioPalette.Dark);
+            MenuItem parent = menu.Items.OfType<MenuItem>().First();
+            _ = parent.Items.Add(new MenuItem { Header = "Вставить точку останова" });
+            MenuItem leaf = menu.Items.OfType<MenuItem>().Skip(1).First();
+
+            Open(menu, designer, window);
+
+            var parentArrow = parent.Template?.FindName(WfContextMenuTheme.SubmenuArrowPartName, parent) as System.Windows.Shapes.Path;
+            var leafArrow = leaf.Template?.FindName(WfContextMenuTheme.SubmenuArrowPartName, leaf) as System.Windows.Shapes.Path;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(parentArrow, Is.Not.Null, "у шаблона пункта должен быть шеврон подменю");
+                Assert.That(parentArrow.Visibility, Is.EqualTo(Visibility.Visible),
+                    "пункт-подкатегория обязан показывать шеврон справа");
+                Assert.That(parentArrow.Fill, Is.InstanceOf<SolidColorBrush>());
+                Assert.That(ColorOf(parentArrow.Fill), Is.EqualTo(StudioPalette.Dark.Foreground),
+                    "шеврон обязан быть в цвете текста пункта");
+
+                Assert.That(leafArrow, Is.Not.Null, "у шаблона листового пункта тоже есть шеврон, но свёрнут");
+                Assert.That(leafArrow.Visibility, Is.EqualTo(Visibility.Collapsed),
+                    "у пункта без подменю шеврона быть не должно");
+            });
+
+            Close(menu, window);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
 
     // --- Перекраска: меню создаётся один раз, тема меняется. ---
 

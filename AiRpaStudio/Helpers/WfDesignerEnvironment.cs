@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Activities.Core.Presentation;
 using System.Activities.Presentation;
 using System.Activities.Presentation.Hosting;
@@ -64,7 +64,20 @@ namespace RPA.Helpers
             {
                 configuration.TargetFrameworkName = new FrameworkName(".NETFramework", new Version(4, 5));
                 configuration.LoadingFromUntrustedSourceEnabled = true;
+
+                // Аннотации в WF-дизайнере по умолчанию выключены (DesignerConfigurationService создаётся
+                // с annotationEnabled == false), а пункт «Аннотации» в контекстном меню DesignerView
+                // показывается только при AnnotationEnabled == true. Без этого флага пункт
+                // (Add/Edit/Delete/Show/Hide/Delete All Annotation) схлопывается всегда.
+                configuration.AnnotationEnabled = true;
             }
+
+            // Точки останова в контекстном меню DesignerView показываются только при опубликованном
+            // IDesignerDebugView (areBreakpointServicesEnabled() в DesignerView.Commands.cs). WorkflowDesigner
+            // публикует его лениво — при первом обращении к DebugManagerView, — а обращение в студии стоит в
+            // конце генерации debug-маппинга и может не выполниться (пустой корень/«sequence not found»).
+            // Явное обращение идемпотентно создаёт DebuggerService и публикует IDesignerDebugView.
+            _ = designer.DebugManagerView;
 
             designer.Context.Services.Publish<IExpressionEditorService>(new RoslynExpressionEditorService());
             designer.Context.Services.Publish(validationErrorService ?? (IValidationErrorService)new DebugValidationErrorService());

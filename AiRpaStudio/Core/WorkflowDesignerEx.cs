@@ -1,6 +1,7 @@
 using System;
 using System.Activities.Debugger;
 using System.Activities.Presentation;
+using System.Activities.Presentation.Model;
 using System.Collections.Generic;
 using System.ComponentModel;
 using RPA.Core.Services;
@@ -42,10 +43,19 @@ namespace RPA.Core
 
         private DesignerValidator _designerCustomValidationService;
 
+        /// <summary>
+        /// Менеджер дерева модели. Через него отслеживаются реальные правки модели
+        /// (<see cref="ModelTreeManager.EditingScopeCompleted"/>), когда <see cref="ModelChanged"/>
+        /// не поднимается из-за опубликованного <see cref="System.Activities.Presentation.Hosting.IDocumentPersistenceService"/>
+        /// (loose-XAML путь открытия).
+        /// </summary>
+        private ModelTreeManager _modelTreeManager;
+
         public WorkflowDesignerEx()
         {
             DesignerVariableContextMenuService = new DesignerVariableContextMenuService(this);
             ModelChanged += WorkflowDesignerEx_ModelChanged;
+            Context.Services.Subscribe<ModelTreeManager>(OnModelTreeManagerAvailable);
             _designerCustomValidationService = new DesignerValidator(this);
         }
 
@@ -68,10 +78,40 @@ namespace RPA.Core
         /// </summary>
         internal DesignerValidator Validation => _designerCustomValidationService;
 
+        private void OnModelTreeManagerAvailable(ModelTreeManager treeManager)
+        {
+            if (treeManager == null)
+            {
+                return;
+            }
+
+            _modelTreeManager = treeManager;
+            treeManager.EditingScopeCompleted += OnEditingScopeCompleted;
+        }
+
+        /// <summary>
+        /// Зафиксирован <see cref="EditingScope"/> модели — реальная правка (добавление активности,
+        /// изменение свойства, добавление аргумента). Помечает вкладку «изменённой» только при
+        /// эффективных изменениях — так же фильтрует сам <see cref="WorkflowDesigner"/>.
+        /// </summary>
+        private void OnEditingScopeCompleted(object sender, EditingScopeEventArgs e)
+        {
+            if (e.EditingScope != null && e.EditingScope.HasEffectiveChanges)
+            {
+                IsEdited = true;
+            }
+        }
+
         public void DetachValidation()
         {
             _designerCustomValidationService?.Dispose();
             _designerCustomValidationService = null;
+
+            if (_modelTreeManager != null)
+            {
+                _modelTreeManager.EditingScopeCompleted -= OnEditingScopeCompleted;
+                _modelTreeManager = null;
+            }
         }
 
         private void WorkflowDesignerEx_ModelChanged(object sender, EventArgs e)

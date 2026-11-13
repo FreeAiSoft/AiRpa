@@ -126,11 +126,11 @@
   `Activator.CreateInstanceFrom` и отдаёт события в `ActivitiesTracker` (тоже 4.7.2) — Sequence, If, TryCatch,
   WriteLine, аргумент `InputText = max`, результат `Result = MAX`.
 - **Зависимости робота** (`Newtonsoft.Json` робота, его библиотеки активностей) ищутся в его выходном каталоге
-  `bin\<Config>` и `bin\<Config>\<TFM>`: `AiRpaStudio\Helpers\RobotAssemblyResolver.cs`. Правила: сборки хоста
+  `bin\<Config>`, `bin\<Config>\<TFM>`, `bin\<Platform>\<Config>`, `bin\<Platform>\<Config>\<TFM>`: `AiRpaStudio\Helpers\RobotAssemblyResolver.cs`. Правила: сборки хоста
   (`System.*`, WF, `Activities*`, `ActivitiesTracker`, `RPA*`) из каталога робота **никогда** не обслуживаются,
   понижение версии запрещено, чужой открытый ключ запрещён, обработчик не бросает исключений, подписка
   идемпотентна. Порядок: сначала `AssemblyBindingUnifier` (сверка версий внутри домена), затем этот резолвер.
-  Тесты — `AiRpaStudio.Tests\RobotAssemblyResolverTests.cs` (проверены негативом).
+  Тесты — `AiRpaStudio.Tests\RobotAssemblyResolverTests.cs` (поиск, правила, подписка; проверены негативом) и `AiRpaStudio.Tests\RobotExternalDependencyTests.cs` (эталон с внешней зависимостью `RobotExternalLib` прогоняется по сборке без `FileNotFoundException`).
 - **Прогон** — один движок на студию и на раннер: `Rpa.Workflow.Runtime\Engine\WorkflowRunEngine.cs`
   (проект `Rpa.Workflow.Runtime`, `net472`; студия ссылается на него и своей копии не держит —
   страж `AiRpaStudio.Tests\Runner\RunnerSourceGuardTests.cs`).
@@ -146,6 +146,24 @@
   `If.Else` и негатив «в пустом каталоге сборка робота не находится». Вне автотестов остаётся
   UI-состояние `ActivityRunner` (read-only дизайнера, точки останова, `Locals`): ему нужен живой
   `CustomWfDesigner` и `TrackHandler` с окном — проверяется вручную отладкой в студии.
+- **Автосборка перед запуском** (`LooseWorkflowRun`, шаг 5): для WF-проекта (`IsWorkflowProject`) прогон
+  сам собирает проект через `VsProjectBuilder` (MSBuild), если собранной `RPA-*.dll` нет или она устарела
+  относительно XAML проекта (`ActivityRunner.TryLoadOrBuildFromProject`/`IsProjectOutdated`). Сборка —
+  только в студии: раннер по-прежнему ничего не собирает (страж `RunnerSourceGuardTests`). Тесты —
+  `AiRpaStudio.Tests\ActivityRunnerLoadPathTests.cs`.
+- **Валидация перед запуском** (`LooseWorkflowRun`, шаг 6): после загрузки активности и до старта прогона
+  `ActivityRunner.ValidateForRun` прогоняет `ActivityValidationServices.Validate` (как `--validate` раннера) —
+  ошибки, невидимые загрузке (`Assign` без `To`/`Value`), дают понятное сообщение и не дают запустить прогон.
+  Тесты — `AiRpaStudio.Tests\ActivityRunnerLoadPathTests.cs`.
+
+- **Отладка при прогоне по сборке** (вложенные `SubProcessN`): дизайнер открывает workflow loose
+  (фасады без тел), а прогон идёт по собранной сборке (реальные тела). `TrackHandler.GetSourceLocation`
+  сопоставляет исполняемую активность с исходником по `Activity.Id` (`DesignerSourceLocationMapping`),
+  а `Id` дерева loose-дизайнера не совпадает с `Id` дерева прогона внутри вложенных процессов. Поэтому
+  подсветка текущей активности и точки останова гарантированно работают только **на верхнем уровне**
+  (вне тел `SubProcessN`) — осознанное ограничение первого приёма (`dev-docs\LooseWorkflowRun_Plan.md`,
+  шаг 3). Полная отладка вложенных процессов — отдельная карточка «дизайнер из сборки для отладки»
+  (беклог, §6 того же плана).
 - `WorkflowHost` — **устаревший прототип** (зашитый путь к `Main.xaml`, `MessageBox`, `Console.ReadKey()`,
   `EnvDTE80`): собирается в решении, но никем не подключается — страж `AiRpaStudio.Tests\WorkflowHostLegacyGuardTests.cs`.
   Роль раннера исполняет `RpaRunner.exe` (`OR-02`, раздел ниже); `WorkflowHost` не воскрешать.

@@ -136,6 +136,19 @@ namespace AiRpaStudio.Tests.Workflow
             });
         }
 
+        [Test]
+        public void ActivityRunner_PassesLooseRegistryToDesignerOnRun()
+        {
+            string method = MethodBody(ReadSource(@"AiRpaStudio\Core\ActivityRunner.cs"), "Start");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(method, Does.Contain("LoadActivityToDesignerHelper.LoadActivityToDesigner("));
+                Assert.That(method, Does.Contain("GetLooseRegistryFor(pathToXaml)"),
+                    "при запуске WF-проекта дизайнер обязан открываться loose-путём с реестром вложенных процессов, даже если вкладка ещё не открыта");
+            });
+        }
+
         private static string MethodBody(string source, string methodName)
         {
             Match match = Regex.Match(

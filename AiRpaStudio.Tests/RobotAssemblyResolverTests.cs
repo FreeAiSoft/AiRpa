@@ -179,6 +179,31 @@ public class RobotAssemblyResolverTests
         });
     }
 
+    [Test]
+    public void GetProbeDirectories_CoversPlatformLayouts()
+    {
+        string project = IOPath.Combine(probeDirectory, "Robot");
+        string debug = IOPath.Combine(project, "bin", "Debug");
+        string x64Debug = IOPath.Combine(project, "bin", "x64", "Debug");
+        string x64DebugNet48 = IOPath.Combine(x64Debug, "net48");
+        string x86Release = IOPath.Combine(project, "bin", "x86", "Release");
+        Directory.CreateDirectory(debug);
+        Directory.CreateDirectory(x64DebugNet48);
+        Directory.CreateDirectory(x86Release);
+
+        List<string> directories = RobotAssemblyResolver.GetProbeDirectories(project);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(directories, Does.Contain(debug), "AnyCPU: bin/Debug");
+            Assert.That(directories, Does.Contain(x64Debug), "x64: bin/x64/Debug");
+            Assert.That(directories, Does.Contain(x64DebugNet48), "x64 + TFM: bin/x64/Debug/net48");
+            Assert.That(directories, Does.Contain(x86Release), "x86 Release: bin/x86/Release");
+            Assert.That(directories.First(), Is.EqualTo(debug), "первым идёт bin/Debug — как в RobotLocator");
+            Assert.That(directories, Is.Unique);
+        });
+    }
+
     // --- Подписка на AppDomain.AssemblyResolve. ---
 
     [Test]

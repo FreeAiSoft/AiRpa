@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Activities;
 using System.Activities.Debugger;
 using System.Activities.Presentation.Debug;
@@ -8,6 +8,7 @@ using System.Activities.Presentation.View;
 using System.Collections.Generic;
 using System.IO;
 using RPA.Core;
+using RPA.Logging;
 
 namespace RPA.Helpers
 {
@@ -65,22 +66,46 @@ namespace RPA.Helpers
             switch (commandId)
             {
                 case CommandValues.InsertBreakpoint:
-                    _workflowDesigner.Context.Services.GetService<IDesignerDebugView>().UpdateBreakpoint((SourceLocation)parameters["SourceLocation"], (BreakpointTypes)parameters["BreakpointTypes"] | BreakpointTypes.Enabled);
+                    if (!TryGetSourceLocation(parameters, out SourceLocation insertLocation)
+                        && !TryGetSelectedSourceLocation(out insertLocation))
+                    {
+                        return;
+                    }
+
+                    _workflowDesigner.Context.Services.GetService<IDesignerDebugView>().UpdateBreakpoint(insertLocation, GetBreakpointTypes(parameters) | BreakpointTypes.Enabled);
                     BreakpointsChanged?.Invoke(this, new EventArgs());
                     AutoSaveBreakpoints();
                     break;
                 case CommandValues.DeleteBreakpoint:
-                    _workflowDesigner.Context.Services.GetService<IDesignerDebugView>().UpdateBreakpoint((SourceLocation)parameters["SourceLocation"], BreakpointTypes.None);
+                    if (!TryGetSourceLocation(parameters, out SourceLocation deleteLocation)
+                        && !TryGetSelectedSourceLocation(out deleteLocation))
+                    {
+                        return;
+                    }
+
+                    _workflowDesigner.Context.Services.GetService<IDesignerDebugView>().UpdateBreakpoint(deleteLocation, BreakpointTypes.None);
                     BreakpointsChanged?.Invoke(this, new EventArgs());
                     AutoSaveBreakpoints();
                     break;
                 case CommandValues.EnableBreakpoint:
-                    _workflowDesigner.Context.Services.GetService<IDesignerDebugView>().UpdateBreakpoint((SourceLocation)parameters["SourceLocation"], BreakpointTypes.Enabled | BreakpointTypes.Bounded);
+                    if (!TryGetSourceLocation(parameters, out SourceLocation enableLocation)
+                        && !TryGetSelectedSourceLocation(out enableLocation))
+                    {
+                        return;
+                    }
+
+                    _workflowDesigner.Context.Services.GetService<IDesignerDebugView>().UpdateBreakpoint(enableLocation, BreakpointTypes.Enabled | BreakpointTypes.Bounded);
                     BreakpointsChanged?.Invoke(this, new EventArgs());
                     AutoSaveBreakpoints();
                     break;
                 case CommandValues.DisableBreakpoint:
-                    _workflowDesigner.Context.Services.GetService<IDesignerDebugView>().UpdateBreakpoint((SourceLocation)parameters["SourceLocation"], BreakpointTypes.Bounded);
+                    if (!TryGetSourceLocation(parameters, out SourceLocation disableLocation)
+                        && !TryGetSelectedSourceLocation(out disableLocation))
+                    {
+                        return;
+                    }
+
+                    _workflowDesigner.Context.Services.GetService<IDesignerDebugView>().UpdateBreakpoint(disableLocation, BreakpointTypes.Bounded);
                     BreakpointsChanged?.Invoke(this, new EventArgs());
                     AutoSaveBreakpoints();
                     break;
@@ -90,6 +115,74 @@ namespace RPA.Helpers
                 default:
                     break;
             }
+        }
+
+        /// <summary>
+        /// Безопасно извлекает <see cref="SourceLocation"/> из параметров команды DesignerView.
+        /// Значение может быть <c>null</c>, когда для выбранного элемента не построен маппинг исходников
+        /// (например, для корня ActivityBuilder или до первой генерации SourceLocationProvider).
+        /// </summary>
+        private static bool TryGetSourceLocation(Dictionary<string, object> parameters, out SourceLocation sourceLocation)
+        {
+            sourceLocation = null;
+
+            if (parameters != null
+                && parameters.TryGetValue("SourceLocation", out object value)
+                && value is SourceLocation location)
+            {
+                sourceLocation = location;
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Извлекает <see cref="SourceLocation"/> текущего выделения из собственного
+        /// <see cref="WorkflowDesignerEx.DesignerSourceLocationMapping"/>.
+        /// <para>
+        /// Запасной путь, когда <see cref="IDesignerDebugView.SelectedLocation"/> вернул <c>null</c>:
+        /// при loose-открытии штатный маппинг дизайнера пуст, и первый доступ к <c>SelectedLocation</c>
+        /// перезаписывает ручной маппинг. Собственный словарь <see cref="WorkflowDesignerEx"/>
+        /// при этом остаётся валидным, поэтому точка останова резолвится из него.
+        /// </para>
+        /// </summary>
+        private bool TryGetSelectedSourceLocation(out SourceLocation sourceLocation)
+        {
+            sourceLocation = null;
+
+            try
+            {
+                ModelItem mi = _workflowDesigner.Context.Items.GetValue<Selection>()?.PrimarySelection;
+                if (!(mi?.GetCurrentValue() is Activity activity))
+                {
+                    return false;
+                }
+
+                return _workflowDesigner.DesignerSourceLocationMapping.TryGetValue(activity, out sourceLocation);
+            }
+            catch (Exception ex)
+            {
+                SourceLocationMappingDiagnostics.WriteException(ex, "CommandService.TryGetSelectedSourceLocation failed");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Извлекает тип точки останова из параметров команды. Если параметр отсутствует,
+        /// используется <see cref="BreakpointTypes.Bounded"/> — значение по умолчанию, которое
+        /// DesignerView передаёт при вставке точки останова.
+        /// </summary>
+        private static BreakpointTypes GetBreakpointTypes(Dictionary<string, object> parameters)
+        {
+            if (parameters != null
+                && parameters.TryGetValue("BreakpointTypes", out object value)
+                && value is BreakpointTypes breakpointTypes)
+            {
+                return breakpointTypes;
+            }
+
+            return BreakpointTypes.Bounded;
         }
 
         /// <summary>

@@ -1,0 +1,20 @@
+[
+  {
+    "StartLine": 42,
+    "StartColumn": 5,
+    "EndLine": 53,
+    "EndColumn": 14
+  },
+  {
+    "StartLine": 54,
+    "StartColumn": 5,
+    "EndLine": 54,
+    "EndColumn": 74
+  },
+  {
+    "StartLine": 55,
+    "StartColumn": 5,
+    "EndLine": 59,
+    "EndColumn": 17
+  }
+]

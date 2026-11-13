@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -56,6 +57,9 @@ namespace RPA.Helpers
         private const string MenuItemPopupPartName = "PART_Popup";
 
         /// <summary>Внутренние отступы рамки меню (пункты не касаются hairline).</summary>
+
+        /// <summary>Шеврон подменю: показывается справа у пунктов, имеющих вложенные элементы.</summary>
+        internal const string SubmenuArrowPartName = "SubmenuArrow";
         private const double MenuPadding = 4d;
 
         /// <summary>Горизонтальный отступ пункта: текст не липнет к краю меню.</summary>
@@ -409,6 +413,7 @@ namespace RPA.Helpers
             grid.AppendChild(CreateColumn(GridUnitType.Auto));
             grid.AppendChild(CreateColumn(GridUnitType.Star));
             grid.AppendChild(CreateColumn(GridUnitType.Auto));
+            grid.AppendChild(CreateColumn(GridUnitType.Auto));
 
             FrameworkElementFactory icon = CreatePresenter("Icon", 0);
             icon.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 0, 8, 0));
@@ -424,17 +429,41 @@ namespace RPA.Helpers
             gesture.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Right);
             gesture.SetValue(TextElement.ForegroundProperty, WfThemeStyles.Brush(palette.ForegroundMuted));
             grid.AppendChild(gesture);
+            // Шеврон подменю: виден только у пунктов-подкатегорий (MenuItem.Role == SubmenuHeader /
+            // TopLevelHeader). Видимостью управляют триггеры шаблона, а не привязка к данным.
+            grid.AppendChild(CreateSubmenuArrow(palette));
 
             // Подменю: пункт сам наполняет эту часть шаблона, поэтому пункты с вложенными элементами
             // (например «Удалить переменную» с подтверждением) не потеряют своё поведение.
             FrameworkElementFactory popup = new FrameworkElementFactory(typeof(Popup), MenuItemPopupPartName);
-            popup.SetValue(Grid.ColumnProperty, 2);
+            popup.SetValue(Grid.ColumnProperty, 3);
             popup.SetValue(Popup.PlacementProperty, PlacementMode.Right);
             popup.SetValue(Popup.AllowsTransparencyProperty, true);
             popup.SetValue(Popup.FocusableProperty, false);
             popup.SetValue(
                 Popup.IsOpenProperty,
                 new TemplateBindingExtension(MenuItem.IsSubmenuOpenProperty));
+            // Вложенные пункты подменю рисуются ItemsPresenter внутри PART_Popup: пустой Popup
+            // не показывает Items родительского MenuItem (регресс «подпункты точек останова/заметок исчезли»).
+            FrameworkElementFactory submenuBorder = new FrameworkElementFactory(typeof(Border));
+            submenuBorder.SetValue(Border.BackgroundProperty, WfThemeStyles.Brush(palette.Surface));
+            submenuBorder.SetValue(Border.BorderBrushProperty, WfThemeStyles.Brush(palette.SeparatorStrong));
+            submenuBorder.SetValue(Border.BorderThicknessProperty, new Thickness(1));
+            submenuBorder.SetValue(Border.PaddingProperty, new Thickness(MenuPadding));
+            submenuBorder.SetValue(Border.CornerRadiusProperty, new CornerRadius(StudioPalette.MenuCornerRadius));
+            submenuBorder.SetValue(UIElement.SnapsToDevicePixelsProperty, true);
+
+            FrameworkElementFactory submenuScroll = new FrameworkElementFactory(typeof(ScrollViewer));
+            submenuScroll.SetValue(ScrollViewer.CanContentScrollProperty, true);
+            submenuScroll.SetValue(ScrollViewer.HorizontalScrollBarVisibilityProperty, ScrollBarVisibility.Disabled);
+            submenuScroll.SetValue(ScrollViewer.VerticalScrollBarVisibilityProperty, ScrollBarVisibility.Auto);
+
+            FrameworkElementFactory submenuItems = new FrameworkElementFactory(typeof(ItemsPresenter));
+            submenuItems.SetValue(KeyboardNavigation.DirectionalNavigationProperty, KeyboardNavigationMode.Cycle);
+
+            submenuScroll.AppendChild(submenuItems);
+            submenuBorder.AppendChild(submenuScroll);
+            popup.AppendChild(submenuBorder);
             grid.AppendChild(popup);
 
             Style style = new Style(typeof(MenuItem));
@@ -506,6 +535,34 @@ namespace RPA.Helpers
             return presenter;
         }
 
+        /// <summary>
+        /// Шеврон справа у пункта-подкатегории. Видимость вычисляет <see cref="SubmenuArrowVisibilityConverter"/>
+        /// по <see cref="MenuItem.Role"/> через привязку к <c>TemplatedParent</c>.
+        /// </summary>
+        private static FrameworkElementFactory CreateSubmenuArrow(StudioThemeColors palette)
+        {
+            FrameworkElementFactory arrow = new FrameworkElementFactory(typeof(System.Windows.Shapes.Path), SubmenuArrowPartName);
+            arrow.SetValue(Grid.ColumnProperty, 3);
+            arrow.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Right);
+            arrow.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+            arrow.SetValue(FrameworkElement.WidthProperty, 5d);
+            arrow.SetValue(FrameworkElement.HeightProperty, 7d);
+            arrow.SetBinding(
+                UIElement.VisibilityProperty,
+                new Binding
+                {
+                    RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent),
+                    Path = new PropertyPath(MenuItem.RoleProperty),
+                    Converter = SubmenuArrowVisibilityConverter.Instance
+                });
+            arrow.SetValue(
+                System.Windows.Shapes.Path.DataProperty,
+                Geometry.Parse("M 0,0 L 5,3.5 L 0,7 Z"));
+            arrow.SetValue(System.Windows.Shapes.Path.FillProperty, WfThemeStyles.Brush(palette.Foreground));
+            return arrow;
+        }
+
+
         private static ControlTemplate SealItemTemplate(FrameworkElementFactory border)
         {
             ControlTemplate template = new ControlTemplate(typeof(MenuItem)) { VisualTree = border };
@@ -556,7 +613,38 @@ namespace RPA.Helpers
 
             public override Style SelectStyle(object item, DependencyObject container)
             {
-                return item is MenuItem ? _itemStyle : null;
+                if (item is MenuItem menuItem)
+                {
+                    // Рекурсивно: подменю MenuItem — тоже ItemsControl, и без явной передачи селектора
+                    // вложенные пункты получают чужой стиль (MaterialDesign/Aero2).
+                    menuItem.ItemContainerStyleSelector = this;
+                    return _itemStyle;
+                }
+
+                return null;
+            }
+        }
+
+
+        /// <summary>
+        /// Роль пункта меню → видимость шеврона подменю. Виден только у пунктов с вложенным меню
+        /// (<see cref="MenuItemRole.SubmenuHeader"/>, <see cref="MenuItemRole.TopLevelHeader"/>).
+        /// </summary>
+        private sealed class SubmenuArrowVisibilityConverter : IValueConverter
+        {
+            public static readonly SubmenuArrowVisibilityConverter Instance = new SubmenuArrowVisibilityConverter();
+
+            public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+            {
+                return value is MenuItemRole role
+                    && (role == MenuItemRole.SubmenuHeader || role == MenuItemRole.TopLevelHeader)
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
+            public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+            {
+                throw new NotSupportedException();
             }
         }
 

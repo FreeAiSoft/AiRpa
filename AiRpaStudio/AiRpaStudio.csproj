@@ -381,6 +381,7 @@
     <Compile Include="Helpers\ProjectPathResolver.cs" />
     <Compile Include="Helpers\ProjectTreeMenuRules.cs" />
     <Compile Include="Logging\Log.cs" />
+    <Compile Include="Logging\SourceLocationMappingDiagnostics.cs" />
     <Compile Include="Logging\StartupTimer.cs" />
     <Compile Include="Core\WorkflowDesignerEx.cs" />
     <Compile Include="Core\ExpressionValidationTiming.cs" />

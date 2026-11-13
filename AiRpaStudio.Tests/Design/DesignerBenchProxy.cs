@@ -11,6 +11,8 @@ using System.Activities.Presentation.Model;
 using System.Activities;
 using System.Activities.Presentation;
 using System.Activities.Presentation.Services;
+using System.Activities.Presentation.Debug;
+using System.Activities.Presentation.Hosting;
 using AiRpaStudio.Tests.Generation;
 
 
@@ -953,6 +955,129 @@ public sealed class DesignerBenchProxy : MarshalByRefObject
             return report;
         });
     }
+
+    /// <summary>
+    /// Отслеживание правок в loose-XAML конструкторе: публикуется <c>IDocumentPersistenceService</c>,
+    /// из-за которого <c>WorkflowDesigner.NotifyModelChanged()</c> не поднимает <c>ModelChanged</c>.
+    /// Проверяет, что вкладка чистая после загрузки и становится «изменённой» после реальной правки
+    /// модели, а пустой <c>ModelEditingScope</c> её не помечает.
+    /// </summary>
+    public DesignerEditTrackingReport EditTrackingScenario(string mainXaml, string[] projectXamlFiles)
+    {
+        DesignerTestHost host = DesignerTestHost.Shared;
+
+        return host.Invoke(() =>
+        {
+            var report = new DesignerEditTrackingReport();
+
+            try
+            {
+                WorkflowTypeRegistry registry = WorkflowTypeRegistry.Scan(projectXamlFiles);
+                var designer = new WorkflowDesignerEx();
+                WfDesignerEnvironment.Configure(designer);
+                LooseXamlDesignerLoader.Open(designer, mainXaml, registry);
+
+                report.LoadSucceeded = true;
+                report.CleanAfterLoad = !designer.IsEdited;
+
+                ModelService modelService = designer.Context.Services.GetService<ModelService>();
+                ModelItem root = modelService?.Root;
+                ModelItem implementation = root?.Properties["Implementation"]?.Value;
+                ModelItemCollection activities = implementation?.Properties["Activities"]?.Collection;
+
+                if (implementation == null || activities == null)
+                {
+                    report.Description += "реализация/коллекция Activities недоступны; ";
+                }
+                else
+                {
+                    using (ModelEditingScope edit = implementation.BeginEdit())
+                    {
+                        activities.Add(ModelFactory.CreateItem(designer.Context, new WriteLine { DisplayName = "Правка стенда" }));
+                        edit.Complete();
+                    }
+
+                    report.EditedAfterModelChange = designer.IsEdited;
+
+                    // Пустой scope не должен помечать вкладку «изменённой».
+                    designer.IsEdited = false;
+                    using (ModelEditingScope empty = implementation.BeginEdit())
+                    {
+                        empty.Complete();
+                    }
+
+                    report.EditedAfterEmptyScope = designer.IsEdited;
+                }
+
+                report.Description += "cleanAfterLoad: " + report.CleanAfterLoad
+                    + ", editedAfterModelChange: " + report.EditedAfterModelChange
+                    + ", editedAfterEmptyScope: " + report.EditedAfterEmptyScope;
+            }
+            catch (Exception ex)
+            {
+                report.Error = ErrorText.Of(ex);
+                report.Description = "сценарий отслеживания правок упал: " + report.Error;
+            }
+
+            return report;
+        });
+    }
+
+
+    /// <summary>
+    /// Специфические фичи контекстного меню WF-дизайнера: аннотации и точки останова. Проверяет, что
+    /// после настройки среды опубликованы <c>IDesignerDebugView</c>/<c>ICommandService</c> и включены
+    /// аннотации — иначе пункты меню «Точка останова»/«Аннотации» в <c>DesignerView</c> схлопываются.
+    /// </summary>
+    public DesignerFeaturesReport DesignerFeaturesScenario(string mainXaml, string[] projectXamlFiles)
+    {
+        DesignerTestHost host = DesignerTestHost.Shared;
+
+        return host.Invoke(() =>
+        {
+            var report = new DesignerFeaturesReport();
+
+            try
+            {
+                WorkflowTypeRegistry registry = WorkflowTypeRegistry.Scan(projectXamlFiles);
+                var designer = new WorkflowDesignerEx();
+                WfDesignerEnvironment.Configure(designer);
+                LooseXamlDesignerLoader.Open(designer, mainXaml, registry);
+
+                // Студия публикует ICommandService в LoadActivityToDesignerHelper сразу после загрузки
+                // (общий шаг для loose и non-loose путей). Стенд повторяет его, чтобы live-проверка
+                // покрывала полный рецепт пункта «Точка останова»: IDesignerDebugView + ICommandService.
+                designer.Context.Services.Publish<ICommandService>(new CommandService(designer));
+
+                report.LoadSucceeded = true;
+
+                DesignerConfigurationService configuration =
+                    designer.Context.Services.GetService<DesignerConfigurationService>();
+                report.AnnotationEnabled = configuration?.AnnotationEnabled == true;
+
+                report.DebugViewAvailable =
+                    designer.Context.Services.GetService<IDesignerDebugView>() != null;
+                report.CommandServiceAvailable =
+                    designer.Context.Services.GetService<ICommandService>() != null;
+                report.BreakpointServicesEnabled =
+                    report.DebugViewAvailable && report.CommandServiceAvailable;
+
+                report.Description =
+                    "annotationEnabled: " + report.AnnotationEnabled
+                    + ", debugView: " + report.DebugViewAvailable
+                    + ", commandService: " + report.CommandServiceAvailable
+                    + ", breakpointServicesEnabled: " + report.BreakpointServicesEnabled;
+            }
+            catch (Exception ex)
+            {
+                report.Error = ErrorText.Of(ex);
+                report.Description = "сценарий фич меню упал: " + report.Error;
+            }
+
+            return report;
+        });
+    }
+
 
     /// <summary>
     /// Показывает окно с заданным заголовком и возвращает то, что заметил страж модальных окон.

@@ -249,8 +249,9 @@ namespace RPA.Helpers
         }
 
         /// <summary>
-        /// Каталоги, где лежат зависимости робота: `bin\Debug`, `bin\Debug\net48`, `bin\Release`
-        /// и т.д. Отсутствующие каталоги отбрасываются.
+        /// Каталоги, где лежат зависимости робота. Раскладки совпадают с `RobotLocator`/упаковщиком:
+        /// `bin\<Config>`, `bin\<Config>\<TFM>`, `bin\<Platform>\<Config>`, `bin\<Platform>\<Config>\<TFM>`.
+        /// Отсутствующие каталоги отбрасываются.
         /// </summary>
         internal static List<string> GetProbeDirectories(string projectDirectory)
         {
@@ -262,21 +263,28 @@ namespace RPA.Helpers
             }
 
             string[] configurations = { "Debug", "Release" };
+            string[] platforms = { string.Empty, "x64", "x86" };
 
             foreach (string configuration in configurations)
             {
-                string binDirectory = Path.Combine(projectDirectory, "bin", configuration);
-                if (!Directory.Exists(binDirectory))
+                foreach (string platform in platforms)
                 {
-                    continue;
+                    string binDirectory = string.IsNullOrEmpty(platform)
+                        ? Path.Combine(projectDirectory, "bin", configuration)
+                        : Path.Combine(projectDirectory, "bin", platform, configuration);
+
+                    if (!Directory.Exists(binDirectory))
+                    {
+                        continue;
+                    }
+
+                    // SDK-style кладёт сборку в подкаталог TFM, legacy — прямо в bin\<Config>.
+                    result.Add(binDirectory);
+
+                    result.AddRange(Directory.GetDirectories(binDirectory)
+                        .Where(directory => Path.GetFileName(directory).StartsWith("net", StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(directory => directory, StringComparer.OrdinalIgnoreCase));
                 }
-
-                // SDK-style кладёт сборку в подкаталог TFM, legacy — прямо в bin\<Config>.
-                result.Add(binDirectory);
-
-                result.AddRange(Directory.GetDirectories(binDirectory)
-                    .Where(directory => Path.GetFileName(directory).StartsWith("net", StringComparison.OrdinalIgnoreCase))
-                    .OrderBy(directory => directory, StringComparer.OrdinalIgnoreCase));
             }
 
             return result.Distinct(StringComparer.OrdinalIgnoreCase).ToList();

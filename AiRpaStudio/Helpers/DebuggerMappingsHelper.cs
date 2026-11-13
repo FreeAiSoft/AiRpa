@@ -1,14 +1,17 @@
-﻿using System.Activities;
+using System.Activities;
 using System.Activities.Debugger;
 using System.Activities.Presentation;
 using System.Activities.Presentation.Debug;
+using System.Activities.Presentation.Model;
 using System.Activities.Presentation.Services;
 using System.Activities.XamlIntegration;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using RPA.Core;
+using RPA.Logging;
 using Activity = System.Activities.Activity;
 
 namespace RPA.Helpers
@@ -17,46 +20,218 @@ namespace RPA.Helpers
     {
         internal static void RegenerateSourceDebuggerMappings(WorkflowDesignerEx workflowDesignerEx)
         {
+            if (workflowDesignerEx == null)
+            {
+                SourceLocationMappingDiagnostics.Write("RegenerateSourceDebuggerMappings: designer=<null>");
+                return;
+            }
+
+            string loadedFile = TryGetLoadedFile(workflowDesignerEx);
+            int before = workflowDesignerEx.DesignerSourceLocationMapping.Count;
+            SourceLocationMappingDiagnostics.Write(
+                $"RegenerateSourceDebuggerMappings: designer=#{workflowDesignerEx.GetHashCode()} file={loadedFile ?? "<null>"} mappingBefore={before}");
+
             // Updating the mapping between Model item and Source Location before we run the workflow
             // so that BP setting can re-use that information from the DesignerSourceLocationMapping.
             workflowDesignerEx.DesignerSourceLocationMapping.Clear();
+            SourceLocationMappingDiagnostics.Write($"RegenerateSourceDebuggerMappings: mapping cleared (was {before} entries)");
+
             UpdateSourceLocationMappingInDebuggerService(workflowDesignerEx);
+
+            SourceLocationMappingDiagnostics.Write($"RegenerateSourceDebuggerMappings: done mappingAfter={workflowDesignerEx.DesignerSourceLocationMapping.Count}");
+        }
+
+        private static string TryGetLoadedFile(WorkflowDesignerEx workflowDesignerEx)
+        {
+            try
+            {
+                return workflowDesignerEx.Context.Items.GetValue<WorkflowFileItem>().LoadedFile;
+            }
+            catch (System.Exception ex)
+            {
+                SourceLocationMappingDiagnostics.WriteException(ex, "TryGetLoadedFile failed");
+                return null;
+            }
+        }
+
+        private static string DescribeKey(object key)
+        {
+            if (key is Activity activity)
+            {
+                return SourceLocationMappingDiagnostics.Describe(activity);
+            }
+
+            return key?.GetType().FullName ?? "<null>";
         }
 
         /// <summary>
         /// Updating the mapping between Model item and Source Location before we run the workflow so that BP setting can re-use that information from the DesignerSourceLocationMapping.
         /// </summary>
-        /// <returns></returns>
         private static void UpdateSourceLocationMappingInDebuggerService(WorkflowDesignerEx workflowDesignerEx)
         {
+            SourceLocationMappingDiagnostics.Write("UpdateSourceLocationMappingInDebuggerService: enter");
+
+            // DebuggerService (IDesignerDebugView) публикуется первым: точки останова в контекстном меню
+            // DesignerView зависят только от наличия сервиса, а не от успешной генерации маппинга. Раньше
+            // обращение к DebugManagerView стояло в конце метода, и пустой корень или «sequence not found»
+            // не публиковали сервис — пункты меню «Точка останова» схлопывались.
+            _ = workflowDesignerEx.DebugManagerView;
+            SourceLocationMappingDiagnostics.Write("UpdateSourceLocationMappingInDebuggerService: DebugManagerView ensured");
+
             object rootInstance = GetRootInstance(workflowDesignerEx);
-            //Dictionary<object, SourceLocation> sourceLocationMapping = new Dictionary<object, SourceLocation>();
+            SourceLocationMappingDiagnostics.Write($"UpdateSourceLocationMappingInDebuggerService: rootInstance={(rootInstance == null ? "<null>" : rootInstance.GetType().FullName)}");
 
             if (rootInstance != null)
             {
                 Activity documentRootElement = GetRootWorkflowElement(rootInstance);
+                SourceLocationMappingDiagnostics.Write($"UpdateSourceLocationMappingInDebuggerService: documentRootElement={SourceLocationMappingDiagnostics.Describe(documentRootElement)}");
+
                 if (documentRootElement == null)
                 {
+                    SourceLocationMappingDiagnostics.Write("UpdateSourceLocationMappingInDebuggerService: documentRootElement is null -> return");
                     return;
                 }
-                Activity rootRuntimeWorkflowElement = GetRootRuntimeWorkflowElement(workflowDesignerEx);
+
+                Activity rootRuntimeWorkflowElement = null;
+                try
+                {
+                    rootRuntimeWorkflowElement = GetRootRuntimeWorkflowElement(workflowDesignerEx);
+                    SourceLocationMappingDiagnostics.Write($"UpdateSourceLocationMappingInDebuggerService: rootRuntimeWorkflowElement={SourceLocationMappingDiagnostics.Describe(rootRuntimeWorkflowElement)}");
+                }
+                catch (System.Exception ex)
+                {
+                    SourceLocationMappingDiagnostics.WriteException(ex, "UpdateSourceLocationMappingInDebuggerService: GetRootRuntimeWorkflowElement failed");
+                    System.Diagnostics.Debug.WriteLine(ErrorText.Of(ex));
+                }
+
                 string loadedFilePath = workflowDesignerEx.Context.Items.GetValue<WorkflowFileItem>().LoadedFile;
+                SourceLocationMappingDiagnostics.Write($"UpdateSourceLocationMappingInDebuggerService: loadedFilePath={loadedFilePath ?? "<null>"}");
 
                 // в ситуации если documentRootElement и rootRuntimeWorkflowElement == null - исключение
                 // это происходит, когда xaml Не содержит элементов
                 if (!(documentRootElement == null && rootRuntimeWorkflowElement == null))
                 {
-                    //SourceLocationProvider.CollectMapping(rootRuntimeWorkflowElement, documentRootElement, sourceLocationMapping,
-                    //loadedFilePath);
+                    SourceLocationMappingDiagnostics.Write("UpdateSourceLocationMappingInDebuggerService: SourceLocationProvider.CollectMapping begin");
                     SourceLocationProvider.CollectMapping(documentRootElement, documentRootElement, workflowDesignerEx.DesignerSourceLocationMapping,
                        loadedFilePath);
+                    SourceLocationMappingDiagnostics.Write($"UpdateSourceLocationMappingInDebuggerService: CollectMapping produced {workflowDesignerEx.DesignerSourceLocationMapping.Count} entries");
+
+                    foreach (KeyValuePair<object, SourceLocation> entry in workflowDesignerEx.DesignerSourceLocationMapping)
+                    {
+                        SourceLocationMappingDiagnostics.Write($"    map: key={DescribeKey(entry.Key)} -> {SourceLocationMappingDiagnostics.Describe(entry.Value)}");
+                    }
                 }
+            }
+            else
+            {
+                SourceLocationMappingDiagnostics.Write("UpdateSourceLocationMappingInDebuggerService: rootInstance is null -> skip CollectMapping");
             }
 
             // Notify the DebuggerService of the new sourceLocationMapping.
             // When rootInstance == null, it'll just reset the mapping.
             DebuggerService debuggerService = (DebuggerService)workflowDesignerEx.DebugManagerView;
+            SourceLocationMappingDiagnostics.Write($"UpdateSourceLocationMappingInDebuggerService: calling UpdateSourceLocations with {workflowDesignerEx.DesignerSourceLocationMapping.Count} entries");
             debuggerService.UpdateSourceLocations(workflowDesignerEx.DesignerSourceLocationMapping);
+            SourceLocationMappingDiagnostics.Write("UpdateSourceLocationMappingInDebuggerService: UpdateSourceLocations done");
+
+            ResetRequiresUpdateSourceLocation(debuggerService);
+            RepairDebuggerServiceModelItemMapping(debuggerService, workflowDesignerEx);
+        }
+
+        /// <summary>
+        /// Сбрасывает private-флаг <c>requiresUpdateSourceLocation</c> у <see cref="DebuggerService"/>.
+        /// <para>
+        /// После ручного <see cref="DebuggerService.UpdateSourceLocations(Dictionary{object, SourceLocation})"/>
+        /// маппинг актуален, но флаг остаётся взведённым: его ставит <c>InvalidateSourceLocationMapping</c>
+        /// в конце <c>WorkflowDesigner.Load/Save</c>. Без сброса первый же доступ к
+        /// <see cref="IDesignerDebugView.SelectedLocation"/> перестраивает маппинг из штатного
+        /// <c>ObjectToSourceLocationMapping</c>, который для loose-пути открытия пуст, и затирает ручной
+        /// маппинг — «Вставить точку останова» молча ничего не делает.
+        /// </para>
+        /// </summary>
+        private static void ResetRequiresUpdateSourceLocation(DebuggerService debuggerService)
+        {
+            try
+            {
+                FieldInfo field = typeof(DebuggerService).GetField(
+                    "requiresUpdateSourceLocation",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+
+                if (field == null)
+                {
+                    SourceLocationMappingDiagnostics.Write("ResetRequiresUpdateSourceLocation: field not found");
+                    return;
+                }
+
+                field.SetValue(debuggerService, false);
+                SourceLocationMappingDiagnostics.Write("ResetRequiresUpdateSourceLocation: requiresUpdateSourceLocation = false");
+            }
+            catch (System.Exception ex)
+            {
+                SourceLocationMappingDiagnostics.WriteException(ex, "ResetRequiresUpdateSourceLocation failed");
+            }
+        }
+
+        /// <summary>
+        /// Дозаполняет private-словари <c>modelItemToSourceLocation</c> и <c>sourceLocationToModelItem</c>
+        /// у <see cref="DebuggerService"/>. <see cref="DebuggerService.UpdateSourceLocations(Dictionary{object, SourceLocation})"/>
+        /// ищет <c>ModelItem</c> через <c>GetModelItem(key)</c> без развёртывания дерева, поэтому для loose-пути
+        /// в словарь попадает только корень (<c>ActivityBuilder</c>), а вложенные активности — нет. Из-за этого
+        /// <see cref="IDesignerDebugView.SelectedLocation"/> остаётся <c>null</c> даже при валидном ручном маппинге.
+        /// Здесь записи досопоставляются через <c>GetModelItem(key, shouldExpandModelTree: true)</c>.
+        /// </summary>
+        private static void RepairDebuggerServiceModelItemMapping(DebuggerService debuggerService, WorkflowDesignerEx workflowDesignerEx)
+        {
+            try
+            {
+                var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                FieldInfo mtmField = typeof(DebuggerService).GetField("modelTreeManager", flags);
+                FieldInfo modelToLocField = typeof(DebuggerService).GetField("modelItemToSourceLocation", flags);
+                FieldInfo locToModelField = typeof(DebuggerService).GetField("sourceLocationToModelItem", flags);
+
+                if (mtmField == null || modelToLocField == null || locToModelField == null)
+                {
+                    SourceLocationMappingDiagnostics.Write("RepairDebuggerServiceModelItemMapping: some field not found");
+                    return;
+                }
+
+                var modelTreeManager = mtmField.GetValue(debuggerService) as ModelTreeManager;
+                var modelToLoc = modelToLocField.GetValue(debuggerService) as Dictionary<ModelItem, SourceLocation>;
+                var locToModel = locToModelField.GetValue(debuggerService) as Dictionary<SourceLocation, ModelItem>;
+
+                if (modelTreeManager == null || modelToLoc == null || locToModel == null)
+                {
+                    SourceLocationMappingDiagnostics.Write("RepairDebuggerServiceModelItemMapping: null state");
+                    return;
+                }
+
+                int added = 0;
+                foreach (KeyValuePair<object, SourceLocation> entry in workflowDesignerEx.DesignerSourceLocationMapping)
+                {
+                    ModelItem modelItem = modelTreeManager.GetModelItem(entry.Key, true);
+                    if (modelItem == null)
+                    {
+                        continue;
+                    }
+
+                    if (!modelToLoc.ContainsKey(modelItem))
+                    {
+                        modelToLoc.Add(modelItem, entry.Value);
+                        added++;
+                    }
+
+                    if (!locToModel.ContainsKey(entry.Value))
+                    {
+                        locToModel.Add(entry.Value, modelItem);
+                    }
+                }
+
+                SourceLocationMappingDiagnostics.Write($"RepairDebuggerServiceModelItemMapping: added {added} modelItem mappings");
+            }
+            catch (System.Exception ex)
+            {
+                SourceLocationMappingDiagnostics.WriteException(ex, "RepairDebuggerServiceModelItemMapping failed");
+            }
         }
 
         private static object GetRootInstance(WorkflowDesignerEx workflowDesignerEx)

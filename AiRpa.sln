@@ -79,6 +79,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
 		AGENTS.md = AGENTS.md
+		dev-docs\LooseWorkflowRun_Plan.md = dev-docs\LooseWorkflowRun_Plan.md
 		StartupPerformance_Fix_Plan.md = StartupPerformance_Fix_Plan.md
 		StartupPerformance_Test_Coverage_Plan.md = StartupPerformance_Test_Coverage_Plan.md
 	EndProjectSection

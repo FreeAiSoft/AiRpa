@@ -1,22 +1,37 @@
 using System;
 using System.Activities;
-using System.Activities.Debugger;
 using System.Activities.Presentation.View;
-using System.Activities.XamlIntegration;
+using System.Activities.Validation;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Windows;
 using System.Windows.Threading;
-using Activities.Flow;
+
 using ActivitiesTracker.Core;
 using ActivitiesTracker.Entities;
+
 using FW.EasyMvvm.Core;
 using RPA.Enums;
 using RPA.Helpers;
+using RPA.Runner;
+using RPA.VsProject;
 
 namespace RPA.Core
 {
+    /// <summary>
+    /// Студийный запуск WF-процесса: загрузка в дизайнер, отладка (точки останова, подсветка,
+    /// субворкфлоу) и прогон.
+    /// <para>
+    /// Прогон исполняется на фоновом потоке: <see cref="WorkflowApplication.Run()"/> — синхронный
+    /// вызов до первой точки простоя/завершения, и на UI-потоке он замораживал бы студию.
+    /// Все обновления UI (лог, подсветка, read-only дизайнера, состояние) маршалятся через
+    /// <see cref="Dispatcher"/>. Субворкфлоу запускается по трекинг-событию и резюмирует закладку
+    /// родителя после своего завершения — поллинг по таймеру больше не нужен.
+    /// </para>
+    /// </summary>
     internal class ActivityRunner : BaseModel
     {
         private readonly Action<string, int> _log = CustomWfDesigner.GetInstance().Log;
@@ -26,17 +41,18 @@ namespace RPA.Core
         private WorkflowApplication _wfApp;
         private AutoResetEvent _resumeRuntimeFromHost;
 
-        private readonly DispatcherTimer _subWorkflowTimer; // таймер для запуска дочернего WF в потоке UI
         private string _bookmarkName;
-        private Activity _subWorkflowActivity;
-        private DynamicActivity _activityExecute;
         private ActivityRunner _subWorkflowActivityRunner;
-        private Dictionary<string, object> _subWorkflowArguments;
         private readonly Dictionary<string, object> _arguments;
         private WorkflowState _workflowState;
-        private bool _isNeedPause = false;
+        private bool _isNeedPause;
 
-        //public bool IsWorkflowComplete { get; private set; }
+        /// <summary>
+        /// Завершение прогона (Completed/Aborted/StartingError). Поднимается на потоке, где прогон
+        /// закончился, чтобы родитель мог возобновить свою закладку тоже не на UI-потоке.
+        /// </summary>
+        internal event Action<WorkflowState> RunFinished;
+
         public WorkflowState WorkflowState
         {
             get => _workflowState;
@@ -49,18 +65,13 @@ namespace RPA.Core
 
         public ActivityRunner(Dictionary<string, object> arguments = null)
         {
-            _subWorkflowTimer = new DispatcherTimer()
-            {
-                Interval = TimeSpan.FromSeconds(1)
-            };
-            _subWorkflowTimer.Tick += RunSubWorkflow;
-            _subWorkflowTimer.Start();
             _arguments = arguments;
         }
 
         internal void Run(string pathToXaml = null)
         {
             _isNeedPause = false;
+
             if (WorkflowState == WorkflowState.Complete)
             {
                 return;
@@ -68,256 +79,547 @@ namespace RPA.Core
 
             try
             {
-                if (_resumeRuntimeFromHost is null)
+                if (_wfApp == null)
                 {
-                    // остановка потока в точках останова
-                    _resumeRuntimeFromHost = new AutoResetEvent(false);
-
-                    // CP-08: зависимости робота ищутся в его выходном каталоге — до десериализации XAML,
-                    // иначе собственные пакеты робота (bin\<Config>[\<TFM>]) не находятся и WF падает.
-                    RobotAssemblyResolver.InstallForProject(CustomWfDesigner.GetInstance().Project?.ProjectDirPath);
-
-                    // загрузка активности
-                    _workflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(pathToXaml);
-                    SetDesignerIsReadonly(true);
-                    //get workflow source from designer
-                    CustomWfDesigner.GetInstance().ActiveWorkflowDesignerEx = _workflowDesignerEx;
-                    DocGroupHelper.GetInstance().SetSelectedTab(_workflowDesignerEx);
-                    // обновление символов для отладки
-                    //Log.Write("breakpoints and map before DebuggerMappingsHelper.RegenerateSourceDebuggerMappings(_workflowDesignerEx);");
-                    //LogBreakpoints(_workflowDesignerEx);
-                    DebuggerMappingsHelper.RegenerateSourceDebuggerMappings(_workflowDesignerEx);
-                    //Log.Write("breakpoints and map after DebuggerMappingsHelper.RegenerateSourceDebuggerMappings(_workflowDesignerEx);");
-                    //LogBreakpoints(_workflowDesignerEx);
-                    _workflowDesignerEx.LastBreakpoint = null;
-
-                    // XAML грузится общим headless-движком: путь прогона один для студии и раннера (OR-02);
-                    // остальное — студийная обвязка: дизайнер, подсветка, точки останова.
-                    _activityExecute = WorkflowRunEngine.LoadActivityFromText(_workflowDesignerEx.Text) as DynamicActivity;
-                    WorkflowState = WorkflowState.AwaitDesignerReady;
+                    Start(pathToXaml);
                 }
                 else
                 {
-                    _ = _resumeRuntimeFromHost.Set();
-                    _subWorkflowActivityRunner?.Run();
+                    // Продолжить с точки останова/паузы: разбудить фоновый поток прогона.
+                    _resumeRuntimeFromHost?.Set();
                 }
             }
             catch (Exception ex)
             {
-                _log.Invoke($"{ex}", (int)RpaCommon.Enums.LogLevel.Error);
-                WorkflowState = WorkflowState.StartingError;
+                Log(ErrorText.Of(ex), RpaCommon.Enums.LogLevel.Error);
+                OnUi(() => WorkflowState = WorkflowState.StartingError);
                 SetDesignerIsReadonly(false);
+                RaiseRunFinished(WorkflowState.StartingError);
             }
         }
 
-        private void SetDesignerIsReadonly(bool isReadOnly)
+        private void Start(string pathToXaml)
         {
-            DesignerView designerView = _workflowDesignerEx.Context.Services.GetService<DesignerView>();
-            if (designerView != null)
+            _resumeRuntimeFromHost = new AutoResetEvent(false);
+
+            // CP-08: зависимости робота ищутся в его выходном каталоге — до десериализации XAML,
+            // иначе собственные пакеты робота (bin\<Config>[\<TFM>]) не находятся и WF падает.
+            RobotAssemblyResolver.InstallForProject(CustomWfDesigner.GetInstance().Project?.ProjectDirPath);
+
+            _workflowDesignerEx = LoadActivityToDesignerHelper.LoadActivityToDesigner(
+                pathToXaml,
+                CustomWfDesigner.GetInstance().GetLooseRegistryFor(pathToXaml));
+            SetDesignerIsReadonly(true);
+
+            CustomWfDesigner.GetInstance().ActiveWorkflowDesignerEx = _workflowDesignerEx;
+            DocGroupHelper.GetInstance().SetSelectedTab(_workflowDesignerEx);
+
+            DebuggerMappingsHelper.RegenerateSourceDebuggerMappings(_workflowDesignerEx);
+            _workflowDesignerEx.LastBreakpoint = null;
+
+            // Загрузка активности для прогона: обычный робот — из XAML, WF-проект со вложенными процессами — из сборки (OR-02).
+            Activity activity = LoadRunActivity(pathToXaml);
+            if (activity == null)
             {
-                _ = designerView.Dispatcher.Invoke(() => designerView.IsReadOnly = isReadOnly);
+                throw new InvalidOperationException("Не удалось загрузить активность для прогона.");
+            }
+            // Шаг 6 плана LooseWorkflowRun: ошибки, невидимые загрузке, ловятся до старта прогона.
+            ValidateForRun(activity);
+
+            // Приложение создаёт общий движок: тот же трекер и те же аргументы, что и у headless-прогона.
+            _wfApp = WorkflowRunEngine.CreateApplication(activity, _arguments, out _trackingParticipant);
+
+            _trackingParticipant.TrackingEventArgsRecieved += OnTracking;
+            _wfApp.Completed = OnCompleted;
+            _wfApp.OnUnhandledException = OnUnhandledException;
+            _wfApp.Aborted = OnAborted;
+
+            OnUi(() => WorkflowState = WorkflowState.Run);
+
+            var runThread = new Thread(RunWorkflowApplication)
+            {
+                IsBackground = true,
+                Name = "StudioWorkflowRun"
+            };
+            runThread.Start();
+        }
+        /// <summary>
+        /// Грузит активность для прогона. Обычный робот (project.json или однофайловый XAML без
+        /// вложенных ссылок) — из текста XAML общим движком, как и раньше. WF-проект со вложенными
+        /// процессами (<c>local:SubProcessN</c>) — из собранной <c>RPA-*.dll</c>: эти CLR-типы
+        /// существуют только после сборки, поэтому путь прогона совпадает с раннером (<c>OR-02</c>),
+        /// а дизайнер при этом остаётся loose.
+        /// </summary>
+        private Activity LoadRunActivity(string pathToXaml)
+        {
+            return LoadRunActivity(
+                pathToXaml,
+                CustomWfDesigner.GetInstance().Project,
+                _workflowDesignerEx.Text);
+        }
+
+        /// <summary>
+        /// Тестируемое ядро выбора пути прогона: решение зависит только от проекта и текста открытого
+        /// XAML, а не от живой студии. WF-проект со вложенными процессами грузится из собранной
+        /// <c>RPA-*.dll</c>, обычный робот — из текста XAML в <see cref="DynamicActivity"/>.
+        /// </summary>
+        internal static Activity LoadRunActivity(string pathToXaml, RPA.Entities.Project project, string xamlText)
+        {
+            if (project != null
+                && project.IsWorkflowProject
+                && !string.IsNullOrWhiteSpace(project.ProjectFilePath))
+            {
+                Activity activity = TryLoadOrBuildFromProject(project.ProjectFilePath, out string reason);
+
+                if (activity != null)
+                {
+                    return activity;
+                }
+
+                throw new InvalidOperationException(
+                    "Робот содержит вложенные XAML-процессы, поэтому для запуска нужна собранная сборка проекта."
+                    + Environment.NewLine + (reason ?? string.Empty));
+            }
+
+            // XAML грузится общим headless-движком: путь прогона один для студии и раннера (OR-02).
+            DynamicActivity dynamicActivity = WorkflowRunEngine.LoadActivityFromText(xamlText) as DynamicActivity;
+
+            if (dynamicActivity == null)
+            {
+                throw new InvalidOperationException("Загруженный XAML не является DynamicActivity.");
+            }
+
+            return dynamicActivity;
+        }
+
+        /// <summary>
+        /// Находит собранного робота по <c>.csproj</c> (та же логика, что у раннера) и грузит активность
+        /// из его сборки. Возвращает <c>null</c> и причину в <paramref name="reason"/>, если сборки нет
+        /// или она не загрузилась.
+        /// </summary>
+        internal static Activity TryLoadFromBuiltAssembly(string projectFilePath, out string reason)
+        {
+            reason = null;
+
+            if (!RunnerOptions.TryParse(new[] { "--project", projectFilePath }, out RunnerOptions options, out string parseError))
+            {
+                reason = parseError;
+                return null;
+            }
+
+            if (!RobotLocator.TryResolve(options, out RobotLocation location, out string resolveError))
+            {
+                reason = resolveError;
+                return null;
+            }
+
+            try
+            {
+                return WorkflowRunEngine.LoadActivityFromAssembly(location.AssemblyPath, location.TypeName);
+            }
+            catch (Exception ex)
+            {
+                reason = "Не удалось загрузить активность «" + location.TypeName
+                    + "» из сборки «" + location.AssemblyPath + "»: " + ErrorText.Of(ex);
+                return null;
             }
         }
 
-        //private void LogBreakpoints(WorkflowDesignerEx workflowDesignerEx)
-        //{
-        //    foreach (SourceLocation bp in workflowDesignerEx.BreakpointList)
-        //    {
-        //        _log.Invoke($" start {bp.StartLine} {bp.StartColumn} end {bp.EndLine} {bp.EndColumn}", 1);
-        //    }
-        //}
-
-
-        //private void LogBreakpoints(WorkflowDesignerEx workflowDesignerEx)
-        //{
-        //    // log breakpoints
-        //    Log.Write("breakpoint:");
-        //    workflowDesignerEx.BreakpointList.ForEach(b => Log.Write($"breakpoint {b.GetLogString()}"));
-
-        //    // log DesignerSourceLocationMapping
-        //    foreach (KeyValuePair<object, SourceLocation> item in workflowDesignerEx.DesignerSourceLocationMapping)
-        //    {
-        //        Activity activity = (Activity)item.Key;
-        //        SourceLocation sourceLocation = item.Value;
-
-        //        Log.Write($"activity {activity.Id} {activity.DisplayName} {sourceLocation.GetLogString()}");
-        //    }
-        //}
 
 
         /// <summary>
-        /// Workflow Stop
+        /// Путь прогона WF-проекта с автосборкой (шаг 5 плана <c>LooseWorkflowRun</c>): если сборки
+        /// нет или она устарела относительно XAML проекта, проект собирается через
+        /// <see cref="VsProjectBuilder"/> и только потом активность грузится из сборки. Сборка живёт
+        /// только здесь, в студии — раннер проект не собирает (страж <c>RunnerSourceGuardTests</c>).
         /// </summary>
-        public void WorkflowStop()
+        internal static Activity TryLoadOrBuildFromProject(string projectFilePath, out string reason)
         {
-            //manual stop
-            _subWorkflowActivityRunner?.WorkflowStop();
-            _subWorkflowTimer?.Stop();
-            _wfApp?.Abort("Stopped by User");
-            _log.Invoke("Stopped by User", (int)RpaCommon.Enums.LogLevel.Trace);
-            _workflowDesignerEx.DebugManagerView.CurrentLocation = null;
-            WorkflowState = WorkflowState.Aborted;
-            SetDesignerIsReadonly(false);
-        }
+            reason = null;
 
-        private void RunSubWorkflow(object sender, EventArgs e)
-        {
-            switch (WorkflowState)
+            if (!RunnerOptions.TryParse(new[] { "--project", projectFilePath }, out RunnerOptions options, out string parseError))
             {
-                case WorkflowState.NeedRunSubWorkflow:
-                    WorkflowState = WorkflowState.RunSubWorkflow;
-                    RunScript rs = (RunScript)_subWorkflowActivity;
-                    string relativePathToXaml = _subWorkflowArguments["PathToXamlActivity"].ToString();
-                    // удаляем аргумент PathToXamlActivity, т.к. он к делу не относится
-                    _ = _subWorkflowArguments.Remove("PathToXamlActivity");
-                    _bookmarkName = relativePathToXaml;
-                    string pathToXaml = Path.Combine(CustomWfDesigner.GetInstance().Project.ProjectDirPath, relativePathToXaml);
-                    _subWorkflowActivityRunner = new ActivityRunner(_subWorkflowArguments);
-                    _subWorkflowActivityRunner.Run(pathToXaml);
-                    break;
-                case WorkflowState.AwaitDesignerReady:
-                    // идентификаторы меняются после загрузки активности в дизайнер, поэтому так
-                    Dictionary<object, SourceLocation>.Enumerator en = _workflowDesignerEx.DesignerSourceLocationMapping.GetEnumerator();
-                    // поиск наличия активности для запуска (частный случай)
-                    while (en.MoveNext())
-                    {
-                        if (((Activity)en.Current.Key).DisplayName == "Sequence")
-                        {
-                            if (((Activity)en.Current.Key).Id == "1.1")
-                            {
-                                WorkflowState = WorkflowState.Run;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-                case WorkflowState.Run:
-                    if (_wfApp == null)
-                    {
-                        try
-                        {
-                            // приложение создаёт общий движок: тот же трекер и те же аргументы, что и у
-                            // headless-прогона, — здесь добавляется только студийное отображение
-                            _wfApp = WorkflowRunEngine.CreateApplication(_activityExecute, _arguments, out _trackingParticipant);
-
-                            //As the tracking events are received
-                            _trackingParticipant.TrackingEventArgsRecieved += TrackingParticipant_TrackingEventArgsRecieved;
-                            _wfApp.Completed = WfExecutionCompleted;
-                            _wfApp.OnUnhandledException = WFOnUnhandledException;
-
-                            //execute 
-                            _wfApp.Run();
-                        }
-                        catch (Exception ex)
-                        {
-                            _log.Invoke($"{ex}", (int)RpaCommon.Enums.LogLevel.Error);
-                            WorkflowState = WorkflowState.StartingError;
-                        }
-                    }
-                    break;
-                case WorkflowState.RunSubWorkflow:
-                    if (_subWorkflowActivityRunner.WorkflowState == WorkflowState.Complete)
-                    {
-                        CustomWfDesigner.GetInstance().ActiveWorkflowDesignerEx = _workflowDesignerEx;
-                        DocGroupHelper.GetInstance().SetSelectedTab(_workflowDesignerEx);
-                        // остановка потока в точках останова
-                        _resumeRuntimeFromHost = new AutoResetEvent(false);
-                        WorkflowState = WorkflowState.Run;
-                        _ = _wfApp.ResumeBookmark(_bookmarkName, null);
-                    }
-                    break;
-                case WorkflowState.Sleep:
-                    break;
-                case WorkflowState.Debug:
-                    break;
-                case WorkflowState.Pause:
-                    break;
-                case WorkflowState.Aborted:
-                    break;
-                case WorkflowState.StartingError:
-                    break;
-                case WorkflowState.Complete:
-                    break;
-                default:
-                    throw new ArgumentException($"unknow state {WorkflowState}");
+                reason = parseError;
+                return null;
             }
-        }
 
-#pragma warning disable IDE0051 // Remove unused private members
-        private string GetArgumentValue(InArgument<string> pathToXamlActivity)
-#pragma warning restore IDE0051 // Remove unused private members
-        {
-            throw new NotImplementedException();
-        }
+            bool resolved = RobotLocator.TryResolve(options, out RobotLocation location, out string resolveError);
 
-        private UnhandledExceptionAction WFOnUnhandledException(WorkflowApplicationUnhandledExceptionEventArgs args)
-        {
-            Exception ex = null;
-            if (args.UnhandledException is AggregateException)
+            if (!resolved || IsProjectOutdated(location, projectFilePath))
             {
-                if (args.UnhandledException.InnerException?.InnerException != null)
+                VsBuildResult build = VsProjectBuilder.Build(projectFilePath, "Debug");
+
+                if (!build.Success)
                 {
-                    ex = args.UnhandledException.InnerException.InnerException;
-                }
-                else if (args.UnhandledException.InnerException != null)
-                {
-                    ex = args.UnhandledException.InnerException;
+                    reason = "Автосборка перед запуском не прошла (код " + build.ExitCode + ")."
+                        + Environment.NewLine + string.Join(Environment.NewLine, build.Errors)
+                        + Environment.NewLine + (resolveError ?? string.Empty);
+                    return null;
                 }
             }
-            ex ??= args.UnhandledException;
 
-            StringBuilder stringBuilder = new StringBuilder();
-            _ = stringBuilder.AppendLine($"Activity: {args.ExceptionSource.DisplayName}");
-            _ = stringBuilder.AppendLine(ex.Message);
-            _ = stringBuilder.AppendLine(ex.StackTrace);
-            _log.Invoke(stringBuilder.ToString(), (int)RpaCommon.Enums.LogLevel.Error);
-            _isNeedPause = false;
-            _workflowDesignerEx.DebugManagerView.CurrentLocation = null;
-            SetDesignerIsReadonly(false);
-            WorkflowState = WorkflowState.Aborted;
-            return UnhandledExceptionAction.Abort;
+            return TryLoadFromBuiltAssembly(projectFilePath, out reason);
         }
 
-        private void WfExecutionCompleted(WorkflowApplicationCompletedEventArgs args)
+        /// <summary>
+        /// Сборка устарела, если какой-либо XAML проекта новее выбранной сборки: правка XAML в
+        /// дизайнере не трогает dll, и прогон обязан пересобрать проект перед запуском. Каталоги
+        /// <c>bin</c>/<c>obj</c> в сравнение не входят.
+        /// </summary>
+        internal static bool IsProjectOutdated(RobotLocation location, string projectFilePath)
+        {
+            if (location == null || string.IsNullOrWhiteSpace(location.AssemblyPath) || !File.Exists(location.AssemblyPath))
+            {
+                return true;
+            }
+
+            string projectDirectory = Path.GetDirectoryName(projectFilePath);
+            if (string.IsNullOrWhiteSpace(projectDirectory) || !Directory.Exists(projectDirectory))
+            {
+                return false;
+            }
+
+            DateTime assemblyTime = File.GetLastWriteTimeUtc(location.AssemblyPath);
+
+            foreach (string xaml in Directory.EnumerateFiles(projectDirectory, "*.xaml", SearchOption.AllDirectories))
+            {
+                if (IsBuildArtifactDirectory(xaml, projectDirectory))
+                {
+                    continue;
+                }
+
+                if (File.GetLastWriteTimeUtc(xaml) > assemblyTime)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsBuildArtifactDirectory(string path, string projectDirectory)
+        {
+            string relative = path.Substring(projectDirectory.Length)
+                .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            string[] segments = relative.Split(
+                new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                StringSplitOptions.RemoveEmptyEntries);
+
+            return segments.Length > 0
+                && (string.Equals(segments[0], "bin", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(segments[0], "obj", StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Валидация активности перед запуском (шаг 6 плана <c>LooseWorkflowRun</c>): ловит ошибки,
+        /// невидимые загрузке (<c>Assign</c> без <c>To</c>/<c>Value</c> и т.п.), до старта прогона.
+        /// Совпадает с <c>--validate</c> раннера — при ошибках валидации бросается
+        /// <see cref="InvalidOperationException"/> с перечнем замечаний.
+        /// </summary>
+        internal static void ValidateForRun(Activity activity)
+        {
+            if (activity == null)
+            {
+                throw new ArgumentNullException(nameof(activity));
+            }
+
+            ValidationResults results;
+            try
+            {
+                results = ActivityValidationServices.Validate(activity);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("проверка workflow не выполнена: " + ErrorText.Of(ex));
+            }
+
+            List<ValidationError> errors = results?.Errors?.ToList() ?? new List<ValidationError>();
+
+            if (errors.Count == 0)
+            {
+                return;
+            }
+
+            var text = new StringBuilder();
+            text.Append("проверка workflow нашла ошибок: ").Append(errors.Count);
+
+            foreach (ValidationError error in errors)
+            {
+                text.AppendLine().Append("  - ").Append(error.Message);
+
+                if (!string.IsNullOrWhiteSpace(error.Id))
+                {
+                    text.Append(" (").Append(error.Id).Append(')');
+                }
+            }
+
+            throw new InvalidOperationException(text.ToString());
+        }
+
+        private void RunWorkflowApplication()
         {
             try
             {
-                //retrieve & display execution output
+                _wfApp.Run();
+            }
+            catch (Exception ex)
+            {
+                Log(ErrorText.Of(ex), RpaCommon.Enums.LogLevel.Error);
+                OnUi(() =>
+                {
+                    SetDesignerIsReadonly(false);
+                    WorkflowState = WorkflowState.StartingError;
+                });
+                RaiseRunFinished(WorkflowState.StartingError);
+            }
+        }
+
+        private void OnTracking(object sender, TrackingEventArgs trackingEventArgs)
+        {
+            TrackHandler.HandleTrackingRecord(
+                trackingEventArgs,
+                _workflowDesignerEx,
+                _resumeRuntimeFromHost,
+                _isNeedPause,
+                out Dictionary<string, object> subWorkflowArguments);
+
+            if (subWorkflowArguments != null)
+            {
+                LaunchSubWorkflow(subWorkflowArguments);
+            }
+        }
+
+        private void OnCompleted(WorkflowApplicationCompletedEventArgs args)
+        {
+            try
+            {
                 foreach (KeyValuePair<string, object> item in args.Outputs)
                 {
-                    _log(string.Format("[{0}] {1}" + Environment.NewLine, item.Key, item.Value), (int)RpaCommon.Enums.LogLevel.Info);
+                    Log($"[{item.Key}] {item.Value}" + Environment.NewLine, RpaCommon.Enums.LogLevel.Info);
                 }
             }
             catch (Exception ex)
             {
-                _log(ex.ToString(), (int)RpaCommon.Enums.LogLevel.Error);
+                Log(ex.ToString(), RpaCommon.Enums.LogLevel.Error);
             }
 
-            SetDesignerIsReadonly(false);
+            OnUi(() =>
+            {
+                SetDesignerIsReadonly(false);
+                if (_workflowDesignerEx != null)
+                {
+                    _workflowDesignerEx.DebugManagerView.CurrentLocation = null;
+                }
+
+                WorkflowState = WorkflowState.Complete;
+            });
+
             _resumeRuntimeFromHost = null;
-            _workflowDesignerEx.LastBreakpoint = null;
             _isNeedPause = false;
+            if (_workflowDesignerEx != null)
+            {
+                _workflowDesignerEx.LastBreakpoint = null;
+            }
 
-            WorkflowState = WorkflowState.Complete;
-
-            // This is to remove the final debug adornment
-            _workflowDesignerEx.DebugManagerView.CurrentLocation = null;
+            RaiseRunFinished(WorkflowState.Complete);
         }
 
-        private void TrackingParticipant_TrackingEventArgsRecieved(object sender, TrackingEventArgs trackingEventArgs)
+        private UnhandledExceptionAction OnUnhandledException(WorkflowApplicationUnhandledExceptionEventArgs args)
         {
-            TrackHandler.HandleTrackingRecord(trackingEventArgs, _workflowDesignerEx, _resumeRuntimeFromHost,
-                ref _workflowState, ref _subWorkflowActivity, _isNeedPause, out Dictionary<string, object> keyValuePairs);
-            if (keyValuePairs != null)
+            Exception ex = Flatten(args.UnhandledException);
+
+            var text = new StringBuilder();
+            _ = text.AppendLine($"Activity: {args.ExceptionSource?.DisplayName}");
+            _ = text.AppendLine(ex.Message);
+            _ = text.AppendLine(ex.StackTrace);
+
+            Log(text.ToString(), RpaCommon.Enums.LogLevel.Error);
+
+            _isNeedPause = false;
+
+            return UnhandledExceptionAction.Abort;
+        }
+
+        private void OnAborted(WorkflowApplicationAbortedEventArgs args)
+        {
+            OnUi(() =>
             {
-                _subWorkflowArguments = keyValuePairs;
+                SetDesignerIsReadonly(false);
+                if (_workflowDesignerEx != null)
+                {
+                    _workflowDesignerEx.DebugManagerView.CurrentLocation = null;
+                }
+
+                WorkflowState = WorkflowState.Aborted;
+            });
+
+            _resumeRuntimeFromHost = null;
+            _isNeedPause = false;
+            if (_workflowDesignerEx != null)
+            {
+                _workflowDesignerEx.LastBreakpoint = null;
             }
+
+            RaiseRunFinished(WorkflowState.Aborted);
+        }
+
+        private void LaunchSubWorkflow(Dictionary<string, object> subWorkflowArguments)
+        {
+            if (!subWorkflowArguments.TryGetValue("PathToXamlActivity", out object rawPath)
+                || string.IsNullOrWhiteSpace(rawPath?.ToString()))
+            {
+                return;
+            }
+
+            string relativePath = rawPath.ToString();
+            _ = subWorkflowArguments.Remove("PathToXamlActivity");
+
+            string projectDir = CustomWfDesigner.GetInstance().Project?.ProjectDirPath;
+            if (string.IsNullOrWhiteSpace(projectDir))
+            {
+                return;
+            }
+
+            _bookmarkName = relativePath;
+
+            _subWorkflowActivityRunner = new ActivityRunner(subWorkflowArguments);
+            _subWorkflowActivityRunner.RunFinished += OnSubWorkflowFinished;
+
+            string pathToXaml = Path.Combine(projectDir, relativePath);
+
+            // Загрузка дочернего дизайнера требует UI-потока; сам прогон дочернего уйдёт в фон.
+            OnUi(() => _subWorkflowActivityRunner.Run(pathToXaml));
+        }
+
+        private void OnSubWorkflowFinished(WorkflowState state)
+        {
+            _subWorkflowActivityRunner.RunFinished -= OnSubWorkflowFinished;
+
+            if (state != WorkflowState.Complete)
+            {
+                Log($"Субворкфлоу «{_bookmarkName}» не завершилось успешно ({state}).", RpaCommon.Enums.LogLevel.Error);
+                _wfApp?.Abort($"Субворкфлоу «{_bookmarkName}» не завершилось успешно ({state}).");
+                return;
+            }
+
+            OnUi(() =>
+            {
+                CustomWfDesigner.GetInstance().ActiveWorkflowDesignerEx = _workflowDesignerEx;
+                DocGroupHelper.GetInstance().SetSelectedTab(_workflowDesignerEx);
+            });
+
+            _resumeRuntimeFromHost = new AutoResetEvent(false);
+
+            // Резюмируем закладку родителя на фоне: WorkflowApplication free-threaded, а продолжение
+            // на UI-потоке снова заморозило бы студию.
+            var resume = new Thread(() =>
+            {
+                try
+                {
+                    _ = _wfApp.ResumeBookmark(_bookmarkName, null);
+                }
+                catch (Exception ex)
+                {
+                    Log(ErrorText.Of(ex), RpaCommon.Enums.LogLevel.Error);
+                    OnUi(() =>
+                    {
+                        SetDesignerIsReadonly(false);
+                        WorkflowState = WorkflowState.StartingError;
+                    });
+                    RaiseRunFinished(WorkflowState.StartingError);
+                }
+            })
+            {
+                IsBackground = true,
+                Name = "StudioWorkflowResume"
+            };
+            resume.Start();
+        }
+
+        public void WorkflowStop()
+        {
+            _subWorkflowActivityRunner?.WorkflowStop();
+            _resumeRuntimeFromHost?.Set();
+
+            if (_wfApp != null)
+            {
+                // Aborted-обработчик очистит UI и сообщит итог; Set выше разблокирует брейкпоинт/паузу.
+                _wfApp.Abort("Stopped by User");
+            }
+            else
+            {
+                OnUi(() => WorkflowState = WorkflowState.Aborted);
+                RaiseRunFinished(WorkflowState.Aborted);
+            }
+
+            Log("Stopped by User", RpaCommon.Enums.LogLevel.Trace);
         }
 
         internal void WorkflowPause()
         {
             _subWorkflowActivityRunner?.WorkflowPause();
             _isNeedPause = true;
+        }
+
+        private void SetDesignerIsReadonly(bool isReadOnly)
+        {
+            DesignerView designerView = _workflowDesignerEx?.Context.Services.GetService<DesignerView>();
+            if (designerView != null)
+            {
+                _ = designerView.Dispatcher.Invoke(() => designerView.IsReadOnly = isReadOnly);
+            }
+        }
+
+        private void Log(string message, RpaCommon.Enums.LogLevel level)
+        {
+            OnUi(() => _log.Invoke(message, (int)level));
+        }
+
+        private void RaiseRunFinished(WorkflowState state)
+        {
+            RunFinished?.Invoke(state);
+        }
+
+        private static void OnUi(Action action)
+        {
+            Dispatcher dispatcher = UiDispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.Invoke(action);
+                return;
+            }
+
+            action();
+        }
+
+        private static Dispatcher UiDispatcher
+        {
+            get
+            {
+                Window window = CustomWfDesigner.GetInstance().ViewModel?.View as Window;
+                if (window?.Dispatcher != null)
+                {
+                    return window.Dispatcher;
+                }
+
+                return Application.Current?.Dispatcher;
+            }
+        }
+
+        private static Exception Flatten(Exception exception)
+        {
+            if (!(exception is AggregateException aggregate))
+            {
+                return exception;
+            }
+
+            if (aggregate.InnerException?.InnerException != null)
+            {
+                return aggregate.InnerException.InnerException;
+            }
+
+            return aggregate.InnerException ?? aggregate;
         }
     }
 }
