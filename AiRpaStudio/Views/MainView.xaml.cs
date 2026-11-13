@@ -818,6 +818,18 @@ namespace RPA.Views
             RefreshActivityPalette();
         }
 
+        /// <summary>Пункт «Настройки → Стартовый скрипт…»: тематизированный диалог ввода имени файла.</summary>
+        private void StartScriptMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            StartScriptView view = new StartScriptView
+            {
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+
+            _ = view.ShowDialog();
+        }
+
         private void ShowNuGetPanel()
         {
             if (nuGetPanel == null)

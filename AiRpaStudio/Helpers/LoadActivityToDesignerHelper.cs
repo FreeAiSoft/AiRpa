@@ -5,7 +5,6 @@ using System.Activities.Presentation.Debug;
 using System.Activities.Presentation.Hosting;
 using System.Activities.Presentation.Model;
 using System.Activities.Presentation.Services;
-using System.Activities.Presentation.Validation;
 using System.Activities.Presentation.View;
 using System.Collections.Generic;
 using System.IO;
@@ -13,11 +12,9 @@ using System.Linq;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls.Primitives;
-using Microsoft.CSharp.Activities;
 using Newtonsoft.Json;
 using RPA.Core;
 using RPA.Core.Workflow;
-using RPA.CSharpExpressionEditor;
 
 namespace RPA.Helpers
 {
@@ -30,7 +27,8 @@ namespace RPA.Helpers
         /// <param name="looseTypeRegistry">Реестр вложенных XAML-активностей для loose-загрузки (<c>null</c> — штатный путь).</param>
         internal static WorkflowDesignerEx LoadActivityToDesigner(string sourceFile, WorkflowTypeRegistry looseTypeRegistry = null)
         {
-            if (!sourceFile.EndsWith(".xaml", StringComparison.OrdinalIgnoreCase)
+            if (string.IsNullOrWhiteSpace(sourceFile)
+                || !sourceFile.EndsWith(".xaml", StringComparison.OrdinalIgnoreCase)
                 || !File.Exists(sourceFile))
             {
                 return null;
@@ -112,7 +110,7 @@ namespace RPA.Helpers
         /// </summary>
         private static bool IsInsideWorkflowProject(string sourceFile)
         {
-            var project = CustomWfDesigner.GetInstance().Project;
+            RPA.Entities.Project project = CustomWfDesigner.GetInstance().Project;
 
             if (project == null
                 || !project.IsWorkflowProject

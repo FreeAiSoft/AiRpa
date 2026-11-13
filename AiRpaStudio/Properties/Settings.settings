@@ -35,6 +35,9 @@
     <Setting Name="MsBuildToolchain" Type="System.String" Scope="User">
       <Value Profile="(Default)">Auto</Value>
     </Setting>
+    <Setting Name="DefaultRunScript" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Main.xaml</Value>
+    </Setting>
     <Setting Name="NuGetSelectedSources" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>

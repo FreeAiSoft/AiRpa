@@ -1,6 +1,7 @@
 using System;
 using System.Activities;
 using System.Activities.Presentation;
+using System.Activities.Presentation.Services;
 using System.Activities.Presentation.Validation;
 using System.Activities.Validation;
 using System.Activities.XamlIntegration;
@@ -13,6 +14,7 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Xml;
 using RPA.Core;
+using RPA.Core.Workflow;
 using RPA.Helpers;
 using DesignerView = System.Activities.Presentation.View.DesignerView;
 using ValidationError = System.Activities.Validation.ValidationError;
@@ -94,7 +96,8 @@ internal static class DesignerRenderProbe
                 // Среда — та же, что у студии (WfDesignerEnvironment). Отличие одно: сервис ошибок
                 // записывающий, иначе ошибки валидации WF показывает модальным окном и стенд виснет.
                 WfDesignerEnvironment.Configure(designer, validation);
-                designer.Load(xamlPath);
+                BenchWorkflowLoader.Open(designer, xamlPath);
+
 
                 report.LoadSucceeded = true;
             }
@@ -140,7 +143,7 @@ internal static class DesignerRenderProbe
                 }
             }
 
-            CollectActivityValidation(xamlPath, report);
+            CollectActivityValidation(designer, report);
 
             guard.Poll();
             report.DesignerValidationErrors.AddRange(validation.Describe());
@@ -251,15 +254,26 @@ internal static class DesignerRenderProbe
     /// Валидация WF по загруженному XAML (<c>ActivityValidationServices</c>) — то, что этап 2 плана
     /// оформит как <c>WorkflowValidationGate</c>. Ошибки обязательны к показу, предупреждения — нет.
     /// </summary>
-    private static void CollectActivityValidation(string xamlPath, DesignerRenderReport report)
+    private static void CollectActivityValidation(WorkflowDesignerEx designer, DesignerRenderReport report)
     {
         try
         {
-            Activity activity = ActivityXamlServices.Load(
-                xamlPath,
-                new ActivityXamlServicesSettings { CompileExpressions = false });
+            ModelService modelService = designer?.Context.Services.GetService<ModelService>();
+            object root = modelService?.Root?.GetCurrentValue();
+            Activity activity = root as Activity ?? (root as ActivityBuilder)?.Implementation;
+
+            if (activity == null)
+            {
+                report.ValidationErrors.Add("Корень модели не является Activity/ActivityBuilder.");
+                return;
+            }
 
             ValidationResults results = ActivityValidationServices.Validate(activity);
+
+            if (report.UnrecognizedActivities.Count > 0)
+            {
+                report.ValidationErrors.Add("Нераспознанные активности: " + string.Join("; ", report.UnrecognizedActivities));
+            }
 
             report.ValidationErrors.AddRange(results.Errors.Select(Describe));
             report.ValidationWarnings.AddRange(results.Warnings.Select(Describe));

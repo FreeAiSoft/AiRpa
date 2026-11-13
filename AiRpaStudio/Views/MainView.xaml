@@ -595,6 +595,11 @@
                           ToolTip="Clear optimization caches"
                           Header="{DynamicResource lang_main_reset_caches}"
                           Click="ResetCachesMenuItem_Click" />
+                <Separator />
+                <MenuItem SnapsToDevicePixels="True"
+                          ToolTip="Choose the default start script"
+                          Header="{DynamicResource lang_main_start_script}"
+                          Click="StartScriptMenuItem_Click" />
             </MenuItem>
             <MenuItem Header="Tools"
                       Foreground="{DynamicResource Studio.MenuForeground}">

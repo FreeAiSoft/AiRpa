@@ -159,6 +159,22 @@ namespace RPA.Properties {
             }
         }
         
+        /// <summary>
+        /// Start script that the "Start" button runs when the active tab is not an open workflow
+        /// designer. Can be a file name or a path relative to the project directory.
+        /// </summary>
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Main.xaml")]
+        public string DefaultRunScript {
+            get {
+                return ((string)(this["DefaultRunScript"]));
+            }
+            set {
+                this["DefaultRunScript"] = value;
+            }
+        }
+        
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]

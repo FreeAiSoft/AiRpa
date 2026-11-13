@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using RPA.Controls;
+using AiRpaStudio.Tests.Design;
 using RPA.Helpers;
 
 namespace AiRpaStudio.Tests;
@@ -28,6 +29,11 @@ public class ToolboxThemeTests
 {
     [Test]
     public void CategoryHeader_HasNoLightPlates_DarkTheme()
+    {
+        DesignerTestHost.Shared.Invoke(CategoryHeader_HasNoLightPlates_DarkTheme_OnSta);
+    }
+
+    private void CategoryHeader_HasNoLightPlates_DarkTheme_OnSta()
     {
         (ToolboxControl toolbox, Window window) = HostThemedToolbox();
 
@@ -52,6 +58,11 @@ public class ToolboxThemeTests
 
     [Test]
     public void CategoryHeader_NameIsReadableOnDarkSurface()
+    {
+        DesignerTestHost.Shared.Invoke(CategoryHeader_NameIsReadableOnDarkSurface_OnSta);
+    }
+
+    private void CategoryHeader_NameIsReadableOnDarkSurface_OnSta()
     {
         (ToolboxControl toolbox, Window window) = HostThemedToolbox();
 
@@ -81,6 +92,11 @@ public class ToolboxThemeTests
 
     [Test]
     public void CategoryHeader_ExpanderGlyphIsVisible()
+    {
+        DesignerTestHost.Shared.Invoke(CategoryHeader_ExpanderGlyphIsVisible_OnSta);
+    }
+
+    private void CategoryHeader_ExpanderGlyphIsVisible_OnSta()
     {
         (ToolboxControl toolbox, Window window) = HostThemedToolbox();
 
@@ -117,6 +133,11 @@ public class ToolboxThemeTests
 
     [Test]
     public void ToolItems_GetPaletteStateInsteadOfSystemHover()
+    {
+        DesignerTestHost.Shared.Invoke(ToolItems_GetPaletteStateInsteadOfSystemHover_OnSta);
+    }
+
+    private void ToolItems_GetPaletteStateInsteadOfSystemHover_OnSta()
     {
         (ToolboxControl toolbox, Window window) = HostThemedToolbox();
 
@@ -164,6 +185,11 @@ public class ToolboxThemeTests
     [Test]
     public void SelectedCategory_HasNoLightPlateAndUsesPalette()
     {
+        DesignerTestHost.Shared.Invoke(SelectedCategory_HasNoLightPlateAndUsesPalette_OnSta);
+    }
+
+    private void SelectedCategory_HasNoLightPlateAndUsesPalette_OnSta()
+    {
         (ToolboxControl toolbox, Window window) = HostThemedToolbox();
 
         try
@@ -190,6 +216,11 @@ public class ToolboxThemeTests
 
     [Test]
     public void ThemeSwitch_RepaintsPlatesInBothDirections()
+    {
+        DesignerTestHost.Shared.Invoke(ThemeSwitch_RepaintsPlatesInBothDirections_OnSta);
+    }
+
+    private void ThemeSwitch_RepaintsPlatesInBothDirections_OnSta()
     {
         (ToolboxControl toolbox, Window window) = HostThemedToolbox();
 
@@ -227,6 +258,11 @@ public class ToolboxThemeTests
     [Test]
     public void ApplyTheme_IsIdempotentForLoadedHook()
     {
+        DesignerTestHost.Shared.Invoke(ApplyTheme_IsIdempotentForLoadedHook_OnSta);
+    }
+
+    private void ApplyTheme_IsIdempotentForLoadedHook_OnSta()
+    {
         (ToolboxControl toolbox, Window window) = HostThemedToolbox();
 
         try
@@ -249,6 +285,11 @@ public class ToolboxThemeTests
 
     [Test]
     public void Theming_KeepsWfItemStylesAndDragHandlers()
+    {
+        DesignerTestHost.Shared.Invoke(Theming_KeepsWfItemStylesAndDragHandlers_OnSta);
+    }
+
+    private void Theming_KeepsWfItemStylesAndDragHandlers_OnSta()
     {
         (ToolboxControl toolbox, Window window) = HostThemedToolbox();
 

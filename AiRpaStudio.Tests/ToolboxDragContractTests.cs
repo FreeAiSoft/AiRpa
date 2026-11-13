@@ -3,6 +3,7 @@ using System.Activities.Statements;
 using System.Windows;
 using System.Windows.Controls;
 using RPA.Controls;
+using AiRpaStudio.Tests.Design;
 using RPA.Helpers;
 
 namespace AiRpaStudio.Tests;
@@ -23,6 +24,11 @@ public class ToolboxDragContractTests
 {
     [Test]
     public void Toolbox_KeepsWfItemStylesAfterTheming()
+    {
+        DesignerTestHost.Shared.Invoke(Toolbox_KeepsWfItemStylesAfterTheming_OnSta);
+    }
+
+    private void Toolbox_KeepsWfItemStylesAfterTheming_OnSta()
     {
         (ToolboxControl toolbox, Window window) = HostThemedToolbox();
 
@@ -75,6 +81,11 @@ public class ToolboxDragContractTests
 
     [Test]
     public void Toolbox_SelectedToolAppearsAfterSelection()
+    {
+        DesignerTestHost.Shared.Invoke(Toolbox_SelectedToolAppearsAfterSelection_OnSta);
+    }
+
+    private void Toolbox_SelectedToolAppearsAfterSelection_OnSta()
     {
         (ToolboxControl toolbox, Window window) = HostThemedToolbox();
 

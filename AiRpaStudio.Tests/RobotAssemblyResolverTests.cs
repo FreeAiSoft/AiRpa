@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Agent.Core.Services;
 
 using NUnit.Framework;
 using RPA.Helpers;
@@ -286,6 +287,29 @@ public class RobotAssemblyResolverTests
 
         Assert.That(resolved, Is.Not.Null, "зависимость робота обязана разрешиться");
         Assert.That(resolved.GetName().Name, Is.EqualTo("Newtonsoft.Json"));
+    }
+
+    [Test]
+    public void ResolveAssembly_ReturnsAlreadyLoadedAssembly_WithoutLockingProbe()
+    {
+        // Репродукция инцидента MSB3021/MSB3027: entry-сборка робота уже загружена движком из
+        // байтов, а в bin лежит её же копия. Обработчик обязан вернуть уже загруженную сборку,
+        // а не грузить копию из bin (иначе копия блокируется и автосборка падает).
+        Assembly loaded = typeof(RobotAssemblyResolverTests).Assembly;
+        string copied = CopyToProbe(loaded);
+
+        RobotAssemblyResolver.Install(AppDomain.CurrentDomain, new[] { probeDirectory });
+
+        Assembly resolved = RobotAssemblyResolver.ResolveAssembly(
+            this, new ResolveEventArgs(loaded.FullName));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resolved, Is.SameAs(loaded),
+                "запрос уже загруженной сборки обязан вернуть её же, а не второй экземпляр");
+            Assert.That(FileLockDetector.IsFileLocked(copied), Is.False,
+                "копия в bin не должна блокироваться обработчиком зависимостей");
+        });
     }
 
     [Test]

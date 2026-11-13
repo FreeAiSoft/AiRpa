@@ -298,4 +298,19 @@
   <data name="lang_activity_compat_problems" xml:space="preserve">
     <value>Найдены проблемы совместимости</value>
   </data>
+  <data name="lang_main_start_script" xml:space="preserve">
+    <value>Стартовый скрипт…</value>
+  </data>
+  <data name="lang_start_script_title" xml:space="preserve">
+    <value>Стартовый скрипт</value>
+  </data>
+  <data name="lang_start_script_label" xml:space="preserve">
+    <value>Файл скрипта по умолчанию (имя или путь относительно папки проекта):</value>
+  </data>
+  <data name="lang_start_script_save" xml:space="preserve">
+    <value>Сохранить</value>
+  </data>
+  <data name="lang_cancel" xml:space="preserve">
+    <value>Отмена</value>
+  </data>
 </root>

@@ -70,7 +70,7 @@ public class ActivityRunnerLoadPathTests
     {
         BuiltWorkflowProject built = BuildShadowWorkflowProject();
 
-        Activity activity = ActivityRunner.TryLoadFromBuiltAssembly(built.ProjectPath, out string reason);
+        Activity activity = ActivityRunner.TryLoadFromBuiltAssembly(built.ProjectPath, built.MainXamlPath, out string reason);
 
         Assert.That(activity, Is.Not.Null, reason);
         Assert.That(reason, Is.Null.Or.Empty);
@@ -91,25 +91,48 @@ public class ActivityRunnerLoadPathTests
     }
 
     [Test]
-    public void TryLoadFromBuiltAssembly_PicksNewestAssemblyFromSeveralBins()
+    public void TryLoadFromBuiltAssembly_DoesNotLockBinDirectory()
     {
         BuiltWorkflowProject built = BuildShadowWorkflowProject();
-        string projectDir = IOPath.GetDirectoryName(built.ProjectPath);
 
-        string oldAssembly = built.AssemblyPath;
-        string newAssembly = IOPath.Combine(projectDir, "bin", "x64", "Debug", IOPath.GetFileName(built.AssemblyPath));
-        Directory.CreateDirectory(IOPath.GetDirectoryName(newAssembly));
-        File.Copy(oldAssembly, newAssembly, true);
-
-        File.SetLastWriteTimeUtc(oldAssembly, DateTime.UtcNow.AddHours(-2));
-        File.SetLastWriteTimeUtc(newAssembly, DateTime.UtcNow);
-
-        Activity activity = ActivityRunner.TryLoadFromBuiltAssembly(built.ProjectPath, out string reason);
+        Activity activity = ActivityRunner.TryLoadFromBuiltAssembly(built.ProjectPath, built.MainXamlPath, out string reason);
 
         Assert.That(activity, Is.Not.Null, reason);
-        Assert.That(IOPath.GetFullPath(activity.GetType().Assembly.Location),
-            Is.EqualTo(IOPath.GetFullPath(newAssembly)),
-            "из нескольких bin обязана выбираться самая свежая сборка");
+        Assert.That(FileLockDetector.IsFileLocked(built.AssemblyPath), Is.False,
+            "оригинальная сборка в bin обязана оставаться незаблокированной после загрузки из памяти");
+    }
+
+    [Test]
+    public void LoadRunActivity_RebuildAfterRun_DoesNotHitFileLock()
+    {
+        RequireMsBuild();
+        BuiltWorkflowProject built = BuildShadowWorkflowProject();
+
+        var project = new Project { IsWorkflowProject = true, ProjectFilePath = built.ProjectPath };
+
+        // Первый прогон загружает робота (загрузка из памяти не блокирует bin).
+        Activity first = ActivityRunner.LoadRunActivity(built.MainXamlPath, project, File.ReadAllText(built.MainXamlPath));
+        Assert.That(first, Is.Not.Null);
+
+        // Правка XAML без ручной сборки: ToUpper -> ToLower, файл новее dll.
+        string updated = File.ReadAllText(built.MainXamlPath)
+            .Replace("[InputText.ToUpper()]", "[InputText.ToLower()]");
+        File.WriteAllText(built.MainXamlPath, updated);
+        File.SetLastWriteTimeUtc(built.MainXamlPath, DateTime.UtcNow.AddMinutes(5));
+
+        // Второй прогон обязан пересобрать проект (XAML новее dll) и не упасть на MSB3027 из-за блокировки.
+        Activity second = ActivityRunner.LoadRunActivity(built.MainXamlPath, project, updated);
+
+        Assert.That(second, Is.Not.Null,
+            "автосборка обязана пройти, если первый прогон не блокирует bin");
+
+        WorkflowRunResult result = WorkflowRunEngine.Run(
+            second,
+            new Dictionary<string, object> { { "InputText", "MAX" } },
+            TimeSpan.FromSeconds(60));
+
+        Assert.That(result.GetOutput("Result"), Is.EqualTo("max"),
+            "прогон обязан идти по пересобранной версии XAML");
     }
 
     [Test]
@@ -117,7 +140,7 @@ public class ActivityRunnerLoadPathTests
     {
         string csproj = CreateWorkflowProjectWithoutAssembly();
 
-        Activity activity = ActivityRunner.TryLoadFromBuiltAssembly(csproj, out string reason);
+        Activity activity = ActivityRunner.TryLoadFromBuiltAssembly(csproj, IOPath.Combine(IOPath.GetDirectoryName(csproj), "Main.xaml"), out string reason);
 
         Assert.Multiple(() =>
         {
@@ -213,11 +236,36 @@ public class ActivityRunnerLoadPathTests
     }
 
     [Test]
+    public void LoadRunActivity_WorkflowProject_LoadsTypeFromTargetXaml_NotMain()
+    {
+        BuiltWorkflowProject built = BuildShadowWorkflowProjectWithSubProcess(out string subXamlPath, out string subTypeName);
+
+        var project = new Project { IsWorkflowProject = true, ProjectFilePath = built.ProjectPath };
+        Activity activity = ActivityRunner.LoadRunActivity(subXamlPath, project, File.ReadAllText(subXamlPath));
+
+        Assert.That(activity, Is.Not.Null);
+        Assert.That(activity.GetType().FullName, Is.EqualTo(subTypeName),
+            "прогон активной вкладки-подпроцесса обязан грузить тип из x:Class этого подпроцесса, а не Main.xaml");
+
+        WorkflowRunResult result = WorkflowRunEngine.Run(
+            activity,
+            new Dictionary<string, object> { { "InputText", "max" } },
+            TimeSpan.FromSeconds(60));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Description);
+            Assert.That(result.GetOutput("Result"), Is.EqualTo("MAX"));
+        });
+    }
+
+
+    [Test]
     public void TryLoadOrBuildFromProject_UnbuildableProject_ReportsBuildAndLocatorReasons()
     {
         string csproj = CreateWorkflowProjectWithoutAssembly();
 
-        Activity activity = ActivityRunner.TryLoadOrBuildFromProject(csproj, out string reason);
+        Activity activity = ActivityRunner.TryLoadOrBuildFromProject(csproj, IOPath.Combine(IOPath.GetDirectoryName(csproj), "Main.xaml"), out string reason);
 
         Assert.Multiple(() =>
         {
@@ -253,12 +301,86 @@ public class ActivityRunnerLoadPathTests
     {
         BuiltWorkflowProject built = BuildShadowWorkflowProject();
 
-        Activity activity = ActivityRunner.TryLoadOrBuildFromProject(built.ProjectPath, out string reason);
+        Activity activity = ActivityRunner.TryLoadOrBuildFromProject(built.ProjectPath, built.MainXamlPath, out string reason);
 
         Assert.That(activity, Is.Not.Null, reason);
 
         Assert.DoesNotThrow(() => ActivityRunner.ValidateForRun(activity),
             "валидный собранный робот обязан проходить проверку перед запуском");
+    }
+
+    [Test]
+    public void NormalizeWorkflowXamlBeforeBuild_AddsIgnorableToDesignerXaml()
+    {
+        string dir = IOPath.Combine(IOPath.GetTempPath(), "activity_runner_norm_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        _tempDirectories.Add(dir);
+
+        string workflowPath = IOPath.Combine(dir, "SubProcess3.xaml");
+        string original = NonIgnorableDesignerXaml("RPA_1.SubProcess3");
+        File.WriteAllText(workflowPath, original);
+
+        string otherPath = IOPath.Combine(dir, "Theme.xaml");
+        const string otherText = "<UserControl xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" />";
+        File.WriteAllText(otherPath, otherText);
+
+        string binDir = IOPath.Combine(dir, "bin");
+        Directory.CreateDirectory(binDir);
+        string binXaml = IOPath.Combine(binDir, "SubProcess3.xaml");
+        File.WriteAllText(binXaml, original);
+
+        ActivityRunner.NormalizeWorkflowXamlBeforeBuild(dir);
+
+        string normalized = File.ReadAllText(workflowPath);
+        Assert.Multiple(() =>
+        {
+            Assert.That(normalized, Does.Contain("mc:Ignorable=\"sap sap2010\""),
+                "presentation-атрибуты без mc:Ignorable ломают XamlBuildTask (XC1031)");
+            Assert.That(normalized, Does.Contain("xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\""));
+            Assert.That(normalized, Does.Contain("sap2010:ExpressionActivityEditor.ExpressionActivityEditor=\"C#\""),
+                "нормализация не должна удалять presentation-атрибуты конструктора");
+        });
+
+        Assert.That(File.ReadAllText(otherPath), Is.EqualTo(otherText),
+            "чужой XML (не рабочий процесс) не должен переписываться");
+        Assert.That(File.ReadAllText(binXaml), Is.EqualTo(original),
+            "каталоги bin/obj не должны трогаться нормализацией перед сборкой");
+    }
+
+    [Test]
+    public void LoadRunActivity_NonIgnorableDesignerXaml_AutoBuildsAfterNormalization()
+    {
+        RequireMsBuild();
+        BuiltWorkflowProject built = PrepareShadowWorkflowProject();
+
+        string projectDir = IOPath.GetDirectoryName(built.ProjectPath);
+        string rootNamespace = built.TypeName.Substring(0, built.TypeName.LastIndexOf('.'));
+        string subTypeName = rootNamespace + ".SubProcess3";
+        string subXamlPath = IOPath.Combine(projectDir, "SubProcess3.xaml");
+
+        File.WriteAllText(subXamlPath, NonIgnorableDesignerXaml(subTypeName));
+
+        File.WriteAllText(
+            built.ProjectPath,
+            File.ReadAllText(built.ProjectPath).Replace(
+                "    <XamlAppDef Include=\"Main.xaml\">",
+                "    <XamlAppDef Include=\"SubProcess3.xaml\">" + Environment.NewLine
+                    + "      <SubType>Designer</SubType>" + Environment.NewLine
+                    + "      <Generator>MSBuild:Compile</Generator>" + Environment.NewLine
+                    + "    </XamlAppDef>" + Environment.NewLine
+                    + "    <XamlAppDef Include=\"Main.xaml\">"));
+
+        var project = new Project { IsWorkflowProject = true, ProjectFilePath = built.ProjectPath };
+        Activity activity = ActivityRunner.LoadRunActivity(
+            built.MainXamlPath, project, File.ReadAllText(built.MainXamlPath));
+
+        Assert.That(activity, Is.Not.Null,
+            "автосборка обязана пройти после нормализации XAML с presentation-атрибутами без mc:Ignorable");
+        Assert.That(activity.GetType().FullName, Is.EqualTo(built.TypeName),
+            "прогон обязан грузить тип из x:Class Main.xaml");
+
+        Assert.That(File.ReadAllText(subXamlPath), Does.Contain("mc:Ignorable=\"sap sap2010\""),
+            "нормализация обязана сохранить исправленный XAML на диск");
     }
 
     // --- Инфраструктура. ---
@@ -379,6 +501,79 @@ public class ActivityRunnerLoadPathTests
         };
     }
 
+    private BuiltWorkflowProject BuildShadowWorkflowProjectWithSubProcess(out string subXamlPath, out string subTypeName)
+    {
+        MsBuildLocation location = VsProjectBuilder.FindMSBuild(MsBuildToolchain.Auto);
+
+        if (!location.Found)
+        {
+            Assert.Ignore("MSBuild не найден на машине — сборка эталона пропущена");
+        }
+
+        string source = Net472RobotSourceDir;
+        string target = IOPath.Combine(IOPath.GetTempPath(), "activity_runner_sub_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(target);
+
+        // Уникальные AssemblyName/RootNamespace/x:Class, чтобы несколько теневых сборок одного
+        // эталона в одном тестовом процессе не «склеивались» по идентичности в LoadFrom-контексте.
+        string suffix = Guid.NewGuid().ToString("N").Substring(0, 8);
+        string assemblyName = "Net472Robot_" + suffix;
+        string mainTypeName = assemblyName + ".Main";
+        subTypeName = assemblyName + ".SubProcess1";
+
+        string csproj = IOPath.Combine(target, "Net472Robot.csproj");
+        string mainXaml = IOPath.Combine(target, "Main.xaml");
+        subXamlPath = IOPath.Combine(target, "SubProcess1.xaml");
+
+        CopyProjectFile(source, target, "Net472Robot.csproj");
+        CopyProjectFile(source, target, "Main.xaml");
+        File.Copy(IOPath.Combine(source, "Main.xaml"), subXamlPath);
+
+        string propertiesSource = IOPath.Combine(source, "Properties");
+        string propertiesTarget = IOPath.Combine(target, "Properties");
+        Directory.CreateDirectory(propertiesTarget);
+        CopyProjectFile(propertiesSource, propertiesTarget, "AssemblyInfo.cs");
+
+        RewriteProjectIdentity(csproj, mainXaml, assemblyName, mainTypeName);
+
+        // SubProcess1.xaml — второй XAML-сценарий проекта: копия Main.xaml с собственным x:Class.
+        File.WriteAllText(
+            subXamlPath,
+            File.ReadAllText(subXamlPath)
+                .Replace("x:Class=\"Net472Robot.Main\"", "x:Class=\"" + subTypeName + "\"")
+                .Replace("Main sequence", "Sub process"));
+
+        // Добавляем SubProcess1.xaml в проект, чтобы MSBuild собрал его тип в ту же сборку.
+        File.WriteAllText(
+            csproj,
+            File.ReadAllText(csproj).Replace(
+                "    <XamlAppDef Include=\"Main.xaml\">",
+                "    <XamlAppDef Include=\"SubProcess1.xaml\">" + Environment.NewLine
+                    + "      <SubType>Designer</SubType>" + Environment.NewLine
+                    + "      <Generator>MSBuild:Compile</Generator>" + Environment.NewLine
+                    + "    </XamlAppDef>" + Environment.NewLine
+                    + "    <XamlAppDef Include=\"Main.xaml\">"));
+
+        _tempDirectories.Add(target);
+
+        var log = new List<string>();
+        VsBuildResult result = VsProjectBuilder.BuildWithToolchain(
+            csproj, "Debug", MsBuildToolchain.Auto, log.Add, restore: false);
+
+        Assert.That(result.Success, Is.True,
+            "сборка эталона с SubProcess1 в тени не прошла: " + Environment.NewLine
+            + string.Join(Environment.NewLine, result.Errors.Take(10)) + Environment.NewLine + log.FirstOrDefault());
+
+        return new BuiltWorkflowProject
+        {
+            ProjectPath = csproj,
+            AssemblyPath = IOPath.Combine(target, "bin", "Debug", assemblyName + ".dll"),
+            TypeName = mainTypeName,
+            MainXamlPath = mainXaml
+        };
+    }
+
+
     private static void CopyProjectFile(string sourceDir, string targetDir, string fileName)
     {
         File.Copy(IOPath.Combine(sourceDir, fileName), IOPath.Combine(targetDir, fileName), true);
@@ -396,6 +591,31 @@ public class ActivityRunnerLoadPathTests
             mainXaml,
             File.ReadAllText(mainXaml)
                 .Replace("x:Class=\"Net472Robot.Main\"", "x:Class=\"" + typeName + "\""));
+    }
+
+    private static string NonIgnorableDesignerXaml(string typeName)
+    {
+        return @"<Activity x:Class=""" + typeName + @""" sap2010:ExpressionActivityEditor.ExpressionActivityEditor=""C#"" sap:VirtualizedContainerService.HintSize=""440,440"" xmlns=""http://schemas.microsoft.com/netfx/2009/xaml/activities"" xmlns:sap=""http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"" xmlns:sap2010=""http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"" xmlns:sco=""clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"" xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml"">
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments=""x:String"">
+      <x:String>System</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Data</x:String>
+      <x:String>System.Linq</x:String>
+      <x:String>System.Text</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments=""AssemblyReference"">
+      <AssemblyReference>mscorlib</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Core</AssemblyReference>
+      <AssemblyReference>System.Data</AssemblyReference>
+      <AssemblyReference>System.ServiceModel</AssemblyReference>
+      <AssemblyReference>System.Xml</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+</Activity>";
     }
 
     private string CreateWorkflowProjectWithoutAssembly()

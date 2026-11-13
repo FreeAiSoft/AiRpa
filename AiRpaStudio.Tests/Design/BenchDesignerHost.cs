@@ -4,12 +4,14 @@ using System.Activities.Presentation;
 using System.Activities.Presentation.Model;
 using System.Activities.Presentation.Services;
 using System.Collections.Generic;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Linq;
 using RPA.Core;
 using RPA.Core.Generation;
+using RPA.Core.Workflow;
 using RPA.Helpers;
 
 namespace AiRpaStudio.Tests.Design;
@@ -109,7 +111,8 @@ internal sealed class BenchDesignerHost : IWorkflowDesignerHost
         var validation = new RecordingValidationErrorService();
         var designer = new WorkflowDesignerEx();
         WfDesignerEnvironment.Configure(designer, validation);
-        designer.Load(filePath);
+        BenchWorkflowLoader.Open(designer, filePath);
+
 
         OpenCount++;
         Designers.Add(designer);

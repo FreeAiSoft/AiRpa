@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Windows;
 using System.Windows.Media;
 using System.Activities.Presentation.Model;
 using System.Activities.Presentation.Validation;
@@ -83,63 +85,59 @@ namespace RPA.Core.Services
         }
 
         /// <summary>
-        /// Кисть иконки ошибки на активности — родной рисунок WF
-        /// (<c>WorkflowDesignerIcons.DesignerItems.ActivityErrorValidation</c>: красный круг с белым «!»).
+        /// Кисть иконки ошибки на активности — красный круг с белым «!» (семантика ошибки WF по умолчанию).
         /// <para>
-        /// Именно её WF ставит в <c>Border.Background</c> шаблона <c>WorkflowElementDesignerDefaultTemplate</c>,
-        /// поэтому иконка выглядит так же, как в проектах Visual Basic. Сплошная кисть палитры
-        /// (<see cref="ErrorBrush"/>) — только резерв, если свойство иконок WF недоступно: раньше она
-        /// ставилась всегда, и на активности получался красный прямоугольник без глифа
-        /// (баг «только красная рамка без иконки»).
-        /// </para>
-        /// <para>
-        /// Кисть клонируется и замораживается: экземпляр ставится на десятки активностей, а изменяемый
-        /// общий <c>DrawingBrush</c> WF отдавать наружу нельзя.
+        /// Рисуется на месте, а не читается из <c>WorkflowDesignerIcons.DesignerItems.ActivityErrorValidation</c>:
+        /// студия включает стиль «Windows Store App» (<c>UseWindowsStoreAppStyleIcons</c>), и тот же ключ
+        /// возвращает синюю иконку, из-за чего цвет ошибки зависел от порядка запуска.
         /// </para>
         /// </summary>
         public static Brush ErrorIconBrush()
         {
-            Brush native = TryGetWorkflowErrorIcon();
-            return native == null ? ErrorBrush() : CloneFrozen(native) ?? native;
+            return CreateErrorIcon();
         }
 
         /// <summary>
-        /// Рисунок иконки ошибки WF. Читается отражением: <c>DesignerItems</c> — вложенный тип
-        /// <c>WorkflowDesignerIcons</c>. Любая ошибка отражения даёт <c>null</c> (тогда работает резерв).
+        /// Детерминированная кисть ошибки: красный круг с белым «!» (семантика ошибки WF по умолчанию).
+        /// <para>
+        /// Строится на месте, а не читается из <c>WorkflowDesignerIcons.DesignerItems.ActivityErrorValidation</c>:
+        /// студия включает стиль «Windows Store App» (<c>UseWindowsStoreAppStyleIcons</c>), и тот же ключ
+        /// возвращает синюю иконку; отражение делало цвет ошибки зависимым от порядка запуска.
+        /// </para>
+        /// <para>
+        /// Кисть замораживается: экземпляр ставится на десятки активностей, а изменяемый общий объект
+        /// отдавать наружу нельзя.
+        /// </para>
         /// </summary>
-        private static Brush TryGetWorkflowErrorIcon()
+        private static Brush CreateErrorIcon()
         {
-            try
-            {
-                Type designerItems = typeof(System.Activities.Presentation.WorkflowDesignerIcons)
-                    .GetNestedType("DesignerItems", BindingFlags.Public | BindingFlags.NonPublic);
+            var group = new DrawingGroup();
 
-                PropertyInfo property = designerItems?.GetProperty(
-                    "ActivityErrorValidation",
-                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            // Красный круг — системная семантика ошибки; цвет берётся из палитры, а не из стиля WF.
+            Color red = WfDesignerTheme.ErrorBrush(StudioPalette.Active).Color;
+            group.Children.Add(new GeometryDrawing(
+                new SolidColorBrush(red),
+                null,
+                new EllipseGeometry(new Point(7, 7), 7, 7)));
 
-                return property?.GetValue(null) as Brush;
-            }
-            catch (Exception)
-            {
-                return null;
-            }
+            // Белый «!» поверх круга.
+            var glyph = new FormattedText(
+                "!",
+                CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight,
+                new Typeface("Segoe UI"),
+                10,
+                Brushes.White,
+                1.0);
+            group.Children.Add(new GeometryDrawing(
+                Brushes.White,
+                null,
+                glyph.BuildGeometry(new Point(4.4, 1.4))));
+
+            var brush = new DrawingBrush(group);
+            brush.Freeze();
+            return brush;
         }
-
-        private static Brush CloneFrozen(Brush brush)
-        {
-            try
-            {
-                Brush clone = brush.CloneCurrentValue();
-                clone.Freeze();
-                return clone;
-            }
-            catch (Exception)
-            {
-                return null;
-            }
-        }
-
 
         /// <summary>
         /// Сообщение валидации WF для активности (обязательные свойства, валидаторы активностей,

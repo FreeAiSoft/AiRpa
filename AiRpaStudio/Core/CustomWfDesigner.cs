@@ -246,14 +246,21 @@ namespace RPA.Core
             {
                 CustomWfDesignerState = CustomWfDesignerState.Run;
 
-                if (ActiveWorkflowDesignerEx == null)
-                {
-                    return;
-                }
-
-                if (_activityRunner is null || _activityRunner.WorkflowState == WorkflowState.Complete || _activityRunner.WorkflowState == WorkflowState.Aborted)
+                if (_activityRunner is null
+                    || _activityRunner.WorkflowState == WorkflowState.Complete
+                    || _activityRunner.WorkflowState == WorkflowState.Aborted
+                    || _activityRunner.WorkflowState == WorkflowState.StartingError)
                 {
                     // запуск нового workflow
+
+                    string runPath = ResolveRunTarget();
+                    if (string.IsNullOrWhiteSpace(runPath))
+                    {
+                        Log("Не удалось определить стартовый скрипт: откройте вкладку WF или задайте настройку «Стартовый скрипт».",
+                            (int)RpaCommon.Enums.LogLevel.Warn);
+                        CustomWfDesignerState = CustomWfDesignerState.Stop;
+                        return;
+                    }
 
                     ((MainView)ViewModel.View).Dispatcher.Invoke(() =>
                     {
@@ -263,7 +270,7 @@ namespace RPA.Core
 
                     _activityRunner = new ActivityRunner();
                     _activityRunner.PropertyChanged += ActivityRunner_PropertyChanged;
-                    _activityRunner.Run(RootWorkflowDesigner.CurrentWorkflowFile);
+                    _activityRunner.Run(runPath);
                 }
                 else
                 {
@@ -276,6 +283,37 @@ namespace RPA.Core
                 Console.WriteLine(ex);
                 CustomWfDesignerState = CustomWfDesignerState.Stop;
             }
+        }
+
+        /// <summary>
+        /// Путь XAML, который должна запустить кнопка «Старт» (Ф1): активная вкладка-дизайнер, иначе
+        /// настройка «Стартовый скрипт» → главная активность проекта → <c>Main.xaml</c>/<c>main.xaml</c>.
+        /// </summary>
+        private string ResolveRunTarget()
+        {
+            string activeDocumentPath = ((MainView)ViewModel?.View)?.GetActiveDocumentPath();
+
+            if (string.IsNullOrWhiteSpace(activeDocumentPath))
+            {
+                activeDocumentPath = GetLoadedFile(ActiveWorkflowDesignerEx);
+            }
+
+            return RunTargetResolver.Resolve(
+                Project?.ProjectDirPath,
+                Properties.Settings.Default.DefaultRunScript,
+                Project?.MainActivity,
+                activeDocumentPath,
+                GetOpenWorkflowPath);
+        }
+
+        /// <summary>
+        /// По пути активной вкладки возвращает файл открытого WF-дизайнера либо <c>null</c>, если вкладка —
+        /// редактор кода/XAML или не является открытым дизайнером.
+        /// </summary>
+        private string GetOpenWorkflowPath(string activeDocumentPath)
+        {
+            WorkflowDesignerEx designer = GetDesignerByFileIgnoreCase(activeDocumentPath);
+            return designer == null ? null : GetLoadedFile(designer);
         }
 
         private void ActivityRunner_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -572,6 +610,25 @@ namespace RPA.Core
         {
             return WorkflowDesigners
                 .FirstOrDefault(d => ((WorkflowFileItem)d.Context.Items.First(i => i.ItemType == typeof(WorkflowFileItem))).LoadedFile == sourceFile);
+        }
+
+        /// <summary>
+        /// Поиск открытого дизайнера по <see cref="WorkflowFileItem.LoadedFile"/> без учёта регистра.
+        /// Нужен для выбора стартового скрипта (Ф1) и для отладки во вложенных скриптах (Ф2).
+        /// </summary>
+        public WorkflowDesignerEx GetDesignerByFileIgnoreCase(string sourceFile)
+        {
+            if (string.IsNullOrWhiteSpace(sourceFile))
+            {
+                return null;
+            }
+
+            return WorkflowDesigners.FirstOrDefault(d =>
+            {
+                string loadedFile = GetLoadedFile(d);
+                return !string.IsNullOrEmpty(loadedFile)
+                    && string.Equals(loadedFile, sourceFile, StringComparison.OrdinalIgnoreCase);
+            });
         }
 
         /// <summary>

@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Activities;
+using System.Activities.Debugger;
 using System.Activities.Presentation.View;
 using System.Activities.Validation;
 using System.Collections.Generic;
@@ -18,6 +19,7 @@ using RPA.Enums;
 using RPA.Helpers;
 using RPA.Runner;
 using RPA.VsProject;
+using RPA.Chat.Services.Workflow;
 
 namespace RPA.Core
 {
@@ -46,6 +48,8 @@ namespace RPA.Core
         private readonly Dictionary<string, object> _arguments;
         private WorkflowState _workflowState;
         private bool _isNeedPause;
+
+        private Dictionary<object, SourceLocation> _runtimeSourceLocationMapping;
 
         /// <summary>
         /// Завершение прогона (Completed/Aborted/StartingError). Поднимается на потоке, где прогон
@@ -81,6 +85,11 @@ namespace RPA.Core
             {
                 if (_wfApp == null)
                 {
+                    if (string.IsNullOrWhiteSpace(pathToXaml))
+                    {
+                        throw new InvalidOperationException("Не указан XAML-файл для запуска.");
+                    }
+
                     Start(pathToXaml);
                 }
                 else
@@ -115,6 +124,10 @@ namespace RPA.Core
             DocGroupHelper.GetInstance().SetSelectedTab(_workflowDesignerEx);
 
             DebuggerMappingsHelper.RegenerateSourceDebuggerMappings(_workflowDesignerEx);
+            foreach (WorkflowDesignerEx designer in CustomWfDesigner.GetInstance().WorkflowDesigners)
+            {
+                designer.LastBreakpoint = null;
+            }
             _workflowDesignerEx.LastBreakpoint = null;
 
             // Загрузка активности для прогона: обычный робот — из XAML, WF-проект со вложенными процессами — из сборки (OR-02).
@@ -125,6 +138,9 @@ namespace RPA.Core
             }
             // Шаг 6 плана LooseWorkflowRun: ошибки, невидимые загрузке, ловятся до старта прогона.
             ValidateForRun(activity);
+
+            // Шаг 7 плана LooseWorkflowRun: рантайм-маппинг по DebugSymbol покрывает все скрипты процесса.
+            _runtimeSourceLocationMapping = RuntimeSourceLocationMap.Build(activity);
 
             // Приложение создаёт общий движок: тот же трекер и те же аргументы, что и у headless-прогона.
             _wfApp = WorkflowRunEngine.CreateApplication(activity, _arguments, out _trackingParticipant);
@@ -169,7 +185,7 @@ namespace RPA.Core
                 && project.IsWorkflowProject
                 && !string.IsNullOrWhiteSpace(project.ProjectFilePath))
             {
-                Activity activity = TryLoadOrBuildFromProject(project.ProjectFilePath, out string reason);
+                Activity activity = TryLoadOrBuildFromProject(project.ProjectFilePath, pathToXaml, out string reason);
 
                 if (activity != null)
                 {
@@ -197,15 +213,11 @@ namespace RPA.Core
         /// из его сборки. Возвращает <c>null</c> и причину в <paramref name="reason"/>, если сборки нет
         /// или она не загрузилась.
         /// </summary>
-        internal static Activity TryLoadFromBuiltAssembly(string projectFilePath, out string reason)
+        internal static Activity TryLoadFromBuiltAssembly(string projectFilePath, string workflowPath, out string reason)
         {
             reason = null;
 
-            if (!RunnerOptions.TryParse(new[] { "--project", projectFilePath }, out RunnerOptions options, out string parseError))
-            {
-                reason = parseError;
-                return null;
-            }
+            RunnerOptions options = RunnerOptions.FromProject(projectFilePath, workflowPath);
 
             if (!RobotLocator.TryResolve(options, out RobotLocation location, out string resolveError))
             {
@@ -233,20 +245,18 @@ namespace RPA.Core
         /// <see cref="VsProjectBuilder"/> и только потом активность грузится из сборки. Сборка живёт
         /// только здесь, в студии — раннер проект не собирает (страж <c>RunnerSourceGuardTests</c>).
         /// </summary>
-        internal static Activity TryLoadOrBuildFromProject(string projectFilePath, out string reason)
+        internal static Activity TryLoadOrBuildFromProject(string projectFilePath, string workflowPath, out string reason)
         {
             reason = null;
 
-            if (!RunnerOptions.TryParse(new[] { "--project", projectFilePath }, out RunnerOptions options, out string parseError))
-            {
-                reason = parseError;
-                return null;
-            }
+            RunnerOptions options = RunnerOptions.FromProject(projectFilePath, workflowPath);
 
             bool resolved = RobotLocator.TryResolve(options, out RobotLocation location, out string resolveError);
 
             if (!resolved || IsProjectOutdated(location, projectFilePath))
             {
+                NormalizeWorkflowXamlBeforeBuild(Path.GetDirectoryName(projectFilePath));
+
                 VsBuildResult build = VsProjectBuilder.Build(projectFilePath, "Debug");
 
                 if (!build.Success)
@@ -258,7 +268,7 @@ namespace RPA.Core
                 }
             }
 
-            return TryLoadFromBuiltAssembly(projectFilePath, out reason);
+            return TryLoadFromBuiltAssembly(projectFilePath, workflowPath, out reason);
         }
 
         /// <summary>
@@ -310,6 +320,49 @@ namespace RPA.Core
                 && (string.Equals(segments[0], "bin", StringComparison.OrdinalIgnoreCase)
                     || string.Equals(segments[0], "obj", StringComparison.OrdinalIgnoreCase));
         }
+
+        /// <summary>
+        /// Приводит XAML-файлы проекта к каноническому виду студии перед автосборкой.
+        /// Конструктор WF пишет presentation-атрибуты (<c>sap</c>/<c>sap2010</c>) в корень
+        /// и в <c>ViewState</c>; без <c>mc:Ignorable="sap sap2010"</c> XamlBuildTask не может
+        /// их пропустить и сборка падает с XC1031. Используется единственный нормализатор
+        /// <see cref="WorkflowXamlText"/> (карточка AG-07), поэтому второй набор правил не заводится.
+        /// </summary>
+        internal static void NormalizeWorkflowXamlBeforeBuild(string projectDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(projectDirectory) || !Directory.Exists(projectDirectory))
+            {
+                return;
+            }
+
+            foreach (string xaml in Directory.EnumerateFiles(projectDirectory, "*.xaml", SearchOption.AllDirectories))
+            {
+                if (IsBuildArtifactDirectory(xaml, projectDirectory))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    string text = File.ReadAllText(xaml);
+                    WorkflowXamlNormalizeResult result = WorkflowXamlText.Normalize(text);
+
+                    if (result.Kind == WorkflowXamlKind.Workflow && result.Changed)
+                    {
+                        File.WriteAllText(xaml, result.Text, new UTF8Encoding(false));
+                    }
+                }
+                catch (IOException)
+                {
+                    // Файл занят (дизайнер, антивирус, OneDrive) — оставляем как есть; сборка сообщит сама.
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    // Файл только для чтения — оставляем как есть; сборка сообщит сама.
+                }
+            }
+        }
+
 
         /// <summary>
         /// Валидация активности перед запуском (шаг 6 плана <c>LooseWorkflowRun</c>): ловит ошибки,
@@ -382,6 +435,7 @@ namespace RPA.Core
                 _workflowDesignerEx,
                 _resumeRuntimeFromHost,
                 _isNeedPause,
+                _runtimeSourceLocationMapping,
                 out Dictionary<string, object> subWorkflowArguments);
 
             if (subWorkflowArguments != null)

@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: windows-2022
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Решение содержит классические (non-SDK) WPF-проекты, которые `dotnet test` не собирает.
+      # Поэтому сборка идёт VS MSBuild, а тесты — vstest.console.exe.
+      - name: Locate MSBuild and vstest.console
+        id: tools
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $msbuild = & $vswhere -latest -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
+          if (-not $msbuild) { throw "MSBuild not found via vswhere" }
+
+          $installPath = & $vswhere -latest -property installationPath
+          $vstest = Join-Path $installPath "Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
+          if (-not (Test-Path $vstest)) { throw "vstest.console.exe not found under $installPath" }
+
+          "msbuild=$msbuild" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "vstest=$vstest" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      # nuget.exe и папка packages не хранятся в git (.gitignore). Классические проекты
+      # (packages.config) восстанавливаются nuget.exe; SDK-стиль ресторится самим MSBuild.
+      - name: Restore packages.config projects
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile "nuget.exe"
+          .\nuget.exe restore AiRpa.sln -NonInteractive
+
+      - name: Build test project (VS MSBuild)
+        shell: pwsh
+        run: & "${{ steps.tools.outputs.msbuild }}" AiRpaStudio.Tests\AiRpaStudio.Tests.csproj /t:Build /p:Configuration=Debug /p:Platform=AnyCPU /v:minimal /nologo
+
+      - name: Run tests (vstest.console)
+        shell: pwsh
+        run: & "${{ steps.tools.outputs.vstest }}" "AiRpaStudio.Tests\bin\Debug\net48\AiRpaStudio.Tests.dll" "--logger:trx;LogFileName=results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults\*.trx
+          if-no-files-found: warn

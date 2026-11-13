@@ -297,6 +297,7 @@
     <Compile Include="Converters\TypeVisibilityCheck.cs" />
     <Compile Include="Converters\WorkflowStateToIsEnabledConverter.cs" />
     <Compile Include="Core\ActivityRunner.cs" />
+    <Compile Include="Core\RunTargetResolver.cs" />
     <Compile Include="Core\DebugValidationErrorService.cs" />
     <!-- Р“РµРЅРµСЂР°С†РёСЏ РІР°Р»РёРґРЅРѕРіРѕ XAML (СЌС‚Р°Рї 2 РєРѕРЅРІРµР№РµСЂР°): РєР°РЅРѕРЅРёР·Р°С†РёСЏ РјРѕРґРµР»Рё,
          СЃРµСЂРёР°Р»РёР·Р°С†РёСЏ WF Рё РіРµР№С‚ РІР°Р»РёРґР°С†РёРё вЂ” РѕРґРёРЅ РєРѕРЅРІРµР№РµСЂ РґР»СЏ РІСЃРµС… РёРЅСЃС‚СЂСѓРјРµРЅС‚РѕРІ. -->
@@ -411,6 +412,7 @@
     <Compile Include="Helpers\ConsoleWriterEventArgs.cs" />
     <Compile Include="Helpers\CustomCommands.cs" />
     <Compile Include="Helpers\DebuggerMappingsHelper.cs" />
+    <Compile Include="Helpers\RuntimeSourceLocationMap.cs" />
     <Compile Include="Helpers\DocGroupHelper.cs" />
     <Compile Include="Helpers\FSNodeComparer.cs" />
     <Compile Include="Helpers\IOHelper.cs" />
@@ -482,6 +484,9 @@
     <Compile Include="Views\ErrorView.xaml.cs">
       <DependentUpon>ErrorView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\StartScriptView.xaml.cs">
+      <DependentUpon>StartScriptView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\MainView.xaml.cs">
       <DependentUpon>MainView.xaml</DependentUpon>
     </Compile>
@@ -538,6 +543,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\ErrorView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\StartScriptView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

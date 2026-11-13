@@ -37,7 +37,8 @@ public class StudioTitleBarTests
         @"AiRpaStudio\Views\ProjectCreatorView.xaml",
         @"AiRpaStudio\Views\VsProjectOpenView.xaml",
         @"AiRpaStudio\Views\VsTemplateProjectCreatorView.xaml",
-        @"AiRpaStudio\Views\ErrorView.xaml"
+        @"AiRpaStudio\Views\ErrorView.xaml",
+        @"AiRpaStudio\Views\StartScriptView.xaml"
     };
 
     // --- Сам контрол заголовка. ---
@@ -179,7 +180,8 @@ public class StudioTitleBarTests
             new ProjectCreatorView(),
             new VsProjectOpenView(),
             new VsTemplateProjectCreatorView(),
-            new ErrorView()
+            new ErrorView(),
+            new StartScriptView()
         };
 
         try

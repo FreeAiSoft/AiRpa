@@ -70,6 +70,13 @@ public class NuGetPanelLayoutTests
     public void Panel_ComboBoxWidthFollowsContent()
     {
         var model = new NuGetPanelViewModel();
+        // Источник выбирается в комбобоксе «Package source»: без хука список пуст, и поле не имеет
+        // выбранного имени (SelectedItem == null), что и ломало измерение ширины по содержимому.
+        model.LoadProjectSources = () => new List<NuGetSourceDefinition>
+        {
+            new NuGetSourceDefinition { Name = "nuget.org", Url = "https://api.nuget.org/v3/index.json" }
+        };
+
         string directory = CreateProject();
         Assert.That(model.LoadProject(Path.Combine(directory, "Demo.csproj")), Is.True);
 

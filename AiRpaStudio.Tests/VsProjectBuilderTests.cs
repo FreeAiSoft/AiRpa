@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Text;
+using Agent.Core.Services;
 using RPA.Enums;
 using RPA.VsProject;
 using RPA.VsTemplate;
@@ -39,6 +41,59 @@ public class VsProjectBuilderTests
 
         Assert.That(result.Success, Is.False);
         Assert.That(result.Errors, Has.Some.Contain("not found"));
+    }
+
+    [Test]
+    public void Build_RussianError_IsDecodedAsUtf8_NotMojibake()
+    {
+        MsBuildLocation location = VsProjectBuilder.FindMSBuild(MsBuildToolchain.Auto);
+        if (!location.Found)
+        {
+            Assert.Ignore("MSBuild не найден на машине — тест кодировки пропущен");
+        }
+
+        string dir = Path.Combine(Path.GetTempPath(), "vs_build_encoding_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+
+        Encoding originalConsoleEncoding = Console.OutputEncoding;
+
+        try
+        {
+            string csproj = Path.Combine(dir, "Encoding.csproj");
+            File.WriteAllText(csproj, @"<?xml version=""1.0"" encoding=""utf-8""?>
+<Project ToolsVersion=""15.0"" xmlns=""http://schemas.microsoft.com/developer/msbuild/2003"">
+  <PropertyGroup>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <Import Project=""$(MSBuildToolsPath)\Microsoft.CSharp.targets"" />
+  <Target Name=""BeforeBuild"">
+    <Error Text=""Проверка кодировки: не удалось скопировать файл в bin"" />
+  </Target>
+</Project>");
+
+            // Студия — WPF-приложение без консоли: Process.StandardOutput без явной кодировки
+            // декодирует вывод MSBuild через Console.OutputEncoding (ANSI cp1251 на русской Windows).
+            // Воспроизводим этот контекст, чтобы тест падал до фикса (StandardOutputEncoding=UTF8).
+            Console.OutputEncoding = Encoding.GetEncoding(1251);
+
+            var result = VsProjectBuilder.Build(csproj, "Debug");
+
+            Assert.That(result.Success, Is.False, "сборка обязана упасть на русской ошибке");
+            Assert.That(result.Output, Does.Contain("не удалось скопировать файл"),
+                "вывод MSBuild обязан декодироваться как UTF-8, а не как ANSI/OEM");
+            Assert.That(result.Output, Does.Not.Contain("РЅРµ"),
+                "UTF-8 вывод MSBuild не должен превращаться в cp1251-кракозябры");
+        }
+        finally
+        {
+            Console.OutputEncoding = originalConsoleEncoding;
+
+            if (Directory.Exists(dir))
+            {
+                Directory.Delete(dir, true);
+            }
+        }
     }
 
     [Test]

@@ -150,8 +150,11 @@ public class LegacyRobotStudioRunTests
             {
                 Assert.That(found, Is.Not.Null, "сборка робота обязана находиться в его выходном каталоге");
                 Assert.That(found.GetName().Name, Is.EqualTo(RobotAssemblyName));
-                Assert.That(found.Location, Does.StartWith(shadowDirectory),
-                    "загружена обязана быть именно сборка робота, а не одноимённая из папки студии");
+
+                // Сборка грузится из байтов (WorkflowRunEngine/RobotAssemblyResolver), поэтому
+                // Location пуст — файловый блок для автосборки не ставится (MSB3021/MSB3027).
+                Assert.That(FileLockDetector.IsFileLocked(IOPath.Combine(shadowDirectory, RobotAssemblyName + ".dll")),
+                    Is.False, "резолвер обязан не блокировать сборку робота в его выходном каталоге");
             });
         }
         finally

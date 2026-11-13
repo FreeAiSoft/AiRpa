@@ -222,7 +222,9 @@ namespace RPA.Core
 
         /// <summary>
         /// Создаёт активность из собранной сборки робота — путь `CP-09`: сборка 4.7.2 грузится
-        /// в домен хоста 4.8 через <see cref="Activator.CreateInstanceFrom(string, string)"/>.
+        /// в домен хоста 4.8. Сборка читается в память и грузится из байтов, чтобы не блокировать
+        /// файл (иначе автосборка падает с MSB3021/MSB3027) и не отдавать устаревшую копию из
+        /// LoadFrom-контекста при повторном прогоне после пересборки.
         /// </summary>
         public static Activity LoadActivityFromAssembly(string assemblyPath, string typeName)
         {
@@ -236,7 +238,7 @@ namespace RPA.Core
                 throw new ArgumentException("Не указан тип активности в сборке.", nameof(typeName));
             }
 
-            object handle = Activator.CreateInstanceFrom(assemblyPath, typeName).Unwrap();
+            object handle = System.Reflection.Assembly.Load(System.IO.File.ReadAllBytes(assemblyPath)).CreateInstance(typeName);
 
             if (handle is Activity activity)
             {

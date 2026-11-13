@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -13,6 +13,7 @@ using System.Windows.Threading;
 
 using NUnit.Framework;
 using RPA.Core.Services;
+using AiRpaStudio.Tests.Design;
 using RPA.Helpers;
 
 namespace AiRpaStudio.Tests;
@@ -276,6 +277,11 @@ public class DesignerVariableContextMenuTests
 
     [Test]
     public void RightClickInEditingCell_OpensMenuAndKeepsEdit()
+    {
+        DesignerTestHost.Shared.Invoke(RightClickInEditingCell_OpensMenuAndKeepsEdit_OnSta);
+    }
+
+    private void RightClickInEditingCell_OpensMenuAndKeepsEdit_OnSta()
     {
         (Window window, DataGrid dataGrid) = CreateLiveGrid();
         window.Show();

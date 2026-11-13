@@ -162,7 +162,9 @@ namespace RPA.Packaging
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8,
             };
 
             // Без этого SDK-style проекты падают с MSB4236 на машинах, где SDK не в PATH.

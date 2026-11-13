@@ -52,6 +52,50 @@ public class TrackHandlerTests
         Assert.That(location, Is.Null);
     }
 
+    [Test]
+    public void GetSourceLocation_RuntimeMappingWins_OverDesignerMapping()
+    {
+        Activity activity = FirstChild();
+        SourceLocation runtime = new SourceLocation("Main.xaml", 1, 1, 2, 1);
+        SourceLocation designer = new SourceLocation("SubProcess1.xaml", 3, 1, 4, 1);
+
+        var runtimeMapping = new Dictionary<object, SourceLocation> { { activity, runtime } };
+        var designerMapping = new Dictionary<object, SourceLocation> { { activity, designer } };
+
+        SourceLocation location = TrackHandler.GetSourceLocation(runtimeMapping, designerMapping, activity);
+
+        Assert.That(location, Is.SameAs(runtime));
+    }
+
+    [Test]
+    public void GetSourceLocation_EmptyRuntimeMapping_FallsBackToDesignerMapping()
+    {
+        Activity activity = FirstChild();
+        SourceLocation designer = new SourceLocation("Main.xaml", 3, 4, 5, 6);
+
+        var designerMapping = new Dictionary<object, SourceLocation> { { activity, designer } };
+
+        SourceLocation location = TrackHandler.GetSourceLocation(
+            new Dictionary<object, SourceLocation>(),
+            designerMapping,
+            activity);
+
+        Assert.That(location, Is.SameAs(designer));
+    }
+
+    [Test]
+    public void GetSourceLocation_NullRuntimeMapping_FallsBackToDesignerMapping()
+    {
+        Activity activity = FirstChild();
+        SourceLocation designer = new SourceLocation("Main.xaml", 3, 4, 5, 6);
+
+        var designerMapping = new Dictionary<object, SourceLocation> { { activity, designer } };
+
+        SourceLocation location = TrackHandler.GetSourceLocation(null, designerMapping, activity);
+
+        Assert.That(location, Is.SameAs(designer));
+    }
+
     private static Activity FirstChild()
     {
         return Children()[0];

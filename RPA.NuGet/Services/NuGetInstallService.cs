@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using NuGet.Versioning;
@@ -198,6 +199,8 @@ namespace RPA.NuGet.Services
                         UseShellExecute = false,
                         CreateNoWindow = true,
                         RedirectStandardOutput = true,
+                        StandardOutputEncoding = Encoding.UTF8,
+                        StandardErrorEncoding = Encoding.UTF8,
                         RedirectStandardError = true
                     };
 
@@ -278,6 +281,8 @@ namespace RPA.NuGet.Services
                 var info = new ProcessStartInfo(fileName, arguments)
                 {
                     UseShellExecute = false,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true

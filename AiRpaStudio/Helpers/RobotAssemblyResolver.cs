@@ -152,13 +152,24 @@ namespace RPA.Helpers
         {
             try
             {
+                // Entry-сборка робота уже загружена движком из байтов (`WorkflowRunEngine`):
+                // вернуть её, а не грузить копию из bin — иначе появляется второй экземпляр типов
+                // и файл в bin блокируется до конца процесса (MSB3021/MSB3027 при автосборке).
+                Assembly alreadyLoaded = FindLoadedAssembly(args?.Name);
+                if (alreadyLoaded != null)
+                {
+                    return alreadyLoaded;
+                }
+
                 string path = FindAssemblyPath(args?.Name, _probeDirectories);
                 if (path == null)
                 {
                     return null;
                 }
 
-                Assembly assembly = Assembly.LoadFrom(path);
+                // Загрузка из байтов, а не Assembly.LoadFrom: образ, загруженный из файла, держит
+                // DLL открытой и блокирует bin для автосборки робота.
+                Assembly assembly = Assembly.Load(File.ReadAllBytes(path));
                 Log.Write($"Зависимости робота: запрос «{args?.Name}» обслужен сборкой «{path}».");
 
                 return assembly;
@@ -168,6 +179,73 @@ namespace RPA.Helpers
                 Log.Write($"Зависимости робота: обработчик не смог загрузить сборку для запроса «{args?.Name}».", ex);
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Ищет среди уже загруженных сборку с тем же простым именем, версией и открытым ключом.
+        /// Возвращает <c>null</c>, если запрос пуст или подходящая сборка ещё не загружена.
+        /// </summary>
+        internal static Assembly FindLoadedAssembly(string requestedFullName)
+        {
+            if (string.IsNullOrWhiteSpace(requestedFullName))
+            {
+                return null;
+            }
+
+            AssemblyName requested;
+            try
+            {
+                requested = new AssemblyName(requestedFullName);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+
+            if (string.IsNullOrEmpty(requested.Name))
+            {
+                return null;
+            }
+
+            byte[] requestedToken = requested.GetPublicKeyToken() ?? Array.Empty<byte>();
+
+            foreach (Assembly candidate in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                if (candidate == null || candidate.IsDynamic)
+                {
+                    continue;
+                }
+
+                AssemblyName candidateName;
+                try
+                {
+                    candidateName = candidate.GetName();
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+
+                if (!string.Equals(candidateName.Name, requested.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (requested.Version != null && candidateName.Version != requested.Version)
+                {
+                    continue;
+                }
+
+                byte[] candidateToken = candidateName.GetPublicKeyToken() ?? Array.Empty<byte>();
+                if (!requestedToken.SequenceEqual(candidateToken))
+                {
+                    continue;
+                }
+
+                return candidate;
+            }
+
+            return null;
         }
 
         /// <summary>

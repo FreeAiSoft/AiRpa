@@ -298,4 +298,19 @@
   <data name="lang_activity_compat_problems" xml:space="preserve">
     <value>Compatibility problems found</value>
   </data>
+  <data name="lang_main_start_script" xml:space="preserve">
+    <value>Start Script…</value>
+  </data>
+  <data name="lang_start_script_title" xml:space="preserve">
+    <value>Start Script</value>
+  </data>
+  <data name="lang_start_script_label" xml:space="preserve">
+    <value>Default script file (name or path relative to the project folder):</value>
+  </data>
+  <data name="lang_start_script_save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="lang_cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
 </root>

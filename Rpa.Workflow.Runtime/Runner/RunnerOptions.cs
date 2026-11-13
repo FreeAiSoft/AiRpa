@@ -517,6 +517,23 @@ namespace RPA.Runner
                 TypeName = typeName
             };
         }
+        /// <summary>
+        /// Параметры прогона «проект + конкретный сценарий» для программных вызывающих (студия,
+        /// оркестратор) в обход командной строки. Студия запускает активную WF-вкладку
+        /// (<c>SubProcessN</c>), а не только <c>Main.xaml</c>, поэтому точка входа проекта уточняется
+        /// файлом сценария. CLI по-прежнему не смешивает <c>--project</c> и <c>--workflow</c> как два
+        /// разных источника — здесь <paramref name="workflowPath"/> является уточнением точки входа
+        /// проекта, а не вторым источником.
+        /// </summary>
+        public static RunnerOptions FromProject(string projectPath, string workflowPath = null)
+        {
+            return new RunnerOptions
+            {
+                ProjectPath = projectPath,
+                WorkflowPath = workflowPath
+            };
+        }
+
 
     }
 }

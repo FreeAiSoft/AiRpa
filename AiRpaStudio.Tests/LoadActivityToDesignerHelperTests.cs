@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 
 using System.Windows.Controls;
 
@@ -41,6 +41,14 @@ namespace AiRpaStudio.Tests;
 public class LoadActivityToDesignerHelperTests
 
 {
+
+    [Test]
+    public void LoadActivityToDesigner_NullSourceFile_ReturnsNull()
+    {
+        Assert.DoesNotThrow(() => Assert.That(
+            LoadActivityToDesignerHelper.LoadActivityToDesigner(null),
+            Is.Null));
+    }
 
     [Test]
 

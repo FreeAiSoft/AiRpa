@@ -3,6 +3,7 @@ using System.Activities;
 using System.Activities.Debugger;
 using System.Activities.Tracking;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Windows;
@@ -21,6 +22,7 @@ namespace RPA.Helpers
             WorkflowDesignerEx workflowDesignerEx,
             AutoResetEvent resumeRuntimeFromHost,
             bool isNeedPause,
+            Dictionary<object, SourceLocation> runtimeMapping,
             out Dictionary<string, object> arguments)
         {
             arguments = null;
@@ -47,7 +49,10 @@ namespace RPA.Helpers
                         CustomWfDesigner.GetInstance().LogViewerControl.AddLog((LogControlLibrary.Models.LogLevel)logItem.LogLevel, logItem.Message);
                     }, DispatcherPriority.Send);
 
-                SourceLocation sourceLocation = GetSourceLocation(workflowDesignerEx.DesignerSourceLocationMapping, trackingEventArgs.Activity);
+                SourceLocation sourceLocation = GetSourceLocation(
+                    runtimeMapping,
+                    workflowDesignerEx.DesignerSourceLocationMapping,
+                    trackingEventArgs.Activity);
 
                 if (sourceLocation != null)
                 {
@@ -86,19 +91,28 @@ namespace RPA.Helpers
 
             dispatcher.Invoke(() =>
             {
-                workflowDesignerEx.DebugManagerView.CurrentLocation = srcLoc;
+                SourceLocation normalized = Normalize(srcLoc);
+                WorkflowDesignerEx targetDesigner = ResolveTargetDesigner(normalized, workflowDesignerEx);
+
+                if (targetDesigner == null)
+                {
+                    CustomWfDesigner.GetInstance().Log($"Not found designer for {normalized.FileName}");
+                    return;
+                }
+
+                targetDesigner.DebugManagerView.CurrentLocation = normalized;
 
                 // Check if this is where any BP is set
-                foreach (SourceLocation src in workflowDesignerEx.BreakpointList)
+                foreach (SourceLocation src in targetDesigner.BreakpointList)
                 {
-                    if (src.StartLine == srcLoc.StartLine &&
-                        src.EndLine == srcLoc.EndLine)
+                    if (src.StartLine == normalized.StartLine &&
+                        src.EndLine == normalized.EndLine)
                     {
-                        if (workflowDesignerEx.LastBreakpoint != src) // хуйня для предотвращения двойной остановки
+                        if (targetDesigner.LastBreakpoint != src) // защита от двойной остановки
                         {
                             CustomWfDesigner.GetInstance().LogViewerControl.AddLog(LogControlLibrary.Models.LogLevel.Trace, "breakpoint hit");
                             isBreakpointHit = true;
-                            workflowDesignerEx.LastBreakpoint = src;
+                            targetDesigner.LastBreakpoint = src;
                         }
                         break;
                     }
@@ -114,6 +128,126 @@ namespace RPA.Helpers
             {
                 _ = resumeRuntimeFromHost.WaitOne();
             }
+        }
+
+        /// <summary>
+        /// Сброс checksum: <see cref="SourceLocation.Equals"/> учитывает <c>Checksum</c>, а loose-дизайнер
+        /// строит маппинг с <c>null</c>, рантаймный символ — с непустым. Перед сопоставлением с точками
+        /// останова и дизайнером локация пересоздаётся без checksum.
+        /// </summary>
+        private static SourceLocation Normalize(SourceLocation location)
+        {
+            if (location == null)
+            {
+                return null;
+            }
+
+            return new SourceLocation(
+                location.FileName,
+                location.StartLine,
+                location.StartColumn,
+                location.EndLine,
+                location.EndColumn);
+        }
+
+        /// <summary>
+        /// По <see cref="SourceLocation.FileName"/> выбирает целевой дизайнер: текущий → уже открытый
+        /// (без учёта регистра) → закрытый (открыть loose-путём и активировать).
+        /// </summary>
+        private static WorkflowDesignerEx ResolveTargetDesigner(SourceLocation srcLoc, WorkflowDesignerEx currentDesigner)
+        {
+            string filePath = ResolveActualPath(srcLoc.FileName);
+            CustomWfDesigner studio = CustomWfDesigner.GetInstance();
+
+            if (filePath != null && IsSameFile(currentDesigner, filePath))
+            {
+                return currentDesigner;
+            }
+
+            WorkflowDesignerEx opened = studio.GetDesignerByFileIgnoreCase(filePath);
+            if (opened != null)
+            {
+                return opened;
+            }
+
+            if (filePath != null)
+            {
+                WorkflowDesignerEx loaded = LoadActivityToDesignerHelper.LoadActivityToDesigner(
+                    filePath,
+                    studio.GetLooseRegistryFor(filePath));
+
+                if (loaded != null)
+                {
+                    studio.ActiveWorkflowDesignerEx = loaded;
+                    return loaded;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Находит фактический путь файла без учёта регистра: <see cref="SourceLocation.FileName"/>
+        /// хранится в <c>ToUpperInvariant()</c>, а loose-открытие/поиск точек останова должны получить
+        /// реальный путь на диске.
+        /// </summary>
+        private static string ResolveActualPath(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return null;
+            }
+
+            if (!File.Exists(fileName))
+            {
+                return null;
+            }
+
+            try
+            {
+                string directory = Path.GetDirectoryName(fileName);
+                string targetName = Path.GetFileName(fileName);
+
+                if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+                {
+                    return fileName;
+                }
+
+                return Directory.EnumerateFiles(directory)
+                    .FirstOrDefault(candidate =>
+                        string.Equals(Path.GetFileName(candidate), targetName, StringComparison.OrdinalIgnoreCase))
+                    ?? fileName;
+            }
+            catch (Exception)
+            {
+                return fileName;
+            }
+        }
+
+        private static bool IsSameFile(WorkflowDesignerEx designer, string filePath)
+        {
+            if (designer == null || string.IsNullOrWhiteSpace(filePath))
+            {
+                return false;
+            }
+
+            string loaded = CustomWfDesigner.GetLoadedFile(designer);
+            return !string.IsNullOrEmpty(loaded)
+                && string.Equals(loaded, filePath, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Ищет SourceLocation сначала в рантайм-маппинге (собранная сборка — реальные тела всех скриптов
+        /// процесса), затем — фолбэк в маппинге дизайнера (loose-фасады верхнего уровня). Пустой/отсутствующий
+        /// рантайм-маппинг сохраняет прежний путь.
+        /// </summary>
+        public static SourceLocation GetSourceLocation(
+            Dictionary<object, SourceLocation> runtimeMapping,
+            Dictionary<object, SourceLocation> designerSourceLocationMapping,
+            Activity activity)
+        {
+            return GetSourceLocation(runtimeMapping, activity)
+                ?? GetSourceLocation(designerSourceLocationMapping, activity);
         }
 
         public static SourceLocation GetSourceLocation(Dictionary<object, SourceLocation> designerSourceLocationMapping, Activity activity)

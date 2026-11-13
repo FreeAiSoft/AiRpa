@@ -1,11 +1,4 @@
-﻿<Activity x:Class="RPA_1.SubProcess5" 
-          xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" 
-          mc:Ignorable="sap2010"
-          xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-          sap2010:ExpressionActivityEditor.ExpressionActivityEditor="C#"
-          xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
-          xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"   
-          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"> 
+<Activity x:Class="RPA_1.SubProcess5" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" mc:Ignorable="sap2010 sap" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" sap2010:ExpressionActivityEditor.ExpressionActivityEditor="C#" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:mca="clr-namespace:Microsoft.CSharp.Activities;assembly=System.Activities"> 
     <TextExpression.NamespacesForImplementation>
         <sco:Collection x:TypeArguments="x:String">
             <x:String>System</x:String>

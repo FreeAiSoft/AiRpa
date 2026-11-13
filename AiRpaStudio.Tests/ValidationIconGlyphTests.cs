@@ -161,6 +161,16 @@ public class ValidationIconGlyphTests
                 {
                     yield return color;
                 }
+                // Красный круг иконки WF нарисован обводкой (Pen), а не заливкой:
+                // без Pen.Brush цвет семантики ошибки терялся, и тест видел только белый глиф.
+                if (geometryDrawing.Pen != null)
+                {
+                    foreach (Color color in BrushColors(geometryDrawing.Pen.Brush))
+                    {
+                        yield return color;
+                    }
+                }
+
 
                 yield break;
             case GlyphRunDrawing glyphRun:
@@ -187,6 +197,13 @@ public class ValidationIconGlyphTests
                     {
                         yield return stop.Color;
                     }
+                }
+
+                break;
+            case DrawingBrush drawingBrush:
+                foreach (Color color in CollectColors(drawingBrush.Drawing))
+                {
+                    yield return color;
                 }
 
                 break;
