@@ -58,6 +58,29 @@ public class ActivityRunnerClearHighlightTests
             "the old root-only reset must be gone: nested tabs kept the frame after the run");
     }
 
+    [Test]
+    public void Resume_ClearsCurrentLocationOnAllDesigners_BeforeWakingRuntime()
+    {
+        string source = ReadSource(@"AiRpaStudio\Core\ActivityRunner.cs");
+
+        int signature = source.LastIndexOf("internal void Run(", StringComparison.Ordinal);
+        Assert.That(signature, Is.GreaterThanOrEqualTo(0), "метод Run не найден");
+
+        int start = source.LastIndexOf('\n', signature);
+        string method = source.Substring(start, Math.Min(1600, source.Length - start));
+
+        int wakeIndex = method.IndexOf("_resumeRuntimeFromHost?.Set()", StringComparison.Ordinal);
+        Assert.That(wakeIndex, Is.GreaterThanOrEqualTo(0),
+            "возобновление обязано будить фоновый поток прогона");
+
+        int clearIndex = method.IndexOf("OnUi(ClearCurrentLocationOnAllDesigners)", StringComparison.Ordinal);
+        Assert.That(clearIndex, Is.GreaterThanOrEqualTo(0),
+            "возобновление с точки останова/паузы обязано снять предыдущую жёлтую рамку");
+
+        Assert.That(clearIndex, Is.LessThan(wakeIndex),
+            "предыдущая подсветка должна очищаться ДО того, как фоновый поток прогона будет разбужен");
+    }
+
     private static string MethodBody(string source, string methodName)
     {
         int signature = source.LastIndexOf(methodName + "(", StringComparison.Ordinal);

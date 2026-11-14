@@ -6,6 +6,18 @@
     "EndColumn": 74
   },
   {
+    "StartLine": 21,
+    "StartColumn": 3,
+    "EndLine": 26,
+    "EndColumn": 14
+  },
+  {
+    "StartLine": 23,
+    "StartColumn": 5,
+    "EndLine": 23,
+    "EndColumn": 74
+  },
+  {
     "StartLine": 31,
     "StartColumn": 5,
     "EndLine": 31,
