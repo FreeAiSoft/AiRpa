@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Activities.Core.Presentation;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -484,6 +484,11 @@ namespace RPA.Models
         /// <param name="filePath"></param>
         public void CmdTryLoadProject()
         {
+            if (!ConfirmSaveOrDiscardChanges())
+            {
+                return;
+            }
+
             string projFilePath = IOHelper.GetFilePath("Json files (*.json)|*.json");
             if (string.IsNullOrWhiteSpace(projFilePath))
             {
@@ -498,6 +503,12 @@ namespace RPA.Models
         /// </summary>
         public void CmdWorkflowNewProcess()
         {
+            if (!ConfirmSaveOrDiscardChanges())
+            {
+                return;
+            }
+
+
             ProjectCreator projectCreator = new ProjectCreator(ProjectType.Process);
             MvvmFactory.CreateWindow(projectCreator, new ProjectCreatorViewModel(), new ProjectCreatorView(), ViewMode.ShowDialog);
             if (projectCreator.IsCreate)
@@ -594,6 +605,11 @@ namespace RPA.Models
         /// </summary>
         public void CmdVsNewProjectFromTemplate()
         {
+            if (!ConfirmSaveOrDiscardChanges())
+            {
+                return;
+            }
+
             VsTemplateProjectCreator creator = new VsTemplateProjectCreator();
             MvvmFactory.CreateWindow(creator, new VsTemplateProjectCreatorViewModel(), new VsTemplateProjectCreatorView(), ViewMode.ShowDialog);
             if (creator.IsCreate)
@@ -630,6 +646,11 @@ namespace RPA.Models
         /// </summary>
         public void CmdVsOpenProject()
         {
+            if (!ConfirmSaveOrDiscardChanges())
+            {
+                return;
+            }
+
             VsProjectOpen model = new VsProjectOpen();
             MvvmFactory.CreateWindow(model, new VsProjectOpenViewModel(), new VsProjectOpenView(), ViewMode.ShowDialog);
             if (model.IsLoadIntoStudio)
@@ -726,6 +747,58 @@ namespace RPA.Models
                 CustomWfDesigner.Log($"Не удалось сохранить состояние вкладок: {ErrorText.Of(ex)}", (int)RpaCommon.Enums.LogLevel.Warn);
             }
         }
+
+        /// <summary>Есть ли несохранённые изменения: workflow-вкладки или редакторы кода/XAML.</summary>
+        public bool HasUnsavedChanges =>
+            CustomWfDesigner.WorkflowDesigners.Any(d => d.IsEdited)
+            || OpenCodeDocuments.Any(d => d.IsDirty);
+
+        /// <summary>Сохраняет все несохранённые изменения (workflow + редакторы кода/XAML).</summary>
+        public void SaveAllChanges()
+        {
+            CustomWfDesigner.WorkflowSaveAll();
+
+            foreach (CodeDocument document in OpenCodeDocuments.Where(d => d.IsDirty).ToList())
+            {
+                try
+                {
+                    document.Save();
+                }
+                catch (Exception ex)
+                {
+                    CustomWfDesigner.Log($"Не удалось сохранить {document.FilePath}: {ErrorText.Of(ex)}", (int)RpaCommon.Enums.LogLevel.Error);
+                    OnSendMessage(LocalizeHelper.Get("lang_msg_open_file_error", ErrorText.Of(ex)));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Если есть несохранённые изменения — показывает темизированный диалог и выполняет выбор.
+        /// Возвращает <c>true</c>, если действие можно продолжать (сохранено/проигнорировано),
+        /// и <c>false</c>, если пользователь отменил.
+        /// </summary>
+        public bool ConfirmSaveOrDiscardChanges()
+        {
+            if (!HasUnsavedChanges)
+            {
+                return true;
+            }
+
+            UnsavedChangesResult result = UnsavedChangesDialog.Show(ViewModel?.View as MainView);
+
+            switch (result)
+            {
+                case UnsavedChangesResult.Save:
+                    SaveAllChanges();
+                    return !HasUnsavedChanges;
+                case UnsavedChangesResult.Discard:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+
 
         /// <summary>Путь активной вкладки панели документов (дизайнер или редактор кода/XAML).</summary>
         private string ActiveDocumentPath()

@@ -269,6 +269,22 @@
     <value>Копировать</value>
   </data>
   <data name="lang_error_copied" xml:space="preserve">
+  <data name="lang_unsaved_title" xml:space="preserve">
+    <value>Несохранённые изменения</value>
+  </data>
+  <data name="lang_unsaved_message" xml:space="preserve">
+    <value>В текущем проекте есть несохранённые изменения. Сохранить их?</value>
+  </data>
+  <data name="lang_unsaved_save" xml:space="preserve">
+    <value>Сохранить</value>
+  </data>
+  <data name="lang_unsaved_dont_save" xml:space="preserve">
+    <value>Не сохранять</value>
+  </data>
+  <data name="lang_unsaved_cancel" xml:space="preserve">
+    <value>Отмена</value>
+  </data>
+
     <value>Скопировано в буфер обмена</value>
   </data>
   <data name="lang_main_check_activity_compat" xml:space="preserve">

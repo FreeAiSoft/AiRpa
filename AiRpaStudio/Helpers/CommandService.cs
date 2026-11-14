@@ -6,7 +6,6 @@ using System.Activities.Presentation.Hosting;
 using System.Activities.Presentation.Model;
 using System.Activities.Presentation.View;
 using System.Collections.Generic;
-using System.IO;
 using RPA.Core;
 using RPA.Logging;
 
@@ -179,32 +178,15 @@ namespace RPA.Helpers
         }
 
         /// <summary>
-        /// Автоматически сохраняет точки останова после их изменения
+        /// Автоматически сохраняет точки останова после их изменения.
+        /// Точки пишутся в пользовательский локальный store вне проекта (вариант 1):
+        /// несохранённый документ хранит точки только в памяти до первого сохранения файла.
         /// </summary>
         private void AutoSaveBreakpoints()
         {
             try
             {
-                string workflowFile = _workflowDesigner.CurrentWorkflowFile;
-                string breakPointsFile;
-
-                if (string.IsNullOrEmpty(workflowFile) || !Path.IsPathRooted(workflowFile))
-                {
-                    // Несохраненная активность - создаем временный файл
-                    string tempDir = Path.Combine(Path.GetTempPath(), "RPA_Breakpoints");
-                    _ = Directory.CreateDirectory(tempDir);
-
-                    // Используем хеш от designer instance для уникальности
-                    string designerId = _workflowDesigner.GetHashCode().ToString();
-                    breakPointsFile = Path.Combine(tempDir, $"temp_{designerId}.breakpoints");
-                }
-                else
-                {
-                    // Сохраненная активность - используем стандартный путь
-                    breakPointsFile = $"{workflowFile}.breakpoints";
-                }
-
-                _customWfDesigner.SaveBreakpoints(_workflowDesigner, breakPointsFile);
+                _customWfDesigner.SaveBreakpoints(_workflowDesigner);
             }
             catch (Exception ex)
             {

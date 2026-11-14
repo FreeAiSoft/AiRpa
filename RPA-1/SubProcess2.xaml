@@ -1,4 +1,4 @@
-<Activity mc:Ignorable="sap sap2010 sads" x:Class="RPA_1.SubProcess2" sap2010:ExpressionActivityEditor.ExpressionActivityEditor="C#" sap2010:WorkflowViewState.IdRef="RPA_1.SubProcess2_1" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:local="clr-namespace:RPA_1" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:sads="http://schemas.microsoft.com/netfx/2010/xaml/activities/debugger" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=mscorlib" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mca="clr-namespace:Microsoft.CSharp.Activities;assembly=System.Activities">
+<Activity x:Class="RPA_1.SubProcess2" sap2010:ExpressionActivityEditor.ExpressionActivityEditor="C#" sap:VirtualizedContainerService.HintSize="262,564" sap2010:WorkflowViewState.IdRef="RPA_1.SubProcess2_1" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=mscorlib" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:RPA_1" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:sads="http://schemas.microsoft.com/netfx/2010/xaml/activities/debugger" mc:Ignorable="sads sap sap2010" xmlns:mca="clr-namespace:Microsoft.CSharp.Activities;assembly=System.Activities">
   <TextExpression.NamespacesForImplementation>
     <sco:Collection x:TypeArguments="x:String">
       <x:String>System</x:String>
@@ -18,23 +18,41 @@
       <AssemblyReference>System.Xml</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
-  <Sequence sap2010:WorkflowViewState.IdRef="Sequence_1">
-    <local:SubProcess4 sap2010:WorkflowViewState.IdRef="SubProcess4_1" />
-    <local:SubProcess5 sap2010:WorkflowViewState.IdRef="SubProcess5_1" />
-    <sads:DebugSymbol.Symbol>dzRDOlxVc2Vyc1xNYXh4eFxEZXNrdG9wXEFJLVJQQVxSUEEtMVxTdWJQcm9jZXNzMi54YW1sAx4DIg4CAQEfBR9KAgEDIAUgSgIBAg==</sads:DebugSymbol.Symbol>
-  </Sequence>
   <sap2010:WorkflowViewState.ViewStateManager>
     <sap2010:ViewStateManager>
-      <sap2010:ViewStateData Id="SubProcess4_1" sap:VirtualizedContainerService.HintSize="200,22" />
-      <sap2010:ViewStateData Id="SubProcess5_1" sap:VirtualizedContainerService.HintSize="200,22" />
-      <sap2010:ViewStateData Id="Sequence_1" sap:VirtualizedContainerService.HintSize="222,208">
+      <sap2010:ViewStateData sap:VirtualizedContainerService.HintSize="200,22" Id="SubProcess4_1" />
+      <sap2010:ViewStateData sap:VirtualizedContainerService.HintSize="200,22" Id="SubProcess5_1" />
+      <sap2010:ViewStateData sap:VirtualizedContainerService.HintSize="222,208" Id="Sequence_1">
         <sap:WorkflowViewStateService.ViewState>
           <scg:Dictionary x:TypeArguments="x:String, x:Object">
             <x:Boolean x:Key="IsExpanded">True</x:Boolean>
           </scg:Dictionary>
         </sap:WorkflowViewStateService.ViewState>
       </sap2010:ViewStateData>
-      <sap2010:ViewStateData Id="RPA_1.SubProcess2_1" sap:VirtualizedContainerService.HintSize="262,288" />
+      <sap2010:ViewStateData sap:VirtualizedContainerService.HintSize="262,288" Id="RPA_1.SubProcess2_1" />
     </sap2010:ViewStateManager>
   </sap2010:WorkflowViewState.ViewStateManager>
+  <Sequence sap:VirtualizedContainerService.HintSize="222,484" sap2010:WorkflowViewState.IdRef="Sequence_1">
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
+    <Sequence sap:VirtualizedContainerService.HintSize="200,98">
+      <sap:WorkflowViewStateService.ViewState>
+        <scg:Dictionary x:TypeArguments="x:String, x:Object">
+          <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+        </scg:Dictionary>
+      </sap:WorkflowViewStateService.ViewState>
+    </Sequence>
+    <Sequence sap:VirtualizedContainerService.HintSize="200,98">
+      <sap:WorkflowViewStateService.ViewState>
+        <scg:Dictionary x:TypeArguments="x:String, x:Object">
+          <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+        </scg:Dictionary>
+      </sap:WorkflowViewStateService.ViewState>
+    </Sequence>
+    <local:SubProcess4 sap:VirtualizedContainerService.HintSize="200,22" sap2010:WorkflowViewState.IdRef="SubProcess4_1" />
+    <local:SubProcess5 sap:VirtualizedContainerService.HintSize="200,22" sap2010:WorkflowViewState.IdRef="SubProcess5_1" />
+  <sads:DebugSymbol.Symbol>dzRDOlxVU0VSU1xNQVhYWFxERVNLVE9QXEFJLVJQQVxSUEEtMVxTdWJQcm9jZXNzMi54YW1sBSMDOVkCAQEpBS8QAgEFMAU2EAIBBDcFN3wCAQM4BTh8AgEC</sads:DebugSymbol.Symbol></Sequence>
 </Activity>

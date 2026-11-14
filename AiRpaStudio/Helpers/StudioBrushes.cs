@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Windows;
 using Agent.Core.Models;
 using System.Windows.Media;
@@ -64,6 +64,7 @@ namespace RPA.Helpers
         public const string SemanticPauseKey = "Studio.Semantic.Pause";
         public const string SemanticStopKey = "Studio.Semantic.Stop";
         public const string SemanticSaveKey = "Studio.Semantic.Save";
+        public const string SemanticWarningKey = "Studio.Semantic.Warning";
         public const string SemanticFolderIconKey = "Studio.Semantic.FolderIcon";
         public const string SemanticXamlFileIconKey = "Studio.Semantic.XamlFileIcon";
         public const string SemanticJsonFileIconKey = "Studio.Semantic.JsonFileIcon";
@@ -124,6 +125,7 @@ namespace RPA.Helpers
             SemanticPauseKey,
             SemanticStopKey,
             SemanticSaveKey,
+            SemanticWarningKey,
             SemanticFolderIconKey,
             SemanticXamlFileIconKey,
             SemanticJsonFileIconKey,
@@ -236,6 +238,7 @@ namespace RPA.Helpers
             Set(target, SemanticPauseKey, Color.FromRgb(0xFF, 0xA5, 0x00));
             Set(target, SemanticStopKey, Color.FromRgb(0xDC, 0x14, 0x3C));
             Set(target, SemanticSaveKey, Color.FromRgb(0x19, 0x76, 0xD2));
+            Set(target, SemanticWarningKey, Color.FromRgb(0xE2, 0xA0, 0x00));
             Set(target, SemanticFolderIconKey, Color.FromRgb(0xFF, 0x45, 0x00));
             Set(target, SemanticXamlFileIconKey, Color.FromRgb(0x4C, 0xAF, 0x50));
             Set(target, SemanticJsonFileIconKey, Color.FromRgb(0x21, 0x96, 0xF3));

@@ -1,6 +1,7 @@
 using System;
 using System.Activities.Presentation;
 using System.Activities.Presentation.Hosting;
+using RPA.Core;
 
 namespace RPA.Core.Workflow
 {
@@ -32,6 +33,11 @@ namespace RPA.Core.Workflow
                 text => designer.Text = text);
 
             designer.Context.Services.Publish<IDocumentPersistenceService>(persistence);
+
+            if (designer is WorkflowDesignerEx designerEx)
+            {
+                designerEx.LooseTypeRegistry = registry;
+            }
             designer.Load(sourceFile);
             designer.Context.Items.SetValue(new WorkflowFileItem { LoadedFile = sourceFile });
         }

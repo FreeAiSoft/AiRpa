@@ -5,12 +5,14 @@ using System.Activities.Presentation.Debug;
 using System.Activities.Presentation.Model;
 using System.Activities.Presentation.Services;
 using System.Activities.XamlIntegration;
+using System.Xaml;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text;
 using RPA.Core;
+using RPA.Core.Workflow;
 using RPA.Logging;
 using Activity = System.Activities.Activity;
 
@@ -39,6 +41,90 @@ namespace RPA.Helpers
             UpdateSourceLocationMappingInDebuggerService(workflowDesignerEx);
 
             SourceLocationMappingDiagnostics.Write($"RegenerateSourceDebuggerMappings: done mappingAfter={workflowDesignerEx.DesignerSourceLocationMapping.Count}");
+        }
+
+        /// <summary>
+        /// Лёгкое обновление SourceLocation-маппинга актуальными координатами после <c>Save</c>.
+        /// <para>
+        /// <see cref="WorkflowDesigner.Save(string)"/> в конце инвалидирует внутренний маппинг
+        /// <see cref="DebuggerService"/> (ставит <c>requiresUpdateSourceLocation</c> и сбрасывает
+        /// <c>modelItemToSourceLocation</c>). Если после этого собрать точки, они теряются. Здесь
+        /// маппинг пересобирается из свежего текста документа: модель после правки держит устаревшие
+        /// отладочные символы координат.
+        /// </para>
+        /// </summary>
+        internal static void RefreshSourceLocationMapping(WorkflowDesignerEx workflowDesignerEx)
+        {
+            if (workflowDesignerEx == null)
+            {
+                SourceLocationMappingDiagnostics.Write("RefreshSourceLocationMapping: designer=<null>");
+                return;
+            }
+
+            string loadedFile = TryGetLoadedFile(workflowDesignerEx);
+            SourceLocationMappingDiagnostics.Write($"RefreshSourceLocationMapping: designer=#{workflowDesignerEx.GetHashCode()} file={loadedFile ?? "<null>"}");
+
+            object rootInstance = GetRootInstance(workflowDesignerEx);
+            Activity documentRootElement = rootInstance == null ? null : GetRootWorkflowElement(rootInstance);
+            if (documentRootElement == null)
+            {
+                SourceLocationMappingDiagnostics.Write("RefreshSourceLocationMapping: documentRootElement is null -> return");
+                return;
+            }
+
+            Activity freshRoot;
+            try
+            {
+                workflowDesignerEx.Flush();
+                freshRoot = DeserializeFreshDocument(workflowDesignerEx.Text, workflowDesignerEx.LooseTypeRegistry);
+            }
+            catch (System.Exception ex)
+            {
+                SourceLocationMappingDiagnostics.WriteException(ex, "RefreshSourceLocationMapping: DeserializeFreshDocument failed");
+                return;
+            }
+
+            if (freshRoot == null)
+            {
+                SourceLocationMappingDiagnostics.Write("RefreshSourceLocationMapping: freshRoot is null -> return");
+                return;
+            }
+
+            workflowDesignerEx.DesignerSourceLocationMapping.Clear();
+            SourceLocationProvider.CollectMapping(documentRootElement, freshRoot, workflowDesignerEx.DesignerSourceLocationMapping, loadedFile);
+            SourceLocationMappingDiagnostics.Write($"RefreshSourceLocationMapping: CollectMapping produced {workflowDesignerEx.DesignerSourceLocationMapping.Count} entries");
+
+            DebuggerService debuggerService = (DebuggerService)workflowDesignerEx.DebugManagerView;
+            debuggerService.UpdateSourceLocations(workflowDesignerEx.DesignerSourceLocationMapping);
+            ResetRequiresUpdateSourceLocation(debuggerService);
+            RepairDebuggerServiceModelItemMapping(debuggerService, workflowDesignerEx);
+
+            SourceLocationMappingDiagnostics.Write($"RefreshSourceLocationMapping: done mappingAfter={workflowDesignerEx.DesignerSourceLocationMapping.Count}");
+        }
+
+        /// <summary>
+        /// Десериализует свежий текст XAML в корневую активность с актуальными отладочными
+        /// координатами. Для loose-XAML используется <see cref="LooseActivityXamlSchemaContext"/>
+        /// (резолв <c>local:SubProcessN</c>), иначе — штатный контекст.
+        /// </summary>
+        private static Activity DeserializeFreshDocument(string xaml, WorkflowTypeRegistry registry)
+        {
+            if (string.IsNullOrWhiteSpace(xaml))
+            {
+                return null;
+            }
+
+            XamlSchemaContext schemaContext = registry != null
+                ? (XamlSchemaContext)new LooseActivityXamlSchemaContext(registry)
+                : new XamlSchemaContext();
+
+            using (var textReader = new StringReader(xaml))
+            using (var debuggerReader = new XamlDebuggerXmlReader(textReader, schemaContext))
+            using (var builderReader = ActivityXamlServices.CreateBuilderReader(debuggerReader, schemaContext))
+            {
+                object loaded = XamlServices.Load(builderReader);
+                return loaded == null ? null : GetRootWorkflowElement(loaded);
+            }
         }
 
         private static string TryGetLoadedFile(WorkflowDesignerEx workflowDesignerEx)

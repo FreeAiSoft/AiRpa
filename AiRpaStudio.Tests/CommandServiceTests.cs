@@ -11,6 +11,7 @@ using AiRpaStudio.Tests.Design;
 using NUnit.Framework;
 using RPA.Core;
 using RPA.Core.Workflow;
+using RPA.Core.Services;
 using RPA.Helpers;
 
 namespace AiRpaStudio.Tests
@@ -23,6 +24,39 @@ namespace AiRpaStudio.Tests
     [TestFixture]
     public class CommandServiceTests
     {
+        private string _previousBreakpointRoot;
+        private string _tempBreakpointRoot;
+
+        [SetUp]
+        public void SetUp()
+        {
+            _previousBreakpointRoot = BreakpointStore.RootOverride;
+            _tempBreakpointRoot = Path.Combine(Path.GetTempPath(), "airpa-bp-" + Guid.NewGuid().ToString("N"));
+            BreakpointStore.RootOverride = _tempBreakpointRoot;
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            BreakpointStore.RootOverride = _previousBreakpointRoot;
+            TryDeleteDirectory(_tempBreakpointRoot);
+        }
+
+        private static void TryDeleteDirectory(string path)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
+                {
+                    Directory.Delete(path, recursive: true);
+                }
+            }
+            catch (Exception)
+            {
+                // временный каталог может быть занят — не критично для теста
+            }
+        }
+
         [Test]
         public void IsCommandSupported_ReturnsTrueForKnownCommands_FalseForUnknown()
         {

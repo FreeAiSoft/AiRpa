@@ -5,6 +5,7 @@ using System.Activities.Presentation.Model;
 using System.Collections.Generic;
 using System.ComponentModel;
 using RPA.Core.Services;
+using RPA.Core.Workflow;
 using RPA.Helpers;
 
 namespace RPA.Core
@@ -33,6 +34,13 @@ namespace RPA.Core
         public Dictionary<object, SourceLocation> DesignerSourceLocationMapping { get; } = new Dictionary<object, SourceLocation>();
 
         public List<SourceLocation> BreakpointList { get; set; } = new List<SourceLocation>();
+
+        /// <summary>
+        /// Реестр вложенных XAML-активностей, с которым документ открыт loose-путём
+        /// (<c>null</c> для штатного пути). Нужен для десериализации свежего текста
+        /// при обновлении SourceLocation-маппинга после сохранения.
+        /// </summary>
+        internal WorkflowTypeRegistry LooseTypeRegistry { get; set; }
 
         /// <summary>
         /// Путь к файлу, который загружен в дизайнер

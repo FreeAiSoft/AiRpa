@@ -14,6 +14,7 @@ using System.Windows;
 using System.Windows.Controls.Primitives;
 using Newtonsoft.Json;
 using RPA.Core;
+using RPA.Core.Services;
 using RPA.Core.Workflow;
 
 namespace RPA.Helpers
@@ -230,43 +231,199 @@ namespace RPA.Helpers
             Properties.Settings.Default.Save();
         }
 
-        private static void LoadBreakpoints(WorkflowDesigner designer, string filePath)
+        internal static void LoadBreakpoints(WorkflowDesigner designer, string filePath)
         {
             try
             {
-                string breakPointsFile = $"{filePath}.breakpoints";
+                List<BreakpointStore.BreakpointRecord> records = BreakpointStore.Load(filePath);
+                if (records == null)
+                {
+                    records = TryImportLegacySidecar(filePath);
+                }
 
-                if (!File.Exists(breakPointsFile))
+                if (records == null || records.Count == 0)
                 {
                     return;
                 }
 
                 DebuggerService debuggerService = (DebuggerService)designer.DebugManagerView;
-                if (debuggerService != null)
+                if (debuggerService == null)
                 {
-                    string json = File.ReadAllText(breakPointsFile);
-                    List<BreakpointData> breakpointData = JsonConvert.DeserializeObject<List<BreakpointData>>(json);
+                    return;
+                }
 
-                    if (breakpointData != null && breakpointData.Count > 0)
+                WorkflowDesignerEx designerEx = designer as WorkflowDesignerEx;
+                foreach (BreakpointStore.BreakpointRecord bp in records)
+                {
+                    SourceLocation sourceLocation = ResolveBreakpointLocation(designerEx, filePath, bp);
+                    if (sourceLocation == null)
                     {
-                        WorkflowDesignerEx designerEx = (WorkflowDesignerEx)designer;
-                        foreach (BreakpointData bp in breakpointData)
-                        {
-                            SourceLocation sourceLocation = new SourceLocation(filePath, bp.StartLine, bp.StartColumn, bp.EndLine, bp.EndColumn);
-                            debuggerService.InsertBreakpoint(sourceLocation, BreakpointTypes.Bounded | BreakpointTypes.Enabled);
+                        // «Призрак»: точка не привязана к живой активности. Не вставляем её,
+                        // иначе она дождётся новой активности, вставленной на те же координаты.
+                        continue;
+                    }
+                    BreakpointTypes breakpointType = (BreakpointTypes)bp.BreakpointType;
+                    if (breakpointType == BreakpointTypes.None)
+                    {
+                        breakpointType = BreakpointTypes.Bounded | BreakpointTypes.Enabled;
+                    }
 
-                            // Проверка дубликатов перед добавлением точки останова
-                            if (!designerEx.BreakpointList.Contains(sourceLocation))
-                            {
-                                designerEx.BreakpointList.Add(sourceLocation);
-                            }
-                        }
+                    debuggerService.InsertBreakpoint(sourceLocation, breakpointType);
+
+                    // Проверка дубликатов перед добавлением точки останова
+                    if (designerEx != null && !designerEx.BreakpointList.Contains(sourceLocation))
+                    {
+                        designerEx.BreakpointList.Add(sourceLocation);
                     }
                 }
             }
             catch (Exception ex)
             {
                 CustomWfDesigner.GetInstance().Log($"Ошибка при загрузке точек останова: {ex}", (int)RpaCommon.Enums.LogLevel.Error);
+            }
+        }
+
+        /// <summary>
+        /// Восстанавливает SourceLocation точки: сначала по стабильному якорю Activity.Id
+        /// (точка переживает сдвиг строк после правки), затем — по сохранённым координатам. Если точка не привязана к живой активности, возвращается <c>null</c>.
+        /// </summary>
+        private static SourceLocation ResolveBreakpointLocation(WorkflowDesignerEx designerEx, string filePath, BreakpointStore.BreakpointRecord bp)
+        {
+            if (designerEx != null && !string.IsNullOrWhiteSpace(bp.ActivityId))
+            {
+                SourceLocation anchored = FindByActivityId(designerEx.DesignerSourceLocationMapping, bp.ActivityId, bp.DisplayName);
+                if (anchored != null)
+                {
+                    return anchored;
+                }
+            }
+
+            return FindByCoordinates(designerEx?.DesignerSourceLocationMapping, bp)
+                ?? (designerEx == null ? new SourceLocation(filePath, bp.StartLine, bp.StartColumn, bp.EndLine, bp.EndColumn) : null);
+        }
+
+        private static SourceLocation FindByActivityId(Dictionary<object, SourceLocation> mapping, string activityId, string displayName)
+        {
+            if (mapping == null || mapping.Count == 0 || string.IsNullOrWhiteSpace(activityId))
+            {
+                return null;
+            }
+
+            // 1. Точное совпадение QualifiedId.
+            foreach (KeyValuePair<object, SourceLocation> entry in mapping)
+            {
+                if (entry.Key is System.Activities.Activity activity && string.Equals(activity.Id, activityId, StringComparison.Ordinal))
+                {
+                    return entry.Value;
+                }
+            }
+
+            // 2. Совпадение по последней компоненте QualifiedId (устойчиво к сдвигу корня x:Class).
+            string lastStored = LastIdComponent(activityId);
+            if (lastStored == null)
+            {
+                return null;
+            }
+
+            SourceLocation fallback = null;
+            foreach (KeyValuePair<object, SourceLocation> entry in mapping)
+            {
+                if (!(entry.Key is System.Activities.Activity activity))
+                {
+                    continue;
+                }
+
+                if (LastIdComponent(activity.Id) != lastStored)
+                {
+                    continue;
+                }
+
+                if (fallback == null)
+                {
+                    fallback = entry.Value;
+                }
+
+                if (!string.IsNullOrWhiteSpace(displayName) && string.Equals(activity.DisplayName, displayName, StringComparison.Ordinal))
+                {
+                    return entry.Value;
+                }
+            }
+
+            return fallback;
+        }
+
+        private static SourceLocation FindByCoordinates(Dictionary<object, SourceLocation> mapping, BreakpointStore.BreakpointRecord bp)
+        {
+            if (mapping == null || mapping.Count == 0 || bp == null)
+            {
+                return null;
+            }
+
+            foreach (KeyValuePair<object, SourceLocation> entry in mapping)
+            {
+                SourceLocation location = entry.Value;
+                if (location != null
+                    && location.StartLine == bp.StartLine
+                    && location.StartColumn == bp.StartColumn
+                    && location.EndLine == bp.EndLine
+                    && location.EndColumn == bp.EndColumn)
+                {
+                    return location;
+                }
+            }
+
+            return null;
+        }
+
+        private static string LastIdComponent(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return null;
+            }
+
+            int index = id.LastIndexOf('.');
+            return index >= 0 ? id.Substring(index + 1) : id;
+        }
+
+        /// <summary>
+        /// Разовый перенос точек из легаси sidecar (<c>&lt;file&gt;.breakpoints</c>) в новый
+        /// пользовательский store. Файл проекта не удаляется — только читается один раз при миграции.
+        /// </summary>
+        private static List<BreakpointStore.BreakpointRecord> TryImportLegacySidecar(string filePath)
+        {
+            string sidecar = filePath + ".breakpoints";
+            if (!File.Exists(sidecar))
+            {
+                return null;
+            }
+
+            try
+            {
+                List<BreakpointData> legacy = JsonConvert.DeserializeObject<List<BreakpointData>>(File.ReadAllText(sidecar));
+                if (legacy == null || legacy.Count == 0)
+                {
+                    return null;
+                }
+
+                int defaultType = (int)(BreakpointTypes.Bounded | BreakpointTypes.Enabled);
+                List<BreakpointStore.BreakpointRecord> records = legacy
+                    .Select(bp => new BreakpointStore.BreakpointRecord
+                    {
+                        StartLine = bp.StartLine,
+                        StartColumn = bp.StartColumn,
+                        EndLine = bp.EndLine,
+                        EndColumn = bp.EndColumn,
+                        BreakpointType = defaultType
+                    })
+                    .ToList();
+
+                BreakpointStore.Save(filePath, records);
+                return records;
+            }
+            catch (Exception)
+            {
+                return null;
             }
         }
 

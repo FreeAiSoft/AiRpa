@@ -1098,13 +1098,17 @@ namespace RPA.Views
 
         protected override void OnClosing(CancelEventArgs e)
         {
-            // Состояние вкладок (какие документы были открыты и какая вкладка активна): при следующем
-            // запуске студия их восстанавливает. Финальная запись — даже если пользователь закрыл окно
-            // сразу после открытия/закрытия вкладки.
             if ((DataContext as MainViewModel)?.Model is RPA.Models.Main mainModel)
             {
+                if (!mainModel.ConfirmSaveOrDiscardChanges())
+                {
+                    e.Cancel = true;
+                    return;
+                }
+
                 mainModel.SaveSessionState();
             }
+
 
             // Save layout one final time before closing
             if (_layoutSaveTimer != null)

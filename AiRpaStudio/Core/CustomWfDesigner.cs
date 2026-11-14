@@ -16,6 +16,7 @@ using RPA.Entities;
 using RPA.Enums;
 using RPA.Core.Workflow;
 using RPA.Core.Generation;
+using RPA.Core.Services;
 
 using RPA.Helpers;
 using RPA.Views;
@@ -438,22 +439,20 @@ namespace RPA.Core
                         return;
                     }
                     // Сохраняем точки останова
-                    string breakPointsFile = $"{dialogSave.FileName}.breakpoints";
-                    SaveBreakpoints(ActiveWorkflowDesignerEx, breakPointsFile);
+                    SaveBreakpoints(ActiveWorkflowDesignerEx, dialogSave.FileName);
                     ActiveWorkflowDesignerEx.IsEdited = false;
                 }
             }
             else
             {
                 string loadedFile = ActiveWorkflowDesignerEx.Context.Items.GetValue<WorkflowFileItem>().LoadedFile;
-                string breakPointsFile = $"{loadedFile}.breakpoints";
                 if (!TrySaveDesigner(ActiveWorkflowDesignerEx, loadedFile))
                 {
                     return;
                 }
 
                 // Сохраняем точки останова
-                SaveBreakpoints(ActiveWorkflowDesignerEx, breakPointsFile);
+                SaveBreakpoints(ActiveWorkflowDesignerEx, loadedFile);
                 ActiveWorkflowDesignerEx.IsEdited = false;
             }
         }
@@ -472,52 +471,135 @@ namespace RPA.Core
                     {
                         continue;
                     }
-                    string breakPointsFile = $"{loadedFile}.breakpoints";
-                    SaveBreakpoints(designer, breakPointsFile);
+                    SaveBreakpoints(designer, loadedFile);
                     designer.IsEdited = false;
                 }
             }
         }
 
-        // Метод для сохранения точек останова
-        public void SaveBreakpoints(WorkflowDesigner designer, string breakPointsFile)
+        /// <summary>
+        /// Сохраняет точки останова дизайнера в пользовательский локальный store вне проекта.
+        /// <see cref="workflowPath"/> можно передать явно (Save/SaveAs ещё не обновили
+        /// <see cref="WorkflowFileItem.LoadedFile"/>); иначе путь берётся из дизайнера.
+        /// </summary>
+        public void SaveBreakpoints(WorkflowDesignerEx designer, string workflowPath = null)
         {
+            if (designer == null)
+            {
+                return;
+            }
+
             try
             {
-                DebuggerService debuggerService = (DebuggerService)designer.DebugManagerView;
-                if (debuggerService != null)
+                string path = workflowPath ?? GetLoadedFile(designer);
+                if (string.IsNullOrWhiteSpace(path))
                 {
-                    IDictionary<System.Activities.Debugger.SourceLocation, BreakpointTypes> breakpoints = debuggerService.GetBreakpointLocations();
-                    if (breakpoints != null && breakpoints.Count > 0)
-                    {
-                        // Конвертируем SourceLocations в сериализуемый формат
-                        var breakpointData = breakpoints
-                            .Select(bp => new
-                            {
-                                bp.Key.StartLine,
-                                bp.Key.StartColumn,
-                                bp.Key.EndLine,
-                                bp.Key.EndColumn
-                            })
-                            .ToList();
-
-                        string json = JsonConvert.SerializeObject(breakpointData, Formatting.Indented);
-                        File.WriteAllText(breakPointsFile, json);
-                    }
-                    else
-                    {
-                        // Нет точек останова - удаляем файл, если он существует
-                        if (File.Exists(breakPointsFile))
-                        {
-                            File.Delete(breakPointsFile);
-                        }
-                    }
+                    // Несохранённый документ: точки живут только в памяти до первого сохранения файла.
+                    return;
                 }
+
+                DebuggerService debuggerService = (DebuggerService)designer.DebugManagerView;
+                if (debuggerService == null)
+                {
+                    return;
+                }
+
+                // После Save маппинг DebuggerService инвалидирован, а модель держит устаревшие
+                // отладочные координаты: без актуализации GetBreakpointLocations() теряет точки.
+                try
+                {
+                    DebuggerMappingsHelper.RefreshSourceLocationMapping(designer);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(ErrorText.Of(ex));
+                }
+
+                IDictionary<System.Activities.Debugger.SourceLocation, BreakpointTypes> breakpoints = debuggerService.GetBreakpointLocations();
+
+                List<BreakpointStore.BreakpointRecord> records = breakpoints == null
+                    ? new List<BreakpointStore.BreakpointRecord>()
+                    : breakpoints.Select(bp => new BreakpointStore.BreakpointRecord
+                    {
+                        StartLine = bp.Key.StartLine,
+                        StartColumn = bp.Key.StartColumn,
+                        EndLine = bp.Key.EndLine,
+                        EndColumn = bp.Key.EndColumn,
+                        BreakpointType = (int)bp.Value
+                    }).ToList();
+
+                // Санитайзинг: в store не должны попадать точки, не привязанные к живой активности
+                // (мусор удалённых активностей или unmapped-точки — иначе они «воскресают» на новой
+                // активности, вставленной на те же координаты).
+                records = records.Where(r => IsMappedLocation(designer, r)).ToList();
+
+                EnrichAnchors(designer, records);
+                BreakpointStore.Save(path, records);
             }
             catch (Exception ex)
             {
                 Log($"Ошибка при сохранении точек останова: {ex}", (int)RpaCommon.Enums.LogLevel.Error);
             }
+        }
+
+        /// <summary>
+        /// Дополняет каждую точку стабильным якорем (<c>Activity.Id</c>/<c>DisplayName</c>) по
+        /// ручному маппингу дизайнера, чтобы точка пережила сдвиг строк после правки документа.
+        /// </summary>
+        private static void EnrichAnchors(WorkflowDesignerEx designer, List<BreakpointStore.BreakpointRecord> records)
+        {
+            if (designer?.DesignerSourceLocationMapping == null
+                || designer.DesignerSourceLocationMapping.Count == 0
+                || records == null)
+            {
+                return;
+            }
+
+            foreach (BreakpointStore.BreakpointRecord record in records)
+            {
+                foreach (KeyValuePair<object, System.Activities.Debugger.SourceLocation> entry in designer.DesignerSourceLocationMapping)
+                {
+                    if (!(entry.Key is System.Activities.Activity activity) || entry.Value == null)
+                    {
+                        continue;
+                    }
+
+                    if (entry.Value.StartLine == record.StartLine
+                        && entry.Value.EndLine == record.EndLine
+                        && entry.Value.StartColumn == record.StartColumn
+                        && entry.Value.EndColumn == record.EndColumn)
+                    {
+                        record.ActivityId = activity.Id;
+                        record.DisplayName = activity.DisplayName;
+                        break;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Проверяет, что точка привязана к живой активности текущего документа (по координатам из ручного маппинга).
+        /// </summary>
+        private static bool IsMappedLocation(WorkflowDesignerEx designer, BreakpointStore.BreakpointRecord record)
+        {
+            if (designer?.DesignerSourceLocationMapping == null || record == null)
+            {
+                return false;
+            }
+
+            foreach (System.Activities.Debugger.SourceLocation location in designer.DesignerSourceLocationMapping.Values)
+            {
+                if (location != null
+                    && location.StartLine == record.StartLine
+                    && location.StartColumn == record.StartColumn
+                    && location.EndLine == record.EndLine
+                    && location.EndColumn == record.EndColumn)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -534,7 +616,11 @@ namespace RPA.Core
 
             if (dialogSave.ShowDialog() == true)
             {
-                _ = TrySaveDesigner(ActiveWorkflowDesignerEx, dialogSave.FileName);
+                if (TrySaveDesigner(ActiveWorkflowDesignerEx, dialogSave.FileName))
+                {
+                    SaveBreakpoints(ActiveWorkflowDesignerEx, dialogSave.FileName);
+                    ActiveWorkflowDesignerEx.IsEdited = false;
+                }
             }
         }
 
