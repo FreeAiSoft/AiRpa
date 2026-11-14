@@ -30,6 +30,12 @@ namespace RPA.Models
                     }
 
                     ProjectManager.GetInstance().AddFile(activityCreator.FilePath);
+
+                    CallResult registerResult = ProjectManager.GetInstance().RegisterFileInVsProject(activityCreator.FilePath);
+                    if (registerResult.Error != null)
+                    {
+                        return new CallResult { Error = registerResult.Error };
+                    }
                 }
                 return new CallResult();
             }

@@ -40,6 +40,12 @@ namespace RPA.Models
             }
         }
 
+        /// <summary>
+        /// Поднимается перед физическим удалением файла: студия по этому событию закрывает
+        /// открытые вкладки удаляемого файла (встроенный редактор кода/XAML).
+        /// </summary>
+        internal event Action<string> FileDeleting;
+
         #region Singleton
 
         private static readonly ProjectManager instance = new ProjectManager();
@@ -384,6 +390,9 @@ namespace RPA.Models
 
                 string filePath = fSNode.RuntimeFullPath;
 
+                // Сообщаем подписчикам до удаления: студия закрывает вкладку редактора кода/XAML.
+                FileDeleting?.Invoke(filePath);
+
                 // Закрываем дизайнер для этого файла, если он был открыт (особенно важно для .xaml активностей)
                 if (filePath.EndsWith(".xaml", StringComparison.OrdinalIgnoreCase))
                 {
@@ -391,6 +400,13 @@ namespace RPA.Models
                 }
 
                 File.Delete(filePath);
+
+                // Удаляем элемент из .csproj (для проектов Visual Studio); для project.json — no-op.
+                CallResult unregisterResult = UnregisterFileFromVsProject(filePath);
+                if (unregisterResult.Error != null)
+                {
+                    OnSendMessage(unregisterResult.Error.Message);
+                }
 
                 // Удаление из дерева путем обхода
                 if (FSNodes != null && FSNodes.Count > 0)
@@ -613,6 +629,41 @@ namespace RPA.Models
             }
         }
         /// <summary>
+        /// Убирает файл из элементов проекта Visual Studio (.csproj), если он там зарегистрирован.
+        /// Для встроенного проекта (project.json) не делает ничего.
+        /// </summary>
+        internal CallResult UnregisterFileFromVsProject(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || FSNodes == null || FSNodes.Count == 0)
+            {
+                return new CallResult();
+            }
+
+            try
+            {
+                string fullPath = Path.GetFullPath(filePath);
+                FSNode projectNode = FindOwningVsProject(FSNodes[0], fullPath);
+                if (projectNode == null)
+                {
+                    // Проект студии (project.json) — удалять из .csproj нечего.
+                    return new CallResult();
+                }
+
+                string projectPath = projectNode.RuntimeFullPath;
+                string projectFolder = Path.GetDirectoryName(projectPath);
+                string include = VsProjectWriter.GetRelativeIncludePath(projectFolder, fullPath);
+                _ = VsProjectWriter.RemoveFileItem(projectPath, include);
+
+                return new CallResult();
+            }
+            catch (Exception ex)
+            {
+                return new CallResult { Error = new Error($"Не удалось удалить файл из проекта: {ex}") };
+            }
+        }
+
+
+        /// <summary>
         /// Копирует произвольный файл в папку проекта, добавляет узел в дерево и регистрирует файл
         /// в .csproj (для проектов Visual Studio). Возвращает итоговый путь в <see cref="CallResult{T}.Data"/>.
         /// </summary>
@@ -789,10 +840,28 @@ namespace RPA.Models
 
             try
             {
+                List<string> filePaths = CollectFilesInFolder(folderNode);
+
+                // Сообщаем о каждом удаляемом файле до удаления: студия закрывает вкладки.
+                foreach (string path in filePaths)
+                {
+                    FileDeleting?.Invoke(path);
+                }
+
                 // Закрываем все дизайнеры для файлов в удаляемой папке
                 CloseDesignersInFolder(folderNode);
 
                 Directory.Delete(folderNode.RuntimeFullPath, true);
+
+                // Удаляем элементы из .csproj (для проектов Visual Studio); для project.json — no-op.
+                foreach (string path in filePaths)
+                {
+                    CallResult unregisterResult = UnregisterFileFromVsProject(path);
+                    if (unregisterResult.Error != null)
+                    {
+                        OnSendMessage(unregisterResult.Error.Message);
+                    }
+                }
 
                 // Удалить из дочерних элементов родителя
                 FSNode parent = FindParentNode(FSNodes[0], folderNode);
@@ -808,6 +877,32 @@ namespace RPA.Models
                 return new CallResult { Error = new Error($"Ошибка при удалении папки: {ex}") };
             }
         }
+
+        /// <summary>
+        /// Собирает пути всех файлов в папке и её подпапках (для событий удаления и чистки .csproj).
+        /// </summary>
+        private static List<string> CollectFilesInFolder(FSNode folderNode)
+        {
+            var paths = new List<string>();
+
+            if (folderNode?.Childs != null)
+            {
+                foreach (FSNode child in folderNode.Childs)
+                {
+                    if (child.FSNodeType == FSNodeType.File)
+                    {
+                        paths.Add(child.RuntimeFullPath);
+                    }
+                    else if (child.FSNodeType == FSNodeType.Dir)
+                    {
+                        paths.AddRange(CollectFilesInFolder(child));
+                    }
+                }
+            }
+
+            return paths;
+        }
+
 
         /// <summary>
         /// Рекурсивно закрывает все дизайнеры для .xaml файлов в папке и её подпапках

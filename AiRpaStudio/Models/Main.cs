@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Activities.Core.Presentation;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -44,6 +44,10 @@ namespace RPA.Models
             // project.json (CustomWfDesigner.LoadProject) и проект Visual Studio (.sln/.csproj).
             CustomWfDesigner.WorkflowDesigners.CollectionChanged += WorkflowTabs_CollectionChanged;
             OpenCodeDocuments.CollectionChanged += WorkflowTabs_CollectionChanged;
+
+            // При удалении файла через дерево проекта закрываем его вкладку встроенного редактора кода/XAML.
+            ProjectManager.FileDeleting -= CmdCloseCodeDocument;
+            ProjectManager.FileDeleting += CmdCloseCodeDocument;
         }
 
         private void WorkflowTabs_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)

@@ -333,6 +333,105 @@ public class VsProjectTreeFileTests
 
 
 
+    [Test]
+    public void DeleteFile_RemovesFileNodeAndCsprojItemAndRaisesEvent()
+    {
+        string csproj = CreateProjectFiles(_root);
+        LoadProject(csproj);
+
+        string file = Path.Combine(_root, "Helper.cs");
+        File.WriteAllText(file, "class Helper {}");
+        _manager.AddFile(file);
+        _manager.RegisterFileInVsProject(file);
+
+        FSNode fileNode = _manager.FSNodes[0].Childs.Single(c => c.FSNodeType == FSNodeType.File && c.Name == "Helper.cs");
+        List<string> deleted = new List<string>();
+        _manager.FileDeleting += deleted.Add;
+        try
+        {
+            _manager.DeleteFile(fileNode);
+        }
+        finally
+        {
+            _manager.FileDeleting -= deleted.Add;
+        }
+
+        XDocument document = XDocument.Load(csproj);
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(file), Is.False, "файл удалён физически");
+            Assert.That(_manager.FSNodes[0].Childs.Any(c => c.FSNodeType == FSNodeType.File && c.Name == "Helper.cs"), Is.False,
+                "узел удалён из дерева");
+            Assert.That(document.Descendants().Any(e => e.Name.LocalName == "Compile" && (string)e.Attribute("Include") == "Helper.cs"), Is.False,
+                "элемент удалён из .csproj");
+            Assert.That(deleted, Does.Contain(file), "подписчики получают путь удаляемого файла до удаления");
+        });
+    }
+
+    [Test]
+    public void DeleteFolder_RemovesAllFilesAndCsprojItemsAndRaisesEvents()
+    {
+        string csproj = CreateProjectFiles(_root);
+        string sub = Path.Combine(_root, "Sub");
+        Directory.CreateDirectory(sub);
+        LoadProject(csproj);
+
+        string file1 = Path.Combine(sub, "Sub1.cs");
+        string file2 = Path.Combine(sub, "Sub2.cs");
+        File.WriteAllText(file1, "class A {}");
+        File.WriteAllText(file2, "class B {}");
+        _manager.AddFile(file1);
+        _manager.AddFile(file2);
+        _manager.RegisterFileInVsProject(file1);
+        _manager.RegisterFileInVsProject(file2);
+
+        FSNode folderNode = _manager.FSNodes[0].Childs.Single(c => c.FSNodeType == FSNodeType.Dir && c.Name == "Sub");
+        List<string> deleted = new List<string>();
+        _manager.FileDeleting += deleted.Add;
+        try
+        {
+            CallResult result = _manager.DeleteFolder(folderNode);
+            Assert.That(result.Success, Is.True, result.Message);
+        }
+        finally
+        {
+            _manager.FileDeleting -= deleted.Add;
+        }
+
+        XDocument document = XDocument.Load(csproj);
+        Assert.Multiple(() =>
+        {
+            Assert.That(Directory.Exists(sub), Is.False, "папка удалена физически");
+            Assert.That(document.Descendants().Any(e => e.Name.LocalName == "Compile"
+                && ((string)e.Attribute("Include") == "Sub\\Sub1.cs" || (string)e.Attribute("Include") == "Sub\\Sub2.cs")), Is.False,
+                "элементы удалены из .csproj");
+            Assert.That(deleted, Does.Contain(file1));
+            Assert.That(deleted, Does.Contain(file2));
+        });
+    }
+
+    [Test]
+    public void DeleteFile_ForStudioProject_DoesNotTouchCsproj()
+    {
+        File.WriteAllText(Path.Combine(_root, "project.json"), "{ \"Name\": \"Process\" }");
+        CallResult initResult = _manager.InitFileTree(_root);
+        Assert.That(initResult.Success, Is.True, initResult.Message);
+
+        string file = Path.Combine(_root, "notes.txt");
+        File.WriteAllText(file, "x");
+        _manager.AddFile(file);
+        FSNode fileNode = _manager.FSNodes[0].Childs.Single(c => c.FSNodeType == FSNodeType.File && c.Name == "notes.txt");
+
+        _manager.DeleteFile(fileNode);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(file), Is.False);
+            Assert.That(_manager.FSNodes[0].Childs.Any(c => c.Name == "notes.txt"), Is.False);
+        });
+    }
+
+
     private string CreateProjectFiles(string folder)
     {
         string csproj = Path.Combine(folder, "MyLib.csproj");

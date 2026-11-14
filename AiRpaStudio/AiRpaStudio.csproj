@@ -702,6 +702,11 @@
     <EmbeddedResource Include="Resources\ExpressionEditor\Method.png" />
     <EmbeddedResource Include="Resources\ExpressionEditor\Property.png" />
     <EmbeddedResource Include="Resources\Highlighting\Xaml.xshd" />
+    <!-- Шаблон XAML-активности Visual Studio, зашитый в сборку: ActivityCreator читает его как
+         embedded resource, а не из рабочего каталога процесса. Источник — VSTemplates\Activity\Activity.xaml. -->
+    <EmbeddedResource Include="VSTemplates\Activity\Activity.xaml">
+      <LogicalName>RPA.VSTemplates.Activity.Activity.xaml</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="VsTemplate\VsTemplateModels.cs" />

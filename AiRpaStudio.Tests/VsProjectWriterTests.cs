@@ -319,4 +319,88 @@ public class VsProjectWriterTests
         });
     }
 
+    [Test]
+    public void RemoveFileItem_RemovesXamlAppDef()
+    {
+        string csproj = Path.Combine(_root, "MyLib.csproj");
+        File.WriteAllText(csproj, LegacyCsproj);
+
+        bool changed = VsProjectWriter.RemoveFileItem(csproj, "Activity1.xaml");
+
+        XDocument document = XDocument.Load(csproj);
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.True);
+            Assert.That(document.Descendants().Any(e => e.Name.LocalName == "XamlAppDef" && (string)e.Attribute("Include") == "Activity1.xaml"), Is.False,
+                "XamlAppDef должен удаляться из .csproj");
+            Assert.That(document.Descendants().Any(e => e.Name.LocalName == "Compile"), Is.True,
+                "остальные элементы проекта не должны пострадать");
+        });
+    }
+
+    [Test]
+    public void RemoveFileItem_RemovesAnyItemType()
+    {
+        string csproj = Path.Combine(_root, "MyLib.csproj");
+        string content =
+            "<Project xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">\r\n" +
+            "  <ItemGroup>\r\n" +
+            "    <Page Include=\"Designer.xaml\" />\r\n" +
+            "    <None Include=\"readme.md\" />\r\n" +
+            "  </ItemGroup>\r\n" +
+            "</Project>\r\n";
+        File.WriteAllText(csproj, content);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(VsProjectWriter.RemoveFileItem(csproj, "Designer.xaml"), Is.True);
+            Assert.That(VsProjectWriter.RemoveFileItem(csproj, "readme.md"), Is.True);
+        });
+
+        string text = File.ReadAllText(csproj);
+        Assert.Multiple(() =>
+        {
+            Assert.That(text, Does.Not.Contain("Page"));
+            Assert.That(text, Does.Not.Contain("None"));
+        });
+    }
+
+    [Test]
+    public void RemoveFileItem_SecondCall_IsIdempotent()
+    {
+        string csproj = Path.Combine(_root, "MyLib.csproj");
+        File.WriteAllText(csproj, LegacyCsproj);
+        _ = VsProjectWriter.RemoveFileItem(csproj, "Activity1.xaml");
+
+        bool changedAgain = VsProjectWriter.RemoveFileItem(csproj, "Activity1.xaml");
+
+        Assert.That(changedAgain, Is.False);
+    }
+
+    [Test]
+    public void RemoveFileItem_MissingProject_Throws()
+    {
+        string csproj = Path.Combine(_root, "Absent.csproj");
+
+        Assert.That(() => VsProjectWriter.RemoveFileItem(csproj, "Activity2.xaml"), Throws.InstanceOf<FileNotFoundException>());
+    }
+
+    [Test]
+    public void RemoveFileItem_RemovesEmptyItemGroupAndKeepsFormatting()
+    {
+        string csproj = Path.Combine(_root, "MyLib.csproj");
+        File.WriteAllText(csproj, LegacyCsproj);
+
+        _ = VsProjectWriter.RemoveFileItem(csproj, "Activity1.xaml");
+
+        string text = File.ReadAllText(csproj);
+        Assert.Multiple(() =>
+        {
+            Assert.That(text, Does.Contain("<ProjectGuid>"), "свойства проекта потеряны");
+            Assert.That(text, Does.Contain("<Import Project="), "импорт целей MSBuild остаётся на месте");
+            Assert.That(text, Does.Not.Contain("XamlAppDef"), "пустая группа XamlAppDef удалена вместе с элементом");
+        });
+    }
+
+
 }

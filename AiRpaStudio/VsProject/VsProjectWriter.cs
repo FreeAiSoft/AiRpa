@@ -122,6 +122,81 @@ namespace RPA.VsProject
             return true;
         }
         /// <summary>
+        /// Удаляет из проекта элемент любого типа (<c>XamlAppDef</c>, <c>Compile</c>, <c>Page</c>,
+        /// <c>None</c>...) по значению <c>Include</c>/<c>Update</c>. Пустые <c>ItemGroup</c> после
+        /// удаления убираются. Возвращает <c>true</c>, если файл проекта изменён.
+        /// </summary>
+        public static bool RemoveFileItem(string projectPath, string relativePath)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath))
+            {
+                throw new ArgumentException("Путь к файлу проекта не указан.", nameof(projectPath));
+            }
+
+            string fullProjectPath = Path.GetFullPath(projectPath);
+            if (!File.Exists(fullProjectPath))
+            {
+                throw new FileNotFoundException("Файл проекта не найден.", fullProjectPath);
+            }
+
+            string include = NormalizeInclude(relativePath);
+            XDocument document = LoadPreservingFormat(fullProjectPath);
+            XElement root = document.Root ?? throw new InvalidDataException("Файл проекта пуст.");
+
+            bool changed = false;
+
+            foreach (XElement item in root.Descendants().ToList())
+            {
+                if (!IsProjectItem(item))
+                {
+                    continue;
+                }
+
+                string itemInclude = NormalizeInclude((string)item.Attribute("Include") ?? (string)item.Attribute("Update"));
+                if (!string.Equals(itemInclude, include, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                XElement itemGroup = item.Parent;
+                RemoveKeepingIndent(item);
+                changed = true;
+
+                if (itemGroup != null && !itemGroup.Elements().Any())
+                {
+                    RemoveKeepingIndent(itemGroup);
+                }
+            }
+
+            if (changed)
+            {
+                SavePreservingFormat(document, fullProjectPath);
+            }
+
+            return changed;
+        }
+
+        /// <summary>Запись проекта — элемент, чей родитель <c>ItemGroup</c> (вложенные дочерние элементы исключены).</summary>
+        private static bool IsProjectItem(XElement element)
+        {
+            XElement parent = element.Parent;
+            return parent != null && string.Equals(parent.Name.LocalName, "ItemGroup", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Удаляет элемент вместе с предшествующим отступом, чтобы не оставлять пустую строку.</summary>
+        private static void RemoveKeepingIndent(XElement element)
+        {
+            XNode previous = element.PreviousNode;
+            if (previous is XText text && string.IsNullOrWhiteSpace(text.Value))
+            {
+                previous.Remove();
+            }
+
+            element.Remove();
+        }
+
+
+        /// <summary>
         /// Переименовывает файл проекта (<c>*.csproj</c>) и правит ссылку на него в найденных <c>.sln</c>.
         /// Возвращает новый путь к файлу проекта. Имя сборки и содержимое проекта не меняются.
         /// </summary>
