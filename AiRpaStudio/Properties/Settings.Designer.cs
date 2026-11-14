@@ -118,6 +118,18 @@ namespace RPA.Properties {
                 this["ProjectTreeLayout"] = value;
             }
         }
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string ActivityToolboxLayout {
+            get {
+                return ((string)(this["ActivityToolboxLayout"]));
+            }
+            set {
+                this["ActivityToolboxLayout"] = value;
+            }
+        }
+
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]

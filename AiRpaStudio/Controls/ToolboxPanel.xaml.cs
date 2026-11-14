@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Activities.Presentation.Toolbox;
 using System.Collections.Generic;
 using System.Linq;
@@ -126,12 +126,24 @@ namespace RPA.Controls
                 new RoutedEventHandler((sender, args) => ScheduleApply(toolbox)),
                 handledEventsToo: true);
 
+            // Сохранение состояния категорий при разворачивании/сворачивании.
+            toolbox.AddHandler(
+                TreeViewItem.ExpandedEvent,
+                new RoutedEventHandler((sender, args) => OnCategoryStateChanged(toolbox, args)),
+                handledEventsToo: true);
+
+            toolbox.AddHandler(
+                TreeViewItem.CollapsedEvent,
+                new RoutedEventHandler((sender, args) => OnCategoryStateChanged(toolbox, args)),
+                handledEventsToo: true);
+
             // Дерево приходит из шаблона (PART_Tools): до загрузки контрола генератора ещё нет.
             // Повторная загрузка панели (переключение раскладки) пересоздаёт элементы — темизируем заново.
             toolbox.Loaded += (sender, args) =>
             {
                 HookGenerator(toolbox, hook);
                 ScheduleApply(toolbox);
+                RestoreCategoryStates(toolbox, hook);
             };
             HookGenerator(toolbox, hook);
         }
@@ -150,6 +162,7 @@ namespace RPA.Controls
                 if (sender is ItemContainerGenerator generator && generator.Status == GeneratorStatus.ContainersGenerated)
                 {
                     ScheduleApply(toolbox);
+                    RestoreCategoryStates(toolbox, hook);
                 }
             };
         }
@@ -179,6 +192,156 @@ namespace RPA.Controls
                 }),
                 DispatcherPriority.Background);
         }
+
+        /// <summary>
+        /// Сохраняет состояние узлов-категорий панели «Активности» (свёрнуто/развёрнуто) при
+        /// пользовательском разворачивании/сворачивании категории. Во время восстановления
+        /// (<see cref="ToolboxHook.Restoring"/>) и до его завершения (<see cref="ToolboxHook.StateReady"/>)
+        /// события игнорируются, чтобы программное применение состояния и стартовая генерация
+        /// контейнеров не перезаписывали настройку.
+        /// </summary>
+        private static void OnCategoryStateChanged(ToolboxControl toolbox, RoutedEventArgs args)
+        {
+            if (!ContainerHooks.TryGetValue(toolbox, out ToolboxHook hook) || !hook.StateReady || hook.Restoring)
+            {
+                return;
+            }
+
+            if (!(args.OriginalSource is TreeViewItem item) || !(item.Header is ToolboxCategory))
+            {
+                return;
+            }
+
+            SaveCategoryStates(toolbox);
+        }
+
+        /// <summary>Сериализует имена развёрнутых категорий в настройку <c>ActivityToolboxLayout</c>.</summary>
+        private static void SaveCategoryStates(ToolboxControl toolbox)
+        {
+            TreeView treeView = FindToolsTreeView(toolbox);
+            if (treeView == null)
+            {
+                return;
+            }
+
+            var expanded = new List<string>();
+            foreach (TreeViewItem item in FindVisualChildren<TreeViewItem>(treeView))
+            {
+                if (item.IsExpanded && item.Header is ToolboxCategory category)
+                {
+                    expanded.Add(category.CategoryName);
+                }
+            }
+
+            Properties.Settings.Default.ActivityToolboxLayout = Newtonsoft.Json.JsonConvert.SerializeObject(expanded);
+            Properties.Settings.Default.Save();
+        }
+
+        /// <summary>
+        /// Планирует восстановление свёрнутости/развёрнутости узлов-категорий из настройки
+        /// <c>ActivityToolboxLayout</c>. Работа откладывается на Background-приоритет диспетчера,
+        /// чтобы не входить в генерацию контейнеров синхронно из <c>Loaded</c>/<c>StatusChanged</c>.
+        /// </summary>
+        private static void RestoreCategoryStates(ToolboxControl toolbox, ToolboxHook hook)
+        {
+            if (hook.StateRestored || hook.RestorePending)
+            {
+                return;
+            }
+
+            hook.RestorePending = true;
+            _ = toolbox.Dispatcher.BeginInvoke(
+                new Action(() =>
+                {
+                    hook.RestorePending = false;
+                    ApplySavedCategoryStates(toolbox, hook);
+                }),
+                DispatcherPriority.Background);
+        }
+
+
+        /// <summary>
+        /// Восстанавливает свёрнутость/развёрнутость узлов-категорий из настройки
+        /// <c>ActivityToolboxLayout</c>. Вызывается после генерации контейнеров дерева (Loaded и
+        /// <c>ItemContainerGenerator.StatusChanged</c>); если контейнеры ещё не созданы, попытка
+        /// повторяется позже. Флаг <see cref="ToolboxHook.Restoring"/> подавляет сохранение состояния
+        /// во время программного применения сохранённой свёрнутости/развёрнутости.
+        /// </summary>
+        private static void ApplySavedCategoryStates(ToolboxControl toolbox, ToolboxHook hook)
+        {
+            if (hook.StateRestored)
+            {
+                return;
+            }
+
+            TreeView treeView = FindToolsTreeView(toolbox);
+            if (treeView == null)
+            {
+                return;
+            }
+
+            List<string> expanded = ReadExpandedCategories();
+            if (expanded == null)
+            {
+                // Настройки нет — оставляем дефолтное состояние (все категории развёрнуты).
+                hook.StateReady = true;
+                hook.StateRestored = true;
+                return;
+            }
+
+            List<TreeViewItem> categoryItems = FindVisualChildren<TreeViewItem>(treeView)
+                .Where(item => item.Header is ToolboxCategory)
+                .ToList();
+
+            if (categoryItems.Count == 0)
+            {
+                // Контейнеры ещё не созданы генератором — повторим по StatusChanged/Loaded.
+                return;
+            }
+
+            hook.Restoring = true;
+            try
+            {
+                foreach (TreeViewItem item in categoryItems)
+                {
+                    string categoryName = ((ToolboxCategory)item.Header).CategoryName;
+                    item.IsExpanded = expanded.Contains(categoryName);
+                }
+            }
+            finally
+            {
+                hook.Restoring = false;
+            }
+
+            hook.StateReady = true;
+            hook.StateRestored = true;
+        }
+
+        /// <summary>Читает список имён развёрнутых категорий; <c>null</c> — настройки нет.</summary>
+        private static List<string> ReadExpandedCategories()
+        {
+            string json = Properties.Settings.Default.ActivityToolboxLayout;
+            if (string.IsNullOrEmpty(json))
+            {
+                return null;
+            }
+
+            try
+            {
+                return Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(json);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>Находит <c>TreeView</c> (<c>PART_Tools</c>) нативного тулбокса.</summary>
+        private static TreeView FindToolsTreeView(ToolboxControl toolbox)
+        {
+            return toolbox?.Template?.FindName("PART_Tools", toolbox) as TreeView;
+        }
+
 
         private static Border GetFirstChildBorder(TreeView treeView)
         {
@@ -250,6 +413,19 @@ namespace RPA.Controls
 
             /// <summary>Отложенный проход уже запланирован — защита от повторной постановки.</summary>
             public bool Pending { get; set; }
+
+            /// <summary>Программное применение состояния категорий идёт — события не сохраняем.</summary>
+            public bool Restoring { get; set; }
+
+            /// <summary>Восстановление завершено (или настройки нет) — можно сохранять изменения.</summary>
+            public bool StateReady { get; set; }
+
+            /// <summary>Состояние категорий уже восстановлено для этого контрола.</summary>
+            public bool StateRestored { get; set; }
+            /// <summary>Отложенное восстановление уже запланировано — защита от повторной постановки.</summary>
+            public bool RestorePending { get; set; }
+
+
         }
     }
 }

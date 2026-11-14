@@ -26,6 +26,10 @@
     <Setting Name="ProjectTreeLayout" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
+    <Setting Name="ActivityToolboxLayout" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+
     <Setting Name="ExpressionEditorWidth" Type="System.Double" Scope="User">
       <Value Profile="(Default)">0</Value>
     </Setting>
