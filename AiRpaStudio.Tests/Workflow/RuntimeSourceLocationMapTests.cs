@@ -53,6 +53,8 @@ namespace AiRpaStudio.Tests.Workflow
                 Is.True, "в маппинге должен быть SubProcess1.xaml; есть: " + string.Join(", ", files));
             Assert.That(files.Any(f => string.Equals(f, "SubProcess2.xaml", StringComparison.OrdinalIgnoreCase)),
                 Is.True, "в маппинге должен быть SubProcess2.xaml (тело вложенного процесса); есть: " + string.Join(", ", files));
+            Assert.That(files.Any(f => string.Equals(f, "SubProcess3.xaml", StringComparison.OrdinalIgnoreCase)),
+                Is.True, "в маппинге должен быть SubProcess3.xaml (иначе точка останова на его теле не сработает); есть: " + string.Join(", ", files));
         }
 
         [Test]

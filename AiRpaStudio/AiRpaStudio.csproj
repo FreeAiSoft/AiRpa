@@ -412,6 +412,7 @@
     <Compile Include="Helpers\ConsoleWriterEventArgs.cs" />
     <Compile Include="Helpers\CustomCommands.cs" />
     <Compile Include="Helpers\DebuggerMappingsHelper.cs" />
+    <Compile Include="Helpers\DebugSymbolInjector.cs" />
     <Compile Include="Helpers\RuntimeSourceLocationMap.cs" />
     <Compile Include="Helpers\DocGroupHelper.cs" />
     <Compile Include="Helpers\FSNodeComparer.cs" />

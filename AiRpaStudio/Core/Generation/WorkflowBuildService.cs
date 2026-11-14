@@ -326,9 +326,13 @@ namespace RPA.Core.Generation
                 return build;
             }
 
+            // Отладочный символ вписывается до записи: гейт валидирует ровно тот текст, который
+            // ляжет на диск, а номера строк символа соответствуют финальному файлу.
+            string xamlToWrite = DebugSymbolInjector.Inject(build.Xaml, fullPath);
+
             try
             {
-                File.WriteAllText(temporaryPath, build.Xaml, FileEncoding);
+                File.WriteAllText(temporaryPath, xamlToWrite, FileEncoding);
             }
             catch (Exception ex)
             {

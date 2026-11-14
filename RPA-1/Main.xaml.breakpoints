@@ -18,21 +18,9 @@
     "EndColumn": 17
   },
   {
-    "StartLine": 42,
-    "StartColumn": 5,
-    "EndLine": 53,
+    "StartLine": 28,
+    "StartColumn": 3,
+    "EndLine": 51,
     "EndColumn": 14
-  },
-  {
-    "StartLine": 54,
-    "StartColumn": 5,
-    "EndLine": 54,
-    "EndColumn": 74
-  },
-  {
-    "StartLine": 55,
-    "StartColumn": 5,
-    "EndLine": 59,
-    "EndColumn": 17
   }
 ]

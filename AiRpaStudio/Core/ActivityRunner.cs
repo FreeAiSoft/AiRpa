@@ -101,7 +101,11 @@ namespace RPA.Core
             catch (Exception ex)
             {
                 Log(ErrorText.Of(ex), RpaCommon.Enums.LogLevel.Error);
-                OnUi(() => WorkflowState = WorkflowState.StartingError);
+                OnUi(() =>
+                {
+                    ClearCurrentLocationOnAllDesigners();
+                    WorkflowState = WorkflowState.StartingError;
+                });
                 SetDesignerIsReadonly(false);
                 RaiseRunFinished(WorkflowState.StartingError);
             }
@@ -422,6 +426,7 @@ namespace RPA.Core
                 OnUi(() =>
                 {
                     SetDesignerIsReadonly(false);
+                    ClearCurrentLocationOnAllDesigners();
                     WorkflowState = WorkflowState.StartingError;
                 });
                 RaiseRunFinished(WorkflowState.StartingError);
@@ -461,10 +466,7 @@ namespace RPA.Core
             OnUi(() =>
             {
                 SetDesignerIsReadonly(false);
-                if (_workflowDesignerEx != null)
-                {
-                    _workflowDesignerEx.DebugManagerView.CurrentLocation = null;
-                }
+                ClearCurrentLocationOnAllDesigners();
 
                 WorkflowState = WorkflowState.Complete;
             });
@@ -500,10 +502,7 @@ namespace RPA.Core
             OnUi(() =>
             {
                 SetDesignerIsReadonly(false);
-                if (_workflowDesignerEx != null)
-                {
-                    _workflowDesignerEx.DebugManagerView.CurrentLocation = null;
-                }
+                ClearCurrentLocationOnAllDesigners();
 
                 WorkflowState = WorkflowState.Aborted;
             });
@@ -603,7 +602,11 @@ namespace RPA.Core
             }
             else
             {
-                OnUi(() => WorkflowState = WorkflowState.Aborted);
+                OnUi(() =>
+                {
+                    ClearCurrentLocationOnAllDesigners();
+                    WorkflowState = WorkflowState.Aborted;
+                });
                 RaiseRunFinished(WorkflowState.Aborted);
             }
 
@@ -622,6 +625,21 @@ namespace RPA.Core
             if (designerView != null)
             {
                 _ = designerView.Dispatcher.Invoke(() => designerView.IsReadOnly = isReadOnly);
+            }
+        }
+
+        /// <summary>
+        /// Clears the current-activity highlight (yellow frame) on every open designer.
+        /// The previous code reset CurrentLocation only on the root designer, while the
+        /// highlight is applied to the designer of the script where the activity actually
+        /// runs (a nested SubProcessN.xaml), so nested tabs kept the frame after the run.
+        /// Must be called on the UI thread: CurrentLocation triggers BringToView/Focus.
+        /// </summary>
+        private static void ClearCurrentLocationOnAllDesigners()
+        {
+            foreach (WorkflowDesignerEx designer in CustomWfDesigner.GetInstance().WorkflowDesigners)
+            {
+                designer.DebugManagerView.CurrentLocation = null;
             }
         }
 

@@ -6,6 +6,7 @@ using System.Text;
 using System.Xml;
 using System.Xaml;
 using RPA.Chat.Services.Workflow;
+using RPA.Helpers;
 
 namespace RPA.Core.Generation
 {
@@ -63,6 +64,23 @@ namespace RPA.Core.Generation
             return Normalize(text.ToString());
         }
 
+        /// <summary>
+        /// Сериализует модель в XAML и вписывает <c>sads:DebugSymbol.Symbol</c>, привязанный к
+        /// <paramref name="filePath"/>. Без символа точка останова на теле процесса не резолвится
+        /// при прогоне («Not found SourceLocation»).
+        /// </summary>
+        internal static string Serialize(ActivityBuilder builder, string filePath)
+        {
+            string xaml = Serialize(builder);
+
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                return xaml;
+            }
+
+            return DebugSymbolInjector.Inject(xaml, filePath);
+        }
+
         /// <summary>Записывает канонический XAML в файл (UTF-8 без BOM, CRLF).</summary>
         internal static void Save(ActivityBuilder builder, string filePath)
         {
@@ -71,7 +89,7 @@ namespace RPA.Core.Generation
                 throw new ArgumentException("Путь к файлу процесса не задан", nameof(filePath));
             }
 
-            File.WriteAllText(filePath, Serialize(builder), FileEncoding);
+            File.WriteAllText(filePath, Serialize(builder, filePath), FileEncoding);
         }
 
         /// <summary>

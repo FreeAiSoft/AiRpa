@@ -6,6 +6,7 @@ using System.IO;
 using System.Xaml;
 using System.Xml;
 using RPA.Logging;
+using RPA.Helpers;
 
 namespace RPA.Core.Workflow
 {
@@ -23,6 +24,7 @@ namespace RPA.Core.Workflow
     {
         private readonly WorkflowTypeRegistry _registry;
         private readonly Action<string> _setText;
+        private string _loadedFile;
 
         internal LooseXamlDocumentPersistenceService(WorkflowTypeRegistry registry, Action<string> setText = null)
         {
@@ -36,6 +38,8 @@ namespace RPA.Core.Workflow
             {
                 throw new ArgumentException("Путь к XAML-файлу не задан.", nameof(fileName));
             }
+
+            _loadedFile = fileName;
 
             string xaml = File.ReadAllText(fileName);
             SourceLocationMappingDiagnostics.Write($"LooseXamlDocumentPersistenceService.Load: file={fileName} length={xaml.Length}");
@@ -65,6 +69,11 @@ namespace RPA.Core.Workflow
             }
 
             string xaml = LooseXamlRoundTripSerializer.Serialize(documentRoot, _registry);
+            if (!string.IsNullOrWhiteSpace(_loadedFile))
+            {
+                xaml = DebugSymbolInjector.Inject(xaml, _loadedFile, new LooseActivityXamlSchemaContext(_registry));
+            }
+
             _setText?.Invoke(xaml);
         }
 
