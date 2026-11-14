@@ -20,6 +20,12 @@ namespace Agent.Core.AgentTools
         /// <summary>True when the tool changes state (files, solutions, builds, KB).</summary>
         bool Mutates { get; }
 
+        /// <summary>
+        /// Workflow writing way the tool belongs to (MCP palette / JSON AST / code-first), or
+        /// <see cref="WorkflowWriteWay.None"/> for tools outside the three toggles.
+        /// </summary>
+        WorkflowWriteWay Way { get; }
+
         /// <summary>Permission category the tool belongs to (gated by the settings).</summary>
         AgentPermissions Permission { get; }
 

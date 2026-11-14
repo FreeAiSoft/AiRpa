@@ -120,7 +120,7 @@ namespace AiRpaStudio.Tests
         {
             var executed = 0;
             var registry = new AgentToolRegistry();
-            registry.Register(new AgentTool("activity_insert", "insert", "{}", mutates: true,
+            registry.Register(new AgentTool("activity_create", "create", "{}", mutates: true,
                 (arguments, cancellationToken) =>
                 {
                     executed++;
@@ -132,7 +132,7 @@ namespace AiRpaStudio.Tests
                 new ChatResponse
                 {
                     Answer = "<invoke name=\"tool_call\">" +
-                             "<parameter name=\"tool\" string=\"true\">activity_insert</parameter>" +
+                             "<parameter name=\"tool\" string=\"true\">activity_create</parameter>" +
                              "<parameter name=\"arguments\" string=\"false\">{}</parameter>" +
                              "</invoke>",
                     FinishReason = "stop"

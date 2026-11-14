@@ -133,6 +133,10 @@ namespace RPA.Views
             Chat.Services.ChatEnvironment.WorkflowEditing = Core.Workflow.StudioWorkflowEditingService.Default;
             // Гейт валидации XAML для агента (AG-07): editor проверяет записанный .xaml тем же гейтом, что и генерация.
             Chat.Services.ChatEnvironment.WorkflowXamlGate = Core.Generation.StudioWorkflowXamlGate.Default;
+            // Мост «чат ↔ встроенный MCP» (план «3 галочки»): палитра, JSON AST, code-first вызываются
+            // агентом in-process поверх singleton RpaMcpServer (без транспорта stdio/http).
+            Chat.Services.ChatEnvironment.WorkflowMcpBridge =
+                new RPA.Mcp.StudioWorkflowMcpBridge(RPA.Mcp.RpaMcpServer.Default);
 
             // Обновление палитры после создания активности (AG-08): студия загружает собранную сборку в домен,
             // добавляет её типы в палитру, сбрасывает кэши каталога и реестра и пересобирает панель «Активности».

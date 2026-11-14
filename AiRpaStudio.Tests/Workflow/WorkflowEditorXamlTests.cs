@@ -175,6 +175,33 @@ public class WorkflowEditorXamlTests
     }
 
     [Test]
+    public void Editor_WritesXamlRegardlessOfMcpWayToggles()
+    {
+        string path = PathOf("Main.xaml");
+        AgentToolRegistry registry = CreateFactory().CreateRegistry();
+        IAgentTool editor = registry.Find("editor");
+        Assert.That(editor, Is.Not.Null);
+
+        Assert.That(editor.Way, Is.EqualTo(WorkflowWriteWay.None),
+            "editor (текст XAML) не помечается способом MCP");
+
+        string[] visible = registry.ForMode(AgentMode.Act, AgentPermissions.All, WorkflowWriteWay.None)
+            .Select(tool => tool.Name)
+            .ToArray();
+        Assert.That(visible, Does.Contain("editor"),
+            "editor остаётся доступным при выключенных MCP-галочках");
+
+        string result = editor.ExecuteAsync(Write(path, Workflow("<Sequence />")), CancellationToken.None).GetAwaiter().GetResult();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Does.Contain("File written"));
+            Assert.That(File.Exists(path), Is.True);
+        });
+    }
+
+
+    [Test]
     public void Editor_ReplacesTextInXamlAndNormalizesResult()
     {
         string path = PathOf("Main.xaml");
@@ -225,7 +252,7 @@ public class WorkflowEditorXamlTests
         {
             Assert.That(result, Does.Contain("File not written"));
             Assert.That(result, Does.Contain("open in the studio designer"));
-            Assert.That(result, Does.Contain("activity_insert"), "агент получает подсказку, чем править вместо текста");
+            Assert.That(result, Does.Contain("xaml.add_activity"), "агент получает подсказку, чем править вместо текста");
             Assert.That(File.Exists(path), Is.False, "запись в открытый конструктором файл не выполняется");
         });
     }

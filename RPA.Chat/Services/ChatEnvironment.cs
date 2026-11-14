@@ -55,6 +55,15 @@ namespace RPA.Chat.Services
             Workflow.NullWorkflowXamlGate.Instance;
 
         /// <summary>
+        /// Мост «чат ↔ встроенный MCP» (план «3 галочки»): инструменты трёх способов написания WF —
+        /// палитра, JSON AST, code-first. Реализацию даёт студия поверх <c>RpaMcpServer</c>/
+        /// <c>McpToolRegistry</c>; по умолчанию — null-object, и MCP-способы честно сообщают,
+        /// что мост не подключён, вместо падения.
+        /// </summary>
+        public static Workflow.IWorkflowMcpBridge WorkflowMcpBridge { get; set; } =
+            Workflow.NullWorkflowMcpBridge.Instance;
+
+        /// <summary>
         /// Обновление палитры «Активности» после создания активности (карточка <c>AG-08</c>): студия
         /// загружает собранную сборку в домен, добавляет её типы в палитру, сбрасывает кэши каталога и реестра
         /// и пересобирает панель. По умолчанию — null-object: инструмент честно сообщает, что без хоста

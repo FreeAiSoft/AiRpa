@@ -34,6 +34,12 @@ namespace Agent.Core.AgentTools
         /// <summary>Builds the prompt for a mode, protocol and allowed permission set.</summary>
         public static string Build(AgentMode mode, AgentToolRegistry registry, ToolCallingMode toolCallingMode, AgentPermissions allowed)
         {
+            return Build(mode, registry, toolCallingMode, allowed, WorkflowWriteWay.All);
+        }
+
+        /// <summary>Builds the prompt for a mode, protocol, permission set and enabled writing ways.</summary>
+        public static string Build(AgentMode mode, AgentToolRegistry registry, ToolCallingMode toolCallingMode, AgentPermissions allowed, WorkflowWriteWay allowedWays)
+        {
             if (mode == AgentMode.Help)
                 return BuildHelpSupportPrompt();
 
@@ -43,7 +49,7 @@ namespace Agent.Core.AgentTools
                     ? PromptLibrary.Load(PromptPaths.ResolvePromptsDirectory(), PromptLibrary.Categories.System, "agent-act-system-native.txt", PromptDefaults.AgentActSystemPromptNative)
                     : PromptLibrary.Load(PromptPaths.ResolvePromptsDirectory(), PromptLibrary.Categories.System, "agent-plan-system-native.txt", PromptDefaults.AgentPlanSystemPromptNative);
 
-                return AppendSpecGuidance(AppendWorkflowGuidance(nativePrompt, mode, registry, toolCallingMode, allowed), mode, registry, allowed);
+                return AppendSpecGuidance(AppendWorkflowGuidance(nativePrompt, mode, registry, toolCallingMode, allowed, allowedWays), mode, registry, allowed);
             }
 
             var basePrompt = PromptLibrary.Load(PromptPaths.ResolvePromptsDirectory(), PromptLibrary.Categories.System, "agent-json-base.txt", PromptDefaults.AgentJsonBaseSystemPrompt);
@@ -52,7 +58,7 @@ namespace Agent.Core.AgentTools
                 : PromptDefaults.AgentPlanModeInstructions;
 
             var sb = new StringBuilder();
-            foreach (var t in registry.ForMode(mode, allowed))
+            foreach (var t in registry.ForMode(mode, allowed, allowedWays))
             {
                 sb.Append("- ").Append(t.Name).Append(": ").Append(t.Description);
                 sb.Append(" Parameters: ").AppendLine(t.ParametersSchema);
@@ -63,7 +69,7 @@ namespace Agent.Core.AgentTools
                 toolList = "(none)";
 
             var prompt = basePrompt.Replace("{tools}", toolList).Replace("{mode_instructions}", modeInstructions);
-            return AppendSpecGuidance(AppendWorkflowGuidance(prompt, mode, registry, toolCallingMode, allowed), mode, registry, allowed);
+            return AppendSpecGuidance(AppendWorkflowGuidance(prompt, mode, registry, toolCallingMode, allowed, allowedWays), mode, registry, allowed);
         }
 
         /// <summary>
@@ -82,7 +88,16 @@ namespace Agent.Core.AgentTools
         /// </summary>
         public static string Build(AgentMode mode, AgentToolRegistry registry, ToolCallingMode toolCallingMode, AgentPermissions allowed, string userName, bool addressByName, MemoryBankMode memoryBankMode)
         {
-            var prompt = Build(mode, registry, toolCallingMode, allowed);
+            return Build(mode, registry, toolCallingMode, allowed, WorkflowWriteWay.All, userName, addressByName, memoryBankMode);
+        }
+
+        /// <summary>
+        /// Builds the prompt for a mode, protocol, permission set, writing ways, user addressing
+        /// and memory-bank convention.
+        /// </summary>
+        public static string Build(AgentMode mode, AgentToolRegistry registry, ToolCallingMode toolCallingMode, AgentPermissions allowed, WorkflowWriteWay allowedWays, string userName, bool addressByName, MemoryBankMode memoryBankMode)
+        {
+            var prompt = Build(mode, registry, toolCallingMode, allowed, allowedWays);
             var name = (userName ?? string.Empty).Trim();
             if (addressByName && name.Length > 0)
                 prompt = prompt + "\n\nAddress the user by their name when replying: \"" + name + "\".";
@@ -104,12 +119,13 @@ namespace Agent.Core.AgentTools
             AgentMode mode,
             AgentToolRegistry registry,
             ToolCallingMode toolCallingMode,
-            AgentPermissions allowed)
+            AgentPermissions allowed,
+            WorkflowWriteWay allowedWays)
         {
             if (string.IsNullOrEmpty(prompt) || registry == null)
                 return prompt;
 
-            var hasWorkflowTools = registry.ForMode(mode, allowed).Any(tool => IsWorkflowTool(tool.Name));
+            var hasWorkflowTools = registry.ForMode(mode, allowed, allowedWays).Any(tool => IsWorkflowTool(tool.Name));
             if (!hasWorkflowTools)
                 return prompt;
 

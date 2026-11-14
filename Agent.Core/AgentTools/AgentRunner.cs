@@ -66,6 +66,7 @@ namespace Agent.Core.AgentTools
         private readonly Func<AgentMode, string> _systemPromptFactory;
         private readonly ToolCallingMode _toolCallingMode;
         private readonly AgentPermissions _allowedPermissions;
+        private readonly WorkflowWriteWay _allowedWays;
         private readonly ContextBudget _budget;
         private readonly ITokenEstimator _estimator;
         private readonly IContextCondenser _condenser;
@@ -87,8 +88,9 @@ namespace Agent.Core.AgentTools
             Func<AgentMode, string> systemPromptFactory,
             int maxIterations = 8,
             ToolCallingMode toolCallingMode = ToolCallingMode.JsonChat,
-            AgentPermissions allowedPermissions = AgentPermissions.All)
-            : this(ai, registry, systemPromptFactory, new ContextBudget { MaxIterations = maxIterations }, null, toolCallingMode, allowedPermissions)
+            AgentPermissions allowedPermissions = AgentPermissions.All,
+            WorkflowWriteWay allowedWays = WorkflowWriteWay.All)
+            : this(ai, registry, systemPromptFactory, new ContextBudget { MaxIterations = maxIterations }, null, toolCallingMode, allowedPermissions, allowedWays)
         {
         }
 
@@ -99,13 +101,15 @@ namespace Agent.Core.AgentTools
             ContextBudget budget,
             string compactSystemPrompt = null,
             ToolCallingMode toolCallingMode = ToolCallingMode.JsonChat,
-            AgentPermissions allowedPermissions = AgentPermissions.All)
+            AgentPermissions allowedPermissions = AgentPermissions.All,
+            WorkflowWriteWay allowedWays = WorkflowWriteWay.All)
         {
             _ai = ai ?? throw new ArgumentNullException(nameof(ai));
             _registry = registry ?? throw new ArgumentNullException(nameof(registry));
             _systemPromptFactory = systemPromptFactory ?? throw new ArgumentNullException(nameof(systemPromptFactory));
             _toolCallingMode = toolCallingMode;
             _allowedPermissions = allowedPermissions;
+            _allowedWays = allowedWays;
             _budget = budget ?? new ContextBudget();
 
             _estimator = new TokenEstimator();
@@ -165,7 +169,7 @@ namespace Agent.Core.AgentTools
             messages.Add(userMessage);
 
             var maxIterations = effectiveBudget.MaxIterations > 0 ? effectiveBudget.MaxIterations : 8;
-            var toolDefinitions = ToolSchemaConverter.BuildToolDefinitions(_registry, mode, _allowedPermissions);
+            var toolDefinitions = ToolSchemaConverter.BuildToolDefinitions(_registry, mode, _allowedPermissions, _allowedWays);
             var protocolAttempts = 0;
 
             for (var i = 0; i < maxIterations; i++)
@@ -387,6 +391,19 @@ namespace Agent.Core.AgentTools
                 return null;
             }
 
+            if (tool.Way != WorkflowWriteWay.None && (_allowedWays & tool.Way) == 0)
+            {
+                var blocked = new AgentToolCall
+                {
+                    ToolName = tool.Name,
+                    Blocked = true,
+                    Result = "Blocked: tool \"" + tool.Name + "\" requires the \"" + WayName(tool.Way) + "\" workflow writing way, which is disabled in Settings."
+                };
+                ToolExecuted?.Invoke(this, blocked);
+                messages.Add(new ChatMessageData { Role = "tool", Content = blocked.Result, ToolCallId = call.Id ?? "" });
+                return null;
+            }
+
             var args = call.Arguments ?? new JObject();
             string resultText;
             try
@@ -476,6 +493,19 @@ namespace Agent.Core.AgentTools
                 return null;
             }
 
+            if (tool.Way != WorkflowWriteWay.None && (_allowedWays & tool.Way) == 0)
+            {
+                var blocked = new AgentToolCall
+                {
+                    ToolName = tool.Name,
+                    Blocked = true,
+                    Result = "Blocked: tool \"" + tool.Name + "\" requires the \"" + WayName(tool.Way) + "\" workflow writing way, which is disabled in Settings."
+                };
+                ToolExecuted?.Invoke(this, blocked);
+                messages.Add(new ChatMessageData { Role = "user", Content = blocked.Result });
+                return null;
+            }
+
             string resultText;
             try
             {
@@ -552,6 +582,17 @@ namespace Agent.Core.AgentTools
                 case AgentPermissions.ExecuteCommand: return "execute command";
                 case AgentPermissions.WebFetch: return "web fetch";
                 case AgentPermissions.Subagents: return "spawn sub-agents";
+                default: return "unknown";
+            }
+        }
+
+        private static string WayName(WorkflowWriteWay way)
+        {
+            switch (way)
+            {
+                case WorkflowWriteWay.Palette: return "palette (designer)";
+                case WorkflowWriteWay.JsonAst: return "JSON AST";
+                case WorkflowWriteWay.CodeFirst: return "code-first";
                 default: return "unknown";
             }
         }

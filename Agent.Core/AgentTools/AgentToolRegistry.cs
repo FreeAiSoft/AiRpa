@@ -33,12 +33,20 @@ namespace Agent.Core.AgentTools
         /// <summary>Tools allowed for a mode AND whose permission category is enabled.</summary>
         public IReadOnlyList<IAgentTool> ForMode(AgentMode mode, AgentPermissions allowed)
         {
+            return ForMode(mode, allowed, WorkflowWriteWay.All);
+        }
+
+        /// <summary>Tools allowed for a mode, enabled permission category and enabled writing way.</summary>
+        public IReadOnlyList<IAgentTool> ForMode(AgentMode mode, AgentPermissions allowed, WorkflowWriteWay allowedWays)
+        {
             // Help is a pure support chat: it answers from the bundled documentation and exposes no tools.
             if (mode == AgentMode.Help)
                 return new List<IAgentTool>();
 
             return _tools.Values
-                .Where(t => (mode == AgentMode.Act || !t.Mutates) && (allowed & t.Permission) != 0)
+                .Where(t => (mode == AgentMode.Act || !t.Mutates)
+                         && (allowed & t.Permission) != 0
+                         && (t.Way == WorkflowWriteWay.None || (allowedWays & t.Way) != 0))
                 .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }

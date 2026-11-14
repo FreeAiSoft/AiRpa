@@ -27,6 +27,58 @@ public class ChatViewModelTests
     }
 
     [Test]
+    public void WorkflowWritePolicy_Resolve_NullSettings_ReturnsNone()
+    {
+        Assert.That(WorkflowWritePolicy.Resolve(null), Is.EqualTo(WorkflowWriteWay.None));
+    }
+
+    [Test]
+    public void WorkflowWritePolicy_Resolve_EachFlag_MapsToSingleWay()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(WorkflowWritePolicy.Resolve(new SettingsData
+            {
+                AllowWfPalette = true,
+                AllowWfJsonAst = false,
+                AllowWfCodeFirst = false
+            }), Is.EqualTo(WorkflowWriteWay.Palette));
+
+            Assert.That(WorkflowWritePolicy.Resolve(new SettingsData
+            {
+                AllowWfPalette = false,
+                AllowWfJsonAst = true,
+                AllowWfCodeFirst = false
+            }), Is.EqualTo(WorkflowWriteWay.JsonAst));
+
+            Assert.That(WorkflowWritePolicy.Resolve(new SettingsData
+            {
+                AllowWfPalette = false,
+                AllowWfJsonAst = false,
+                AllowWfCodeFirst = true
+            }), Is.EqualTo(WorkflowWriteWay.CodeFirst));
+        });
+    }
+
+    [Test]
+    public void WorkflowWritePolicy_Resolve_DefaultSettings_ReturnsAll()
+    {
+        Assert.That(WorkflowWritePolicy.Resolve(new SettingsData()), Is.EqualTo(WorkflowWriteWay.All));
+    }
+
+    [Test]
+    public void WorkflowWritePolicy_Resolve_AllFlagsOff_ReturnsNone()
+    {
+        Assert.That(WorkflowWritePolicy.Resolve(new SettingsData
+        {
+            AllowWfPalette = false,
+            AllowWfJsonAst = false,
+            AllowWfCodeFirst = false
+        }), Is.EqualTo(WorkflowWriteWay.None));
+    }
+
+
+    [Test]
     public async Task SendAsync_WithoutApiKey_UsesStub_AppendsUserAndResult()
     {
         var vm = new ChatViewModel();

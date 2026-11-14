@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using Agent.Core.Models;
 using RPA.Core.Generation;
 using RPA.Mcp;
 using RPA.Mcp.Tools;
@@ -40,7 +41,14 @@ public class PaletteToolsTests
                 DescribeWorkflowContractTool.ToolName,
                 AddActivityTool.ToolName,
                 SetArgumentTool.ToolName,
-                GetWorkflowTool.ToolName
+                GetWorkflowTool.ToolName,
+                DeleteActivityTool.ToolName,
+                MoveActivityTool.ToolName,
+                WrapActivityTool.ToolName,
+                UndoTool.ToolName,
+                RedoTool.ToolName,
+                AddVariableTool.ToolName,
+                RemoveVariableTool.ToolName
             }));
 
             foreach (McpTool schema in registry.Schemas())
@@ -54,7 +62,7 @@ public class PaletteToolsTests
     [Test]
     public void Server_ExposesPaletteToolsWithoutAnyAdditionalRegistration()
     {
-        var server = new RpaMcpServer(McpToolRegistry.CreateDefault());
+        var server = new RpaMcpServer(McpToolRegistry.CreateDefault(), wayProvider: () => WorkflowWriteWay.All);
 
         McpTool[] tools = server.ListTools().GetAwaiter().GetResult().ToArray();
 
@@ -65,7 +73,7 @@ public class PaletteToolsTests
     [Test]
     public void Server_UnknownTool_ReportsAvailableNames()
     {
-        var server = new RpaMcpServer(McpToolRegistry.CreateDefault());
+        var server = new RpaMcpServer(McpToolRegistry.CreateDefault(), wayProvider: () => WorkflowWriteWay.All);
 
         McpToolResult result = server.CallTool("xaml.нет-такого", null).GetAwaiter().GetResult();
 

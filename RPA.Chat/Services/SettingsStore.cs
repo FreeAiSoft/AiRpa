@@ -104,6 +104,11 @@ namespace RPA.Chat.Services
         public bool AllowWebFetch { get; set; } = false;
         public bool AllowSubagents { get; set; } = false;
 
+        // ---- Способы написания WF через MCP (план «3 галочки»): независимые переключатели. ----
+        public bool AllowWfPalette { get; set; } = true;
+        public bool AllowWfJsonAst { get; set; } = true;
+        public bool AllowWfCodeFirst { get; set; } = true;
+
         /// <summary>Maximum agent-loop iterations for a single sub-agent.</summary>
         public int SubagentMaxIterations { get; set; } = 4;
 

@@ -53,7 +53,13 @@ namespace Agent.Core.AgentTools
         /// <summary>Builds the tool list for a mode and allowed permission set.</summary>
         public static IReadOnlyList<ToolDefinition> BuildToolDefinitions(AgentToolRegistry registry, AgentMode mode, AgentPermissions allowed)
         {
-            return registry.ForMode(mode, allowed).Select(ToToolDefinition).ToList();
+            return BuildToolDefinitions(registry, mode, allowed, WorkflowWriteWay.All);
+        }
+
+        /// <summary>Builds the tool list for a mode, allowed permission set and enabled writing ways.</summary>
+        public static IReadOnlyList<ToolDefinition> BuildToolDefinitions(AgentToolRegistry registry, AgentMode mode, AgentPermissions allowed, WorkflowWriteWay allowedWays)
+        {
+            return registry.ForMode(mode, allowed, allowedWays).Select(ToToolDefinition).ToList();
         }
 
         private static JObject EmptyObjectSchema()

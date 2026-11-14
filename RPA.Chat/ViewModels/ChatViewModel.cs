@@ -749,14 +749,16 @@ namespace RPA.Chat.ViewModels
                 ? ToolCallingMode.Native
                 : ToolCallingMode.JsonChat;
             var allowed = BuildAllowedPermissions();
+            var allowedWays = BuildAllowedWays();
 
             _agentRunner = new AgentRunner(
                 _ai,
                 _toolRegistry,
-                m => AgentPromptBuilder.Build(m, _toolRegistry, toolCallingMode, allowed, _settings.UserName, _settings.AddressByName, ParseMemoryBankMode()),
+                m => AgentPromptBuilder.Build(m, _toolRegistry, toolCallingMode, allowed, allowedWays, _settings.UserName, _settings.AddressByName, ParseMemoryBankMode()),
                 BuildContextBudget(),
                 toolCallingMode: toolCallingMode,
-                allowedPermissions: allowed);
+                allowedPermissions: allowed,
+                allowedWays: allowedWays);
             _agentRunner.ToolExecuted += OnAgentToolExecuted;
             _agentRunner.ContextCompacted += OnAgentContextCompacted;
             _agentRunner.RetryOccurred += OnAgentRetryOccurred;
@@ -790,6 +792,11 @@ namespace RPA.Chat.ViewModels
             return AgentPermissionsPolicy.Resolve(_settings);
         }
 
+        private WorkflowWriteWay BuildAllowedWays()
+        {
+            return WorkflowWritePolicy.Resolve(_settings);
+        }
+
         private MemoryBankMode ParseMemoryBankMode()
         {
             var value = _settings?.MemoryBankMode;
@@ -808,6 +815,7 @@ namespace RPA.Chat.ViewModels
                 ? ToolCallingMode.Native
                 : ToolCallingMode.JsonChat;
             var allowed = BuildAllowedPermissions();
+            var allowedWays = BuildAllowedWays();
             var budget = BuildSubAgentBudget();
 
             var item = new SubagentStatusItem { Prompt = task };
@@ -822,10 +830,11 @@ namespace RPA.Chat.ViewModels
             var runner = new AgentRunner(
                 _ai,
                 registry,
-                m => AgentPromptBuilder.Build(m, registry, toolCallingMode, allowed),
+                m => AgentPromptBuilder.Build(m, registry, toolCallingMode, allowed, allowedWays),
                 budget,
                 toolCallingMode: toolCallingMode,
-                allowedPermissions: allowed);
+                allowedPermissions: allowed,
+                allowedWays: allowedWays);
 
             runner.ToolExecuted += (s, e) =>
             {

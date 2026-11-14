@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using NUnit.Framework;
 using RPA.Chat.Services;
 using RPA.Chat.Services.AgentTools;
+using RPA.Chat.Services.Workflow;
 using Agent.Core.AgentTools;
 using Agent.Core.Contracts;
 using Agent.Core.Models;
@@ -56,6 +57,40 @@ namespace RPA.Chat.Tests
             // No tool name may reference MCP.
             Assert.That(all.Any(t => t.Name.IndexOf("mcp", StringComparison.OrdinalIgnoreCase) >= 0), Is.False);
         }
+        [Test]
+        public void CreateRegistry_ImportsMcpToolsWithWayAndPermission()
+        {
+            var factory = new AgentToolFactory(
+                new StubAiProvider(),
+                () => System.IO.Path.GetTempPath(),
+                NullStudioDocumentService.Instance,
+                new FakeBuildFeedbackService(),
+                (q, o, ct) => Task.FromResult("answer"),
+                (sys, task, ct) => Task.FromResult("sub-result"),
+                false,
+                subagentMaxDepth: 2,
+                workflowMcpBridge: new FakeWorkflowMcpBridge());
+
+            var palette = factory.CreateRegistry().Find("xaml.add_activity");
+            var readOnly = factory.CreateRegistry().Find("xaml.get_workflow");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(palette, Is.Not.Null);
+                Assert.That(palette.Way, Is.EqualTo(WorkflowWriteWay.Palette),
+                    "мутирующий MCP-инструмент обязан нести метку способа, иначе галочка его не спрячет");
+                Assert.That(palette.Mutates, Is.True);
+                Assert.That(palette.Permission, Is.EqualTo(AgentPermissions.EditFiles));
+
+                Assert.That(readOnly, Is.Not.Null);
+                Assert.That(readOnly.Way, Is.EqualTo(WorkflowWriteWay.None),
+                    "read-only поддержка MCP не привязана к галочке");
+                Assert.That(readOnly.Mutates, Is.False);
+                Assert.That(readOnly.Permission, Is.EqualTo(AgentPermissions.ReadFiles));
+            });
+        }
+
+
 
         [Test]
         public void PlanMode_ExcludesMutatingTools()
@@ -210,5 +245,37 @@ namespace RPA.Chat.Tests
 
             public Task<string> GetOutputWindowTextAsync(CancellationToken cancellationToken = default) => Task.FromResult("");
         }
+
+        private sealed class FakeWorkflowMcpBridge : IWorkflowMcpBridge
+        {
+            public IReadOnlyList<WorkflowMcpToolInfo> ListTools()
+            {
+                return new[]
+                {
+                    new WorkflowMcpToolInfo
+                    {
+                        Name = "xaml.add_activity",
+                        Description = "add activity",
+                        ParametersSchema = "{}",
+                        Way = WorkflowWriteWay.Palette,
+                        Mutates = true
+                    },
+                    new WorkflowMcpToolInfo
+                    {
+                        Name = "xaml.get_workflow",
+                        Description = "get workflow",
+                        ParametersSchema = "{}",
+                        Way = WorkflowWriteWay.None,
+                        Mutates = false
+                    }
+                };
+            }
+
+            public Task<string> CallAsync(string name, string jsonArguments, CancellationToken cancellationToken)
+            {
+                return Task.FromResult("{\"ok\":true}");
+            }
+        }
+
     }
 }

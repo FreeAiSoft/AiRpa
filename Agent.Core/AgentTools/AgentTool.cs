@@ -20,7 +20,8 @@ namespace Agent.Core.AgentTools
             Func<JObject, CancellationToken, Task<string>> handler,
             Func<JObject, CancellationToken, Task<string>> displayHandler = null,
             AgentPermissions? permission = null,
-            bool completesRun = false)
+            bool completesRun = false,
+            WorkflowWriteWay way = WorkflowWriteWay.None)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Description = description ?? "";
@@ -28,6 +29,7 @@ namespace Agent.Core.AgentTools
             Mutates = mutates;
             Permission = permission ?? (mutates ? AgentPermissions.EditFiles : AgentPermissions.ReadFiles);
             CompletesRun = completesRun;
+            Way = way;
             _handler = handler ?? throw new ArgumentNullException(nameof(handler));
             _displayHandler = displayHandler;
         }
@@ -37,6 +39,7 @@ namespace Agent.Core.AgentTools
         public string ParametersSchema { get; }
         public bool Mutates { get; }
         public AgentPermissions Permission { get; }
+        public WorkflowWriteWay Way { get; }
         public bool CompletesRun { get; }
 
         public Task<string> ExecuteAsync(JObject arguments, CancellationToken cancellationToken)

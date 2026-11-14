@@ -16,8 +16,8 @@ namespace RPA.Chat.Services.Workflow
     public static class WorkflowValidationText
     {
         private const string Hint =
-            "дальше: правьте по этим адресам (activity_insert, activity_delete, activity_move, activity_wrap, " +
-            "argument_set, variable_add) и повторяйте workflow_validate, пока не останется «ошибок нет».";
+            "дальше: правьте по этим адресам (xaml.add_activity, xaml.delete_activity, xaml.move_activity, xaml.wrap_activity, " +
+            "xaml.set_argument, xaml.add_variable) и повторяйте workflow_validate, пока не останется «ошибок нет».";
 
         /// <summary>Ответ по отчёту валидации: вердикт, источник, замечания с адресами и подсказка.</summary>
         public static string Describe(WorkflowValidationReport report)

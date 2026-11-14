@@ -37,6 +37,27 @@ namespace Agent.Core.Models
         All = ReadFiles | EditFiles | ExecuteCommand | WebFetch | Subagents
     }
 
+    /// <summary>
+    /// The way a Workflow Foundation workflow is written. Each MCP-based writing way is
+    /// controlled by its own toggle; plain XAML text written through the <c>editor</c>
+    /// tool is deliberately not a way here — it stays on the native chat path and is
+    /// governed by <see cref="AgentPermissions.EditFiles"/>.
+    /// </summary>
+    [Flags]
+    public enum WorkflowWriteWay
+    {
+        /// <summary>No MCP-based workflow writing way enabled.</summary>
+        None = 0,
+        /// <summary>Palette/designer writing (xaml.create_workflow, xaml.add_activity, xaml.set_argument, ...).</summary>
+        Palette = 1,
+        /// <summary>JSON AST writing (xaml.create_workflow_from_json).</summary>
+        JsonAst = 2,
+        /// <summary>Code-first writing (xaml.create_workflow_from_code).</summary>
+        CodeFirst = 4,
+        /// <summary>All MCP-based workflow writing ways enabled.</summary>
+        All = Palette | JsonAst | CodeFirst
+    }
+
     /// <summary>How the agent talks to the model about tools.</summary>
     public enum ToolCallingMode
     {

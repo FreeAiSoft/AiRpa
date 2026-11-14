@@ -51,7 +51,7 @@ namespace AiRpaStudio.Tests
         };
 
         private static readonly Regex SnakeCaseToken =
-            new Regex(@"(?<![A-Za-z0-9_])[a-z][a-z0-9]*(?:_[a-z0-9]+)+(?![A-Za-z0-9_])");
+            new Regex(@"(?<![A-Za-z0-9_])(?:xaml\.)?[a-z][a-z0-9]*(?:_[a-z0-9]+)+(?![A-Za-z0-9_])");
 
         // ------------------------------------------------------------------
         // Имена инструментов в промптах
@@ -135,7 +135,7 @@ namespace AiRpaStudio.Tests
                 Assert.That(prompt, Does.Contain("workflow_outline"), "Plan обязан начинать с чтения структуры");
                 Assert.That(prompt, Does.Contain("workflow_validate"), "Plan обязан описывать отчёт валидации");
                 Assert.That(prompt, Does.Contain("activity_describe"), "Plan обязан читать каталог активностей");
-                Assert.That(prompt, Does.Not.Contain("{\"action\":\"tool_call\",\"tool\":\"activity_insert\""),
+                Assert.That(prompt, Does.Not.Contain("{\"action\":\"tool_call\",\"tool\":\"xaml.add_activity\""),
                     "в Plan не бывает примеров правки");
             });
         }
@@ -149,8 +149,8 @@ namespace AiRpaStudio.Tests
             Assert.Multiple(() =>
             {
                 Assert.That(prompt, Does.Contain("workflow_outline"), "цикл начинается с чтения структуры");
-                Assert.That(prompt, Does.Contain("activity_insert"), "цикл описывает правку модели");
-                Assert.That(prompt, Does.Contain("argument_set"), "цикл описывает правку аргументов");
+                Assert.That(prompt, Does.Contain("xaml.add_activity"), "цикл описывает правку модели");
+                Assert.That(prompt, Does.Contain("xaml.set_argument"), "цикл описывает правку аргументов");
                 Assert.That(prompt, Does.Contain("workflow_validate"), "цикл описывает проверку после правки");
                 Assert.That(prompt, Does.Contain("read_errors"), "цикл заканчивается разбором ошибок сборки");
             });
@@ -165,7 +165,7 @@ namespace AiRpaStudio.Tests
             Assert.Multiple(() =>
             {
                 Assert.That(prompt, Does.Contain("workflow_outline"));
-                Assert.That(prompt, Does.Contain("activity_insert"));
+                Assert.That(prompt, Does.Contain("xaml.add_activity"));
                 Assert.That(prompt, Does.Contain("workflow_validate"));
                 Assert.That(prompt, Does.Contain("read_errors"));
             });
@@ -225,8 +225,8 @@ namespace AiRpaStudio.Tests
 
             Assert.Multiple(() =>
             {
-                Assert.That(prompt, Does.Contain("\"tool\":\"activity_insert\""), "пример вставки активности");
-                Assert.That(prompt, Does.Contain("\"tool\":\"argument_set\""), "пример аргумента-выражения");
+                Assert.That(prompt, Does.Contain("\"tool\":\"xaml.add_activity\""), "пример вставки активности");
+                Assert.That(prompt, Does.Contain("\"tool\":\"xaml.set_argument\""), "пример аргумента-выражения");
                 Assert.That(prompt, Does.Contain("\"tool\":\"workflow_validate\""), "пример реакции на ошибку валидации");
                 Assert.That(prompt, Does.Contain("\"tool\":\"activity_create\""), "пример создания активности");
             });
@@ -311,9 +311,37 @@ namespace AiRpaStudio.Tests
                 enableSubagents: false,
                 subagentMaxDepth: 2,
                 getDocsDirectory: null,
-                activityCatalog: NullActivityCatalog.Instance);
+                activityCatalog: NullActivityCatalog.Instance,
+                workflowMcpBridge: new FakeWorkflowMcpBridge());
 
             return factory.CreateRegistry();
+        }
+
+        private sealed class FakeWorkflowMcpBridge : IWorkflowMcpBridge
+        {
+            private static readonly string[] PaletteTools =
+            {
+                "xaml.create_workflow", "xaml.add_activity", "xaml.set_argument",
+                "xaml.add_variable", "xaml.remove_variable", "xaml.delete_activity",
+                "xaml.move_activity", "xaml.wrap_activity", "xaml.undo", "xaml.redo"
+            };
+
+            public IReadOnlyList<WorkflowMcpToolInfo> ListTools()
+            {
+                return PaletteTools.Select(name => new WorkflowMcpToolInfo
+                {
+                    Name = name,
+                    Description = name,
+                    ParametersSchema = "{}",
+                    Way = WorkflowWriteWay.Palette,
+                    Mutates = true
+                }).ToArray();
+            }
+
+            public Task<string> CallAsync(string name, string jsonArguments, CancellationToken cancellationToken)
+            {
+                return Task.FromResult("{\"ok\":true}");
+            }
         }
 
         private sealed class FakeBuildFeedbackService : IBuildFeedbackService

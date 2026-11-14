@@ -48,16 +48,7 @@ namespace AiRpaStudio.Tests.Workflow
             new WorkflowToolSpec("workflow_outline", mutates: false, AgentPermissions.ReadFiles),
             new WorkflowToolSpec("workflow_validate", mutates: false, AgentPermissions.ReadFiles),
 
-            // мутирующие: правка модели конструктора
-            new WorkflowToolSpec("activity_insert", mutates: true, AgentPermissions.EditFiles),
-            new WorkflowToolSpec("activity_delete", mutates: true, AgentPermissions.EditFiles),
-            new WorkflowToolSpec("activity_move", mutates: true, AgentPermissions.EditFiles),
-            new WorkflowToolSpec("activity_wrap", mutates: true, AgentPermissions.EditFiles),
-            new WorkflowToolSpec("activity_undo", mutates: true, AgentPermissions.EditFiles),
-            new WorkflowToolSpec("activity_redo", mutates: true, AgentPermissions.EditFiles),
-            new WorkflowToolSpec("argument_set", mutates: true, AgentPermissions.EditFiles),
-            new WorkflowToolSpec("variable_add", mutates: true, AgentPermissions.EditFiles),
-            new WorkflowToolSpec("variable_remove", mutates: true, AgentPermissions.EditFiles),
+            // мутирующие: создание активности в библиотеке (правки модели ушли в MCP, Фаза 6)
             new WorkflowToolSpec("activity_create", mutates: true, AgentPermissions.EditFiles)
         };
 
@@ -297,23 +288,23 @@ namespace AiRpaStudio.Tests.Workflow
             AgentToolRegistry registry = new AgentToolRegistry();
             foreach (IAgentTool tool in CreateRegistry().ForMode(AgentMode.Act, AgentPermissions.All))
             {
-                if (!string.Equals(tool.Name, "variable_remove", StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(tool.Name, "activity_create", StringComparison.OrdinalIgnoreCase))
                 {
                     registry.Register(tool);
                 }
             }
 
             Assert.That(Absent(WorkflowToolsIn(registry, AgentMode.Act, AgentPermissions.All)),
-                Is.EqualTo(new[] { "variable_remove" }));
+                Is.EqualTo(new[] { "activity_create" }));
         }
 
         [Test]
         public void Guard_DetectsMutatingToolWithoutEditFiles()
         {
             // Сняли EditFiles у мутирующего инструмента — страж категории обязан упасть.
-            AgentToolRegistry registry = ReplaceTool("variable_remove", mutates: true, permission: AgentPermissions.ReadFiles);
+            AgentToolRegistry registry = ReplaceTool("activity_create", mutates: true, permission: AgentPermissions.ReadFiles);
 
-            Assert.That(MutatingToolsWithoutEditFiles(registry), Does.Contain("variable_remove"));
+            Assert.That(MutatingToolsWithoutEditFiles(registry), Does.Contain("activity_create"));
         }
 
         [Test]
@@ -334,14 +325,68 @@ namespace AiRpaStudio.Tests.Workflow
         public void Guard_DetectsClearedMutatesFlag()
         {
             // Забыли mutates: true у аргументов — инструмент протекает в Plan.
-            AgentToolRegistry registry = ReplaceTool("argument_set", mutates: false, permission: AgentPermissions.EditFiles);
+            AgentToolRegistry registry = ReplaceTool("activity_create", mutates: false, permission: AgentPermissions.EditFiles);
 
             Assert.Multiple(() =>
             {
-                Assert.That(MutatingToolsLeakingIntoPlan(registry), Does.Contain("argument_set"));
+                Assert.That(MutatingToolsLeakingIntoPlan(registry), Does.Contain("activity_create"));
                 Assert.That(FlagMismatches(registry), Is.Not.Empty);
             });
         }
+        [Test]
+        public void Guard_DetectsWrongWayOnWorkflowTool()
+        {
+            // Чат-инструменты WF живут вне MCP-галочек: ненулевая Way-метка — ошибка переноса.
+            AgentToolRegistry registry = ReplaceTool("activity_create", mutates: true, permission: AgentPermissions.EditFiles, way: WorkflowWriteWay.Palette);
+
+            Assert.That(FlagMismatches(registry), Does.Contain("activity_create: way=Palette, ожидалось None"));
+        }
+
+        // ------------------------------------------------------------------
+        // Второе измерение: способ написания WF (Фаза 7/12)
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void DisabledWay_HidesItsToolFromAct()
+        {
+            var registry = new AgentToolRegistry();
+            registry.Register(new AgentTool(
+                "xaml.add_activity",
+                "palette edit",
+                "{}",
+                mutates: true,
+                (arguments, cancellationToken) => Task.FromResult("ok"),
+                way: WorkflowWriteWay.Palette));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(registry.ForMode(AgentMode.Act, AgentPermissions.All, WorkflowWriteWay.None)
+                    .Select(tool => tool.Name), Does.Not.Contain("xaml.add_activity"),
+                    "выключенный способ обязан прятать свой инструмент даже в Act");
+                Assert.That(registry.ForMode(AgentMode.Act, AgentPermissions.All, WorkflowWriteWay.Palette)
+                    .Select(tool => tool.Name), Does.Contain("xaml.add_activity"));
+            });
+        }
+
+        [Test]
+        public void ReadOnlyWorkflowTools_DoNotDependOnWay()
+        {
+            var registry = new AgentToolRegistry();
+            registry.Register(new AgentTool("workflow_outline", "outline", "{}", mutates: false,
+                (a, c) => Task.FromResult("r")));
+            registry.Register(new AgentTool("activity_search", "search", "{}", mutates: false,
+                (a, c) => Task.FromResult("r")));
+            registry.Register(new AgentTool("xaml.get_workflow", "get workflow", "{}", mutates: false,
+                (a, c) => Task.FromResult("r")));
+
+            string[] visible = registry.ForMode(AgentMode.Act, AgentPermissions.All, WorkflowWriteWay.None)
+                .Select(tool => tool.Name)
+                .ToArray();
+
+            Assert.That(visible, Is.EquivalentTo(new[] { "workflow_outline", "activity_search", "xaml.get_workflow" }),
+                "read-only инструменты (Way=None) не зависят от галочек способов");
+        }
+
 
         // ------------------------------------------------------------------
         // Проверки (используются и мета-тестами)
@@ -386,6 +431,10 @@ namespace AiRpaStudio.Tests.Workflow
                 if (tool.Permission != row.Permission)
                 {
                     mismatches.Add(row.Name + ": permission=" + tool.Permission + ", ожидалось " + row.Permission);
+                }
+                if (tool.Way != row.Way)
+                {
+                    mismatches.Add(row.Name + ": way=" + tool.Way + ", ожидалось " + row.Way);
                 }
             }
 
@@ -490,7 +539,7 @@ namespace AiRpaStudio.Tests.Workflow
         }
 
         /// <summary>Копия реестра, в которой у одного инструмента подменены флаги (для мета-тестов).</summary>
-        private static AgentToolRegistry ReplaceTool(string name, bool mutates, AgentPermissions permission)
+        private static AgentToolRegistry ReplaceTool(string name, bool mutates, AgentPermissions permission, WorkflowWriteWay way = WorkflowWriteWay.None)
         {
             var registry = new AgentToolRegistry();
 
@@ -504,7 +553,8 @@ namespace AiRpaStudio.Tests.Workflow
                         tool.ParametersSchema,
                         mutates,
                         (arguments, cancellationToken) => Task.FromResult("stub"),
-                        permission: permission));
+                        permission: permission,
+                        way: way));
                 }
                 else
                 {
@@ -561,11 +611,12 @@ namespace AiRpaStudio.Tests.Workflow
 
         private sealed class WorkflowToolSpec
         {
-            public WorkflowToolSpec(string name, bool mutates, AgentPermissions permission)
+            public WorkflowToolSpec(string name, bool mutates, AgentPermissions permission, WorkflowWriteWay way = WorkflowWriteWay.None)
             {
                 Name = name;
                 Mutates = mutates;
                 Permission = permission;
+                Way = way;
             }
 
             public string Name { get; }
@@ -573,6 +624,7 @@ namespace AiRpaStudio.Tests.Workflow
             public bool Mutates { get; }
 
             public AgentPermissions Permission { get; }
+            public WorkflowWriteWay Way { get; }
         }
 
         private sealed class FakeBuildFeedbackService : IBuildFeedbackService

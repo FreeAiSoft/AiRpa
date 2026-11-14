@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -227,6 +228,45 @@ namespace AiRpaStudio.Tests
             var all = registry.ForMode(AgentMode.Act, AgentPermissions.All);
             Assert.That(all.Count, Is.EqualTo(2));
         }
+        [Test]
+        public void ForMode_WithWayFilter_ExcludesDisabledWays()
+        {
+            var registry = new AgentToolRegistry();
+            registry.Register(new AgentTool("xaml.create_workflow", "palette", "{}", mutates: true,
+                (a, c) => Task.FromResult("r"), way: WorkflowWriteWay.Palette));
+            registry.Register(new AgentTool("xaml.create_workflow_from_json", "json", "{}", mutates: true,
+                (a, c) => Task.FromResult("r"), way: WorkflowWriteWay.JsonAst));
+            registry.Register(new AgentTool("xaml.create_workflow_from_code", "code", "{}", mutates: true,
+                (a, c) => Task.FromResult("r"), way: WorkflowWriteWay.CodeFirst));
+            registry.Register(new AgentTool("read", "read", "{}", mutates: false,
+                (a, c) => Task.FromResult("r")));
+
+            string[] paletteOnly = registry.ForMode(AgentMode.Act, AgentPermissions.All, WorkflowWriteWay.Palette)
+                .Select(tool => tool.Name)
+                .ToArray();
+
+            Assert.That(paletteOnly, Is.EquivalentTo(new[] { "xaml.create_workflow", "read" }),
+                "фильтр способа оставляет только инструменты выбранного способа и инструменты без способа");
+        }
+
+        [Test]
+        public void ForMode_NoneAllowedWays_KeepsOnlyWaylessTools()
+        {
+            var registry = new AgentToolRegistry();
+            registry.Register(new AgentTool("xaml.add_activity", "palette", "{}", mutates: true,
+                (a, c) => Task.FromResult("r"), way: WorkflowWriteWay.Palette));
+            registry.Register(new AgentTool("read", "read", "{}", mutates: false,
+                (a, c) => Task.FromResult("r")));
+
+            string[] visible = registry.ForMode(AgentMode.Act, AgentPermissions.All, WorkflowWriteWay.None)
+                .Select(tool => tool.Name)
+                .ToArray();
+
+            Assert.That(visible, Is.EqualTo(new[] { "read" }),
+                "при выключенных способах Way-инструменты прячутся, Way=None остаётся");
+        }
+
+
     }
 
     [TestFixture]

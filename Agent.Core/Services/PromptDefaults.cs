@@ -97,8 +97,8 @@ namespace Agent.Core.Services
         /// </summary>
         public const string WorkflowEditInstructions =
             "# Workflow: editing the model\n\n" +
-            "5. Edit the designer model, not the file text: activity_insert, activity_delete, activity_move and activity_wrap for the structure; argument_set, variable_add and variable_remove for arguments and variables. The element ids from workflow_outline are the addresses for reading, editing and validation at the same time. Pass several items in one call when the edit is a block: it is applied atomically.\n" +
-            "6. After every edit repeat workflow_validate until the report says there are no errors, then build and read_errors. activity_undo and activity_redo undo or redo exactly one edit in the designer (the same as Ctrl+Z and Ctrl+Y).\n" +
+            "5. Edit the designer model, not the file text: xaml.add_activity, xaml.delete_activity, xaml.move_activity and xaml.wrap_activity for the structure; xaml.set_argument, xaml.add_variable and xaml.remove_variable for arguments and variables. The element ids from workflow_outline are the addresses for reading, editing and validation at the same time. Pass several items in one call when the edit is a block: it is applied atomically.\n" +
+            "6. After every edit repeat workflow_validate until the report says there are no errors, then build and read_errors. xaml.undo and xaml.redo undo or redo exactly one edit in the designer (the same as Ctrl+Z and Ctrl+Y).\n" +
             "7. Do not write process XAML by hand while the file is open in the designer: editor refuses such a file, because the model would silently overwrite your text. Hand-written XAML is the last resort, only when the model tools cannot express the change: then use editor, which normalizes the file to the studio form (CRLF, no XML declaration, xmlns:mc/sap/sap2010/mca) and validates the result, and rejects malformed XAML instead of writing it.\n" +
             "8. A new activity is created with activity_create and only inside an EXISTING activity library project (.csproj): the tool writes the class file, an optional designer, registers both in the project, builds it and refreshes the activity catalog, so activity_search finds the type at once. Creating a project from scratch is not supported.";
 
@@ -107,9 +107,9 @@ namespace Agent.Core.Services
             "# Workflow: examples (request -> tool call)\n\n" +
             "Example 1 - \"insert a WriteLine into the Sequence\": read the outline first, then insert by address.\n" +
             "{\"action\":\"tool_call\",\"tool\":\"workflow_outline\",\"arguments\":{\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"depth\":2,\"include_arguments\":false}}\n" +
-            "{\"action\":\"tool_call\",\"tool\":\"activity_insert\",\"arguments\":{\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"activityType\":\"System.Activities.Statements.WriteLine\",\"parent\":\"root/Activities[0]\",\"index\":1,\"displayName\":\"Log start\"}}\n\n" +
+            "{\"action\":\"tool_call\",\"tool\":\"xaml.add_activity\",\"arguments\":{\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"type\":\"WriteLine\",\"parentId\":\"root/Activities[0]\",\"index\":1,\"displayName\":\"Log start\"}}\n\n" +
             "Example 2 - \"the WriteLine must print a computed text\": set the argument with an expression instead of editing the file.\n" +
-            "{\"action\":\"tool_call\",\"tool\":\"argument_set\",\"arguments\":{\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"elementId\":\"root/Activities[0]/Activities[1]\",\"argument\":\"Text\",\"expression\":\"Environment.MachineName\"}}\n\n" +
+            "{\"action\":\"tool_call\",\"tool\":\"xaml.set_argument\",\"arguments\":{\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"activityId\":\"root/Activities[0]/Activities[1]\",\"argument\":\"Text\",\"expression\":\"Environment.MachineName\"}}\n\n" +
             "Example 3 - \"the validator pointed at one element\": validate that address, fix, then validate again.\n" +
             "{\"action\":\"tool_call\",\"tool\":\"workflow_validate\",\"arguments\":{\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"elementId\":\"root/Then\"}}\n\n" +
             "Example 4 - \"create MyActivity in the activity library\": an existing project; argument names and types come from activity_describe of a similar activity.\n" +
@@ -121,8 +121,8 @@ namespace Agent.Core.Services
         /// </summary>
         public const string WorkflowExamplesNative =
             "# Workflow: examples (request -> tool call)\n\n" +
-            "Example 1 - \"insert a WriteLine into the Sequence\": call workflow_outline with arguments {\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"depth\":2,\"include_arguments\":false}, then call activity_insert with arguments {\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"activityType\":\"System.Activities.Statements.WriteLine\",\"parent\":\"root/Activities[0]\",\"index\":1,\"displayName\":\"Log start\"}.\n\n" +
-            "Example 2 - \"the WriteLine must print a computed text\": call argument_set with arguments {\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"elementId\":\"root/Activities[0]/Activities[1]\",\"argument\":\"Text\",\"expression\":\"Environment.MachineName\"} instead of editing the file.\n\n" +
+            "Example 1 - \"insert a WriteLine into the Sequence\": call workflow_outline with arguments {\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"depth\":2,\"include_arguments\":false}, then call xaml.add_activity with arguments {\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"type\":\"WriteLine\",\"parentId\":\"root/Activities[0]\",\"index\":1,\"displayName\":\"Log start\"}.\n\n" +
+            "Example 2 - \"the WriteLine must print a computed text\": call xaml.set_argument with arguments {\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"activityId\":\"root/Activities[0]/Activities[1]\",\"argument\":\"Text\",\"expression\":\"Environment.MachineName\"} instead of editing the file.\n\n" +
             "Example 3 - \"the validator pointed at one element\": call workflow_validate with arguments {\"path\":\"C:\\\\robots\\\\RPA-1\\\\Main.xaml\",\"elementId\":\"root/Then\"}, fix the element, then validate again.\n\n" +
             "Example 4 - \"create MyActivity in the activity library\": call activity_create with arguments {\"projectPath\":\"C:\\\\robots\\\\RPA-1\\\\Activities\\\\Activities.csproj\",\"className\":\"MyActivity\",\"namespace\":\"Activities\",\"description\":\"Starts a robot by name\",\"category\":\"Custom\",\"baseType\":\"CodeActivity\",\"withDesigner\":true,\"build\":true,\"arguments\":[{\"name\":\"InputText\",\"typeName\":\"String\",\"direction\":\"In\",\"required\":true}]}.";
 

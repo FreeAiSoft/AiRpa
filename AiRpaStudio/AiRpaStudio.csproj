@@ -452,6 +452,7 @@
     <Compile Include="Mcp\McpCommandHelper.cs" />
     <Compile Include="Mcp\McpModels.cs" />
     <Compile Include="Mcp\RpaMcpServer.cs" />
+    <Compile Include="Mcp\StudioWorkflowMcpBridge.cs" />
     <Compile Include="Mcp\StdioMcpServerHost.cs" />
     <Compile Include="Mcp\McpToolRegistry.cs" />
     <Compile Include="Mcp\Tools\AddActivityTool.cs" />
@@ -462,6 +463,14 @@
     <Compile Include="Mcp\Tools\GetWorkflowTool.cs" />
     <Compile Include="Mcp\Tools\PaletteToolBase.cs" />
     <Compile Include="Mcp\Tools\SetArgumentTool.cs" />
+    <Compile Include="Mcp\Tools\AddVariableTool.cs" />
+    <Compile Include="Mcp\Tools\DeleteActivityTool.cs" />
+    <Compile Include="Mcp\Tools\MoveActivityTool.cs" />
+    <Compile Include="Mcp\Tools\RedoTool.cs" />
+    <Compile Include="Mcp\Tools\RemoveVariableTool.cs" />
+    <Compile Include="Mcp\Tools\UndoTool.cs" />
+    <Compile Include="Mcp\Tools\WorkflowEditToolBase.cs" />
+    <Compile Include="Mcp\Tools\WrapActivityTool.cs" />
     <Compile Include="Models\ActivityCreator.cs" />
     <Compile Include="Core\CustomWfDesigner.cs" />
     <Compile Include="CSharpExpressionEditor\QueryCompletionData.cs" />

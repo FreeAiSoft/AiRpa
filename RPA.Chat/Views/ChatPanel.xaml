@@ -1011,6 +1011,20 @@
                                 <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.SubagentMaxIterations, UpdateSourceTrigger=PropertyChanged}" />
                                 <TextBlock Text="Sub-agent max depth" Style="{StaticResource FieldLabelStyle}" />
                                 <TextBox Style="{StaticResource OutlinedTextBoxStyle}" Text="{Binding Data.SubagentMaxDepth, UpdateSourceTrigger=PropertyChanged}" />
+
+                                <TextBlock Text="Workflow writing ways" FontWeight="SemiBold" Margin="0,12,0,4" Foreground="{DynamicResource Dark.Text}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,2">
+                                    <ToggleButton Style="{StaticResource SwitchToggleButtonStyle}" IsChecked="{Binding Data.AllowWfPalette, Mode=TwoWay}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Palette (designer)" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource Dark.Text}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,2">
+                                    <ToggleButton Style="{StaticResource SwitchToggleButtonStyle}" IsChecked="{Binding Data.AllowWfJsonAst, Mode=TwoWay}" VerticalAlignment="Center" />
+                                    <TextBlock Text="JSON AST" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource Dark.Text}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,2">
+                                    <ToggleButton Style="{StaticResource SwitchToggleButtonStyle}" IsChecked="{Binding Data.AllowWfCodeFirst, Mode=TwoWay}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Code-first" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource Dark.Text}" />
+                                </StackPanel>
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>
