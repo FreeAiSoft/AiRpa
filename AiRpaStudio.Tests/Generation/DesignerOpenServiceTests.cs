@@ -424,6 +424,23 @@ public class DesignerOpenServiceTests
         });
     }
 
+    [Test]
+    public void OpenOrActivate_WithText_LoadsFromBuffer()
+    {
+        string path = WriteWorkflow();
+        string buffer = WorkflowTestSamples.CanonicalXaml();
+        var host = new FakeDesignerHost();
+
+        DesignerOpenResult result = CreateService(host).OpenOrActivate(path, buffer);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Ok, Is.True, result.Describe());
+            Assert.That(host.LastOpenText, Is.EqualTo(buffer),
+                "текст буфера обязан дойти до среды конструктора");
+        });
+    }
+
     // --- Вспомогательные методы и поддельная среда конструктора. ---
 
     private static DesignerOpenService CreateService(FakeDesignerHost host)
@@ -477,6 +494,8 @@ public class DesignerOpenServiceTests
 
         internal int LastOpenThreadId { get; private set; }
 
+        internal string LastOpenText { get; private set; }
+
         internal void AddOpenTab(DesignerTab tab)
         {
             _tabs.Add(tab);
@@ -487,10 +506,11 @@ public class DesignerOpenServiceTests
             return _tabs.ToArray();
         }
 
-        public DesignerTab Open(string filePath)
+        public DesignerTab Open(string filePath, string xamlText = null)
         {
             OpenCount++;
             LastOpenThreadId = Thread.CurrentThread.ManagedThreadId;
+            LastOpenText = xamlText;
 
             if (OpenError != null)
             {

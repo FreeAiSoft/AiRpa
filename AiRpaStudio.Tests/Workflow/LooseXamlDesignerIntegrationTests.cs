@@ -131,7 +131,7 @@ namespace AiRpaStudio.Tests.Workflow
             {
                 Assert.That(source, Does.Contain("GetLooseRegistryFor(filePath)"),
                     "вкладка прямого открытия обязана получать loose-реестр проекта");
-                Assert.That(source, Does.Contain("_load(filePath, registry)"),
+                Assert.That(source, Does.Contain("_load(filePath, registry, xamlText)"),
                     "реестр обязан передаваться загрузчику, иначе вложенные ссылки резолвятся как CLR-типы и требуют DLL");
             });
         }

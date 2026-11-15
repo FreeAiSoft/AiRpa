@@ -404,7 +404,7 @@ namespace RPA.Models
             {
                 try
                 {
-                    DesignerOpenResult openResult = DesignerOpenService.ForStudio(message => CustomWfDesigner.Log(message)).OpenOrActivate(filePath);
+                    DesignerOpenResult openResult = OpenXamlDesigner(filePath);
                     if (!openResult.Ok)
                     {
                         // Ошибка открытия — сообщение пользователю с полным текстом, а не исключение:
@@ -440,6 +440,53 @@ namespace RPA.Models
                     OnSendMessage(LocalizeHelper.Get("lang_msg_open_file_error", ErrorText.Of(ex)));
                 }
             }
+        }
+
+        /// <summary>
+        /// Открывает <c>.xaml</c> в дизайнере. Если файл уже открыт в редакторе кода, дизайнер
+        /// грузится из буфера редактора в той же вкладке (вторая вкладка не создаётся), а после
+        /// успешного открытия <see cref="CodeDocument"/> удаляется из модели. Признак «изменён»
+        /// переносится из редактора в дизайнер.
+        /// </summary>
+        private DesignerOpenResult OpenXamlDesigner(string filePath)
+        {
+            MainView view = ViewModel?.View as MainView;
+            CodeDocument codeDocument = OpenCodeDocuments.FirstOrDefault(
+                d => string.Equals(d.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+            bool designerAlreadyOpen = CustomWfDesigner.GetDesignerByFileIgnoreCase(filePath) != null;
+            bool replaceCodeTab = view != null && codeDocument != null && !designerAlreadyOpen;
+
+            if (replaceCodeTab)
+            {
+                view.BeginReplaceCodeTab(filePath);
+            }
+
+            DesignerOpenResult openResult = DesignerOpenService
+                .ForStudio(message => CustomWfDesigner.Log(message))
+                .OpenOrActivate(filePath, replaceCodeTab ? codeDocument.Text : null);
+
+            if (replaceCodeTab)
+            {
+                if (openResult.Ok && !openResult.AlreadyOpen)
+                {
+                    // Дизайнер открыт в той же вкладке, что была у редактора кода (ContentId обнулён),
+                    // поэтому удаление CodeDocument из модели больше не закрывает вкладку.
+                    _ = OpenCodeDocuments.Remove(codeDocument);
+
+                    WorkflowDesignerEx designer = CustomWfDesigner.GetDesignerByFileIgnoreCase(filePath);
+                    if (designer != null && codeDocument.IsDirty)
+                    {
+                        designer.IsEdited = true;
+                    }
+                }
+                else
+                {
+                    // Ошибка открытия или вкладка дизайнера уже была открыта: код-вкладку не трогаем.
+                    view.CancelReplaceCodeTab();
+                }
+            }
+
+            return openResult;
         }
 
         /// <summary>

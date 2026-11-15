@@ -1149,6 +1149,59 @@ public sealed class DesignerBenchProxy : MarshalByRefObject
         });
     }
     /// <summary>
+    /// Переключение «редактор кода → дизайнер» на живом конструкторе: дизайнер загружается из текста
+    /// буфера (не с диска), а признак «изменён» переносится в него так же, как это делает
+    /// <c>Main.OpenXamlDesigner</c>.
+    /// </summary>
+    public DesignerOverCodeReport CodeOverDesignerScenario(string mainXaml, string[] projectXamlFiles)
+    {
+        DesignerTestHost host = DesignerTestHost.Shared;
+
+        return host.Invoke(() =>
+        {
+            var report = new DesignerOverCodeReport();
+
+            try
+            {
+                string diskText = File.ReadAllText(mainXaml);
+                const string marker = "\"Hello from BUFFER\"";
+                string bufferText = diskText.Replace("\"Hello from RPA-1\"", marker);
+                report.BufferDiffersFromDisk = !string.Equals(bufferText, diskText, StringComparison.Ordinal);
+
+                WorkflowTypeRegistry registry = WorkflowTypeRegistry.Scan(projectXamlFiles);
+                var designer = new WorkflowDesignerEx();
+                WfDesignerEnvironment.Configure(designer);
+                LooseXamlDesignerLoader.Open(designer, mainXaml, registry, bufferText);
+                report.DesignerCreated = true;
+
+                // Признак «изменён» переносится из редактора кода (Main.OpenXamlDesigner → designer.IsEdited = true).
+                designer.IsEdited = true;
+
+                // Сбрасываем отложенную раскладку DesignerView при живом кэше шрифтов (см. CodeViewSwitchScenario).
+                RealizeDesignerSurface(designer);
+
+                designer.Flush();
+                report.FlushedText = designer.Text;
+                report.LoadedFromBuffer = report.FlushedText != null
+                    && report.FlushedText.IndexOf(marker, StringComparison.Ordinal) >= 0;
+                report.EditedCarriedOver = designer.IsEdited;
+
+                report.Description = "bufferDiffers: " + report.BufferDiffersFromDisk
+                    + ", created: " + report.DesignerCreated
+                    + ", loadedFromBuffer: " + report.LoadedFromBuffer
+                    + ", editedCarried: " + report.EditedCarriedOver;
+            }
+            catch (Exception ex)
+            {
+                report.Error = ErrorText.Of(ex);
+                report.Description = "сценарий переключения в дизайнер упал: " + report.Error;
+            }
+
+            return report;
+        });
+    }
+
+    /// <summary>
     /// Специфические фичи контекстного меню WF-дизайнера: аннотации и точки останова. Проверяет, что
     /// после настройки среды опубликованы <c>IDesignerDebugView</c>/<c>ICommandService</c> и включены
     /// аннотации — иначе пункты меню «Точка останова»/«Аннотации» в <c>DesignerView</c> схлопываются.

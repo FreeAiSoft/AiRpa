@@ -104,7 +104,7 @@ internal sealed class BenchDesignerHost : IWorkflowDesignerHost
         return _tabs.ToArray();
     }
 
-    public DesignerTab Open(string filePath)
+    public DesignerTab Open(string filePath, string xamlText = null)
     {
         // Среда дизайнера — та же, что у студии; сервис ошибок записывающий, иначе WF показывает
         // модальное окно и стенд виснет (см. DesignerRenderProbe).

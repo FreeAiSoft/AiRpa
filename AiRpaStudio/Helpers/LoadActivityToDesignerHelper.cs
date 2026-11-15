@@ -26,7 +26,8 @@ namespace RPA.Helpers
         /// </summary>
         /// <param name="sourceFile">Workflow FileName</param>
         /// <param name="looseTypeRegistry">Реестр вложенных XAML-активностей для loose-загрузки (<c>null</c> — штатный путь).</param>
-        internal static WorkflowDesignerEx LoadActivityToDesigner(string sourceFile, WorkflowTypeRegistry looseTypeRegistry = null)
+        /// <param name="xamlText">Текст XAML для загрузки из памяти (буфер редактора кода); <c>null</c> — читать файл с диска.</param>
+        internal static WorkflowDesignerEx LoadActivityToDesigner(string sourceFile, WorkflowTypeRegistry looseTypeRegistry = null, string xamlText = null)
         {
             if (string.IsNullOrWhiteSpace(sourceFile)
                 || !sourceFile.EndsWith(".xaml", StringComparison.OrdinalIgnoreCase)
@@ -51,12 +52,37 @@ namespace RPA.Helpers
 
                 if (looseTypeRegistry != null)
                 {
-                    LooseXamlDesignerLoader.Open(workflowDesignerEx, sourceFile, looseTypeRegistry);
+                    LooseXamlDesignerLoader.Open(workflowDesignerEx, sourceFile, looseTypeRegistry, xamlText);
                 }
                 else
                 {
                     //load Workflow Xaml
-                    workflowDesignerEx.Load(sourceFile);
+                    // Перехватываем ошибки загрузки, которые дизайнер отдаёт через IXamlLoadErrorService
+                    // (родной баннер «workflow designer encountered problems…»), сохраняя штатное поведение.
+                    var existing = workflowDesignerEx.Context.Services.GetService<IXamlLoadErrorService>();
+                    workflowDesignerEx.Context.Services.Publish<IXamlLoadErrorService>(
+                        new CapturingXamlLoadErrorService(sourceFile, existing));
+
+                    try
+                    {
+                        if (xamlText != null)
+                        {
+                            // Загрузка из несохранённого буфера (симметрично loose-пути): диск не читаем,
+                            // WorkflowFileItem дизайнер сам не кладёт — выставляем вручную.
+                            workflowDesignerEx.Text = xamlText;
+                            workflowDesignerEx.Load();
+                            workflowDesignerEx.Context.Items.SetValue(new WorkflowFileItem { LoadedFile = sourceFile });
+                        }
+                        else
+                        {
+                            workflowDesignerEx.Load(sourceFile);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        DesignerErrorReporter.Report(DesignerErrorCapture.Capture(sourceFile, ex));
+                        throw;
+                    }
                 }
 #pragma warning disable IDE0004 // Remove Unnecessary Cast
 
@@ -89,7 +115,7 @@ namespace RPA.Helpers
             // файл может быть занят другим процессом (OneDrive, антивирус, индексатор, вторая копия
             // студии, ранее открытый StreamReader) — раньше необработанный IOException из Save
             // всплывал наружу и ронял отладчик в CustomWfDesigner.WorkflowOpen().
-            if (looseTypeRegistry == null && !IsInsideWorkflowProject(sourceFile))
+            if (looseTypeRegistry == null && !IsInsideWorkflowProject(sourceFile) && xamlText == null)
             {
                 SaveAfterLoad(workflowDesignerEx, sourceFile);
             }

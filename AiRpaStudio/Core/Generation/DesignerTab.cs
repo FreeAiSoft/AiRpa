@@ -60,7 +60,7 @@ namespace RPA.Core.Generation
         /// Загружает файл в новый конструктор и добавляет вкладку в панель документов.
         /// Возвращает <c>null</c>, если загрузчик не создал дизайнер.
         /// </summary>
-        DesignerTab Open(string filePath);
+        DesignerTab Open(string filePath, string xamlText = null);
 
         /// <summary>Делает вкладку активной (выбирает её в панели документов).</summary>
         void Activate(DesignerTab tab);

@@ -813,6 +813,29 @@
   вкладка кода/XAML), а без активного дизайнера — последняя открытая вкладка кода. Координатор
   `tabsCloseCoordinator` подписывается на `WorkflowDesigners.CollectionChanged` **после** `DocGroupHelper`,
   иначе модель дизайнеров перезапишет выбор панели документов. Стражи (все — `AiRpaStudio.Tests\`):
+- **Переключение «код ⇄ дизайнер» в той же вкладке** — когда XAML-файл открыт в одной из вкладок и его же
+  открывают в другом виде, вторая вкладка не создаётся: меняется `Content` (и `ContentId`) у того же
+  `LayoutDocument`, позиция вкладки и выбор сохраняются (нет мерцания). Направление «дизайнер → код»
+  (пункт «Открыть в редакторе кода») сериализует буфер дизайнера и переносит его в `CodeDocument` той же
+  вкладки (`Main.CmdOpenInCodeEditor` → `view.BeginReplaceDesignerTab` → `MainView.AddCodeDocumentTab`
+  заменяет `Content`); дизайнер отсоединяется без закрытия вкладки
+  (`CustomWfDesigner.DetachDesignerForCodeView`). Направление «код → дизайнер» («Открыть»/двойной клик по
+  `.xaml`) грузит дизайнер из **несохранённого буфера** редактора, не читая и не перезаписывая диск
+  (`Main.OpenXamlDesigner` → `view.BeginReplaceCodeTab` → `DesignerOpenService.OpenOrActivate(path, codeDoc.Text)`
+  → `LoadActivityToDesignerHelper(..., xamlText)`), а после успешного открытия убирает `CodeDocument` из
+  модели и переносит признак «изменён» (`designer.IsEdited = codeDoc.IsDirty`). Путь загрузки из буфера:
+  loose — `LooseXamlDocumentPersistenceService` читает `_initialText ?? File.ReadAllText(fileName)`;
+  не-loose — `workflowDesignerEx.Text = xamlText; workflowDesignerEx.Load();` с ручной установкой
+  `WorkflowFileItem`. Идентификация вкладок неизменна: дизайнер — `Tag` у `Content`, код —
+  `ContentId = "code:<путь>"`; после замены `ContentId` обнуляется/выставляется, поэтому
+  `DocumentTabsCloseCoordinator.IsCodeTab`/`PathOf` остаются корректны. Обработчики `Closed`/`IsSelectedChanged`
+  — именованные и снимаются перед заменой (`DetachCodeTabHandlers`/`DetachDesignerTabHandlers`), иначе при
+  циклах «код ⇄ дизайнер» они накапливаются. При ошибке открытия замена отменяется
+  (`view.CancelReplaceCodeTab`), код-вкладка остаётся целой. Стражи (все — `AiRpaStudio.Tests\`):
+  `CodeToDesignerTabTests.cs`, `CodeDesignerTabReplacementTests.cs`, `DesignerOverCodeBehaviorTests.cs`,
+  `DesignerToCodeTabTests.cs`, `DesignerCodeViewBehaviorTests.cs`, `LooseXamlDocumentPersistenceServiceTests.cs`,
+  `DesignerOpenServiceTests.cs`.
+
   `DocumentTabPolicyTests.cs`, `DocumentTabsCloseTests.cs`, `DocumentTabsCloseWiringTests.cs`.
 - **Выбрана ровно одна вкладка** — инвариант панели документов (второй регресс того же бага: «после
   перезапуска активна не та вкладка, две вкладки подсвечены как активные»). Источник правды о выбранной

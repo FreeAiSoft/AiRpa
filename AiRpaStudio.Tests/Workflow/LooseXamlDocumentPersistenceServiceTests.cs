@@ -68,6 +68,22 @@ namespace AiRpaStudio.Tests.Workflow
         }
 
         [Test]
+        public void Load_FromText_UsesBufferInsteadOfDisk()
+        {
+            string disk = Write("Main.xaml", Activity("RPA_1.Main", "<Sequence />"));
+            string buffer = Activity("RPA_1.FromBuffer", "<Sequence />");
+
+            var service = new LooseXamlDocumentPersistenceService(
+                WorkflowTypeRegistry.Scan(new string[0]),
+                initialText: buffer);
+
+            ActivityBuilder builder = (ActivityBuilder)service.Load(disk);
+
+            Assert.That(builder.Name, Is.EqualTo("RPA_1.FromBuffer"),
+                "корень обязан грузиться из переданного текста, а не из файла на диске");
+        }
+
+        [Test]
         public void Load_PopulatesFacadeArguments()
         {
             string sub = Write("SubProcess1.xaml",

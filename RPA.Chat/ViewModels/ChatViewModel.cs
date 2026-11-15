@@ -1455,6 +1455,22 @@ namespace RPA.Chat.ViewModels
             InputText = "Do it!!!";
             await SendAsync();
         }
+        /// <summary>
+        /// Отправляет готовый промпт в чат (используется студией для «отправить ошибку дизайнера»).
+        /// Текст ставится в поле ввода и отправляется так же, как сообщение пользователя.
+        /// </summary>
+        public async Task SendPromptAsync(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            InputText = text;
+            await SendAsync();
+        }
+
+
 
         private async Task SendErrorsAsync()
         {

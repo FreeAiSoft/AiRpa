@@ -6,11 +6,13 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Data;
 using AvalonDock.Layout;
 using RPA.Converters;
 using RPA.Core;
 using RPA.ViewModels;
+using RPA.Views;
 
 namespace RPA.Helpers
 {
@@ -22,12 +24,18 @@ namespace RPA.Helpers
         private readonly MainViewModel _mainViewModel;
         private readonly Action<string> setActiveDesignerDelegate;
         private readonly Action activeDocumentChangedDelegate;
+        private readonly Func<string, LayoutDocument> _takeReplaceableCodeTab;
         private readonly PropertyWindowStyleHelper _propertyStyleHelper = new PropertyWindowStyleHelper();
+        private readonly Dictionary<string, DesignerErrorBanner> _errorBanners =
+            new Dictionary<string, DesignerErrorBanner>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, DesignerErrorSnapshot> _pendingErrors =
+            new Dictionary<string, DesignerErrorSnapshot>(StringComparer.OrdinalIgnoreCase);
+
 
 
         #region Singleton
 
-        public DocGroupHelper(LayoutDocumentPane docGroup, Action<string> removeDesigner, Action<WorkflowDesigner> syncWFControls, MainViewModel mainViewModel, Action<string> setActiveDesigner, Action activeDocumentChanged)
+        public DocGroupHelper(LayoutDocumentPane docGroup, Action<string> removeDesigner, Action<WorkflowDesigner> syncWFControls, MainViewModel mainViewModel, Action<string> setActiveDesigner, Action activeDocumentChanged, Func<string, LayoutDocument> takeReplaceableCodeTab = null)
         {
             this.docGroup = docGroup;
             removeDesignerDelegate = removeDesigner;
@@ -36,6 +44,7 @@ namespace RPA.Helpers
             _mainViewModel.PropertyChanged += DataContext_PropertyChanged;
             setActiveDesignerDelegate = setActiveDesigner;
             activeDocumentChangedDelegate = activeDocumentChanged;
+            _takeReplaceableCodeTab = takeReplaceableCodeTab;
             instance = this;
         }
 
@@ -59,10 +68,44 @@ namespace RPA.Helpers
             string fileName = Path.GetFileName(fullFilePath);
             workflowDesignerView.Tag = fullFilePath;
 
-            LayoutDocument docDocument = new LayoutDocument
+            // Баннер ошибки загрузки размещается в верхней строке вкладки и сдвигает дизайнер вниз
+            // (при обычном состоянии баннер скрыт). Tag для распознавания вкладки дизайнера теперь на
+            // обёртке, а не на самой поверхности дизайнера.
+            var errorBanner = new DesignerErrorBanner { Visibility = Visibility.Collapsed };
+            _errorBanners[fullFilePath] = errorBanner;
+            if (_pendingErrors.TryGetValue(fullFilePath, out DesignerErrorSnapshot pending))
             {
-                Content = workflowDesignerView
-            };
+                errorBanner.Show(pending);
+                _pendingErrors.Remove(fullFilePath);
+            }
+
+
+            var host = new Grid();
+            host.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            host.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            Grid.SetRow(errorBanner, 0);
+            Grid.SetRow(workflowDesignerView, 1);
+            host.Children.Add(workflowDesignerView);
+            host.Children.Add(errorBanner);
+            host.Tag = fullFilePath;
+
+
+            LayoutDocument docDocument = _takeReplaceableCodeTab?.Invoke(fullFilePath);
+            bool reusedCodeTab = docDocument != null;
+
+            if (docDocument == null)
+            {
+                docDocument = new LayoutDocument
+                {
+                    Content = host
+                };
+            }
+            else
+            {
+                // Вкладка редактора кода того же файла: дизайнер показывается в том же LayoutDocument.
+                docDocument.Content = host;
+                docDocument.ContentId = null;
+            }
 
             // Setup MultiBinding for document title: fileName + IsEdited property
             if (workflowDesigner is WorkflowDesignerEx workflowDesignerEx)
@@ -95,7 +138,10 @@ namespace RPA.Helpers
                 docDocument.Title = fileName;
             }
 
-            docGroup.Children.Add(docDocument);
+            if (!reusedCodeTab)
+            {
+                docGroup.Children.Add(docDocument);
+            }
             docDocument.IsSelected = true;
             docDocument.Closed += DocClosed;
             docDocument.IsSelectedChanged += DocDocument_IsSelectedChanged;
@@ -152,6 +198,7 @@ namespace RPA.Helpers
                 && document.Content is FrameworkElement view
                 && view.Tag is string loadedFile)
             {
+                _errorBanners.Remove(loadedFile);
                 removeDesignerDelegate(loadedFile);
             }
 
@@ -172,11 +219,35 @@ namespace RPA.Helpers
 
             syncWFControlsDelegate(activeWorkflowDesigner);
 
-            LayoutDocument doc = (LayoutDocument)docGroup.Children.FirstOrDefault(c => c.Content == activeWorkflowDesigner.View);
+            string activePath = (activeWorkflowDesigner.View as FrameworkElement)?.Tag as string;
+            LayoutDocument doc = (LayoutDocument)docGroup.Children.FirstOrDefault(c =>
+                c.Content is FrameworkElement view && view.Tag is string tag && tag == activePath);
             if (doc != null)
             {
                 doc.IsActive = true;
             }
+        }
+
+        /// <summary>
+        /// Показывает баннер ошибки загрузки в верхней строке вкладки дизайнера. Если вкладка
+        /// ещё не создана (ошибка при открытии), баннер появится сразу после создания вкладки.
+        /// </summary>
+        internal void ShowDesignerError(string filePath, DesignerErrorSnapshot snapshot)
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || snapshot == null)
+            {
+                return;
+            }
+
+            if (_errorBanners.TryGetValue(filePath, out DesignerErrorBanner banner))
+            {
+                banner.Show(snapshot);
+            }
+            else
+            {
+                _pendingErrors[filePath] = snapshot;
+            }
+
         }
 
         public void WorkflowDesigners_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
@@ -193,6 +264,8 @@ namespace RPA.Helpers
             }
             else if (e.Action == NotifyCollectionChangedAction.Reset)
             {
+                _errorBanners.Clear();
+                _pendingErrors.Clear();
                 docGroup.Children.Clear();
                 syncWFControlsDelegate(null);
             }
@@ -229,12 +302,12 @@ namespace RPA.Helpers
                 return;
             }
 
-            Dictionary<object, int> modelOrder = _mainViewModel.WorkflowDesigners
+            Dictionary<string, int> modelOrder = _mainViewModel.WorkflowDesigners
                 .Select((designer, index) => new { designer, index })
-                .ToDictionary(item => (object)item.designer.View, item => item.index);
+                .ToDictionary(item => (item.designer.View as FrameworkElement)?.Tag as string, item => item.index);
 
             List<LayoutDocument> ordered = designerTabs
-                .OrderBy(document => modelOrder.TryGetValue(document.Content, out int index) ? index : int.MaxValue)
+                .OrderBy(document => modelOrder.TryGetValue((document.Content as FrameworkElement)?.Tag as string, out int index) ? index : int.MaxValue)
                 .ToList();
 
             // Detach designer tabs, then put them back in model order at the same slots so that
@@ -265,6 +338,21 @@ namespace RPA.Helpers
                 SetSelectedTab(_mainViewModel.ActiveWorkflowDesigner);
                 syncWFControlsDelegate(_mainViewModel.ActiveWorkflowDesigner);
             }
+        }
+
+        /// <summary>
+        /// Отписывает вкладку дизайнера от её обработчиков. Нужно перед заменой «дизайнер → код»,
+        /// чтобы обработчики не накапливались при многократном переключении вида.
+        /// </summary>
+        internal void DetachDesignerTabHandlers(LayoutDocument document)
+        {
+            if (document == null)
+            {
+                return;
+            }
+
+            document.Closed -= DocClosed;
+            document.IsSelectedChanged -= DocDocument_IsSelectedChanged;
         }
 
         /// <summary>

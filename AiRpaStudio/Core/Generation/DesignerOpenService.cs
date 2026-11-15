@@ -253,9 +253,9 @@ namespace RPA.Core.Generation
         /// Открывает файл в конструкторе или активирует уже открытую вкладку. Ошибки возвращаются
         /// в результате, а не исключением: вызов приходит из MCP-потока.
         /// </summary>
-        internal DesignerOpenResult OpenOrActivate(string filePath)
+        internal DesignerOpenResult OpenOrActivate(string filePath, string xamlText = null)
         {
-            return OpenCore(filePath, reload: false);
+            return OpenCore(filePath, reload: false, xamlText);
         }
 
         /// <summary>
@@ -407,7 +407,7 @@ namespace RPA.Core.Generation
 
         private const string XamlNamespace = "http://schemas.microsoft.com/winfx/2006/xaml";
 
-        private DesignerOpenResult OpenCore(string filePath, bool reload)
+        private DesignerOpenResult OpenCore(string filePath, bool reload, string xamlText = null)
         {
             string fullPath = null;
 
@@ -429,7 +429,7 @@ namespace RPA.Core.Generation
 
                 string workflowId = ReadWorkflowId(fullPath);
 
-                return _uiThread.Invoke(() => OpenOnUiThread(fullPath, workflowId, reload));
+                return _uiThread.Invoke(() => OpenOnUiThread(fullPath, workflowId, reload, xamlText));
             }
             catch (Exception ex)
             {
@@ -441,7 +441,7 @@ namespace RPA.Core.Generation
             }
         }
 
-        private DesignerOpenResult OpenOnUiThread(string fullPath, string workflowId, bool reload)
+        private DesignerOpenResult OpenOnUiThread(string fullPath, string workflowId, bool reload, string xamlText = null)
         {
             DesignerTab tab = FindTab(fullPath);
             bool reloaded = false;
@@ -474,7 +474,7 @@ namespace RPA.Core.Generation
                     hints: new[] { "файл уже открыт в конструкторе: вкладка активирована" });
             }
 
-            DesignerTab opened = _host.Open(fullPath);
+            DesignerTab opened = _host.Open(fullPath, xamlText);
             if (opened == null)
             {
                 return DesignerOpenResult.Failure(

@@ -451,7 +451,7 @@ public class PaletteWorkflowServiceTests
             return _tabs.ToArray();
         }
 
-        public DesignerTab Open(string filePath)
+        public DesignerTab Open(string filePath, string xamlText = null)
         {
             OpenCount++;
 

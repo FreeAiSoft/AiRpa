@@ -474,6 +474,7 @@
     <Compile Include="Mcp\Tools\WrapActivityTool.cs" />
     <Compile Include="Models\ActivityCreator.cs" />
     <Compile Include="Core\CustomWfDesigner.cs" />
+    <Compile Include="Core\DesignerErrorCapture.cs" />
     <Compile Include="CSharpExpressionEditor\QueryCompletionData.cs" />
     <Compile Include="Models\AppSettings.cs" />
     <Compile Include="Entities\FSNode.cs" />
@@ -497,6 +498,9 @@
     </Compile>
     <Compile Include="Views\ErrorView.xaml.cs">
       <DependentUpon>ErrorView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\DesignerErrorBanner.xaml.cs">
+      <DependentUpon>DesignerErrorBanner.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\UnsavedChangesView.xaml.cs">
       <DependentUpon>UnsavedChangesView.xaml</DependentUpon>
@@ -560,6 +564,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\ErrorView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\DesignerErrorBanner.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

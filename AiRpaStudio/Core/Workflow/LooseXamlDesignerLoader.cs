@@ -16,7 +16,7 @@ namespace RPA.Core.Workflow
     /// </summary>
     internal static class LooseXamlDesignerLoader
     {
-        internal static void Open(WorkflowDesigner designer, string sourceFile, WorkflowTypeRegistry registry)
+        internal static void Open(WorkflowDesigner designer, string sourceFile, WorkflowTypeRegistry registry, string xamlText = null)
         {
             if (designer == null)
             {
@@ -30,7 +30,8 @@ namespace RPA.Core.Workflow
 
             var persistence = new LooseXamlDocumentPersistenceService(
                 registry,
-                text => designer.Text = text);
+                text => designer.Text = text,
+                xamlText);
 
             designer.Context.Services.Publish<IDocumentPersistenceService>(persistence);
 

@@ -74,6 +74,18 @@ namespace RPA.Controls
             Document.Save();
         }
 
+        /// <summary>
+        /// Отписывает редактор от документа. Нужно при замене вкладки «код → дизайнер»: выброшенный
+        /// <see cref="CodeEditorView"/> не должен оставаться подписанным на <see cref="CodeDocument"/>.
+        /// </summary>
+        internal void DetachDocument()
+        {
+            if (Document != null)
+            {
+                Document.PropertyChanged -= Document_PropertyChanged;
+            }
+        }
+
         /// <summary>Перекрашивает редактор после смены темы (фон, текст, подсветка).</summary>
         public void ApplyTheme()
         {

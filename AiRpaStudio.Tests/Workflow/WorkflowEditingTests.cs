@@ -402,7 +402,7 @@ namespace AiRpaStudio.Tests.Workflow
 
             public DesignerTab ActiveTab => Tabs.FirstOrDefault();
 
-            public DesignerTab Open(string filePath)
+            public DesignerTab Open(string filePath, string xamlText = null)
             {
                 var tab = new DesignerTab(filePath, false);
                 Tabs.Add(tab);

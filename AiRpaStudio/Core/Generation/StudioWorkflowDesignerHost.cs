@@ -21,16 +21,16 @@ namespace RPA.Core.Generation
     internal sealed class StudioWorkflowDesignerHost : IWorkflowDesignerHost
     {
         private readonly CustomWfDesigner _designer;
-        private readonly Func<string, WorkflowTypeRegistry, WorkflowDesignerEx> _load;
+        private readonly Func<string, WorkflowTypeRegistry, string, WorkflowDesignerEx> _load;
         private readonly Action<string> _log;
 
         internal StudioWorkflowDesignerHost(
             CustomWfDesigner designer = null,
-            Func<string, WorkflowTypeRegistry, WorkflowDesignerEx> load = null,
+            Func<string, WorkflowTypeRegistry, string, WorkflowDesignerEx> load = null,
             Action<string> log = null)
         {
             _designer = designer ?? CustomWfDesigner.GetInstance();
-            _load = load ?? ((path, registry) => LoadActivityToDesignerHelper.LoadActivityToDesigner(path, registry));
+            _load = load ?? ((path, registry, text) => LoadActivityToDesignerHelper.LoadActivityToDesigner(path, registry, text));
             _log = log;
         }
 
@@ -68,10 +68,10 @@ namespace RPA.Core.Generation
             }
         }
 
-        public DesignerTab Open(string filePath)
+        public DesignerTab Open(string filePath, string xamlText = null)
         {
             WorkflowTypeRegistry registry = _designer.GetLooseRegistryFor(filePath);
-            WorkflowDesignerEx designer = _load(filePath, registry);
+            WorkflowDesignerEx designer = _load(filePath, registry, xamlText);
             if (designer == null)
             {
                 return null;

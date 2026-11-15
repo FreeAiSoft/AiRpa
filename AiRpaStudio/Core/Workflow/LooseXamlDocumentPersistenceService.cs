@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Activities.Debugger;
 using System.Activities.Presentation.Hosting;
 using System.Activities.XamlIntegration;
@@ -7,6 +7,7 @@ using System.Xaml;
 using System.Xml;
 using RPA.Logging;
 using RPA.Helpers;
+using RPA.Core;
 
 namespace RPA.Core.Workflow
 {
@@ -24,12 +25,14 @@ namespace RPA.Core.Workflow
     {
         private readonly WorkflowTypeRegistry _registry;
         private readonly Action<string> _setText;
+        private readonly string _initialText;
         private string _loadedFile;
 
-        internal LooseXamlDocumentPersistenceService(WorkflowTypeRegistry registry, Action<string> setText = null)
+        internal LooseXamlDocumentPersistenceService(WorkflowTypeRegistry registry, Action<string> setText = null, string initialText = null)
         {
             _registry = registry ?? throw new ArgumentNullException(nameof(registry));
             _setText = setText;
+            _initialText = initialText;
         }
 
         public object Load(string fileName)
@@ -41,7 +44,7 @@ namespace RPA.Core.Workflow
 
             _loadedFile = fileName;
 
-            string xaml = File.ReadAllText(fileName);
+            string xaml = _initialText ?? File.ReadAllText(fileName);
             SourceLocationMappingDiagnostics.Write($"LooseXamlDocumentPersistenceService.Load: file={fileName} length={xaml.Length}");
 
             var schemaContext = new LooseActivityXamlSchemaContext(_registry);
@@ -51,6 +54,8 @@ namespace RPA.Core.Workflow
             // символы <sads:DebugSymbol.Symbol> сырой строкой, и SourceLocationProvider.CollectMapping
             // не строит карту SourceLocation. Без неё DebuggerService.CurrentLocation всегда null, а вставка
             // точки останова падает с ArgumentNullException (пустой SourceLocation как ключ словаря).
+            try
+            {
             using (var textReader = new StringReader(xaml))
             using (var debuggerReader = new XamlDebuggerXmlReader(textReader, schemaContext))
             using (var builderReader = ActivityXamlServices.CreateBuilderReader(debuggerReader, schemaContext))
@@ -58,6 +63,12 @@ namespace RPA.Core.Workflow
                 object loaded = XamlServices.Load(builderReader);
                 SourceLocationMappingDiagnostics.Write($"LooseXamlDocumentPersistenceService.Load: loaded={(loaded == null ? "<null>" : loaded.GetType().FullName)}");
                 return loaded;
+            }
+            }
+            catch (Exception ex)
+            {
+                DesignerErrorReporter.Report(DesignerErrorCapture.Capture(fileName, ex, xaml));
+                throw;
             }
         }
 
