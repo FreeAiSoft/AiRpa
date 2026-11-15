@@ -1,0 +1,44 @@
+[
+  {
+    "StartLine": 52,
+    "StartColumn": 5,
+    "EndLine": 63,
+    "EndColumn": 14
+  },
+  {
+    "StartLine": 71,
+    "StartColumn": 5,
+    "EndLine": 71,
+    "EndColumn": 124
+  },
+  {
+    "StartLine": 72,
+    "StartColumn": 5,
+    "EndLine": 76,
+    "EndColumn": 17
+  },
+  {
+    "StartLine": 32,
+    "StartColumn": 5,
+    "EndLine": 43,
+    "EndColumn": 14
+  },
+  {
+    "StartLine": 44,
+    "StartColumn": 5,
+    "EndLine": 44,
+    "EndColumn": 74
+  },
+  {
+    "StartLine": 45,
+    "StartColumn": 5,
+    "EndLine": 49,
+    "EndColumn": 17
+  },
+  {
+    "StartLine": 28,
+    "StartColumn": 3,
+    "EndLine": 51,
+    "EndColumn": 14
+  }
+]

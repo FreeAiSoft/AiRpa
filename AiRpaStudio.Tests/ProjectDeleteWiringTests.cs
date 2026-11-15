@@ -50,7 +50,7 @@ public class ProjectDeleteWiringTests
     {
         string source = ReadSource(@"AiRpaStudio\Models\Main.cs");
 
-        Assert.That(source, Does.Contain("ProjectManager.FileDeleting += CmdCloseCodeDocument"),
+        Assert.That(source, Does.Contain("ProjectManager.FileDeleting += CmdDiscardCodeDocument"),
             "Main должен подписываться на удаление файлов и закрывать вкладку редактора");
     }
 

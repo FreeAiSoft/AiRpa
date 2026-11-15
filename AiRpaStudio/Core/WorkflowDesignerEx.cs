@@ -4,6 +4,7 @@ using System.Activities.Presentation;
 using System.Activities.Presentation.Model;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Windows.Threading;
 using RPA.Core.Services;
 using RPA.Core.Workflow;
 using RPA.Helpers;
@@ -59,6 +60,9 @@ namespace RPA.Core
         /// </summary>
         private ModelTreeManager _modelTreeManager;
 
+        /// <summary>Отложенный <see cref="WorkflowDesigner.Flush"/> после правки модели уже запланирован.</summary>
+        private bool _namespaceFlushScheduled;
+
         public WorkflowDesignerEx()
         {
             DesignerVariableContextMenuService = new DesignerVariableContextMenuService(this);
@@ -107,7 +111,57 @@ namespace RPA.Core
             if (e.EditingScope != null && e.EditingScope.HasEffectiveChanges)
             {
                 IsEdited = true;
+                ScheduleNamespaceFlush();
             }
+        }
+
+
+        /// <summary>
+        /// После эффективной правки модели (например, добавления активности из тулбокса) актуализирует
+        /// <see cref="WorkflowDesigner.Text"/>: loose-сериализатор обязан добавить недостающий <c>xmlns</c>
+        /// для типа активности сразу, а не только при сохранении. Отложенный вызов схлопывает серию правок
+        /// в один <see cref="Flush"/> и не реентерит в модель.
+        /// </summary>
+        private void ScheduleNamespaceFlush()
+        {
+            if (LooseTypeRegistry == null)
+            {
+                // Штатный (не loose) путь сериализует сам и добавляет xmlns при сохранении.
+                return;
+            }
+
+            if (_namespaceFlushScheduled)
+            {
+                return;
+            }
+
+            Dispatcher dispatcher = View?.Dispatcher;
+            if (dispatcher == null)
+            {
+                return;
+            }
+
+            _namespaceFlushScheduled = true;
+            dispatcher.BeginInvoke(
+                DispatcherPriority.Background,
+                new Action(() =>
+                {
+                    try
+                    {
+                        Flush();
+                    }
+                    catch (Exception ex)
+                    {
+                        // Flush — сервисная операция: её сбой не должен отменять уже сделанную правку модели.
+                        System.Diagnostics.Debug.WriteLine(ErrorText.Of(ex));
+                    }
+                    finally
+                    {
+                        // Сброс только после Flush: если коммит незакоммиченных правок внутри Flush
+                        // снова поднимет EditingScopeCompleted, повторный Flush не должен планироваться.
+                        _namespaceFlushScheduled = false;
+                    }
+                }));
         }
 
         public void DetachValidation()

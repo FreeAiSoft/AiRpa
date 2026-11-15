@@ -26,6 +26,8 @@ namespace RPA.ViewModels
 
         public ObservableCollection<CodeDocument> OpenCodeDocuments => main.OpenCodeDocuments;
 
+        public ObservableCollection<RecentProjectEntry> RecentProjects => main.RecentProjects;
+
         public CustomWfDesigner CustomWfDesignerState => main.CustomWfDesigner;
 
         public string Language
@@ -41,5 +43,8 @@ namespace RPA.ViewModels
         public bool CanSaveAll => main.CanSaveAll;
 
         #endregion Properties
+
+        /// <summary>Открывает недавний проект по его пути (вызывается из меню «Файл → Недавние проекты»).</summary>
+        public void OpenRecentProject(string path) => main.CmdOpenRecentProject(path);
     }
 }

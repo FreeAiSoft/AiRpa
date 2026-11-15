@@ -80,6 +80,12 @@ namespace RPA.Core
 
         public Project Project { get; private set; }
 
+        /// <summary>
+        /// Несохранённые буферы закрытых документов (редакторы кода/XAML и дизайнеры WF).
+        /// Владелец записи в файл — <c>Main</c> («Сохранить»/«Сохранить всё»).
+        /// </summary>
+        public UnsavedDocumentBufferStore UnsavedDocumentBuffers { get; } = new UnsavedDocumentBufferStore();
+
         #endregion Properties
 
         #region Fields
@@ -624,12 +630,58 @@ namespace RPA.Core
             }
         }
 
-        internal void RemoveDesignerByLoadedFile(string loadedFile)
+        /// <summary>
+        /// Сериализует изменённый дизайнер в несохранённый буфер (без записи в общую коллекцию).
+        /// Несохранённые новые документы (без абсолютного пути) пропускаются — их некуда сохранить.
+        /// </summary>
+        internal bool TryCaptureUnsavedBuffer(WorkflowDesignerEx designer, out UnsavedDocumentBuffer buffer)
+        {
+            buffer = null;
+
+            try
+            {
+                string loadedFile = GetLoadedFile(designer);
+                if (string.IsNullOrWhiteSpace(loadedFile) || !Path.IsPathRooted(loadedFile))
+                {
+                    return false;
+                }
+
+                designer.Flush();
+                buffer = new UnsavedDocumentBuffer(loadedFile, designer.Text, UnsavedDocumentBufferKind.Workflow);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log($"Не удалось сохранить буфер {GetLoadedFile(designer)}: {ErrorText.Of(ex)}", (int)RpaCommon.Enums.LogLevel.Warn);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Кладёт сериализованный буфер изменённого дизайнера в коллекцию несохранённых буферов.
+        /// Несохранённые новые документы (без абсолютного пути) пропускаются — их некуда сохранить.
+        /// </summary>
+        private void StashUnsavedDesigner(WorkflowDesignerEx designer)
+        {
+            if (TryCaptureUnsavedBuffer(designer, out UnsavedDocumentBuffer buffer))
+            {
+                UnsavedDocumentBuffers.Set(buffer.FilePath, buffer.Text, buffer.Kind);
+            }
+        }
+
+
+
+        internal void RemoveDesignerByLoadedFile(string loadedFile, bool stashUnsaved = false)
         {
             WorkflowDesignerEx designer = GetDesignerByFile(loadedFile);
 
             if (designer != null)
             {
+                if (stashUnsaved && designer.IsEdited)
+                {
+                    StashUnsavedDesigner(designer);
+                }
+
                 // Фоновая валидация останавливается вместе с вкладкой: её таймер живёт на диспетчере
                 // и после закрытия продолжает проверять невидимый дизайнер (а при остановке
                 // приложения его тик пытается показать модальное окно конструктора).
@@ -798,6 +850,19 @@ namespace RPA.Core
         }
 
         /// <summary>
+        /// Полностью очищает состояние проекта в дизайнере: вкладки, активный дизайнер, объект проекта,
+        /// loose-реестр и несохранённые буферы. Используется при смене проекта и при закрытии проекта.
+        /// </summary>
+        internal void ClearProject()
+        {
+            WorkflowDesigners.Clear();
+            ActiveWorkflowDesignerEx = null;
+            Project = null;
+            _looseTypeRegistry = null;
+            UnsavedDocumentBuffers.Clear();
+        }
+
+        /// <summary>
         /// Загружает единый объект <see cref="Project"/> в дизайнер: заполняет <see cref="Project"/>
         /// и открывает MainActivity. Работает и для встроенного (project.json), и для Visual Studio
         /// (.csproj) формата.
@@ -806,10 +871,8 @@ namespace RPA.Core
         {
             try
             {
-                WorkflowDesigners.Clear();
-                ActiveWorkflowDesignerEx = null;
+                ClearProject();
                 Project = project;
-                _looseTypeRegistry = null;
 
                 if (project == null || string.IsNullOrWhiteSpace(project.ProjectDirPath))
                 {

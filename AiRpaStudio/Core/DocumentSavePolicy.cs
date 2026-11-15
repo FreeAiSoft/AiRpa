@@ -30,7 +30,21 @@ namespace RPA.Core
         /// </summary>
         public static bool CanSaveAll(bool stopped, bool anyDesignerEdited, bool anyCodeDirty)
         {
-            return stopped && (anyDesignerEdited || anyCodeDirty);
+            return CanSaveAll(stopped, anyDesignerEdited, anyCodeDirty, anyStashedBuffer: false);
         }
+
+        /// <summary>
+        /// «Сохранить всё» активно только на остановленном workflow, когда изменён хотя бы один
+        /// дизайнер, хотя бы один редактор кода/XAML или есть несохранённый буфер закрытого документа.
+        /// </summary>
+        public static bool CanSaveAll(
+            bool stopped,
+            bool anyDesignerEdited,
+            bool anyCodeDirty,
+            bool anyStashedBuffer)
+        {
+            return stopped && (anyDesignerEdited || anyCodeDirty || anyStashedBuffer);
+        }
+
     }
 }

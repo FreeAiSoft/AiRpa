@@ -131,6 +131,15 @@ namespace RPA.Resources {
                 return ResourceManager.GetString("lang_main_project", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Recent projects.
+        /// </summary>
+        public static string lang_main_recent_projects {
+            get {
+                return ResourceManager.GetString("lang_main_recent_projects", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Settings.

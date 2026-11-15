@@ -836,6 +836,33 @@
   `DesignerToCodeTabTests.cs`, `DesignerCodeViewBehaviorTests.cs`, `LooseXamlDocumentPersistenceServiceTests.cs`,
   `DesignerOpenServiceTests.cs`.
 
+- **Несохранённые буферы закрытых документов** — при закрытии изменённой вкладки (редактор кода/XAML или
+  дизайнер WF) её буфер не теряется, а кладётся в `CustomWfDesigner.UnsavedDocumentBuffers`
+  (`AiRpaStudio\Core\UnsavedDocumentBufferStore.cs`, чистый тип без WPF/WF). Инвариант «один владелец
+  буфера»: в коллекции лежат буферы только **закрытых** документов — повторное открытие переносит буфер
+  и состояние во вкладку и удаляет запись из коллекции, «Сохранить всё» пишет буфер в файл и удаляет
+  запись, удаление файла из дерева проекта буфер отбрасывает (не «воскрешает» файл). Точки интеграции:
+  закрытие кода — `Main.CmdCloseCodeDocument` (stash) и `Main.CmdDiscardCodeDocument` (удаление файла,
+  без stash); закрытие дизайнера — `CustomWfDesigner.RemoveDesignerByLoadedFile(..., stashUnsaved)`;
+  повторное открытие — `Main.CmdOpenInCodeEditor` и `Main.OpenXamlDesigner`; запись — `Main.SaveAllChanges`;
+  сброс проекта — `CustomWfDesigner.LoadProject(Project)`; «Не сохранять» — `Main.ConfirmSaveOrDiscardChanges`.
+  Стражи: `AiRpaStudio.Tests\UnsavedDocumentBufferStoreTests.cs`, `UnsavedDocumentBufferWiringTests.cs`,
+  `DocumentSavePolicyTests.cs`.
+
+- **Закрытие проекта и per-project персист вкладок** — команда «Close project» (`Main.CmdCloseProject`)
+  и команды открытия/создания проекта перед сменой проекта закрывают текущий: `Main.CloseProject()` при
+  несохранённых изменениях показывает темизированный диалог «Сохранить / Сохранить в буфер / Отмена»
+  (`CloseProjectChangesDialog`/`CloseProjectChangesView`, результат `CloseProjectChangesResult`).
+  «Сохранить в буфер» кладёт изменённые дизайнеры (`CustomWfDesigner.TryCaptureUnsavedBuffer`), грязные
+  редакторы кода/XAML и уже застэшенные буферы в per-project store `ProjectUnsavedBuffersStore`; порядок
+  вкладок и активная вкладка каждого проекта хранятся в `ProjectSessionStore` (настройки `ProjectSessions`/
+  `ProjectUnsavedBuffers`). `CustomWfDesigner.ClearProject()` единообразно очищает вкладки/проект/буферы.
+  Восстановление (`Main.RestoreSessionState`) читает per-project сессию и буферы, а уже открытую главную
+  активность переоткрывает из буфера. Стражи: `CloseProjectFlowTests.cs`, `CloseProjectWiringTests.cs`,
+  `CloseProjectChangesDialogTests.cs`, `ProjectSessionStoreTests.cs`, `ProjectUnsavedBuffersStoreTests.cs`.
+
+
+
   `DocumentTabPolicyTests.cs`, `DocumentTabsCloseTests.cs`, `DocumentTabsCloseWiringTests.cs`.
 - **Выбрана ровно одна вкладка** — инвариант панели документов (второй регресс того же бага: «после
   перезапуска активна не та вкладка, две вкладки подсвечены как активные»). Источник правды о выбранной

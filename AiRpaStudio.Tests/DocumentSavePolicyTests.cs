@@ -56,4 +56,23 @@ public class DocumentSavePolicyTests
     {
         Assert.That(DocumentSavePolicy.CanSaveAll(stopped: true, anyDesignerEdited: false, anyCodeDirty: false), Is.False);
     }
+
+    [Test]
+    public void CanSaveAll_StashedBuffer_True()
+    {
+        Assert.That(DocumentSavePolicy.CanSaveAll(stopped: true, anyDesignerEdited: false, anyCodeDirty: false, anyStashedBuffer: true), Is.True);
+    }
+
+    [Test]
+    public void CanSaveAll_StashedBuffer_Running_False()
+    {
+        Assert.That(DocumentSavePolicy.CanSaveAll(stopped: false, anyDesignerEdited: false, anyCodeDirty: false, anyStashedBuffer: true), Is.False);
+    }
+
+    [Test]
+    public void CanSaveAll_StashedBuffer_NothingEdited_False()
+    {
+        Assert.That(DocumentSavePolicy.CanSaveAll(stopped: true, anyDesignerEdited: false, anyCodeDirty: false, anyStashedBuffer: false), Is.False);
+    }
+
 }

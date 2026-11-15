@@ -1,4 +1,5 @@
 using System;
+using System.Activities;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -36,8 +37,48 @@ namespace RPA.Core.Workflow
             }
 
             string xaml = SerializeObject(documentRoot);
-            return RewriteFacades(xaml, registry);
+            xaml = RewriteFacades(xaml, registry);
+            xaml = EnsureActivityNamespaces(xaml, documentRoot);
+            return xaml;
         }
+
+        /// <summary>
+        /// Гарантирует, что корень XAML объявляет CLR-пространства имён всех активностей,
+        /// которым они нужны (пользовательские и библиотечные активности). Идемпотентно: если
+        /// URI уже объявлен, документ не меняется.
+        /// </summary>
+        private static string EnsureActivityNamespaces(string xaml, object documentRoot)
+        {
+            var activityTypes = new HashSet<Type>();
+            foreach (Activity activity in ActivitiesOf(documentRoot))
+            {
+                activityTypes.Add(activity.GetType());
+            }
+
+            return XamlNamespaceHelper.EnsureClrNamespaces(xaml, activityTypes);
+        }
+
+        /// <summary>Все активности дерева документа (у процесса с <c>x:Class</c> — из реализации).</summary>
+        private static IEnumerable<Activity> ActivitiesOf(object documentRoot)
+        {
+            if (documentRoot is ActivityBuilder builder && builder.Implementation != null)
+            {
+                return WorkflowInspectionServices.GetActivities(builder.Implementation);
+            }
+
+            if (documentRoot is DynamicActivity dynamicActivity && dynamicActivity.Implementation != null)
+            {
+                return WorkflowInspectionServices.GetActivities(dynamicActivity.Implementation());
+            }
+
+            if (documentRoot is Activity activity)
+            {
+                return WorkflowInspectionServices.GetActivities(activity);
+            }
+
+            return Enumerable.Empty<Activity>();
+        }
+
 
         /// <summary>
         /// Тот же сериализатор, которым сохраняет студия: <c>ActivityBuilderXamlWriter</c> поверх

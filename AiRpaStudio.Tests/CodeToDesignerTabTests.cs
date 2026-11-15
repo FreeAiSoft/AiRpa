@@ -21,7 +21,7 @@ public class CodeToDesignerTabTests
         {
             Assert.That(method, Does.Contain("BeginReplaceCodeTab(filePath)"),
                 "открытие в дизайнере помечает вкладку кода для замены");
-            Assert.That(method, Does.Contain("OpenOrActivate(filePath, replaceCodeTab ? codeDocument.Text : null)"),
+            Assert.That(method, Does.Contain("OpenOrActivate(filePath, replaceCodeTab ? codeDocument.Text"),
                 "дизайнер грузится из буфера редактора кода");
             Assert.That(method, Does.Contain("OpenCodeDocuments.Remove(codeDocument)"),
                 "после успешного открытия код-документ убирается из модели");

@@ -560,6 +560,17 @@
                 <MenuItem Header="Load project"
                           Command="{Binding Cmd}"
                           CommandParameter="CmdTryLoadProject" />
+                <MenuItem Header="{DynamicResource lang_main_recent_projects}"
+                          ItemsSource="{Binding RecentProjects}">
+                    <MenuItem.ItemContainerStyle>
+                        <Style TargetType="MenuItem">
+                            <Setter Property="Foreground" Value="{DynamicResource Studio.MenuForeground}" />
+                            <Setter Property="Header" Value="{Binding Name}" />
+                            <Setter Property="ToolTip" Value="{Binding Path}" />
+                            <EventSetter Event="Click" Handler="RecentProjectMenuItem_Click" />
+                        </Style>
+                    </MenuItem.ItemContainerStyle>
+                </MenuItem>
                 <MenuItem Header="Add new activity to project"
                           Command="{Binding Cmd}"
                           CommandParameter="CmdAddNewActivityToProject" />
@@ -576,6 +587,9 @@
                 <Separator />
                 <MenuItem Header="Close"
                           Command="{Binding ActiveDocument.CloseCommand}" />
+                <MenuItem Header="{DynamicResource lang_main_close_project}"
+                          Command="{Binding Cmd}"
+                          CommandParameter="CmdCloseProject" />
             </MenuItem>
             <MenuItem Header="{DynamicResource lang_main_settings}"
                       Foreground="{DynamicResource Studio.MenuForeground}">

@@ -149,6 +149,26 @@ namespace AiRpaStudio.Tests.Workflow
             });
         }
 
+        [Test]
+        public void WorkflowDesignerEx_SchedulesNamespaceFlushOnLooseEdit()
+        {
+            string source = ReadSource(@"AiRpaStudio\Core\WorkflowDesignerEx.cs");
+
+            string onEdit = MethodBody(source, "OnEditingScopeCompleted");
+            Assert.That(onEdit, Does.Contain("ScheduleNamespaceFlush()"),
+                "после эффективной правки модели дизайнер обязан актуализировать XAML (добавить xmlns)");
+
+            string schedule = MethodBody(source, "ScheduleNamespaceFlush");
+            Assert.Multiple(() =>
+            {
+                Assert.That(schedule, Does.Contain("LooseTypeRegistry == null"),
+                    "отложенный Flush нужен только для loose-пути — штатный путь сериализует сам");
+                Assert.That(schedule, Does.Contain("Flush()"),
+                    "дизайнер обязан сериализовать буфер после правки модели");
+            });
+        }
+
+
         private static string MethodBody(string source, string methodName)
         {
             Match match = Regex.Match(

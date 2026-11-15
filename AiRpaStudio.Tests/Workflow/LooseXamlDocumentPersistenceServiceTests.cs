@@ -1,5 +1,6 @@
 using System;
 using System.Activities;
+using System.Activities.Statements;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -216,6 +217,101 @@ namespace AiRpaStudio.Tests.Workflow
             Assert.That(File.ReadAllText(sub), Is.EqualTo(before),
                 "Flush меняет только корневой документ, вложенные файлы остаются нетронутыми");
         }
+
+        [Test]
+        public void Flush_DeclaresClrNamespaceForCustomActivity()
+        {
+            var builder = new ActivityBuilder
+            {
+                Name = "RPA_1.Main",
+                Implementation = new Sequence
+                {
+                    Activities =
+                    {
+                        new PaletteRefreshProbeActivity { DisplayName = "Probe" }
+                    }
+                }
+            };
+
+            string flushed = null;
+            var service = new LooseXamlDocumentPersistenceService(
+                WorkflowTypeRegistry.Scan(new string[0]),
+                text => flushed = text);
+            service.Flush(builder);
+
+            Assert.That(flushed, Does.Contain(
+                "clr-namespace:AiRpaStudio.Tests.Workflow;assembly=AiRpaStudio.Tests"),
+                "кастомная активность обязана получить xmlns в корне после Flush");
+            Assert.That(flushed, Does.Contain("<atw:PaletteRefreshProbeActivity"),
+                "элемент кастомной активности обязан использовать объявленный префикс");
+        }
+
+        [Test]
+        public void Flush_DoesNotAddNamespaceForSystemActivities()
+        {
+            var builder = new ActivityBuilder
+            {
+                Name = "RPA_1.Main",
+                Implementation = new Sequence
+                {
+                    Activities =
+                    {
+                        new WriteLine { Text = "hello" }
+                    }
+                }
+            };
+
+            string flushed = null;
+            var service = new LooseXamlDocumentPersistenceService(
+                WorkflowTypeRegistry.Scan(new string[0]),
+                text => flushed = text);
+            service.Flush(builder);
+
+            Assert.That(flushed, Does.Not.Contain("clr-namespace:System.Activities.Statements;assembly"),
+                "системным активностям WF отдельный xmlns не нужен");
+        }
+
+        [Test]
+        public void Flush_DoesNotDuplicateExistingClrNamespace()
+        {
+            var builder = new ActivityBuilder
+            {
+                Name = "RPA_1.Main",
+                Implementation = new Sequence
+                {
+                    Activities =
+                    {
+                        new PaletteRefreshProbeActivity { DisplayName = "Probe" }
+                    }
+                }
+            };
+
+            string flushed = null;
+            var service = new LooseXamlDocumentPersistenceService(
+                WorkflowTypeRegistry.Scan(new string[0]),
+                text => flushed = text);
+            service.Flush(builder);
+
+            int declarations = CountOccurrences(flushed,
+                "clr-namespace:AiRpaStudio.Tests.Workflow;assembly=AiRpaStudio.Tests");
+
+            Assert.That(declarations, Is.EqualTo(1),
+                "URI пространства имён обязан быть объявлен ровно один раз");
+        }
+
+        private static int CountOccurrences(string text, string token)
+        {
+            int count = 0;
+            int index = 0;
+            while ((index = text.IndexOf(token, index, StringComparison.Ordinal)) >= 0)
+            {
+                count++;
+                index += token.Length;
+            }
+
+            return count;
+        }
+
         private string Write(string fileName, string content)
         {
             string path = Path.Combine(_tempDir, fileName);

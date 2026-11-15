@@ -120,6 +120,9 @@
   <data name="lang_main_file" xml:space="preserve">
     <value>File</value>
   </data>
+  <data name="lang_main_recent_projects" xml:space="preserve">
+    <value>Recent projects</value>
+  </data>
   <data name="key_for_find_resource_main" xml:space="preserve">
     <value>key_for_find_resource_main</value>
   </data>
@@ -269,6 +272,8 @@
     <value>Copy</value>
   </data>
   <data name="lang_error_copied" xml:space="preserve">
+    <value>Copied to clipboard</value>
+  </data>
   <data name="lang_unsaved_title" xml:space="preserve">
     <value>Unsaved changes</value>
   </data>
@@ -284,8 +289,23 @@
   <data name="lang_unsaved_cancel" xml:space="preserve">
     <value>Cancel</value>
   </data>
-
-    <value>Copied to clipboard</value>
+  <data name="lang_main_close_project" xml:space="preserve">
+    <value>Close project</value>
+  </data>
+  <data name="lang_close_project_title" xml:space="preserve">
+    <value>Close project</value>
+  </data>
+  <data name="lang_close_project_message" xml:space="preserve">
+    <value>There are unsaved changes in the current project. Choose what to do with them.</value>
+  </data>
+  <data name="lang_close_project_save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="lang_close_project_buffer" xml:space="preserve">
+    <value>Save to buffer</value>
+  </data>
+  <data name="lang_close_project_cancel" xml:space="preserve">
+    <value>Cancel</value>
   </data>
   <data name="lang_main_check_activity_compat" xml:space="preserve">
     <value>Check Activity Library Compatibility</value>

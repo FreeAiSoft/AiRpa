@@ -1,4 +1,4 @@
-<Activity x:Class="RPA_1.SubProcess4" sap2010:ExpressionActivityEditor.ExpressionActivityEditor="C#" sap:VirtualizedContainerService.HintSize="262,364" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:aom="clr-namespace:Activities.OS.Main;assembly=Activities.OS" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=mscorlib" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:sads="http://schemas.microsoft.com/netfx/2010/xaml/activities/debugger" mc:Ignorable="sads">
+<Activity x:Class="RPA_1.SubProcess4" sap2010:ExpressionActivityEditor.ExpressionActivityEditor="C#" sap:VirtualizedContainerService.HintSize="262,302" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=mscorlib" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:sads="http://schemas.microsoft.com/netfx/2010/xaml/activities/debugger" mc:Ignorable="sads sap sap2010" xmlns:mca="clr-namespace:Microsoft.CSharp.Activities;assembly=System.Activities">
   <TextExpression.NamespacesForImplementation>
     <sco:Collection x:TypeArguments="x:String">
       <x:String>System</x:String>
@@ -18,13 +18,12 @@
       <AssemblyReference>System.Xml</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
-  <Sequence sap:VirtualizedContainerService.HintSize="222,284">
+  <Sequence sap:VirtualizedContainerService.HintSize="222,222">
     <sap:WorkflowViewStateService.ViewState>
       <scg:Dictionary x:TypeArguments="x:String, x:Object">
         <x:Boolean x:Key="IsExpanded">True</x:Boolean>
       </scg:Dictionary>
     </sap:WorkflowViewStateService.ViewState>
-    <aWWom:KillProcess ActivityLogger="{x:Null}" ProcessFilePath="{x:Null}" ProcessName="{x:Null}" DelayAfter="0" DelayBefore="0" DisplayName="Terminate the process" sap:VirtualizedContainerService.HintSize="200,22" IsEnabled="True" IsNeedLogging="False" IsNeedTrace="False" IsSafe="False" Timeout="30" />
     <Sequence sap:VirtualizedContainerService.HintSize="200,98">
       <sap:WorkflowViewStateService.ViewState>
         <scg:Dictionary x:TypeArguments="x:String, x:Object">
@@ -32,5 +31,5 @@
         </scg:Dictionary>
       </sap:WorkflowViewStateService.ViewState>
     </Sequence>
-  <sads:DebugSymbol.Symbol>dzRDOlxVc2Vyc1xNYXh4eFxEZXNrdG9wXEFJLVJQQVxSUEEtMVxTdWJQcm9jZXNzNC54YW1sBhUDI1kCAQEbBRuwAgIBAxwFIhACAQIbbRtwAgEGG6kCG60CAgEFG30bgAECAQQ=</sads:DebugSymbol.Symbol></Sequence>
+  <sads:DebugSymbol.Symbol>dzRDOlxVc2Vyc1xNYXh4eFxEZXNrdG9wXEFJLVJQQVxSUEEtMVxTdWJQcm9jZXNzNC54YW1sAhUDIlkCAQEbBSEQAgEC</sads:DebugSymbol.Symbol></Sequence>
 </Activity>

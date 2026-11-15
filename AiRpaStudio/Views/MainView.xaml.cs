@@ -834,6 +834,14 @@ namespace RPA.Views
             ShowNuGetPanel();
         }
 
+        private void RecentProjectMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem item && item.DataContext is RecentProjectEntry entry && DataContext is MainViewModel viewModel)
+            {
+                viewModel.OpenRecentProject(entry.Path);
+            }
+        }
+
         private void CheckActivityCompatibilityMenuItem_Click(object sender, RoutedEventArgs e)
         {
             OpenFileDialog dialog = new OpenFileDialog

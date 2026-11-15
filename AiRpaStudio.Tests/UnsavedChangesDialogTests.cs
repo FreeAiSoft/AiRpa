@@ -247,8 +247,8 @@ public class UnsavedChangesDialogTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(method, Does.Contain("ConfirmSaveOrDiscardChanges()"),
-                    $"{command}: перед открытием/созданием проекта обязана быть проверка несохранённых изменений");
+                Assert.That(method, Does.Contain("CloseProject()"),
+                    $"{command}: перед открытием/созданием проекта обязано быть закрытие текущего проекта с проверкой несохранённых изменений");
                 Assert.That(method, Does.Contain("return;"),
                     $"{command}: при отмене команда обязана завершаться, не меняя проект");
             });

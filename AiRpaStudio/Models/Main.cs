@@ -6,11 +6,13 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Windows;
 using System.Threading.Tasks;
 using FW.EasyMvvm.Core;
 using RPA.Core;
 using RPA.Core.Generation;
+using RPA.Entities;
 using RPA.Enums;
 using RPA.Helpers;
 using RPA.Logging;
@@ -36,6 +38,12 @@ namespace RPA.Models
         /// </summary>
         private bool _isRestoringSession;
 
+        /// <summary>
+        /// Идёт закрытие проекта: изменения набора вкладок в этот момент не сохраняем, иначе
+        /// очистка вкладок затёрла бы уже сохранённую сессию текущего проекта.
+        /// </summary>
+        private bool _isClosingProject;
+
         #endregion Fields
 
         public Main()
@@ -49,8 +57,10 @@ namespace RPA.Models
             OpenCodeDocuments.CollectionChanged += OpenCodeDocuments_CollectionChanged_ForSave;
 
             // При удалении файла через дерево проекта закрываем его вкладку встроенного редактора кода/XAML.
-            ProjectManager.FileDeleting -= CmdCloseCodeDocument;
-            ProjectManager.FileDeleting += CmdCloseCodeDocument;
+            ProjectManager.FileDeleting -= CmdDiscardCodeDocument;
+            ProjectManager.FileDeleting += CmdDiscardCodeDocument;
+
+            RefreshRecentProjects();
         }
 
         private void WorkflowTabs_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -64,6 +74,9 @@ namespace RPA.Models
         public ProjectManager ProjectManager { get; set; } = ProjectManager.GetInstance();
 
         public ObservableCollection<CodeDocument> OpenCodeDocuments { get; } = new ObservableCollection<CodeDocument>();
+
+        /// <summary>Недавно открывавшиеся проекты (имя + полный путь), показываются в меню «Файл».</summary>
+        public ObservableCollection<RecentProjectEntry> RecentProjects { get; } = new ObservableCollection<RecentProjectEntry>();
 
         public string Language
         {
@@ -202,7 +215,10 @@ namespace RPA.Models
                     CustomWfDesigner.LoadProject(tree.Root?.Project);
 
                     Properties.Settings.Default.LastLoadedProjectPath = path;
+                    Properties.Settings.Default.RecentProjects =
+                        RecentProjectsStore.Add(Properties.Settings.Default.RecentProjects, path);
                     Properties.Settings.Default.Save();
+                    RefreshRecentProjects();
 
                     StartupTimer.Mark("LoadProject: RestoreSessionState()");
                     RestoreSessionState(path);
@@ -284,6 +300,28 @@ namespace RPA.Models
             catch (Exception ex)
             {
                 CustomWfDesigner.GetInstance().Log($"Ошибка загрузки проекта: {ex}", (int)RpaCommon.Enums.LogLevel.Error);
+            }
+        }
+
+        /// <summary>
+        /// Перечитывает список недавних проектов из настройки <c>RecentProjects</c>, убирает пути,
+        /// которые больше не существуют, и заполняет <see cref="RecentProjects"/> для меню «Файл».
+        /// </summary>
+        private void RefreshRecentProjects()
+        {
+            string json = Properties.Settings.Default.RecentProjects;
+            string cleaned = RecentProjectsStore.RemoveMissing(json);
+
+            if (!string.Equals(json, cleaned, StringComparison.Ordinal))
+            {
+                Properties.Settings.Default.RecentProjects = cleaned;
+                Properties.Settings.Default.Save();
+            }
+
+            RecentProjects.Clear();
+            foreach (RecentProjectEntry entry in RecentProjectsStore.Parse(cleaned))
+            {
+                RecentProjects.Add(entry);
             }
         }
 
@@ -386,7 +424,7 @@ namespace RPA.Models
 
         public void CmdRemoveDesigner(string loadedFile)
         {
-            CustomWfDesigner.RemoveDesignerByLoadedFile(loadedFile);
+            CustomWfDesigner.RemoveDesignerByLoadedFile(loadedFile, stashUnsaved: true);
         }
 
         public void CmdSetActiveDesigner(string loadedFile)
@@ -456,6 +494,12 @@ namespace RPA.Models
             bool designerAlreadyOpen = CustomWfDesigner.GetDesignerByFileIgnoreCase(filePath) != null;
             bool replaceCodeTab = view != null && codeDocument != null && !designerAlreadyOpen;
 
+            UnsavedDocumentBuffer stashed = null;
+            if (!replaceCodeTab && !designerAlreadyOpen)
+            {
+                _ = CustomWfDesigner.UnsavedDocumentBuffers.TryGet(filePath, out stashed);
+            }
+
             if (replaceCodeTab)
             {
                 view.BeginReplaceCodeTab(filePath);
@@ -463,27 +507,37 @@ namespace RPA.Models
 
             DesignerOpenResult openResult = DesignerOpenService
                 .ForStudio(message => CustomWfDesigner.Log(message))
-                .OpenOrActivate(filePath, replaceCodeTab ? codeDocument.Text : null);
+                .OpenOrActivate(filePath, replaceCodeTab ? codeDocument.Text : (stashed != null ? stashed.Text : null));
 
-            if (replaceCodeTab)
+            if (openResult.Ok && !openResult.AlreadyOpen)
             {
-                if (openResult.Ok && !openResult.AlreadyOpen)
+                WorkflowDesignerEx designer = CustomWfDesigner.GetDesignerByFileIgnoreCase(filePath);
+
+                if (replaceCodeTab)
                 {
                     // Дизайнер открыт в той же вкладке, что была у редактора кода (ContentId обнулён),
                     // поэтому удаление CodeDocument из модели больше не закрывает вкладку.
                     _ = OpenCodeDocuments.Remove(codeDocument);
 
-                    WorkflowDesignerEx designer = CustomWfDesigner.GetDesignerByFileIgnoreCase(filePath);
                     if (designer != null && codeDocument.IsDirty)
                     {
                         designer.IsEdited = true;
                     }
                 }
-                else
+                else if (stashed != null)
                 {
-                    // Ошибка открытия или вкладка дизайнера уже была открыта: код-вкладку не трогаем.
-                    view.CancelReplaceCodeTab();
+                    if (designer != null)
+                    {
+                        designer.IsEdited = true;
+                    }
+
+                    _ = CustomWfDesigner.UnsavedDocumentBuffers.Remove(filePath);
                 }
+            }
+            else if (replaceCodeTab)
+            {
+                // Ошибка открытия или вкладка дизайнера уже была открыта: код-вкладку не трогаем.
+                view.CancelReplaceCodeTab();
             }
 
             return openResult;
@@ -529,6 +583,14 @@ namespace RPA.Models
                 return;
             }
 
+            UnsavedDocumentBuffer stashed;
+            if (CustomWfDesigner.UnsavedDocumentBuffers.TryGet(filePath, out stashed))
+            {
+                OpenCodeDocuments.Add(CodeDocument.FromText(filePath, stashed.Text, isDirty: true));
+                _ = CustomWfDesigner.UnsavedDocumentBuffers.Remove(filePath);
+                return;
+            }
+
             OpenCodeDocuments.Add(CodeDocument.Load(filePath));
         }
 
@@ -542,9 +604,40 @@ namespace RPA.Models
 
             if (document != null)
             {
+                if (document.IsDirty)
+                {
+                    try
+                    {
+                        CustomWfDesigner.UnsavedDocumentBuffers.Set(document.FilePath, document.Text, UnsavedDocumentBufferKind.Code);
+                    }
+                    catch (Exception ex)
+                    {
+                        CustomWfDesigner.Log($"Не удалось сохранить буфер {document.FilePath}: {ErrorText.Of(ex)}", (int)RpaCommon.Enums.LogLevel.Warn);
+                    }
+                }
+
+
                 _ = OpenCodeDocuments.Remove(document);
             }
         }
+
+        /// <summary>
+        /// Discards a code document without stashing its buffer — used when the file is being deleted
+        /// from the project tree, where "save" must not resurrect it.
+        /// </summary>
+        public void CmdDiscardCodeDocument(string filePath)
+        {
+            CodeDocument document = OpenCodeDocuments.FirstOrDefault(
+                d => string.Equals(d.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+
+            if (document != null)
+            {
+                _ = OpenCodeDocuments.Remove(document);
+            }
+
+            _ = CustomWfDesigner.UnsavedDocumentBuffers.Remove(filePath);
+        }
+
 
         /// <summary>
         /// Load project
@@ -553,18 +646,33 @@ namespace RPA.Models
         /// <param name="filePath"></param>
         public void CmdTryLoadProject()
         {
-            if (!ConfirmSaveOrDiscardChanges())
-            {
-                return;
-            }
-
             string projFilePath = IOHelper.GetFilePath("Json files (*.json)|*.json");
             if (string.IsNullOrWhiteSpace(projFilePath))
             {
                 return;
             }
+
+            if (!CloseProject())
+            {
+                return;
+            }
+
             string dirPath = Path.GetDirectoryName(projFilePath);
             LoadProject(dirPath);
+        }
+
+        /// <summary>
+        /// Открывает недавно открытый проект из меню «Файл → Недавние проекты». Та же проверка
+        /// несохранённых изменений, что и у остальных команд открытия проекта.
+        /// </summary>
+        public void CmdOpenRecentProject(string path)
+        {
+            if (!CloseProject())
+            {
+                return;
+            }
+
+            LoadProject(path);
         }
 
         /// <summary>
@@ -572,16 +680,15 @@ namespace RPA.Models
         /// </summary>
         public void CmdWorkflowNewProcess()
         {
-            if (!ConfirmSaveOrDiscardChanges())
-            {
-                return;
-            }
-
-
             ProjectCreator projectCreator = new ProjectCreator(ProjectType.Process);
             MvvmFactory.CreateWindow(projectCreator, new ProjectCreatorViewModel(), new ProjectCreatorView(), ViewMode.ShowDialog);
             if (projectCreator.IsCreate)
             {
+                if (!CloseProject())
+                {
+                    return;
+                }
+
                 LoadProject(projectCreator.RootFolder);
             }
         }
@@ -615,6 +722,12 @@ namespace RPA.Models
             }
 
             CustomWfDesigner.WorkflowSave();
+
+            WorkflowDesignerEx activeDesigner = CustomWfDesigner.ActiveWorkflowDesignerEx;
+            if (activeDesigner != null)
+            {
+                _ = CustomWfDesigner.UnsavedDocumentBuffers.Remove(CustomWfDesigner.GetLoadedFile(activeDesigner));
+            }
         }
 
         /// <summary>
@@ -681,15 +794,15 @@ namespace RPA.Models
         /// </summary>
         public void CmdVsNewProjectFromTemplate()
         {
-            if (!ConfirmSaveOrDiscardChanges())
-            {
-                return;
-            }
-
             VsTemplateProjectCreator creator = new VsTemplateProjectCreator();
             MvvmFactory.CreateWindow(creator, new VsTemplateProjectCreatorViewModel(), new VsTemplateProjectCreatorView(), ViewMode.ShowDialog);
             if (creator.IsCreate)
             {
+                if (!CloseProject())
+                {
+                    return;
+                }
+
                 LoadVsProjectIntoStudio(creator.ProjectFilePath);
             }
         }
@@ -722,15 +835,15 @@ namespace RPA.Models
         /// </summary>
         public void CmdVsOpenProject()
         {
-            if (!ConfirmSaveOrDiscardChanges())
-            {
-                return;
-            }
-
             VsProjectOpen model = new VsProjectOpen();
             MvvmFactory.CreateWindow(model, new VsProjectOpenViewModel(), new VsProjectOpenView(), ViewMode.ShowDialog);
             if (model.IsLoadIntoStudio)
             {
+                if (!CloseProject())
+                {
+                    return;
+                }
+
                 LoadVsProjectIntoStudio(model.FilePath);
             }
         }
@@ -789,7 +902,7 @@ namespace RPA.Models
         /// </summary>
         internal void SaveSessionState()
         {
-            if (_isRestoringSession)
+            if (_isRestoringSession || _isClosingProject)
             {
                 return;
             }
@@ -815,7 +928,13 @@ namespace RPA.Models
                 WorkflowSessionState state = WorkflowSessionState.Create(
                     projectPath, workflowFiles, codeFiles, ActiveDocumentPath());
 
-                Properties.Settings.Default.DesignerFiles = state.Serialize();
+                string serialized = state.Serialize();
+
+                // Единая настройка DesignerFiles остаётся как fallback и для совместимости со старыми
+                // сборками; per-project сессия позволяет пережить переключение проектов.
+                Properties.Settings.Default.DesignerFiles = serialized;
+                Properties.Settings.Default.ProjectSessions = ProjectSessionStore.Set(
+                    Properties.Settings.Default.ProjectSessions, projectPath, serialized);
                 Properties.Settings.Default.Save();
             }
             catch (Exception ex)
@@ -827,7 +946,8 @@ namespace RPA.Models
         /// <summary>Есть ли несохранённые изменения: workflow-вкладки или редакторы кода/XAML.</summary>
         public bool HasUnsavedChanges =>
             CustomWfDesigner.WorkflowDesigners.Any(d => d.IsEdited)
-            || OpenCodeDocuments.Any(d => d.IsDirty);
+            || OpenCodeDocuments.Any(d => d.IsDirty)
+            || CustomWfDesigner.UnsavedDocumentBuffers.Count > 0;
 
         /// <summary>
         /// Кнопка «Сохранить»: остановлено + есть активная вкладка + активная вкладка изменена
@@ -858,7 +978,8 @@ namespace RPA.Models
                 return DocumentSavePolicy.CanSaveAll(
                     CustomWfDesigner.CustomWfDesignerState == CustomWfDesignerState.Stop,
                     CustomWfDesigner.WorkflowDesigners.Any(d => d.IsEdited),
-                    OpenCodeDocuments.Any(d => d.IsDirty));
+                    OpenCodeDocuments.Any(d => d.IsDirty),
+                    CustomWfDesigner.UnsavedDocumentBuffers.Count > 0);
             }
         }
 
@@ -928,6 +1049,7 @@ namespace RPA.Models
             try
             {
                 document.Save();
+                _ = CustomWfDesigner.UnsavedDocumentBuffers.Remove(document.FilePath);
             }
             catch (Exception ex)
             {
@@ -946,6 +1068,7 @@ namespace RPA.Models
                 try
                 {
                     document.Save();
+                    _ = CustomWfDesigner.UnsavedDocumentBuffers.Remove(document.FilePath);
                 }
                 catch (Exception ex)
                 {
@@ -953,6 +1076,21 @@ namespace RPA.Models
                     OnSendMessage(LocalizeHelper.Get("lang_msg_open_file_error", ErrorText.Of(ex)));
                 }
             }
+
+            foreach (UnsavedDocumentBuffer buffer in CustomWfDesigner.UnsavedDocumentBuffers.Snapshot())
+            {
+                try
+                {
+                    File.WriteAllText(buffer.FilePath, buffer.Text, new UTF8Encoding(false));
+                    _ = CustomWfDesigner.UnsavedDocumentBuffers.Remove(buffer.FilePath);
+                }
+                catch (Exception ex)
+                {
+                    CustomWfDesigner.Log($"Не удалось сохранить {buffer.FilePath}: {ErrorText.Of(ex)}", (int)RpaCommon.Enums.LogLevel.Error);
+                    OnSendMessage(LocalizeHelper.Get("lang_msg_open_file_error", ErrorText.Of(ex)));
+                }
+            }
+
         }
 
         /// <summary>
@@ -975,12 +1113,179 @@ namespace RPA.Models
                     SaveAllChanges();
                     return !HasUnsavedChanges;
                 case UnsavedChangesResult.Discard:
+                    CustomWfDesigner.UnsavedDocumentBuffers.Clear();
                     return true;
                 default:
                     return false;
             }
         }
 
+
+
+        /// <summary>
+        /// Закрывает текущий проект: сохраняет порядок вкладок и, если есть несохранённые изменения,
+        /// предлагает сохранить их на диск или в буфер проекта. При отмене проект остаётся открытым.
+        /// </summary>
+        public void CmdCloseProject()
+        {
+            _ = CloseProject();
+        }
+
+        /// <summary>
+        /// Закрывает текущий проект. Возвращает <c>true</c>, если проект закрыт (или его не было),
+        /// и <c>false</c>, если пользователь отменил закрытие.
+        /// </summary>
+        public bool CloseProject()
+        {
+            if (!HasUnsavedChanges)
+            {
+                return CloseProjectCore(null);
+            }
+
+            CloseProjectChangesResult result = CloseProjectChangesDialog.Show(ViewModel?.View as MainView);
+            if (result == CloseProjectChangesResult.Cancel)
+            {
+                return false;
+            }
+
+            return CloseProjectCore(result);
+        }
+
+        /// <summary>
+        /// Фактическое закрытие проекта: сохранение сессии/буферов и очистка вкладок и дерева.
+        /// <paramref name="choice"/> — что делать с несохранёнными изменениями; <c>null</c>, когда
+        /// изменений нет и диалог не показывался.
+        /// </summary>
+        internal bool CloseProjectCore(CloseProjectChangesResult? choice)
+        {
+            string projectPath = Properties.Settings.Default.LastLoadedProjectPath;
+            if (string.IsNullOrWhiteSpace(projectPath))
+            {
+                return true;
+            }
+
+            if (choice == CloseProjectChangesResult.Save)
+            {
+                SaveAllChanges();
+            }
+            else if (choice == CloseProjectChangesResult.SaveToBuffer)
+            {
+                CaptureProjectBuffers(projectPath);
+            }
+
+            // Финальное сохранение порядка вкладок (до очистки, пока активная вкладка ещё известна).
+            SaveSessionState();
+
+            _isClosingProject = true;
+            try
+            {
+                OpenCodeDocuments.Clear();
+                CustomWfDesigner.ClearProject();
+            }
+            finally
+            {
+                _isClosingProject = false;
+            }
+
+            ClearProjectWorkspace();
+            return true;
+        }
+
+        /// <summary>
+        /// Кладёт несохранённые изменения текущего проекта в per-project хранилище буферов:
+        /// изменённые дизайнеры, изменённые редакторы кода/XAML и уже застэшенные буферы.
+        /// </summary>
+        private void CaptureProjectBuffers(string projectPath)
+        {
+            List<ProjectUnsavedBufferEntry> entries = new List<ProjectUnsavedBufferEntry>();
+
+            foreach (WorkflowDesignerEx designer in CustomWfDesigner.WorkflowDesigners.Where(d => d.IsEdited))
+            {
+                if (CustomWfDesigner.TryCaptureUnsavedBuffer(designer, out UnsavedDocumentBuffer buffer))
+                {
+                    entries.Add(ProjectUnsavedBufferEntry.FromBuffer(buffer));
+                }
+            }
+
+            foreach (CodeDocument document in OpenCodeDocuments.Where(d => d.IsDirty))
+            {
+                entries.Add(new ProjectUnsavedBufferEntry
+                {
+                    FilePath = document.FilePath,
+                    Text = document.Text,
+                    Kind = "code"
+                });
+            }
+
+            foreach (UnsavedDocumentBuffer buffer in CustomWfDesigner.UnsavedDocumentBuffers.Snapshot())
+            {
+                entries.Add(ProjectUnsavedBufferEntry.FromBuffer(buffer));
+            }
+
+            Properties.Settings.Default.ProjectUnsavedBuffers = ProjectUnsavedBuffersStore.Set(
+                Properties.Settings.Default.ProjectUnsavedBuffers, projectPath, entries);
+            Properties.Settings.Default.Save();
+        }
+
+        /// <summary>Очищает дерево проекта и путь к последнему открытому проекту.</summary>
+        private void ClearProjectWorkspace()
+        {
+            ProjectManager.ProjectFolder = null;
+            ProjectManager.FSNodes = new System.Collections.ObjectModel.ObservableCollection<FSNode>();
+            Properties.Settings.Default.LastLoadedProjectPath = string.Empty;
+            Properties.Settings.Default.Save();
+        }
+
+        /// <summary>
+        /// Загружает несохранённые буферы проекта в коллекцию студии, чтобы восстановление вкладок
+        /// подхватило их при повторном открытии.
+        /// </summary>
+        private void LoadProjectBuffers(string projectPath)
+        {
+            IReadOnlyList<ProjectUnsavedBufferEntry> buffers = ProjectUnsavedBuffersStore.Get(
+                Properties.Settings.Default.ProjectUnsavedBuffers, projectPath);
+
+            foreach (ProjectUnsavedBufferEntry entry in buffers)
+            {
+                UnsavedDocumentBuffer buffer = entry.ToBuffer();
+                if (buffer != null)
+                {
+                    CustomWfDesigner.UnsavedDocumentBuffers.Set(buffer.FilePath, buffer.Text, buffer.Kind);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Переоткрывает уже открытые вкладки, для которых есть несохранённый буфер. Нужно после
+        /// <see cref="CustomWfDesigner.LoadProject"/>: главная активность открыта свежей, а её
+        /// несохранённый буфер должен восстановиться в той же вкладке.
+        /// </summary>
+        private void ReopenOpenDocumentsWithBuffers()
+        {
+            foreach (string loadedFile in CustomWfDesigner.WorkflowDesigners
+                         .Select(CustomWfDesigner.GetLoadedFile)
+                         .Where(file => !string.IsNullOrWhiteSpace(file))
+                         .ToList())
+            {
+                if (CustomWfDesigner.UnsavedDocumentBuffers.Contains(loadedFile))
+                {
+                    CustomWfDesigner.RemoveDesignerByLoadedFile(loadedFile, stashUnsaved: false);
+                }
+            }
+
+            foreach (string openCodePath in OpenCodeDocuments
+                         .Select(document => document.FilePath)
+                         .Where(file => !string.IsNullOrWhiteSpace(file))
+                         .ToList())
+            {
+                if (CustomWfDesigner.UnsavedDocumentBuffers.Contains(openCodePath))
+                {
+                    CodeDocument document = OpenCodeDocuments.FirstOrDefault(
+                        d => string.Equals(d.FilePath, openCodePath, StringComparison.OrdinalIgnoreCase));
+                    _ = OpenCodeDocuments.Remove(document);
+                }
+            }
+        }
 
 
         /// <summary>Путь активной вкладки панели документов (дизайнер или редактор кода/XAML).</summary>
@@ -1012,8 +1317,16 @@ namespace RPA.Models
         {
             try
             {
-                WorkflowSessionState state = WorkflowSessionState.Deserialize(
-                    Properties.Settings.Default.DesignerFiles, projectPath);
+                string sessionJson;
+                if (!ProjectSessionStore.TryGet(Properties.Settings.Default.ProjectSessions, projectPath, out sessionJson))
+                {
+                    sessionJson = Properties.Settings.Default.DesignerFiles;
+                }
+
+                WorkflowSessionState state = WorkflowSessionState.Deserialize(sessionJson, projectPath);
+
+                LoadProjectBuffers(projectPath);
+                ReopenOpenDocumentsWithBuffers();
 
                 if (state.Documents.Count == 0)
                 {
