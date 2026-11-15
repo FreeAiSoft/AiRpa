@@ -40,9 +40,14 @@ namespace RPA.Controls
             };
         }
 
-        public void LoadFile(string filePath)
+        public void LoadDocument(CodeDocument document)
         {
-            Document = CodeDocument.Load(filePath);
+            if (document == null)
+            {
+                throw new ArgumentNullException(nameof(document));
+            }
+
+            Document = document;
 
             isLoading = true;
             try

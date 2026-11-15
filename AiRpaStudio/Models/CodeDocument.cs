@@ -86,6 +86,28 @@ namespace RPA.Models
             };
         }
 
+        /// <summary>
+        /// Создаёт документ из текста, уже находящегося в памяти (например, XAML, сериализованный из
+        /// открытого дизайнера), не читая диск. Признак «изменён» переносится: так вкладка дизайнера,
+        /// уже помеченная звёздочкой, сохраняет её при переключении в редактор кода.
+        /// </summary>
+        public static CodeDocument FromText(string path, string text, bool isDirty)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                throw new ArgumentException("Path is required.", nameof(path));
+            }
+
+            return new CodeDocument
+            {
+                filePath = path,
+                text = text ?? string.Empty,
+                title = Path.GetFileName(path),
+                isDirty = isDirty
+            };
+        }
+
+
         /// <summary>Saves the current text back to disk and clears the dirty flag.</summary>
         public void Save()
         {
@@ -94,7 +116,7 @@ namespace RPA.Models
                 throw new InvalidOperationException("File path is not set.");
             }
 
-            File.WriteAllText(filePath, text, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+            File.WriteAllText(filePath, text, new UTF8Encoding(false));
             IsDirty = false;
         }
     }

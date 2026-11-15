@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using FW.EasyMvvm.Core;
 using RPA.Core;
@@ -36,9 +36,9 @@ namespace RPA.ViewModels
 
         public List<string> Langs => new List<string> { "RU", "EN" };
 
-        public bool CanSave => main.CustomWfDesigner.CanSave;
+        public bool CanSave => main.CanSave;
 
-        public bool CanSaveAll => main.CustomWfDesigner.CanSaveAll;
+        public bool CanSaveAll => main.CanSaveAll;
 
         #endregion Properties
     }

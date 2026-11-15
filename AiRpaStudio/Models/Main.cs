@@ -44,6 +44,9 @@ namespace RPA.Models
             // project.json (CustomWfDesigner.LoadProject) и проект Visual Studio (.sln/.csproj).
             CustomWfDesigner.WorkflowDesigners.CollectionChanged += WorkflowTabs_CollectionChanged;
             OpenCodeDocuments.CollectionChanged += WorkflowTabs_CollectionChanged;
+            // Кнопки «Сохранить»/«Сохранить всё» учитывают и дизайнеры, и редакторы кода/XAML.
+            CustomWfDesigner.PropertyChanged += (s, e) => NotifySaveStateChanged();
+            OpenCodeDocuments.CollectionChanged += OpenCodeDocuments_CollectionChanged_ForSave;
 
             // При удалении файла через дерево проекта закрываем его вкладку встроенного редактора кода/XAML.
             ProjectManager.FileDeleting -= CmdCloseCodeDocument;
@@ -464,6 +467,21 @@ namespace RPA.Models
                 return;
             }
 
+            MainView view = ViewModel?.View as MainView;
+            WorkflowDesignerEx designer = CustomWfDesigner.GetDesignerByFileIgnoreCase(filePath);
+
+            if (designer != null)
+            {
+                // Файл открыт в дизайнере: сериализуем буфер и переносим его (вместе с признаком
+                // «изменён») в редактор кода той же вкладки — дизайнер из вкладки убирается.
+                designer.Flush();
+                CodeDocument document = CodeDocument.FromText(filePath, designer.Text, designer.IsEdited);
+                view?.BeginReplaceDesignerTab(filePath);
+                CustomWfDesigner.DetachDesignerForCodeView(filePath);
+                OpenCodeDocuments.Add(document);
+                return;
+            }
+
             OpenCodeDocuments.Add(CodeDocument.Load(filePath));
         }
 
@@ -542,6 +560,13 @@ namespace RPA.Models
         /// </summary>
         public void CmdWorkflowSave()
         {
+            CodeDocument activeCode = ActiveCodeDocument();
+            if (activeCode != null)
+            {
+                SaveCodeDocument(activeCode);
+                return;
+            }
+
             CustomWfDesigner.WorkflowSave();
         }
 
@@ -550,7 +575,7 @@ namespace RPA.Models
         /// </summary>
         public void CmdWorkflowSaveAll()
         {
-            CustomWfDesigner.WorkflowSaveAll();
+            SaveAllChanges();
         }
 
         /// <summary>
@@ -756,6 +781,113 @@ namespace RPA.Models
         public bool HasUnsavedChanges =>
             CustomWfDesigner.WorkflowDesigners.Any(d => d.IsEdited)
             || OpenCodeDocuments.Any(d => d.IsDirty);
+
+        /// <summary>
+        /// Кнопка «Сохранить»: остановлено + есть активная вкладка + активная вкладка изменена
+        /// (дизайнер — по <c>IsEdited</c>, редактор кода — по <c>IsDirty</c>).
+        /// </summary>
+        public bool CanSave
+        {
+            get
+            {
+                bool stopped = CustomWfDesigner.CustomWfDesignerState == CustomWfDesignerState.Stop;
+                CodeDocument activeCode = ActiveCodeDocument();
+                bool hasActiveDocument = CustomWfDesigner.ActiveWorkflowDesignerEx != null || activeCode != null;
+                return DocumentSavePolicy.CanSave(
+                    stopped,
+                    hasActiveDocument,
+                    CustomWfDesigner.ActiveWorkflowDesignerEx?.IsEdited == true,
+                    activeCode?.IsDirty == true);
+            }
+        }
+
+        /// <summary>
+        /// Кнопка «Сохранить всё»: остановлено + изменён хотя бы один дизайнер или редактор кода/XAML.
+        /// </summary>
+        public bool CanSaveAll
+        {
+            get
+            {
+                return DocumentSavePolicy.CanSaveAll(
+                    CustomWfDesigner.CustomWfDesignerState == CustomWfDesignerState.Stop,
+                    CustomWfDesigner.WorkflowDesigners.Any(d => d.IsEdited),
+                    OpenCodeDocuments.Any(d => d.IsDirty));
+            }
+        }
+
+        /// <summary>Пересчитывает кнопки сохранения после любого изменения вкладок/правок.</summary>
+        private void NotifySaveStateChanged()
+        {
+            OnPropertyChanged(nameof(CanSave));
+            OnPropertyChanged(nameof(CanSaveAll));
+        }
+
+        /// <summary>Смена активной вкладки панели документов пересчитывает «Сохранить» (активным может быть код).</summary>
+        public void CmdActiveDocumentChanged()
+        {
+            NotifySaveStateChanged();
+        }
+
+        private void OpenCodeDocuments_CollectionChanged_ForSave(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            if (e.NewItems != null)
+            {
+                foreach (CodeDocument document in e.NewItems)
+                {
+                    document.PropertyChanged += CodeDocument_PropertyChanged;
+                }
+            }
+
+            if (e.OldItems != null)
+            {
+                foreach (CodeDocument document in e.OldItems)
+                {
+                    document.PropertyChanged -= CodeDocument_PropertyChanged;
+                }
+            }
+
+            NotifySaveStateChanged();
+        }
+
+        private void CodeDocument_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(CodeDocument.IsDirty))
+            {
+                NotifySaveStateChanged();
+            }
+        }
+
+        /// <summary>Редактор кода/XAML активной вкладки или <c>null</c>, если активна вкладка дизайнера.</summary>
+        private CodeDocument ActiveCodeDocument()
+        {
+            string activePath = ActiveDocumentPath();
+            if (string.IsNullOrWhiteSpace(activePath))
+            {
+                return null;
+            }
+
+            return OpenCodeDocuments.FirstOrDefault(d =>
+                string.Equals(d.FilePath, activePath, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>Сохраняет документ редактора кода/XAML, не давая исключению записи выйти наружу.</summary>
+        private void SaveCodeDocument(CodeDocument document)
+        {
+            if (document == null)
+            {
+                return;
+            }
+
+            try
+            {
+                document.Save();
+            }
+            catch (Exception ex)
+            {
+                CustomWfDesigner.Log($"Не удалось сохранить {document.FilePath}: {ErrorText.Of(ex)}", (int)RpaCommon.Enums.LogLevel.Error);
+                OnSendMessage(LocalizeHelper.Get("lang_msg_open_file_error", ErrorText.Of(ex)));
+            }
+        }
 
         /// <summary>Сохраняет все несохранённые изменения (workflow + редакторы кода/XAML).</summary>
         public void SaveAllChanges()

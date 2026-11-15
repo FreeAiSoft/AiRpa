@@ -68,4 +68,52 @@ public class CodeDocumentTests
     {
         Assert.Throws<FileNotFoundException>(() => CodeDocument.Load(Path.Combine(tempDir, "missing.xaml")));
     }
+
+    [Test]
+    public void FromText_CarriesTextAndDirtyState()
+    {
+        CodeDocument document = CodeDocument.FromText(tempFile, "<Grid Background=\"Red\"/>", isDirty: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(document.Text, Is.EqualTo("<Grid Background=\"Red\"/>"));
+            Assert.That(document.IsDirty, Is.True);
+            Assert.That(document.Title, Is.EqualTo("sample.xaml"));
+            Assert.That(document.Language, Is.EqualTo("XAML"));
+        });
+    }
+
+    [Test]
+    public void FromText_CleanDocument_IsNotDirty()
+    {
+        CodeDocument document = CodeDocument.FromText(tempFile, "<Grid/>", isDirty: false);
+
+        Assert.That(document.IsDirty, Is.False);
+    }
+
+    [Test]
+    public void FromText_NullPath_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => CodeDocument.FromText(null, "text", isDirty: false));
+    }
+
+    [Test]
+    public void Save_WritesUtf8WithoutBom()
+    {
+        File.WriteAllText(tempFile, "<Grid/>");
+
+        CodeDocument document = CodeDocument.Load(tempFile);
+        document.Text = "<Grid Background=\"Red\"/>";
+        document.Save();
+
+        byte[] bytes = File.ReadAllBytes(tempFile);
+        Assert.Multiple(() =>
+        {
+            Assert.That(bytes.Length, Is.GreaterThanOrEqualTo(3));
+            Assert.That(bytes[0], Is.Not.EqualTo(0xEF), "BOM (EF BB BF) запрещён: файлы студии — UTF-8 без BOM");
+            Assert.That(bytes[1], Is.Not.EqualTo(0xBB), "BOM (EF BB BF) запрещён");
+            Assert.That(bytes[2], Is.Not.EqualTo(0xBF), "BOM (EF BB BF) запрещён");
+        });
+    }
+
 }

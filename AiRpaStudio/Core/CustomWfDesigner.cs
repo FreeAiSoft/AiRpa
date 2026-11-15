@@ -669,6 +669,30 @@ namespace RPA.Core
             }
         }
 
+        /// <summary>
+        /// Отсоединяет дизайнер от модели, оставляя его вкладку в панели документов: вкладка переключается
+        /// в редактор кода тем же файлом. В отличие от <see cref="RemoveDesignerByLoadedFile"/>, вкладка
+        /// НЕ закрывается — её содержимое заменяет представление, а здесь мы лишь прекращаем считать
+        /// дизайнер открытым и останавливаем его фоновую валидацию.
+        /// </summary>
+        internal void DetachDesignerForCodeView(string loadedFile)
+        {
+            WorkflowDesignerEx designer = GetDesignerByFileIgnoreCase(loadedFile);
+            if (designer == null)
+            {
+                return;
+            }
+
+            designer.DetachValidation();
+
+            if (ReferenceEquals(ActiveWorkflowDesignerEx, designer))
+            {
+                ActiveWorkflowDesignerEx = null;
+            }
+
+            _ = WorkflowDesigners.Remove(designer);
+        }
+
         public CallResult SetActiveDesigner(string loadedFile)
         {
             WorkflowDesignerEx designer = GetDesignerByFile(loadedFile);

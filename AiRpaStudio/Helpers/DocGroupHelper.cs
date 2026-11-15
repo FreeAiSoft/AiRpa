@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Activities.Presentation;
 using System.Collections.Specialized;
@@ -21,12 +21,13 @@ namespace RPA.Helpers
         private readonly Action<WorkflowDesigner> syncWFControlsDelegate;
         private readonly MainViewModel _mainViewModel;
         private readonly Action<string> setActiveDesignerDelegate;
+        private readonly Action activeDocumentChangedDelegate;
         private readonly PropertyWindowStyleHelper _propertyStyleHelper = new PropertyWindowStyleHelper();
 
 
         #region Singleton
 
-        public DocGroupHelper(LayoutDocumentPane docGroup, Action<string> removeDesigner, Action<WorkflowDesigner> syncWFControls, MainViewModel mainViewModel, Action<string> setActiveDesigner)
+        public DocGroupHelper(LayoutDocumentPane docGroup, Action<string> removeDesigner, Action<WorkflowDesigner> syncWFControls, MainViewModel mainViewModel, Action<string> setActiveDesigner, Action activeDocumentChanged)
         {
             this.docGroup = docGroup;
             removeDesignerDelegate = removeDesigner;
@@ -34,6 +35,7 @@ namespace RPA.Helpers
             _mainViewModel = mainViewModel;
             _mainViewModel.PropertyChanged += DataContext_PropertyChanged;
             setActiveDesignerDelegate = setActiveDesigner;
+            activeDocumentChangedDelegate = activeDocumentChanged;
             instance = this;
         }
 
@@ -121,6 +123,10 @@ namespace RPA.Helpers
             {
                 return;
             }
+
+            // Активная вкладка сменилась (дизайнер или редактор кода): «Сохранить» пересчитывается,
+            // потому что активной может быть вкладка кода/XAML.
+            activeDocumentChangedDelegate?.Invoke();
 
             // Признак вкладки дизайнера — путь к файлу активности в Tag (проставляется в AddDocument).
             if (!(document.Content is FrameworkElement view) || !(view.Tag is string loadedFile) || loadedFile.Length == 0)

@@ -68,6 +68,9 @@ namespace RPA.Views
 
         private DispatcherTimer _layoutSaveTimer;
         private bool _resetLayout;
+
+        /// <summary>Путь к файлу, чью вкладку дизайнера надо заменить редактором кода при следующем добавлении код-документа.</summary>
+        private string _codeReplacesDesignerPath;
         private bool _paletteRebuildInProgress;
 
         /// <summary>Каркас окна инициализирован (панели созданы, раскладка подготовлена к подъёму).</summary>
@@ -959,7 +962,7 @@ namespace RPA.Views
             // Панель документов: закрытие вкладки активирует соседнюю (дизайнер или редактор кода).
             tabsCloseCoordinator = new DocumentTabsCloseCoordinator(docGroup);
 
-            docGroupHelper = new DocGroupHelper(docGroup, RemoveDesigner, SyncWFControls, (MainViewModel)DataContext, SetActiveDesigner);
+            docGroupHelper = new DocGroupHelper(docGroup, RemoveDesigner, SyncWFControls, (MainViewModel)DataContext, SetActiveDesigner, NotifyActiveDocumentChanged);
             WorkflowDesigners.CollectionChanged += docGroupHelper.WorkflowDesigners_CollectionChanged;
             // Подписка идёт после DocGroupHelper: соседняя вкладка активируется уже после того,
             // как модель дизайнеров убрала документ и выбрала вкладку по-своему.
@@ -1024,14 +1027,30 @@ namespace RPA.Views
         private void AddCodeDocumentTab(CodeDocument document)
         {
             CodeEditorView view = new CodeEditorView();
-            view.LoadFile(document.FilePath);
+            view.LoadDocument(document);
 
-            LayoutDocument layoutDocument = new LayoutDocument
+            bool replaceDesigner = !string.IsNullOrEmpty(_codeReplacesDesignerPath)
+                && string.Equals(_codeReplacesDesignerPath, document.FilePath, StringComparison.OrdinalIgnoreCase);
+
+            LayoutDocument layoutDocument = replaceDesigner ? FindDesignerTab(document.FilePath) : null;
+
+            if (layoutDocument != null)
             {
-                Content = view,
-                ContentId = "code:" + document.FilePath,
-                Title = document.Title
-            };
+                // Дизайнер убираем из вкладки: тот же LayoutDocument теперь показывает редактор кода.
+                layoutDocument.Content = view;
+                layoutDocument.ContentId = "code:" + document.FilePath;
+                _codeReplacesDesignerPath = null;
+            }
+            else
+            {
+                layoutDocument = new LayoutDocument
+                {
+                    Content = view,
+                    ContentId = "code:" + document.FilePath,
+                    Title = document.Title
+                };
+                docGroup.Children.Add(layoutDocument);
+            }
 
             MultiBinding titleBinding = new MultiBinding
             {
@@ -1046,16 +1065,47 @@ namespace RPA.Views
                 ((BaseViewModel)DataContext).Cmd.Execute(new List<object> { "CmdCloseCodeDocument", document.FilePath });
             };
 
-            docGroup.Children.Add(layoutDocument);
+            // Активная вкладка кода/XAML тоже пересчитывает «Сохранить» (CanSave у активного кода).
+            layoutDocument.IsSelectedChanged += (s, e) =>
+            {
+                if (layoutDocument.IsSelected)
+                {
+                    NotifyActiveDocumentChanged();
+                }
+            };
+
             layoutDocument.IsSelected = true;
             layoutDocument.IsActive = true;
         }
-
         private void CloseCodeDocumentTab(string filePath)
         {
             LayoutDocument document = docGroup.Children.OfType<LayoutDocument>()
                 .FirstOrDefault(d => d.ContentId == "code:" + filePath);
             document?.Close();
+        }
+
+        /// <summary>
+        /// Помечает, что следующая вкладка редактора кода (<see cref="AddCodeDocumentTab"/>) должна
+        /// заменить вкладку дизайнера тем же файлом, а не создавать новую.
+        /// </summary>
+        internal void BeginReplaceDesignerTab(string filePath)
+        {
+            _codeReplacesDesignerPath = filePath;
+        }
+
+        /// <summary>Вкладка дизайнера по пути файла (признак — <c>Tag</c> поверхности), или <c>null</c>.</summary>
+        private LayoutDocument FindDesignerTab(string filePath)
+        {
+            return docGroup.Children.OfType<LayoutDocument>()
+                .FirstOrDefault(d => d.Content is FrameworkElement view
+                    && view.Tag is string tag
+                    && string.Equals(tag, filePath, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>Оповещает модель о смене активной вкладки (для пересчёта «Сохранить»).</summary>
+        private void NotifyActiveDocumentChanged()
+        {
+            ((BaseViewModel)DataContext)?.Cmd.Execute("CmdActiveDocumentChanged");
         }
 
         public void ActivateCodeDocument(string filePath)

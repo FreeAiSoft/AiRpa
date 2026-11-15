@@ -405,6 +405,7 @@
     <Compile Include="Core\NuGetProjectSourcesStore.cs" />
     <!-- РџР°РЅРµР»СЊ РґРѕРєСѓРјРµРЅС‚РѕРІ: Р°РєС‚РёРІР°С†РёСЏ СЃРѕСЃРµРґРЅРµР№ РІРєР»Р°РґРєРё РїСЂРё Р·Р°РєСЂС‹С‚РёРё (РєР°Рє РІ Visual Studio). -->
     <Compile Include="Core\DocumentTabPolicy.cs" />
+    <Compile Include="Core\DocumentSavePolicy.cs" />
     <Compile Include="Core\DocumentTabsCloseCoordinator.cs" />
     <Compile Include="Extensions\SourceLocationExtensions.cs" />
     <Compile Include="Extensions\StringExtensions.cs" />

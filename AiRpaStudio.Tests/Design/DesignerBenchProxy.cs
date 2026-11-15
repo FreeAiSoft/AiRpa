@@ -19,7 +19,9 @@ using AiRpaStudio.Tests.Generation;
 using System.Windows.Threading;
 using System.Diagnostics;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using RPA.Core;
+using RPA.Models;
 using RPA.CSharpExpressionEditor;
 
 using RPA.Core.Services;
@@ -1024,6 +1026,128 @@ public sealed class DesignerBenchProxy : MarshalByRefObject
     }
 
 
+    /// <summary>
+    /// Показывает <c>View</c> дизайнера в невидимом <c>HwndSource</c> и сразу освобождает его: раскладка
+    /// выполняется при живом кэше шрифтов, а не при выгрузке домена стенда (иначе WF пытается отрисовать
+    /// вкладку на мёртвом кэше шрифтов и падает с <c>AccessViolation</c>).
+    /// </summary>
+    private static void RealizeDesignerSurface(WorkflowDesignerEx designer)
+    {
+        if (!(designer?.View is UIElement view))
+        {
+            return;
+        }
+
+        HwndSource surface = null;
+
+        try
+        {
+            var root = new Grid();
+            root.Children.Add(view);
+
+            var parameters = new HwndSourceParameters("AiRpaStudio-CodeViewBench")
+            {
+                Width = 1200,
+                Height = 900,
+                WindowStyle = 0
+            };
+
+            surface = new HwndSource(parameters) { RootVisual = root };
+            root.Measure(new Size(1200, 900));
+            root.Arrange(new Rect(0, 0, 1200, 900));
+            root.UpdateLayout();
+
+            DesignerTestHost.Shared.Pump(TimeSpan.FromMilliseconds(300));
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("Поверхность дизайнера стенда не построена: " + ErrorText.Of(ex));
+        }
+        finally
+        {
+            try
+            {
+                if (surface != null)
+                {
+                    surface.RootVisual = null;
+                    surface.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Поверхность дизайнера стенда не освобождена: " + ErrorText.Of(ex));
+            }
+        }
+    }
+    /// <summary>
+    /// Переключение «дизайнер → редактор кода» на живом конструкторе: реальная правка модели помечает
+    /// вкладку изменённой, <c>Flush()</c> сериализует буфер, а <c>Main.CmdOpenInCodeEditor</c> переносит его
+    /// (вместе с признаком «изменён») в <c>CodeDocument</c> и отсоединяет дизайнер от модели.
+    /// </summary>
+    public DesignerCodeViewReport CodeViewSwitchScenario(string mainXaml, string[] projectXamlFiles)
+    {
+        DesignerTestHost host = DesignerTestHost.Shared;
+
+        return host.Invoke(() =>
+        {
+            var report = new DesignerCodeViewReport();
+
+            try
+            {
+                WorkflowTypeRegistry registry = WorkflowTypeRegistry.Scan(projectXamlFiles);
+                var designer = new WorkflowDesignerEx();
+                WfDesignerEnvironment.Configure(designer);
+                LooseXamlDesignerLoader.Open(designer, mainXaml, registry);
+                report.LoadSucceeded = true;
+
+                // Настоящая правка модели (в изолированном домене безопасна) → IsEdited = true.
+                ModelService modelService = designer.Context.Services.GetService<ModelService>();
+                report.EditedAfterModelChange = TryAppendActivity(designer.Context, modelService?.Root)
+                    && designer.IsEdited;
+
+                // Сбрасываем отложенную раскладку DesignerView при живом кэше шрифтов — иначе она
+                // сработает при выгрузке домена и уронит процесс (AccessViolation).
+                RealizeDesignerSurface(designer);
+
+                // Файл регистрируем в синглтоне студии так, как это делает LoadActivityToDesignerHelper.
+                CustomWfDesigner.GetInstance().WorkflowDesigners.Add(designer);
+                CustomWfDesigner.GetInstance().ActiveWorkflowDesignerEx = designer;
+
+                RPA.Models.Main main = new RPA.Models.Main();
+
+                designer.Flush();
+                string serialized = designer.Text;
+                report.XamlTextNonEmpty = !string.IsNullOrWhiteSpace(serialized);
+
+                main.CmdOpenInCodeEditor(mainXaml);
+
+                CodeDocument document = main.OpenCodeDocuments.FirstOrDefault(d =>
+                    string.Equals(d.FilePath, mainXaml, StringComparison.OrdinalIgnoreCase));
+
+                report.DesignerDetached = !CustomWfDesigner.GetInstance().WorkflowDesigners
+                    .Any(d => ReferenceEquals(d, designer));
+                report.CodeDocumentOpened = document != null;
+                report.DirtyCarriedOver = document != null && document.IsDirty;
+                report.TextMatchesBuffer = document != null
+                    && string.Equals(document.Text, serialized, StringComparison.Ordinal);
+
+                report.Description = "load: " + report.LoadSucceeded
+                    + ", edited: " + report.EditedAfterModelChange
+                    + ", xamlNonEmpty: " + report.XamlTextNonEmpty
+                    + ", detached: " + report.DesignerDetached
+                    + ", codeOpened: " + report.CodeDocumentOpened
+                    + ", dirtyCarried: " + report.DirtyCarriedOver
+                    + ", textMatches: " + report.TextMatchesBuffer;
+            }
+            catch (Exception ex)
+            {
+                report.Error = ErrorText.Of(ex);
+                report.Description = "сценарий переключения в код упал: " + report.Error;
+            }
+
+            return report;
+        });
+    }
     /// <summary>
     /// Специфические фичи контекстного меню WF-дизайнера: аннотации и точки останова. Проверяет, что
     /// после настройки среды опубликованы <c>IDesignerDebugView</c>/<c>ICommandService</c> и включены
