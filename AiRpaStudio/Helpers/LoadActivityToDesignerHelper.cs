@@ -41,66 +41,121 @@ namespace RPA.Helpers
 
             if (workflowDesignerEx == null)
             {
-                workflowDesignerEx = new WorkflowDesignerEx();
-
-                // Среда дизайнера — одна на все пути открытия (студия, стенд конструктора, MCP):
-                // DesignerConfigurationService (.NET Framework 4.5 + LoadingFromUntrustedSourceEnabled),
-                // Roslyn-редактор выражений, IExpressionEditorService, IValidationErrorService.
-                // Дублировать эти установки нельзя: расхождение путей даёт «работает в одном
-                // инструменте, ломается в другом» (`конвейер генерации XAML`, п. 2.3).
-                WfDesignerEnvironment.Configure(workflowDesignerEx);
+                workflowDesignerEx = CreateDesigner(sourceFile, looseTypeRegistry);
+                AddDesignerToStudio(workflowDesignerEx);
 
                 if (looseTypeRegistry != null)
                 {
+                    // Loose-путь не зависит от внешних сборок — открываем синхронно, как раньше.
                     LooseXamlDesignerLoader.Open(workflowDesignerEx, sourceFile, looseTypeRegistry, xamlText);
+                    RegenerateMappings(workflowDesignerEx);
+                    FinalizeAfterLoad(workflowDesignerEx, sourceFile, looseTypeRegistry, xamlText);
                 }
                 else
                 {
-                    //load Workflow Xaml
-                    // Перехватываем ошибки загрузки, которые дизайнер отдаёт через IXamlLoadErrorService
-                    // (родной баннер «workflow designer encountered problems…»), сохраняя штатное поведение.
-                    var existing = workflowDesignerEx.Context.Services.GetService<IXamlLoadErrorService>();
-                    workflowDesignerEx.Context.Services.Publish<IXamlLoadErrorService>(
-                        new CapturingXamlLoadErrorService(sourceFile, existing));
-
-                    try
+                    string projectFilePath = FindProjectFilePath();
+                    if (projectFilePath != null && HasPackagesConfig(projectFilePath))
                     {
-                        if (xamlText != null)
-                        {
-                            // Загрузка из несохранённого буфера (симметрично loose-пути): диск не читаем,
-                            // WorkflowFileItem дизайнер сам не кладёт — выставляем вручную.
-                            workflowDesignerEx.Text = xamlText;
-                            workflowDesignerEx.Load();
-                            workflowDesignerEx.Context.Items.SetValue(new WorkflowFileItem { LoadedFile = sourceFile });
-                        }
-                        else
-                        {
-                            workflowDesignerEx.Load(sourceFile);
-                        }
+                        // Вкладка уже показана; зависимости пакетов готовятся в фоне, затем XAML
+                        // загружается на UI-потоке. Кольцо прогресса управляется IsDependencyLoading.
+                        BeginPackageAwareLoad(workflowDesignerEx, sourceFile, projectFilePath, xamlText);
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        DesignerErrorReporter.Report(DesignerErrorCapture.Capture(sourceFile, ex));
-                        throw;
+                        try
+                        {
+                            LoadStandard(workflowDesignerEx, sourceFile, xamlText);
+                        }
+                        catch (Exception ex)
+                        {
+                            DesignerErrorReporter.Report(DesignerErrorCapture.Capture(sourceFile, ex));
+                            throw;
+                        }
+
+                        RegenerateMappings(workflowDesignerEx);
+                        FinalizeAfterLoad(workflowDesignerEx, sourceFile, looseTypeRegistry, xamlText);
                     }
-                }
-#pragma warning disable IDE0004 // Remove Unnecessary Cast
-
-                CustomWfDesigner.GetInstance().WorkflowDesigners.Add(workflowDesignerEx);
-                CustomWfDesigner.GetInstance().ActiveWorkflowDesignerEx = workflowDesignerEx;
-
-                CommandService commandService = new CommandService(workflowDesignerEx);
-                workflowDesignerEx.Context.Services.Publish<ICommandService>(commandService);
-                try
-                {
-                    DebuggerMappingsHelper.RegenerateSourceDebuggerMappings(workflowDesignerEx);
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine(ErrorText.Of(ex));
                 }
             }
+            else
+            {
+                FinalizeAfterLoad(workflowDesignerEx, sourceFile, looseTypeRegistry, xamlText);
+            }
 
+            return workflowDesignerEx;
+        }
+
+        private static WorkflowDesignerEx CreateDesigner(string sourceFile, WorkflowTypeRegistry looseTypeRegistry)
+        {
+            var workflowDesignerEx = new WorkflowDesignerEx();
+
+            // Среда дизайнера — одна на все пути открытия (студия, стенд конструктора, MCP):
+            // DesignerConfigurationService (.NET Framework 4.5 + LoadingFromUntrustedSourceEnabled),
+            // Roslyn-редактор выражений, IExpressionEditorService, IValidationErrorService.
+            // Дублировать эти установки нельзя: расхождение путей даёт «работает в одном
+            // инструменте, ломается в другом» (`конвейер генерации XAML`, п. 2.3).
+            WfDesignerEnvironment.Configure(workflowDesignerEx);
+
+            if (looseTypeRegistry != null)
+            {
+                workflowDesignerEx.LooseTypeRegistry = looseTypeRegistry;
+            }
+            else
+            {
+                // Перехватываем ошибки загрузки, которые дизайнер отдаёт через IXamlLoadErrorService
+                // (родной баннер «workflow designer encountered problems…»), сохраняя штатное поведение.
+                var existing = workflowDesignerEx.Context.Services.GetService<IXamlLoadErrorService>();
+                workflowDesignerEx.Context.Services.Publish<IXamlLoadErrorService>(
+                    new CapturingXamlLoadErrorService(sourceFile, existing));
+            }
+
+            // WorkflowFileItem нужен DocGroupHelper и GetLoadedFile ещё до Load: вкладка добавляется
+            // до загрузки документа, когда зависимости пакетов готовятся в фоне.
+            workflowDesignerEx.Context.Items.SetValue(new WorkflowFileItem { LoadedFile = sourceFile });
+
+            return workflowDesignerEx;
+        }
+
+        private static void AddDesignerToStudio(WorkflowDesignerEx workflowDesignerEx)
+        {
+#pragma warning disable IDE0004 // Remove Unnecessary Cast
+            CustomWfDesigner.GetInstance().WorkflowDesigners.Add(workflowDesignerEx);
+            CustomWfDesigner.GetInstance().ActiveWorkflowDesignerEx = workflowDesignerEx;
+
+            CommandService commandService = new CommandService(workflowDesignerEx);
+            workflowDesignerEx.Context.Services.Publish<ICommandService>(commandService);
+        }
+
+        private static void LoadStandard(WorkflowDesignerEx workflowDesignerEx, string sourceFile, string xamlText)
+        {
+            if (xamlText != null)
+            {
+                // Загрузка из несохранённого буфера (симметрично loose-пути): диск не читаем,
+                // WorkflowFileItem дизайнер сам не кладёт — выставляем вручную.
+                workflowDesignerEx.Text = xamlText;
+                workflowDesignerEx.Load();
+                workflowDesignerEx.Context.Items.SetValue(new WorkflowFileItem { LoadedFile = sourceFile });
+            }
+            else
+            {
+                workflowDesignerEx.Load(sourceFile);
+            }
+        }
+
+        private static void RegenerateMappings(WorkflowDesignerEx workflowDesignerEx)
+        {
+            try
+            {
+                DebuggerMappingsHelper.RegenerateSourceDebuggerMappings(workflowDesignerEx);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ErrorText.Of(ex));
+            }
+        }
+
+        private static void FinalizeAfterLoad(WorkflowDesignerEx workflowDesignerEx, string sourceFile, WorkflowTypeRegistry looseTypeRegistry, string xamlText)
+        {
             SetCurrentWorkflowFile(workflowDesignerEx);
             LoadBreakpoints(workflowDesignerEx, sourceFile);
             SetVariablesStyle(workflowDesignerEx);
@@ -119,8 +174,103 @@ namespace RPA.Helpers
             {
                 SaveAfterLoad(workflowDesignerEx, sourceFile);
             }
+        }
 
-            return workflowDesignerEx;
+        private static void BeginPackageAwareLoad(WorkflowDesignerEx workflowDesignerEx, string sourceFile, string projectFilePath, string xamlText)
+        {
+            workflowDesignerEx.IsDependencyLoading = true;
+            Trace($"[Designer] файл «{sourceFile}»: ожидание зависимостей проекта «{projectFilePath}»");
+
+            _ = System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    NuGetActivityPaletteLoader.EnsureDependencies(projectFilePath, Trace);
+                }
+                catch (Exception ex)
+                {
+                    Trace($"[Designer] подготовка зависимостей не удалась: {ErrorText.Of(ex)}");
+                }
+            }).ContinueWith(_ =>
+            {
+                RunOnUiThread(() =>
+                {
+                    try
+                    {
+                        Trace($"[Designer] зависимости готовы, открываю XAML «{sourceFile}»");
+                        LoadStandard(workflowDesignerEx, sourceFile, xamlText);
+                        RegenerateMappings(workflowDesignerEx);
+                        FinalizeAfterLoad(workflowDesignerEx, sourceFile, null, xamlText);
+                        Trace($"[Designer] XAML загружен: «{sourceFile}»");
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace($"[Designer] загрузка XAML не удалась «{sourceFile}»: {ErrorText.Of(ex)}");
+                        DesignerErrorReporter.Report(DesignerErrorCapture.Capture(sourceFile, ex));
+                    }
+                    finally
+                    {
+                        workflowDesignerEx.IsDependencyLoading = false;
+                    }
+                });
+            }, System.Threading.Tasks.TaskScheduler.Default);
+        }
+
+        private static void RunOnUiThread(Action action)
+        {
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher == null || dispatcher.CheckAccess())
+            {
+                action();
+                return;
+            }
+
+            dispatcher.BeginInvoke(action);
+        }
+
+        private static void Trace(string message)
+        {
+            CustomWfDesigner.GetInstance().Log(message, (int)RpaCommon.Enums.LogLevel.Trace);
+        }
+
+        private static string FindProjectFilePath()
+        {
+            RPA.Entities.Project project = CustomWfDesigner.GetInstance().Project;
+            if (project == null)
+            {
+                return null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(project.ProjectFilePath))
+            {
+                return project.ProjectFilePath;
+            }
+
+            if (!string.IsNullOrWhiteSpace(project.ProjectDirPath))
+            {
+                try
+                {
+                    return Directory.GetFiles(project.ProjectDirPath, "*.csproj", SearchOption.TopDirectoryOnly).FirstOrDefault();
+                }
+                catch (Exception)
+                {
+                    return null;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool HasPackagesConfig(string projectFilePath)
+        {
+            if (string.IsNullOrWhiteSpace(projectFilePath))
+            {
+                return false;
+            }
+
+            string directory = Path.GetDirectoryName(projectFilePath);
+            return !string.IsNullOrWhiteSpace(directory)
+                   && File.Exists(Path.Combine(directory, "packages.config"));
         }
 
         /// <summary>

@@ -1,3 +1,4 @@
+> Статус: planning
 
 # План рефакторинга ProjectManagerControl
 

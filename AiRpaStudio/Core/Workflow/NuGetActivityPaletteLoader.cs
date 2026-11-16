@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
+using System.Xml.Linq;
 using RPA.Core.Generation;
 using RPA.Helpers;
 using RPA.NuGet.Models;
@@ -117,35 +119,21 @@ namespace RPA.Core.Workflow
                 return Empty;
 
             string projectDir = Path.GetDirectoryName(projectPath) ?? string.Empty;
+            PackageLibraries libraries = BuildPackageLibraries(project, projectDir, null);
 
-            var targets = new List<PackageLib>();
-            foreach (NuGetPackageReference package in project.Packages)
-            {
-                string libDirectory = FindLibDirectory(project, projectDir, package.Id, package.Version);
-                if (libDirectory == null)
-                    continue;
-
-                targets.Add(new PackageLib { LibDirectory = libDirectory });
-            }
-
-            if (targets.Count == 0)
+            if (libraries.Targets.Count == 0)
             {
                 InstallResolver(Array.Empty<string>(), null);
                 return Synchronize(Array.Empty<ActivityPaletteCategory>());
             }
 
-            List<string> searchDirectories = targets.Select(t => t.LibDirectory).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-            string fallbackRoot = project.IsSdkStyle
-                ? GetGlobalPackageRoot()
-                : Path.Combine(projectDir, "packages");
-
-            InstallResolver(searchDirectories, fallbackRoot);
+            InstallResolver(libraries.SearchDirectories, libraries.FallbackRoot);
 
             var newCategories = new List<ActivityPaletteCategory>();
             {
                 // Pre-load every co-located assembly so GetTypes() can resolve base classes and
                 // argument types that live in the same lib folder (ActivityLibraryBase, RpaCommon, ...).
-                foreach (PackageLib target in targets)
+                foreach (PackageLib target in libraries.Targets)
                 {
                     foreach (string dllPath in Directory.GetFiles(target.LibDirectory, "*.dll", SearchOption.TopDirectoryOnly))
                     {
@@ -160,7 +148,7 @@ namespace RPA.Core.Workflow
                     }
                 }
 
-                foreach (PackageLib target in targets)
+                foreach (PackageLib target in libraries.Targets)
                 {
                     foreach (string dllPath in Directory.GetFiles(target.LibDirectory, "*.dll", SearchOption.TopDirectoryOnly))
                     {
@@ -273,9 +261,349 @@ namespace RPA.Core.Workflow
             return loaded ?? Assembly.LoadFrom(path);
         }
 
+        private static readonly string[] PackageLoaderHostExactNames =
+        {
+            "mscorlib", "WindowsBase", "PresentationCore", "PresentationFramework", "ReachFramework",
+            "Accessibility", "UIAutomationClient", "UIAutomationTypes", "WindowsFormsIntegration",
+            "ActivityLibraryBase", "ActivitiesTracker", "RpaCommon", "LogControlLibrary", "FW.EasyMvvm", "EasyMvvm",
+            "MaterialDesignThemes", "MaterialDesignColors", "Material.Icons", "Material.Icons.WPF",
+            "Activities", "Activities.Browser", "Activities.Debug", "Activities.Files", "Activities.Flow", "Activities.OS"
+        };
+
+        private static readonly string[] PackageLoaderHostPrefixes =
+        {
+            "System", "Microsoft", "Presentation", "RPA", "Rpa", "FW",
+            "AvalonDock", "ICSharpCode", "MahApps", "Material", "ControlzEx", "NuGet"
+        };
         /// <summary>Хозяйская сборка студии — из пакетов робота не загружается.</summary>
         internal static bool IsHostOwnedAssemblyName(string simpleName)
-            => RobotAssemblyResolver.IsHostOwnedAssemblyName(simpleName);
+        {
+            if (string.IsNullOrWhiteSpace(simpleName))
+            {
+                return true;
+            }
+
+            if (PackageLoaderHostExactNames.Contains(simpleName, StringComparer.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            foreach (string prefix in PackageLoaderHostPrefixes)
+            {
+                if (string.Equals(simpleName, prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                if (simpleName.Length > prefix.Length
+                    && simpleName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                    && (simpleName[prefix.Length] == '.' || simpleName[prefix.Length] == '_'))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Подготавливает зависимости NuGet-пакетов проекта к открытию XAML в конструкторе:
+        /// ставит постоянный <see cref="AppDomain.AssemblyResolve"/> и предзагружает DLL прямых и
+        /// транзитивных зависимостей (packages.config). Не сканирует активности и не трогает палитру.
+        /// </summary>
+        internal static Task EnsureDependenciesAsync(string projectPath, Action<string> trace = null)
+        {
+            return Task.Run(() => EnsureDependencies(projectPath, trace));
+        }
+
+        internal static void EnsureDependencies(string projectPath, Action<string> trace = null)
+        {
+            trace?.Invoke($"[Designer] EnsureDependencies: {projectPath}");
+            if (string.IsNullOrWhiteSpace(projectPath) || !File.Exists(projectPath))
+            {
+                trace?.Invoke("[Designer] EnsureDependencies: файл проекта не найден — зависимости не подготавливаются");
+                return;
+            }
+
+            NuGetProjectPackages project;
+            try
+            {
+                project = NuGetProjectConfig.Load(projectPath);
+            }
+            catch (Exception ex)
+            {
+                trace?.Invoke($"[Designer] EnsureDependencies: не удалось прочитать пакеты проекта: {ErrorText.Of(ex)}");
+                return;
+            }
+
+            if (project == null)
+            {
+                return;
+            }
+
+            string projectDir = Path.GetDirectoryName(projectPath) ?? string.Empty;
+            PackageLibraries libraries = BuildPackageLibraries(project, projectDir, trace);
+
+            InstallResolver(libraries.SearchDirectories, libraries.FallbackRoot);
+            trace?.Invoke($"[Designer] резолвер зависимостей установлен: {libraries.SearchDirectories.Count} каталогов, fallback={libraries.FallbackRoot}");
+
+            foreach (PackageLib target in libraries.Targets)
+            {
+                string[] dlls;
+                try
+                {
+                    dlls = Directory.GetFiles(target.LibDirectory, "*.dll", SearchOption.TopDirectoryOnly);
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+
+                foreach (string dllPath in dlls)
+                {
+                    try
+                    {
+                        _ = LoadWithoutDuplicating(dllPath);
+                        trace?.Invoke($"[Designer] предзагрузка: {Path.GetFileName(dllPath)} ({dllPath})");
+                    }
+                    catch (Exception ex)
+                    {
+                        trace?.Invoke($"[Designer] предзагрузка пропущена {Path.GetFileName(dllPath)}: {ErrorText.Of(ex)}");
+                    }
+                }
+            }
+        }
+
+        private sealed class PackageLibraries
+        {
+            internal List<PackageLib> Targets;
+            internal List<string> SearchDirectories;
+            internal string FallbackRoot;
+        }
+
+        private static PackageLibraries BuildPackageLibraries(NuGetProjectPackages project, string projectDir, Action<string> trace)
+        {
+            string fallbackRoot = project.IsSdkStyle
+                ? GetGlobalPackageRoot()
+                : Path.Combine(projectDir, "packages");
+
+            var targets = new List<PackageLib>();
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void AddPackage(string id, string version)
+            {
+                if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(version))
+                {
+                    return;
+                }
+
+                if (!visited.Add(id + "|" + version))
+                {
+                    return;
+                }
+
+                string libDirectory = FindLibDirectory(project, projectDir, id, version);
+                if (libDirectory != null)
+                {
+                    targets.Add(new PackageLib { LibDirectory = libDirectory });
+                    trace?.Invoke($"[Designer] пакет {id} {version}: lib {libDirectory}");
+                }
+
+                if (!project.IsSdkStyle)
+                {
+                    foreach (NuGetPackageDependency dependency in ReadPackageDependencies(fallbackRoot, id, version, project.TargetFramework))
+                    {
+                        string resolved = ResolveInstalledPackageVersion(fallbackRoot, dependency.Id, dependency.VersionRange);
+                        if (!string.IsNullOrWhiteSpace(resolved))
+                        {
+                            AddPackage(dependency.Id, resolved);
+                        }
+                        else
+                        {
+                            trace?.Invoke($"[Designer] транзитивная зависимость {dependency.Id} ({dependency.VersionRange}) не найдена в {fallbackRoot}");
+                        }
+                    }
+                }
+            }
+
+            foreach (NuGetPackageReference package in project.Packages)
+            {
+                AddPackage(package.Id, package.Version);
+            }
+
+            return new PackageLibraries
+            {
+                Targets = targets,
+                SearchDirectories = targets.Select(t => t.LibDirectory).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                FallbackRoot = fallbackRoot
+            };
+        }
+
+        private static List<NuGetPackageDependency> ReadPackageDependencies(string packagesRoot, string id, string version, string targetFramework)
+        {
+            var result = new List<NuGetPackageDependency>();
+            string packageDir = Path.Combine(packagesRoot, id + "." + version);
+            if (!Directory.Exists(packageDir))
+            {
+                return result;
+            }
+
+            string[] nuspecs;
+            try
+            {
+                nuspecs = Directory.GetFiles(packageDir, "*.nuspec", SearchOption.TopDirectoryOnly);
+            }
+            catch (Exception)
+            {
+                return result;
+            }
+
+            foreach (string nuspec in nuspecs)
+            {
+                try
+                {
+                    ReadNuspecDependencies(nuspec, targetFramework, result);
+                }
+                catch (Exception)
+                {
+                    // Повреждённый nuspec не должен ломать подготовку зависимостей.
+                }
+            }
+
+            return result;
+        }
+
+        private static void ReadNuspecDependencies(string nuspecPath, string targetFramework, List<NuGetPackageDependency> result)
+        {
+            XDocument document = XDocument.Load(nuspecPath);
+            XElement dependencies = document.Descendants()
+                .FirstOrDefault(e => e.Name.LocalName == "dependencies");
+            if (dependencies == null)
+            {
+                return;
+            }
+
+            List<XElement> groups = dependencies.Elements()
+                .Where(e => e.Name.LocalName == "group")
+                .ToList();
+
+            XElement group = SelectDependencyGroup(groups, targetFramework);
+            if (group != null)
+            {
+                foreach (XElement dependency in group.Elements().Where(e => e.Name.LocalName == "dependency"))
+                {
+                    AddDependency(result, dependency);
+                }
+
+                return;
+            }
+
+            foreach (XElement dependency in dependencies.Elements().Where(e => e.Name.LocalName == "dependency"))
+            {
+                AddDependency(result, dependency);
+            }
+        }
+
+        private static void AddDependency(List<NuGetPackageDependency> result, XElement dependency)
+        {
+            string id = (string)dependency.Attribute("id");
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return;
+            }
+
+            result.Add(new NuGetPackageDependency
+            {
+                Id = id,
+                VersionRange = (string)dependency.Attribute("version") ?? string.Empty
+            });
+        }
+
+        private static XElement SelectDependencyGroup(List<XElement> groups, string targetFramework)
+        {
+            if (groups == null || groups.Count == 0)
+            {
+                return null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(targetFramework))
+            {
+                XElement exact = groups.FirstOrDefault(group =>
+                    string.Equals((string)group.Attribute("targetFramework"), targetFramework, StringComparison.OrdinalIgnoreCase));
+                if (exact != null)
+                {
+                    return exact;
+                }
+            }
+
+            return groups.FirstOrDefault(group => (string)group.Attribute("targetFramework") == null);
+        }
+
+        private static string ResolveInstalledPackageVersion(string packagesRoot, string id, string versionRange)
+        {
+            if (string.IsNullOrWhiteSpace(packagesRoot) || !Directory.Exists(packagesRoot) || string.IsNullOrWhiteSpace(id))
+            {
+                return null;
+            }
+
+            string prefix = id + ".";
+            string[] directories;
+            try
+            {
+                directories = Directory.GetDirectories(packagesRoot, prefix + "*", SearchOption.TopDirectoryOnly);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+
+            List<string> versions = directories
+                .Select(Path.GetFileName)
+                .Where(name => name != null && name.Length > prefix.Length)
+                .Select(name => name.Substring(prefix.Length))
+                .ToList();
+
+            string matched = versions
+                .Where(version => MatchesVersionRange(version, versionRange))
+                .OrderByDescending(TryParseVersion)
+                .FirstOrDefault();
+
+            return matched ?? versions.OrderByDescending(TryParseVersion).FirstOrDefault();
+        }
+
+        private static bool MatchesVersionRange(string version, string range)
+        {
+            if (string.IsNullOrWhiteSpace(range))
+            {
+                return true;
+            }
+
+            string lower = range.Trim().TrimStart('[', '(').Trim();
+            int comma = lower.IndexOf(',');
+            if (comma >= 0)
+            {
+                lower = lower.Substring(0, comma).Trim();
+            }
+
+            lower = lower.TrimEnd(']', ')').Trim();
+            if (lower.Length == 0)
+            {
+                return true;
+            }
+
+            if (Version.TryParse(lower, out Version minimum)
+                && Version.TryParse(version, out Version installed))
+            {
+                return installed >= minimum;
+            }
+
+            return string.Equals(version, lower, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static Version TryParseVersion(string text)
+        {
+            return Version.TryParse(text, out Version version) ? version : new Version(0, 0);
+        }
 
         private static string FindLibDirectory(NuGetProjectPackages project, string projectDir, string id, string version)
         {

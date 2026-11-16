@@ -1,3 +1,4 @@
+> Статус: canonical
 # WF Rehosted Designer with Roslyn C# Expression Editor
 
 The rehostable designer in Workflow Foundation is limited to only allow Visual Basic expressions. This project

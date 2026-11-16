@@ -4,6 +4,36 @@
 > в корневом `AGENTS.md`. Этот файл поднимается в контекст только при работе в WPF-проекте
 > `AiRpaStudio` (`RootNamespace`/`AssemblyName` = `RPA`).
 
+## Платформа и соглашения студии
+- Целевая платформа: .NET Framework 4.8, WPF-приложение (`OutputType=WinExe`),
+  `RootNamespace`/`AssemblyName` = `RPA`.
+- UI-стек: WPF (полоса заголовка своя — `Controls\StudioTitleBar.xaml`, MahApps.Metro в решении нет),
+  AvalonDock (докинг-панели), AvalonEdit (редактор кода), MaterialDesignThemes.Wpf (база контролов),
+  Material.Icons.WPF, LogControlLibrary (просмотр логов).
+- Дизайнер рабочих процессов: `System.Activities.Presentation.WorkflowDesigner`
+  (Windows Workflow Foundation).
+- MVVM и команды — см. §«Шаблон MVVM проекта AiRpaStudio (FW.EasyMvvm)» ниже.
+- Локализация: RU/EN через `ResourceManager` + `Properties.Settings.Language` (см. `App.xaml.cs`).
+- Настройки сохраняются через `Properties.Settings` (метод `Save()`).
+- Логирование: `RPA.Logging.Log` (запись в `log.txt`) + просмотр через `LogControlLibrary`.
+- AI-интеграция: MCP-сервер — папка `AiRpaStudio\Mcp`, пространство имён `RPA.Mcp` (stdio/http).
+
+## Версии пакетов и привязка сборок
+- В решении должна быть **одна** версия каждой транзитивной зависимости. `System.Threading.Tasks.Extensions`
+  закреплена на 4.5.4 (сборка 4.2.0.1): в legacy-проектах через `packages.config`, в SDK-проектах — явным
+  `PackageReference`. Пакет 4.5.2 даёт сборку 4.2.0.0 (её тянули транзитивно `RPA.Chat` и `Agent.Core`).
+- Симптом нарушения: при загрузке проекта WF-панель «Пространства имён» (`ImportDesigner`) перечисляет типы
+  сборок (`Assembly.GetExportedTypes`), привязка зависимости падает с `FileLoadException` / HRESULT 0x80131040,
+  и дизайнер показывает модальное окно «Конструктор рабочих процессов», блокирующее студию.
+- Страховка: `AiRpaStudio\Helpers\AssemblyBindingUnifier.cs` (`Install(AppDomain.CurrentDomain)` в конструкторе
+  `App`) — на `AppDomain.AssemblyResolve` возвращает уже загруженную сборку того же имени и открытого ключа с
+  версией **не меньше** запрошенной. Сателлиты `*.resources`, запросы с культурой, без версии и без открытого
+  ключа, а также понижение версии не подменяются. Тесты: `AiRpaStudio.Tests\AssemblyBindingUnifierTests.cs`
+  (включая стражи: единая версия пакета, redirect в `App.config`, версии сборок в папках вывода).
+- Запускать студию можно только из `AiRpaStudio\bin\Debug|Release`: в `AiRpaStudio.Tests\bin\Debug\net48` копия
+  `AiRpaStudio.exe` лежит без ~20 зависимостей студии (WF-сборки, `System.Reflection.Metadata`), и запуск оттуда
+  даёт ложные ошибки Roslyn/дизайнера.
+
 ## Ошибки и падения приложения
 - Любая ошибка в студии показывается окном `AiRpaStudio\Views\ErrorView.xaml` через
   `AiRpaStudio\Helpers\ErrorDialog.cs` (`Show` / `ShowException` / `ShowCrash`). `MessageBox` для ошибок

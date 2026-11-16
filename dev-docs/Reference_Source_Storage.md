@@ -1,3 +1,4 @@
+> Статус: canonical
 # Хранилище исходников / Reference Source
 
 Нативные WF-контролы студии (`System.Activities.Presentation`) имеют шаблоны и стили,

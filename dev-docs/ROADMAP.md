@@ -1,3 +1,4 @@
+> Статус: canonical
 # Роадмэп AiRpaStudio
 
 | Поле | Значение |

@@ -4,6 +4,14 @@
 > в корневом `AGENTS.md`. Этот файл поднимается в контекст только при работе с функциями
 > AI-агента (`Agent.Core`, `RPA.Chat`, WF-инструменты, `spec_*`, промпты).
 
+## Проект и сборка Agent.Core
+- Ядро AI-агента — проект `Agent.Core` (`Agent.Core\Agent.Core.csproj`, `netstandard2.0`,
+  `RootNamespace`/`AssemblyName` = `Agent.Core`). Прежнее имя сборки — `VibeCoder.Core` — больше не используется;
+  оно осталось единственной легаси-константой `PromptPaths.LegacyAppDataFolderName` (чтение `%AppData%\VibeCoder\Prompts`
+  последним кандидатом, чтобы у существующих установок не пропали промпты). Страж — `AiRpaStudio.Tests\AgentCoreRenameGuardTests.cs`
+  (скан `.cs`/`.xaml`/`.csproj`/`.sln`: строковое имя сборки компилятор не проверяет, поэтому рефлексия и `assembly=` в XAML
+  ломаются молча).
+
 ## ТЗ и спецификация (`spec_*`, волна 8)
 - ТЗ живёт **в проекте**: `<проект>\docs\spec\<slug>\` — `spec.md` (текущая версия), `versions\vNNNN-<sha8>.md`,
   `source\` (исходник байт-в-байт), `meta.json`, `specification.json` (**источник правды**),

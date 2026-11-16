@@ -1,3 +1,4 @@
+> Статус: canonical
 # Workflow Edit Tracking Architecture
 
 ## Overview

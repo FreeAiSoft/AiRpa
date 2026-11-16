@@ -1,3 +1,4 @@
+> Статус: canonical
 # План: дизайн окон и панелей AvalonDock + контролов Workflow Foundation в стиле Visual Studio 2026
 
 ## Метаданные

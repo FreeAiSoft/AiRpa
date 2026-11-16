@@ -178,9 +178,60 @@ public class NuGetProjectIntegrationTests
         }
     }
 
+    [Test]
+    public void EnsureDependencies_DiscoversTransitivePackagesConfigDependency()
+    {
+        string directory = MakeTempDir();
+        try
+        {
+            string packages = Path.Combine(directory, "packages");
+
+            string mainLib = Path.Combine(packages, "Fake.Activities.1.0.0", "lib", "net472");
+            Directory.CreateDirectory(mainLib);
+            File.Copy(typeof(NuGetProjectIntegrationTests).Assembly.Location, Path.Combine(mainLib, "Fake.Activities.dll"));
+            File.WriteAllText(
+                Path.Combine(packages, "Fake.Activities.1.0.0", "Fake.Activities.nuspec"),
+                "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
+                "<package><metadata><dependencies>" +
+                "<group targetFramework=\"net472\">" +
+                "<dependency id=\"Common\" version=\"[2.0.0]\" />" +
+                "</group></dependencies></metadata></package>");
+
+            string commonLib = Path.Combine(packages, "Common.2.0.0", "lib", "net472");
+            Directory.CreateDirectory(commonLib);
+            File.Copy(typeof(NuGetProjectIntegrationTests).Assembly.Location, Path.Combine(commonLib, "Common.dll"));
+
+            string csproj = Path.Combine(directory, "Legacy.csproj");
+            File.WriteAllText(csproj,
+                "<Project ToolsVersion=\"15.0\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">" +
+                "<PropertyGroup><TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion></PropertyGroup></Project>");
+            File.WriteAllText(Path.Combine(directory, "packages.config"),
+                "<?xml version=\"1.0\" encoding=\"utf-8\"?><packages>" +
+                "<package id=\"Fake.Activities\" version=\"1.0.0\" targetFramework=\"net472\" /></packages>");
+
+            var trace = new List<string>();
+            NuGetActivityPaletteLoader.EnsureDependencies(csproj, trace.Add);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(NuGetActivityPaletteLoader.IsResolverInstalled, Is.True,
+                    "резолвер пакетных сборок обязан быть установлен до открытия XAML");
+                Assert.That(trace.Any(message => message.Contains("Common")), Is.True,
+                    "транзитивная зависимость Common должна быть обнаружена из .nuspec и добавлена в предзагрузку");
+                Assert.That(trace.Any(message => message.Contains("предзагрузка")), Is.True,
+                    "DLL зависимостей должны предзагружаться до рефлексии/открытия XAML");
+            });
+        }
+        finally
+        {
+            TryDeleteDirectory(directory);
+        }
+    }
+
     [TestCase("ActivityLibraryBase", true)]
     [TestCase("RpaCommon", true)]
     [TestCase("Activities.Flow", true)]
+    [TestCase("Activities.Sap", false)]
     [TestCase("Newtonsoft.Json", false)]
     [TestCase("MyRobot.Helpers", false)]
     public void IsHostOwnedAssemblyName_Table(string name, bool expected)

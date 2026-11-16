@@ -87,6 +87,40 @@ namespace RPA.Helpers
             Grid.SetRow(workflowDesignerView, 1);
             host.Children.Add(workflowDesignerView);
             host.Children.Add(errorBanner);
+
+            // Кольцо прогресса: показывается, пока для документа готовятся зависимости пакетов
+            // (WorkflowDesignerEx.IsDependencyLoading). Не блокирует вкладку и скрывается после Load.
+            var loadingOverlay = new ProgressBar
+            {
+                IsIndeterminate = true,
+                Width = 48,
+                Height = 48,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Visibility = Visibility.Collapsed
+            };
+            if (Application.Current != null)
+            {
+                loadingOverlay.SetResourceReference(FrameworkElement.StyleProperty, "MaterialDesignCircularProgressBar");
+            }
+
+            Panel.SetZIndex(loadingOverlay, 10);
+            Grid.SetRow(loadingOverlay, 1);
+            host.Children.Add(loadingOverlay);
+
+            if (workflowDesigner is WorkflowDesignerEx designerEx)
+            {
+                designerEx.PropertyChanged += (sender, args) =>
+                {
+                    if (args.PropertyName == nameof(WorkflowDesignerEx.IsDependencyLoading))
+                    {
+                        bool loading = designerEx.IsDependencyLoading;
+                        loadingOverlay.Visibility = loading ? Visibility.Visible : Visibility.Collapsed;
+                        workflowDesignerView.Opacity = loading ? 0.35 : 1.0;
+                        workflowDesignerView.IsHitTestVisible = !loading;
+                    }
+                };
+            }
             host.Tag = fullFilePath;
 
 

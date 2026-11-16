@@ -32,6 +32,25 @@ namespace RPA.Core
 
         public event PropertyChangedEventHandler PropertyChanged;
 
+        private bool _isDependencyLoading;
+
+        /// <summary>
+        /// Пока документ ещё не загружен в дизайнер: идёт фоновая подготовка зависимостей
+        /// NuGet-пакетов. Пока <c>true</c>, вкладка показывает indeterminate-индикатор.
+        /// </summary>
+        public bool IsDependencyLoading
+        {
+            get => _isDependencyLoading;
+            set
+            {
+                if (_isDependencyLoading != value)
+                {
+                    _isDependencyLoading = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsDependencyLoading)));
+                }
+            }
+        }
+
         public Dictionary<object, SourceLocation> DesignerSourceLocationMapping { get; } = new Dictionary<object, SourceLocation>();
 
         public List<SourceLocation> BreakpointList { get; set; } = new List<SourceLocation>();
