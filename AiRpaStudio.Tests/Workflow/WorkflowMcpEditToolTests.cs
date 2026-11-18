@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using RPA.Chat.Services.Workflow;

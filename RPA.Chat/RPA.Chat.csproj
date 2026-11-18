@@ -23,6 +23,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="AgentToolkit" Version="1.9.0" />
+    <PackageReference Include="AgentToolkit.Wpf" Version="1.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="System.Net.Http" />
   </ItemGroup>
 
@@ -39,17 +44,6 @@
       <SubType>Designer</SubType>
     </Page>
   </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Agent.Core\Agent.Core.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <!-- Mermaid.js bundled as an embedded resource and read at runtime by MermaidDiagramControl. -->
-    <EmbeddedResource Include="Assets\mermaid.min.js">
-      <LogicalName>RPA.Chat.Assets.mermaid.min.js</LogicalName>
-    </EmbeddedResource>
-  </ItemGroup>
-
   <Target Name="CopyWebView2LoaderToOutput" AfterTargets="Build">
     <!-- The WebView2 NuGet package only drops the native loader under runtimes\ for this
          SDK-style net48 project. Copy the x64 loader next to the managed assemblies so the

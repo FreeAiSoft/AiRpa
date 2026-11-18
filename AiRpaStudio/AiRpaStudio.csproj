@@ -141,6 +141,15 @@
     <Reference Include="Microsoft.Xaml.Behaviors, Version=1.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Xaml.Behaviors.Wpf.1.1.142\lib\net462\Microsoft.Xaml.Behaviors.dll</HintPath>
     </Reference>
+    <Reference Include="Agent.Mvvm">
+      <HintPath>..\packages\AgentToolkit.1.9.0\lib\netstandard2.0\Agent.Mvvm.dll</HintPath>
+    </Reference>
+    <Reference Include="Agent.Core">
+      <HintPath>..\packages\AgentToolkit.1.9.0\lib\netstandard2.0\Agent.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Agent.Models">
+      <HintPath>..\packages\AgentToolkit.1.9.0\lib\netstandard2.0\Agent.Models.dll</HintPath>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.13.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
@@ -495,6 +504,7 @@
       <DependentUpon>Main.resx</DependentUpon>
     </Compile>
     <Compile Include="Services.cs" />
+    <Compile Include="Services\MvvmFactory.cs" />
     <Compile Include="VbExpressionEditor\VbExpressionEditorInstance.cs" />
     <Compile Include="VbExpressionEditor\VbExpressionEditorService.cs" />
     <Compile Include="ViewModels\ActivityCreatorViewModel.cs" />
@@ -647,26 +657,6 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Activities.Debug\Activities.Debug.csproj">
-      <Project>{642bd9a9-0b46-43e5-8e81-ca9fca572bbe}</Project>
-      <Name>Activities.Debug</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Activities.Flow\Activities.Flow.csproj">
-      <Project>{cf949441-8403-47a7-8c7d-aec36aeebf29}</Project>
-      <Name>Activities.Flow</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Activities.OS\Activities.OS.csproj">
-      <Project>{6673637a-e9dd-41fd-964a-10b30e4f3b61}</Project>
-      <Name>Activities.OS</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\ActivitiesTracker\ActivitiesTracker.csproj">
-      <Project>{FECBFAF5-2B02-464D-A9B0-EA1C7B692FAB}</Project>
-      <Name>ActivitiesTracker</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\ActivityLibraryBase\ActivityLibraryBase.csproj">
-      <Project>{B406DE8E-8CF4-42F3-A234-F7B64B496EB0}</Project>
-      <Name>ActivityLibraryBase</Name>
-    </ProjectReference>
     <ProjectReference Include="..\AvalonDock.Themes.Metro\AvalonDock.Themes.Metro.csproj">
       <Project>{695b08d6-50a2-4184-9d2c-4b10cdc5f347}</Project>
       <Name>AvalonDock.Themes.Metro</Name>
@@ -678,10 +668,6 @@
     <ProjectReference Include="..\AvalonEdit\ICSharpCode.AvalonEdit\ICSharpCode.AvalonEdit.csproj">
       <Project>{5ff052ef-ca43-f4eb-6e5e-1112181266a4}</Project>
       <Name>ICSharpCode.AvalonEdit</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\FW.EasyMvvm\FW.EasyMvvm.csproj">
-      <Project>{2bccbbf2-e0c7-4051-b699-cf914ac2cd44}</Project>
-      <Name>FW.EasyMvvm</Name>
     </ProjectReference>
     <ProjectReference Include="..\LogControlLibrary\LogControlLibrary.csproj">
       <Project>{980a6090-179d-4285-9bce-4d35cde32c03}</Project>
@@ -699,16 +685,16 @@
       <Project>{b6a2c9e4-1d5f-4e7a-9c3b-8f2d6a1e4b7c}</Project>
       <Name>RPA.NuGet</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Rpa.Workflow.Runtime\Rpa.Workflow.Runtime.csproj">
+      <Project>{3C2A6F41-9D77-4C1E-8F52-6B0D4A7E1C93}</Project>
+      <Name>Rpa.Workflow.Runtime</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Agent.Core\Agent.Core.csproj">
       <Project>{609357CB-88DB-4FB8-A3C9-586E3D4BBD27}</Project>
       <Name>Agent.Core</Name>
     </ProjectReference>
     <!-- OR-02: РґРІРёР¶РѕРє РїСЂРѕРіРѕРЅР° Рё С„РѕСЂРјР°С‚ РѕС€РёР±РєРё РїРµСЂРµРµС…Р°Р»Рё РІ РѕР±С‰РёР№ headless-СЂР°РЅС‚Р°Р№Рј (net472):
          СЃС‚СѓРґРёСЏ Рё RpaRunner.exe РїСЂРѕРіРѕРЅСЏСЋС‚ СЂРѕР±РѕС‚Р° РѕРґРЅРёРј Рё С‚РµРј Р¶Рµ РєРѕРґРѕРј. -->
-    <ProjectReference Include="..\Rpa.Workflow.Runtime\Rpa.Workflow.Runtime.csproj">
-      <Project>{3C2A6F41-9D77-4C1E-8F52-6B0D4A7E1C93}</Project>
-      <Name>Rpa.Workflow.Runtime</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Analyzer Include="..\packages\Microsoft.CodeAnalysis.Analyzers.3.3.3\analyzers\dotnet\cs\Microsoft.CodeAnalysis.Analyzers.dll" />

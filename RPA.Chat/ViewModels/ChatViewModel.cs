@@ -14,14 +14,17 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
-using Agent.Core.AgentTools;
+using Agent.Rpa.AgentTools;
 using Agent.Core.Context;
 using Agent.Core.Contracts;
-using Agent.Core.Services.Documents;
+using Agent.Rpa.Services.Documents;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 using Agent.Core.Services;
+using Agent.Models;
+using Agent.Rpa.Services;
 using RPA.Chat.Controls;
-using RPA.Chat.Markdown;
+using Agent.Toolkit.Wpf.Markdown;
 using RPA.Chat.Services;
 using RPA.Chat.Services.AgentTools;
 
@@ -39,19 +42,18 @@ namespace RPA.Chat.ViewModels
 
         private readonly SynchronizationContext _uiContext;
 
-        private SettingsData _settings;
+        private RPA.Chat.Services.SettingsData _settings;
         private SettingsViewModel _settingsViewModel;
         private IAiProvider _ai;
         private IBuildFeedbackService _buildFeedback;
         private readonly GitService _git = new GitService();
-        private AgentMode _mode = AgentMode.Plan;
+        private readonly ChatModel _chat;
+        private readonly ContextUsageBinder _contextUsageBinder;
         private bool _isSending;
         private bool _isRecording;
         private bool _isTranscribing;
         private AgentToolRegistry _toolRegistry;
         private AgentRunner _agentRunner;
-        private ITokenUsageProvider _tokenUsage;
-        private int _lastEstimatedInputTokens;
         private MicrophoneRecorder _mic;
         private ISpeechToTextService _stt;
         private CancellationTokenSource _chatCts;
@@ -92,28 +94,22 @@ namespace RPA.Chat.ViewModels
         private string _docsCurrentPath = DocumentationViewer.IndexFileName;
         private readonly DocumentationViewer _docsViewer = new DocumentationViewer();
 
-        private readonly ObservableCollection<ChatMessage> _messages = new ObservableCollection<ChatMessage>();
-        private readonly ObservableCollection<ChatAttachment> _attachments = new ObservableCollection<ChatAttachment>();
-        private readonly ObservableCollection<ChatConversation> _conversations = new ObservableCollection<ChatConversation>();
         private readonly ObservableCollection<SegmentedToggleItem> _modeItems = new ObservableCollection<SegmentedToggleItem>();
-        private ChatConversation _currentConversation = new ChatConversation();
 
         private string _inputText = "";
         private string _statusText = "";
-        private string _tokenUsageText = "";
-        private double _contextFillFraction;
-        private string _contextUsageText = "";
-        private bool _isConversationView = true;
         private string _noticeMessage = "";
         private bool _hasNotice;
 
         public ChatViewModel()
         {
             _uiContext = SynchronizationContext.Current;
+            _chat = new ChatModel(new ChatHistoryStore(), new UiStateStore());
+            _contextUsageBinder = new ContextUsageBinder(_chat, _uiContext);
 
-            var messagesView = (ListCollectionView)CollectionViewSource.GetDefaultView(_messages);
-            messagesView.Filter = m => !ReferenceEquals(m, _messages.FirstOrDefault());
-            _messages.CollectionChanged += OnMessagesCollectionChanged;
+            var messagesView = (ListCollectionView)CollectionViewSource.GetDefaultView(_chat.Messages);
+            messagesView.Filter = m => !ReferenceEquals(m, _chat.Messages.FirstOrDefault());
+            _chat.Messages.CollectionChanged += OnMessagesCollectionChanged;
 
             _modeItems.Add(new SegmentedToggleItem { Label = "Plan", Value = "Plan", Accent = ModeBrush(AccentHex(AgentMode.Plan)), ToolTip = "Plan mode" });
             _modeItems.Add(new SegmentedToggleItem { Label = "Act", Value = "Act", Accent = ModeBrush(AccentHex(AgentMode.Act)), ToolTip = "Act mode" });
@@ -151,8 +147,7 @@ namespace RPA.Chat.ViewModels
             DocsCloseCommand = new RelayCommand(CloseDocs);
             RefreshPromptsCommand = new RelayCommand(RefreshPrompts);
 
-            ChatHistoryStore.Initialize();
-            _settings = SettingsStore.Load();
+            _settings = RPA.Chat.Services.SettingsStore.Load();
             _settingsViewModel = new SettingsViewModel(_settings, ApplySettings);
             _buildFeedback = new MsBuildFeedbackService(GetSolutionDirectory);
             RecreateAiProvider();
@@ -161,7 +156,7 @@ namespace RPA.Chat.ViewModels
             _stt = SpeechToTextFactory.Create(_settings);
             RebuildAgentTools();
 
-            RefreshHistoryList();
+            _chat.Run();
             RestoreUiState();
         }
 
@@ -169,11 +164,11 @@ namespace RPA.Chat.ViewModels
         // Collections exposed to the view
         // ------------------------------------------------------------------
 
-        public ObservableCollection<ChatMessage> Messages => _messages;
+        public ObservableCollection<ChatMessage> Messages => _chat.Messages;
 
-        public ObservableCollection<ChatAttachment> Attachments => _attachments;
+        public ObservableCollection<ChatAttachment> Attachments => _chat.Attachments;
 
-        public ObservableCollection<ChatConversation> Conversations => _conversations;
+        public ObservableCollection<ChatConversation> Conversations => _chat.History;
 
         public ObservableCollection<SegmentedToggleItem> ModeItems => _modeItems;
 
@@ -243,14 +238,14 @@ namespace RPA.Chat.ViewModels
 
         public string ModeName
         {
-            get => _mode == AgentMode.Act ? "Act" : (_mode == AgentMode.Help ? "Help" : "Plan");
+            get => _chat.Mode == AgentMode.Act ? "Act" : (_chat.Mode == AgentMode.Help ? "Help" : "Plan");
             set => ApplyModeName(value);
         }
 
-        public AgentMode Mode => _mode;
+        public AgentMode Mode => _chat.Mode;
 
         /// <summary>Accent brush of the currently selected mode (Plan/Act/Help), used to tint the composer input border.</summary>
-        public Brush ModeAccentBrush => ModeBrush(AccentHex(_mode));
+        public Brush ModeAccentBrush => ModeBrush(AccentHex(_chat.Mode));
 
         public bool CanSend => !IsSending;
 
@@ -260,49 +255,21 @@ namespace RPA.Chat.ViewModels
             private set { if (_statusText != value) { _statusText = value; OnPropertyChanged(); } }
         }
 
-        public string TokenUsageText
-        {
-            get => _tokenUsageText;
-            private set { if (_tokenUsageText != value) { _tokenUsageText = value; OnPropertyChanged(); } }
-        }
-
-        public double ContextFillFraction
-        {
-            get => _contextFillFraction;
-            private set { if (_contextFillFraction != value) { _contextFillFraction = value; OnPropertyChanged(); } }
-        }
-
-        /// <summary>Caption for the context-window progress bar of the pinned message.</summary>
-        public string ContextUsageText
-        {
-            get => _contextUsageText;
-            private set { if (_contextUsageText != value) { _contextUsageText = value; OnPropertyChanged(); } }
-        }
+        /// <summary>The shared chat model, bound by the view's context indicator.</summary>
+        public ChatModel Chat => _chat;
 
         /// <summary>Text of the pinned first message (with role label), or empty when the chat is empty.</summary>
-        public string PinnedMessageText => _messages.Count > 0 ? _messages[0].DisplayText : "";
+        public string PinnedMessageText => _chat.PinnedMessage?.DisplayText ?? "";
 
         /// <summary>True when the pinned first message should be rendered: conversation view is active and there is at least one message.</summary>
-        public bool IsPinnedMessageVisible => _isConversationView && _messages.Count > 0;
+        public bool IsPinnedMessageVisible => _chat.IsConversationView && _chat.HasPinnedMessage;
 
         /// <summary>Messages rendered in the scroll list — everything except the pinned first message.</summary>
-        public ICollectionView ChatMessages => CollectionViewSource.GetDefaultView(_messages);
+        public ICollectionView ChatMessages => CollectionViewSource.GetDefaultView(_chat.Messages);
 
-        public bool IsConversationView
-        {
-            get => _isConversationView;
-            private set
-            {
-                if (_isConversationView != value)
-                {
-                    _isConversationView = value;
-                    OnPropertyChanged();
-                    OnPropertyChanged(nameof(IsPinnedMessageVisible));
-                }
-            }
-        }
+        public bool IsConversationView => _chat.IsConversationView;
 
-        public bool HasAttachments => _attachments.Count > 0;
+        public bool HasAttachments => _chat.Attachments.Count > 0;
 
         public bool HasNotice
         {
@@ -318,14 +285,14 @@ namespace RPA.Chat.ViewModels
 
         public NotificationKind NoticeKind { get; private set; } = NotificationKind.Info;
 
-        public SettingsData Settings => _settings;
+        public RPA.Chat.Services.SettingsData Settings => _settings;
 
         public SettingsViewModel SettingsViewModel => _settingsViewModel;
 
         /// <summary>
         /// Тема продукта — перечисление <see cref="StudioTheme"/> (единственный источник истины, см.
         /// <c>RPA.Helpers.StudioPalette.Current</c>). Персистится строкой <c>"Dark"</c>/<c>"Light"</c>
-        /// (<see cref="SettingsData.Theme"/>), а не <c>bool</c>.
+        /// (<see cref="RPA.Chat.Services.SettingsData.Theme"/>), а не <c>bool</c>.
         /// </summary>
         public StudioTheme Theme
         {
@@ -345,7 +312,7 @@ namespace RPA.Chat.ViewModels
                 ThemeApplying?.Invoke(value);
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(IsDarkTheme));
-                SettingsStore.Save(_settings);
+                RPA.Chat.Services.SettingsStore.Save(_settings);
                 ThemeChanged?.Invoke();
             }
         }
@@ -526,16 +493,17 @@ namespace RPA.Chat.ViewModels
 
         private void RecreateAiProvider()
         {
+            _contextUsageBinder.Detach();
             UnhookAiNotifiers();
-            _ai = AiProviderFactory.Create(_settings);
+            _ai = RPA.Chat.Services.AiProviderFactory.Create(_settings);
             HookAiNotifiers();
-            UpdateTokenUsageDisplay();
+            _contextUsageBinder.Attach(_ai as ITokenUsageProvider, BuildContextBudget());
         }
 
         /// <summary>Persists settings and rebuilds the provider, speech pipeline and agent tools.</summary>
         public void ApplySettings()
         {
-            SettingsStore.Save(_settings);
+            RPA.Chat.Services.SettingsStore.Save(_settings);
             RecreateAiProvider();
             _stt = SpeechToTextFactory.Create(_settings);
             RebuildAgentTools();
@@ -544,38 +512,25 @@ namespace RPA.Chat.ViewModels
 
         private void HookAiNotifiers()
         {
-            if (_ai is ITokenUsageProvider t)
-            {
-                _tokenUsage = t;
-                t.TokenUsageUpdated += OnTokenUsageUpdated;
-            }
-            else
-            {
-                _tokenUsage = null;
-            }
-
             if (_ai is IMessageNotifier m) m.MessageSent += OnAiMessageSent;
             if (_ai is IRetryNotifier r) r.RetryAttempt += OnRetryAttempt;
-            if (_ai is IPromptNotifier p) p.PromptAssembled += OnPromptAssembled;
         }
 
         private void UnhookAiNotifiers()
         {
-            if (_ai is ITokenUsageProvider t) t.TokenUsageUpdated -= OnTokenUsageUpdated;
             if (_ai is IMessageNotifier m) m.MessageSent -= OnAiMessageSent;
             if (_ai is IRetryNotifier r) r.RetryAttempt -= OnRetryAttempt;
-            if (_ai is IPromptNotifier p) p.PromptAssembled -= OnPromptAssembled;
         }
 
         public async Task SendAsync()
         {
             var text = (_inputText ?? "").Trim();
-            var attachments = _attachments.ToList();
+            var attachments = _chat.Attachments.ToList();
             if (text.Length == 0 && attachments.Count == 0)
                 return;
 
             InputText = "";
-            _attachments.Clear();
+            _chat.Attachments.Clear();
             OnPropertyChanged(nameof(HasAttachments));
             await SendChatTextAsync(text, attachments);
         }
@@ -630,11 +585,10 @@ namespace RPA.Chat.ViewModels
             if (string.IsNullOrWhiteSpace(promptText) && images.Count == 0)
                 return;
 
-            var modeName = _mode.ToString();
+            var modeName = _chat.Mode.ToString();
             var history = BuildTranscript();
+            _chat.EnsureActiveConversation();
             AppendChatMessage(new ChatMessage { Kind = ChatMessageKind.User, Text = uiText });
-            if (string.IsNullOrEmpty(_currentConversation.Title))
-                _currentConversation.Title = BuildChatTitle(uiText);
 
             var thinking = new ChatMessage { Kind = ChatMessageKind.AgentText, Mode = modeName, IsThinking = true, IsPartial = true, Text = "Thinking…" };
             AppendChatMessage(thinking);
@@ -650,7 +604,7 @@ namespace RPA.Chat.ViewModels
                     if (!string.IsNullOrEmpty(delta.ReasoningDelta))
                         thinking.Reasoning += delta.ReasoningDelta;
                 });
-                var result = await _agentRunner.RunAsync(history, promptText, images, _mode, BuildContextBudget(), cts.Token, progress);
+                var result = await _agentRunner.RunAsync(history, promptText, images, _chat.Mode, BuildContextBudget(), cts.Token, progress);
 
                 thinking.IsThinking = false;
                 thinking.IsPartial = false;
@@ -658,13 +612,13 @@ namespace RPA.Chat.ViewModels
                     thinking.Reasoning = result.Reasoning;
 
                 if (thinking.HasReasoning) thinking.Text = string.Empty;
-                else _messages.Remove(thinking);
+                else _chat.Messages.Remove(thinking);
 
                 if (!string.IsNullOrWhiteSpace(result.FinalText))
                 {
                     AppendChatMessage(new ChatMessage
                     {
-                        Kind = _mode == AgentMode.Act ? ChatMessageKind.ResultAnswerAct : ChatMessageKind.ResultAnswerPlan,
+                        Kind = _chat.Mode == AgentMode.Act ? ChatMessageKind.ResultAnswerAct : ChatMessageKind.ResultAnswerPlan,
                         Mode = modeName,
                         Text = result.FinalText
                     });
@@ -674,7 +628,7 @@ namespace RPA.Chat.ViewModels
             catch (OperationCanceledException)
             {
                 thinking.IsThinking = false;
-                if (_messages.Contains(thinking)) AppendChat("Request cancelled.");
+                if (_chat.Messages.Contains(thinking)) AppendChat("Request cancelled.");
                 StatusText = "";
             }
             catch (Exception ex)
@@ -696,7 +650,7 @@ namespace RPA.Chat.ViewModels
         private List<ChatMessageData> BuildTranscript()
         {
             var transcript = new List<ChatMessageData>();
-            foreach (var message in _messages)
+            foreach (var message in _chat.Messages)
             {
                 if (string.IsNullOrWhiteSpace(message.Text)) continue;
                 switch (message.Kind)
@@ -823,7 +777,7 @@ namespace RPA.Chat.ViewModels
             {
                 Kind = ChatMessageKind.Subagent,
                 Payload = new SubagentPayload { Item = item },
-                Mode = _mode.ToString()
+                Mode = _chat.Mode.ToString()
             }));
             OnUi(() => item.Status = "running");
 
@@ -844,7 +798,7 @@ namespace RPA.Chat.ViewModels
 
             try
             {
-                var result = await runner.RunAsync(Array.Empty<ChatMessageData>(), task, _mode, budget, ct);
+                var result = await runner.RunAsync(Array.Empty<ChatMessageData>(), task, _chat.Mode, budget, ct);
                 var finalText = result?.FinalText ?? "";
                 OnUi(() => { item.Status = "completed"; item.Result = finalText; });
                 return finalText;
@@ -870,7 +824,7 @@ namespace RPA.Chat.ViewModels
             {
                 Kind = ChatMessageKind.Question,
                 Payload = new QuestionPayload { Question = question, Options = options ?? new List<string>() },
-                Mode = _mode.ToString()
+                Mode = _chat.Mode.ToString()
             };
             _activeQuestion = message;
             OnUi(() => AppendChatMessage(message));
@@ -881,18 +835,23 @@ namespace RPA.Chat.ViewModels
 
         private void AnswerQuestion(string option)
         {
-            if (_activeQuestion?.Payload is QuestionPayload q && string.IsNullOrEmpty(q.Answer))
+            // The shared message control writes the selected option into the payload before
+            // raising QuestionAnswered, so resolve the pending prompt with the recorded answer.
+            if (_activeQuestion?.Payload is QuestionPayload q)
             {
-                q.Answer = option;
-                _questionTcs?.TrySetResult(option);
+                if (string.IsNullOrEmpty(q.Answer))
+                    q.Answer = option;
+                _questionTcs?.TrySetResult(q.Answer ?? option);
             }
         }
 
         private void SkipQuestion()
         {
-            if (_activeQuestion?.Payload is QuestionPayload q && string.IsNullOrEmpty(q.Answer))
+            if (_activeQuestion?.Payload is QuestionPayload q)
             {
                 q.IsSkipped = true;
+                if (string.IsNullOrEmpty(q.Answer))
+                    q.Answer = SkipAnswerText;
                 _questionTcs?.TrySetResult(SkipAnswerText);
             }
         }
@@ -905,7 +864,7 @@ namespace RPA.Chat.ViewModels
                 ChatLog.Info("Agent tool executed: " + (e.ToolName ?? "") + (e.Blocked ? " (blocked)" : ""));
                 if (string.Equals(e.ToolName, "ask_question", StringComparison.OrdinalIgnoreCase)) return;
                 if (string.Equals(e.ToolName, "spawn_agent", StringComparison.OrdinalIgnoreCase)) return;
-                AppendToolCall(e.ToolName, detail, e.FullResult, e.Blocked);
+                AppendToolCall(e.ToolName, detail, e.Blocked);
             });
         }
 
@@ -925,7 +884,7 @@ namespace RPA.Chat.ViewModels
 
         private void AppendChatMessage(ChatMessage message)
         {
-            _messages.Add(message);
+            _chat.AppendMessage(message);
             MessageAppended?.Invoke();
             ScheduleHistorySave();
         }
@@ -936,11 +895,11 @@ namespace RPA.Chat.ViewModels
 
         private void AppendExtensionError(Exception ex) => AppendExtensionError(ex?.Message ?? "Unknown error");
 
-        private void AppendToolCall(string toolName, string result, string fullResult, bool blocked) =>
+        private void AppendToolCall(string toolName, string result, bool blocked) =>
             AppendChatMessage(new ChatMessage
             {
                 Kind = blocked ? ChatMessageKind.ToolBlocked : ChatMessageKind.ToolCall,
-                Payload = new ToolCallPayload { ToolName = toolName ?? "", Result = result ?? "", FullResult = fullResult ?? "", Blocked = blocked }
+                Payload = new ToolCallPayload { ToolName = toolName ?? "", Result = result ?? "", Blocked = blocked }
             });
 
         private void AppendCompaction(string text) => AppendChatMessage(new ChatMessage { Kind = ChatMessageKind.Compaction, Text = text });
@@ -951,58 +910,15 @@ namespace RPA.Chat.ViewModels
         // Token usage / provider notifications
         // ------------------------------------------------------------------
 
-        private void OnTokenUsageUpdated(object sender, TokenUsage usage)
-        {
-            OnUi(UpdateTokenUsageDisplay);
-        }
-
         private void OnMessagesCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             OnPropertyChanged(nameof(PinnedMessageText));
             OnPropertyChanged(nameof(IsPinnedMessageVisible));
         }
 
-        private static string FormatTokens(int tokens)
-        {
-            if (tokens >= 1000)
-                return (tokens / 1000.0).ToString("0.#") + "k";
-            return tokens.ToString();
-        }
-
-        private void UpdateTokenUsageDisplay()
-        {
-            var t = _tokenUsage;
-            if (t == null)
-            {
-                TokenUsageText = "";
-                ContextFillFraction = 0;
-                ContextUsageText = "";
-                return;
-            }
-
-            var total = t.TotalTokenUsage;
-            var window = t.ContextWindowSize;
-            // Show the size of the last request's input against the window (not the cumulative
-            // session total): provider-reported prompt tokens, falling back to the estimate
-            // captured right before the request was sent.
-            var input = t.LastRequestPromptTokens > 0 ? t.LastRequestPromptTokens : _lastEstimatedInputTokens;
-            ContextFillFraction = window > 0 ? Math.Min(1.0, (double)input / window) : 0.0;
-            ContextUsageText = window > 0
-                ? "Context window: " + FormatTokens(input) + " / " + FormatTokens(window)
-                : "";
-            TokenUsageText = "in " + total.PromptTokens + " · out " + total.CompletionTokens
-                + " · $" + total.EstimatedCostUsd.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
-        }
-
         private void OnAiMessageSent(object sender, AiMessageEventArgs e)
         {
             ChatLog.Info("AI message sent (" + (e?.Role ?? "") + "): " + (e?.Content ?? "").Length + " chars.");
-        }
-
-        private void OnPromptAssembled(object sender, PromptAssembledEventArgs e)
-        {
-            _lastEstimatedInputTokens = e?.EstimatedInputTokens ?? 0;
-            ChatLog.Info("Prompt assembled: " + _lastEstimatedInputTokens + " input tokens.");
         }
 
         private void OnRetryAttempt(object sender, RetryAttemptEventArgs e)
@@ -1026,13 +942,15 @@ namespace RPA.Chat.ViewModels
         private void ApplyModeName(string value)
         {
             var newMode = value == "Act" ? AgentMode.Act : (value == "Help" ? AgentMode.Help : AgentMode.Plan);
-            if (newMode == _mode) return;
-            _mode = newMode;
+            if (newMode == _chat.Mode) return;
+            if (_restoringUiState)
+                _chat.RestoreMode(newMode);
+            else
+                _chat.SwitchMode(newMode);
             OnPropertyChanged(nameof(ModeName));
             OnPropertyChanged(nameof(Mode));
             OnPropertyChanged(nameof(ModeAccentBrush));
             if (_restoringUiState) return;
-            AppendModeSwitch("Mode: " + _mode);
             PersistUiState();
         }
 
@@ -1053,7 +971,7 @@ namespace RPA.Chat.ViewModels
                 if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".bmp" || ext == ".webp")
                 {
                     var bytes = File.ReadAllBytes(path);
-                    _attachments.Add(new ChatAttachment
+                    _chat.Attachments.Add(new ChatAttachment
                     {
                         FileName = Path.GetFileName(path),
                         IsImage = true,
@@ -1078,7 +996,7 @@ namespace RPA.Chat.ViewModels
                         : document.Text;
                     if (text.Length > 20000)
                         text = SafeText.Truncate(text, 20000) + "\n…(truncated)";
-                    _attachments.Add(new ChatAttachment { FileName = Path.GetFileName(path), TextContent = text });
+                    _chat.Attachments.Add(new ChatAttachment { FileName = Path.GetFileName(path), TextContent = text });
                 }
                 OnPropertyChanged(nameof(HasAttachments));
             }
@@ -1188,14 +1106,14 @@ namespace RPA.Chat.ViewModels
             try
             {
                 var condensed = await _agentRunner.CompactAsync(transcript, BuildContextBudget(), CancellationToken.None);
-                _messages.Clear();
-                foreach (var m in condensed)
+                var compacted = condensed.Select(m => new ChatMessage
                 {
-                    var kind = m.Role == "assistant" ? ChatMessageKind.AgentText
+                    Kind = m.Role == "assistant" ? ChatMessageKind.AgentText
                         : m.Role == "user" ? ChatMessageKind.User
-                        : ChatMessageKind.SystemNotice;
-                    _messages.Add(new ChatMessage { Kind = kind, Text = m.Content });
-                }
+                        : ChatMessageKind.SystemNotice,
+                    Text = m.Content
+                }).ToList();
+                _chat.ApplyCompactedTranscript(compacted);
                 AppendCompaction("Context compacted (summarized).");
                 SaveHistoryNow();
             }
@@ -1211,23 +1129,15 @@ namespace RPA.Chat.ViewModels
 
         private void SaveHistoryNow()
         {
-            if (string.IsNullOrEmpty(_currentConversation.Id))
-                return;
-            if (_currentConversation.Messages == null)
-                _currentConversation.Messages = new List<ChatHistoryMessage>();
-
-            _currentConversation.Messages.Clear();
-            foreach (var message in _messages)
-                _currentConversation.Messages.Add(ToHistoryMessage(message));
-            _currentConversation.UpdatedAtUtc = DateTime.UtcNow;
-            ChatHistoryStore.SaveConversation(_currentConversation);
+            _chat.SaveHistoryNow();
         }
 
         private void ScheduleHistorySave() => SaveHistoryNow();
 
         private void StartNewChat(bool markDirty = true)
         {
-            ResetCurrentConversation();
+            _chatCts?.Cancel();
+            _chat.StartNewChat(markDirty);
             ShowConversationView();
             PersistUiState();
         }
@@ -1235,13 +1145,11 @@ namespace RPA.Chat.ViewModels
         private void OpenConversation(string id, bool markDirty = true)
         {
             if (string.IsNullOrWhiteSpace(id)) return;
-            var stored = ChatHistoryStore.LoadConversation(id);
-            if (stored == null) return;
+            if (id == _chat.ActiveConversationId) return;
 
-            _currentConversation = stored;
-            _messages.Clear();
-            foreach (var m in stored.Messages ?? new List<ChatHistoryMessage>())
-                _messages.Add(FromHistoryMessage(m));
+            _chatCts?.Cancel();
+            if (!_chat.OpenConversation(id, markDirty))
+                return;
             _activeQuestion = null;
             _questionTcs = null;
             ShowConversationView();
@@ -1251,77 +1159,31 @@ namespace RPA.Chat.ViewModels
         private void DeleteConversation(string id)
         {
             if (string.IsNullOrWhiteSpace(id)) return;
-            ChatHistoryStore.DeleteConversation(id);
-            RefreshHistoryList();
+            _chat.DeleteConversation(id);
         }
 
         private void ClearHistory()
         {
-            ChatHistoryStore.DeleteAllConversations();
-            RefreshHistoryList();
+            _chat.ClearHistory();
         }
 
         private void RefreshHistoryList()
         {
-            _conversations.Clear();
-            foreach (var c in ChatHistoryStore.ListConversations())
-                _conversations.Add(c);
+            _chat.RefreshHistory();
         }
 
-        private void ShowConversationView() => IsConversationView = true;
-
-        private void ShowHistoryView() => IsConversationView = false;
-
-        private void ResetCurrentConversation()
+        private void ShowConversationView()
         {
-            _currentConversation = new ChatConversation
-            {
-                Id = Guid.NewGuid().ToString("N"),
-                CreatedAtUtc = DateTime.UtcNow,
-                UpdatedAtUtc = DateTime.UtcNow,
-                Messages = new List<ChatHistoryMessage>()
-            };
-            _messages.Clear();
-            _activeQuestion = null;
-            _questionTcs = null;
+            _chat.ShowConversationView();
+            OnPropertyChanged(nameof(IsConversationView));
+            OnPropertyChanged(nameof(IsPinnedMessageVisible));
         }
 
-        private static string BuildChatTitle(string text)
+        private void ShowHistoryView()
         {
-            if (string.IsNullOrWhiteSpace(text)) return "New chat";
-            var singleLine = text.Replace('\r', ' ').Replace('\n', ' ').Trim();
-            const int max = 60;
-            return singleLine.Length <= max ? singleLine : SafeText.Truncate(singleLine, max) + "…";
-        }
-
-        private static ChatHistoryMessage ToHistoryMessage(ChatMessage message)
-        {
-            if (message.Kind == ChatMessageKind.ToolCall || message.Kind == ChatMessageKind.ToolBlocked)
-            {
-                return new ChatHistoryMessage
-                {
-                    Kind = message.Kind,
-                    Text = (message.Payload as ToolCallPayload)?.Result ?? "",
-                    ToolName = (message.Payload as ToolCallPayload)?.ToolName ?? "",
-                    FullResult = (message.Payload as ToolCallPayload)?.FullResult ?? "",
-                    Reasoning = message.Reasoning,
-                    Mode = message.Mode
-                };
-            }
-            return new ChatHistoryMessage { Kind = message.Kind, Text = message.Text, Reasoning = message.Reasoning, Mode = message.Mode };
-        }
-
-        private static ChatMessage FromHistoryMessage(ChatHistoryMessage m)
-        {
-            if (m.Kind == ChatMessageKind.ToolCall || m.Kind == ChatMessageKind.ToolBlocked)
-            {
-                return new ChatMessage
-                {
-                    Kind = m.Kind,
-                    Payload = new ToolCallPayload { ToolName = m.ToolName ?? "", Result = m.Text ?? "", FullResult = m.FullResult ?? "", Blocked = m.Kind == ChatMessageKind.ToolBlocked }
-                };
-            }
-            return new ChatMessage { Kind = m.Kind, Text = m.Text, Reasoning = m.Reasoning, Mode = m.Mode };
+            _chat.ShowHistoryView();
+            OnPropertyChanged(nameof(IsConversationView));
+            OnPropertyChanged(nameof(IsPinnedMessageVisible));
         }
 
         // ------------------------------------------------------------------
@@ -1333,8 +1195,8 @@ namespace RPA.Chat.ViewModels
             _restoringUiState = true;
             try
             {
-                var state = UiStateStore.Load();
-                _mode = state.AgentMode;
+                var state = _chat.LoadUiState();
+                _chat.RestoreMode(state.AgentMode);
                 OnPropertyChanged(nameof(ModeName));
                 OnPropertyChanged(nameof(Mode));
                 OnPropertyChanged(nameof(ModeAccentBrush));
@@ -1345,9 +1207,9 @@ namespace RPA.Chat.ViewModels
                 }
                 else
                 {
-                    var toOpen = ResolveConversationToOpen(state.LastConversationId);
+                    var toOpen = _chat.ResolveConversationToOpen(state.LastConversationId);
                     if (toOpen != null) OpenConversation(toOpen.Id, markDirty: false);
-                    else ResetCurrentConversation();
+                    else StartNewChat(markDirty: false);
                     ShowConversationView();
                 }
             }
@@ -1357,44 +1219,22 @@ namespace RPA.Chat.ViewModels
             }
         }
 
-        private ChatConversation ResolveConversationToOpen(string id)
-        {
-            if (!string.IsNullOrWhiteSpace(id))
-            {
-                try
-                {
-                    var stored = ChatHistoryStore.LoadConversation(id);
-                    if (stored != null) return stored;
-                }
-                catch
-                {
-                    // fall back to the most recent conversation below
-                }
-            }
-            return _conversations.FirstOrDefault();
-        }
-
         private void PersistUiState()
         {
-            UiStateStore.Save(new UiStateData
-            {
-                AgentMode = _mode,
-                ChatViewMode = IsConversationView ? ChatViewMode.Conversation : ChatViewMode.History,
-                LastConversationId = _currentConversation?.Id ?? "",
-                ActiveTab = ChatMainTab.Chat
-            });
+            if (_restoringUiState) return;
+            _chat.PersistUiState(MainTab.Chat);
         }
 
         private void CopyMessage(ChatMessage message)
         {
             if (message == null) return;
-            try { System.Windows.Clipboard.SetText(message.CopyText); }
+            try { System.Windows.Clipboard.SetText(message.DisplayText); }
             catch { /* clipboard busy — ignore */ }
         }
 
         private void RemoveAttachment(ChatAttachment attachment)
         {
-            if (attachment != null && _attachments.Remove(attachment))
+            if (attachment != null && _chat.Attachments.Remove(attachment))
                 OnPropertyChanged(nameof(HasAttachments));
         }
 
@@ -1422,7 +1262,7 @@ namespace RPA.Chat.ViewModels
         private void CopyConversation()
         {
             var sb = new StringBuilder();
-            foreach (var m in _messages)
+            foreach (var m in _chat.Messages)
             {
                 if (sb.Length > 0) sb.AppendLine().AppendLine();
                 sb.Append(FormatMessageForCopy(m));
@@ -1435,7 +1275,7 @@ namespace RPA.Chat.ViewModels
         private static string FormatMessageForCopy(ChatMessage message)
         {
             var sb = new StringBuilder();
-            sb.Append(message.CopyText);
+            sb.Append(message.DisplayText);
             if (!string.IsNullOrWhiteSpace(message.Reasoning))
             {
                 sb.AppendLine();
@@ -1820,7 +1660,7 @@ namespace RPA.Chat.ViewModels
         private void ClosePermissions()
         {
             OnUi(() => IsPermissionsOpen = false);
-            SettingsStore.Save(_settings);
+            RPA.Chat.Services.SettingsStore.Save(_settings);
             RebuildAgentTools();
         }
 
@@ -1864,7 +1704,7 @@ namespace RPA.Chat.ViewModels
             if (_ai is IPromptReloadable reloadable)
             {
                 reloadable.ReloadPromptsFromDisk();
-                AppendChat("Prompts reloaded from disk: " + PromptPaths.ResolvePromptsDirectory());
+                AppendChat("Prompts reloaded from disk: " + Agent.Rpa.Services.PromptPaths.ResolvePromptsDirectory());
             }
             else
             {

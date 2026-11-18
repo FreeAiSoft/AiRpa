@@ -1,6 +1,6 @@
 using System;
 
-namespace Agent.Core.Models
+namespace Agent.Rpa.Models
 {
     /// <summary>
     /// Тема студии и её контролов (окно, докинг, чат, редакторы кода, поверхность дизайнера WF).

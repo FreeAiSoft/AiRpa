@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 
-namespace Agent.Core.AgentTools
+namespace Agent.Rpa.AgentTools
 {
     /// <summary>Registry of agent tools with per-mode filtering.</summary>
     public sealed class AgentToolRegistry

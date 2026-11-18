@@ -1,47 +1,19 @@
 using System;
 using System.IO;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
+using Agent.Core.Contracts;
 using Agent.Core.Models;
 
 namespace RPA.Chat.Services
 {
-    /// <summary>Chat tab view: the active conversation or the history list.</summary>
-    public enum ChatViewMode
+    /// <summary>
+    /// Loads/saves the UI state JSON at %AppData%\AiRpaStudio\Chat\chat_ui_state.json,
+    /// implementing the shared <see cref="IUiStateStore"/> contract so the shared
+    /// <see cref="Agent.Models.ChatModel"/> persists its session state.
+    /// </summary>
+    public sealed class UiStateStore : IUiStateStore
     {
-        Conversation,
-        History
-    }
-
-    /// <summary>Main tabs of the chat panel.</summary>
-    public enum ChatMainTab
-    {
-        Chat,
-        Settings
-    }
-
-    /// <summary>Per-session UI state persisted between studio sessions.</summary>
-    public class UiStateData
-    {
-        [JsonConverter(typeof(StringEnumConverter))]
-        public ChatViewMode ChatViewMode { get; set; }
-
-        /// <summary>Id of the active conversation, or empty when none.</summary>
-        public string LastConversationId { get; set; } = "";
-
-        /// <summary>Agent mode: Plan, Act or Help.</summary>
-        [JsonConverter(typeof(StringEnumConverter))]
-        public AgentMode AgentMode { get; set; }
-
-        /// <summary>Active main tab.</summary>
-        [JsonConverter(typeof(StringEnumConverter))]
-        public ChatMainTab ActiveTab { get; set; }
-    }
-
-    /// <summary>Loads/saves the UI state JSON at %AppData%\AiRpaStudio\Chat\chat_ui_state.json.</summary>
-    public static class UiStateStore
-    {
-        public static UiStateData Load()
+        public UiStateData Load()
         {
             try
             {
@@ -63,7 +35,7 @@ namespace RPA.Chat.Services
             return defaults;
         }
 
-        public static void Save(UiStateData state)
+        public void Save(UiStateData state)
         {
             if (state == null) return;
             try
@@ -90,8 +62,8 @@ namespace RPA.Chat.Services
             if (state.AgentMode != AgentMode.Plan && state.AgentMode != AgentMode.Act && state.AgentMode != AgentMode.Help)
                 state.AgentMode = AgentMode.Plan;
 
-            if (!Enum.IsDefined(typeof(ChatMainTab), state.ActiveTab))
-                state.ActiveTab = ChatMainTab.Chat;
+            if (!Enum.IsDefined(typeof(MainTab), state.ActiveTab))
+                state.ActiveTab = MainTab.Chat;
         }
     }
 }

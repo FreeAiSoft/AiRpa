@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Activities.Presentation;
 using System.Collections.Generic;
 using System.Globalization;
@@ -11,6 +11,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 

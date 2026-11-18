@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
+using Agent.Rpa.Services;
 
 namespace RPA.VsProject
 {
@@ -225,14 +226,14 @@ namespace RPA.VsProject
         }
 
         /// <summary>Maps the solution generation to a toolchain; null when the version is unknown.</summary>
-        public static Agent.Core.Services.MsBuildToolchain? ToolchainFor(string visualStudioVersion)
+        public static MsBuildToolchain? ToolchainFor(string visualStudioVersion)
         {
             switch (visualStudioVersion)
             {
                 case "17":
-                    return Agent.Core.Services.MsBuildToolchain.Vs2022;
+                    return MsBuildToolchain.Vs2022;
                 case "18":
-                    return Agent.Core.Services.MsBuildToolchain.Vs2026;
+                    return MsBuildToolchain.Vs2026;
                 default:
                     return null;
             }

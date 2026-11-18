@@ -1,4 +1,5 @@
 using Agent.Core.AgentTools;
+using Agent.Rpa.AgentTools;
 using NUnit.Framework;
 
 namespace AiRpaStudio.Tests

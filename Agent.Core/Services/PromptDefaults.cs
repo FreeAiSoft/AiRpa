@@ -1,4 +1,4 @@
-namespace Agent.Core.Services
+namespace Agent.Rpa.Services
 {
     /// <summary>
     /// Built-in fallback prompt templates used when the deployed prompt files are missing

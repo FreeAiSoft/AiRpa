@@ -1,6 +1,6 @@
-﻿using System;
+using System;
 using System.Windows;
-using FW.EasyMvvm.Core;
+using Agent.Mvvm;
 using RPA.Helpers;
 
 namespace RPA.Views
@@ -23,9 +23,12 @@ namespace RPA.Views
             _ = WindowCorner.Enable(this);
         }
 
-        void IView.OnSendMessage(string message)
+        bool? IView.ShowDialogMessage(string message)
         {
             ErrorDialog.Show(message, this);
+            return null;
         }
+
+        void IView.NotifyMessage(Notify notify) { }
     }
 }

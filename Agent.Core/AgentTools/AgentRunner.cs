@@ -4,11 +4,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using Agent.Core.Context;
+using Agent.Core.AgentTools;
 using Agent.Core.Contracts;
 using Agent.Core.Models;
-using Agent.Core.Services;
+using Agent.Rpa.Models;
+using Agent.Rpa.Services;
 
-namespace Agent.Core.AgentTools
+namespace Agent.Rpa.AgentTools
 {
     /// <summary>Raised when the agent invokes a tool, so the UI can show progress.</summary>
     public sealed class AgentToolCall
@@ -113,9 +115,9 @@ namespace Agent.Core.AgentTools
             _budget = budget ?? new ContextBudget();
 
             _estimator = new TokenEstimator();
-            var prompt = compactSystemPrompt ?? PromptLibrary.Load(
+            var prompt = compactSystemPrompt ?? Agent.Core.Services.PromptLibrary.Load(
                 PromptPaths.ResolvePromptsDirectory(),
-                PromptLibrary.Categories.System,
+                Agent.Core.Services.PromptLibrary.Categories.System,
                 "agent-compact.txt",
                 PromptDefaults.AgentCompactSystemPrompt);
             _condenser = new ContextCondenser(_ai, _estimator, prompt);

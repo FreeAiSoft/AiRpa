@@ -1,8 +1,9 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Media;
 using RPA.Helpers;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 
 namespace AiRpaStudio.Tests;
 

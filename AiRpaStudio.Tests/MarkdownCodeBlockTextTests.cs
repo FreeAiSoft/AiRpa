@@ -2,6 +2,7 @@ using Markdig;
 using Markdig.Syntax;
 using NUnit.Framework;
 using Agent.Core.Services;
+using Agent.Rpa.Services;
 
 namespace AiRpaStudio.Tests
 {

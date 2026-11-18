@@ -1,6 +1,6 @@
-﻿using System;
+using System;
 using System.Windows.Forms;
-using FW.EasyMvvm.Core;
+using Agent.Mvvm;
 using RPA.Helpers;
 
 namespace RPA.Models
@@ -49,11 +49,11 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                OnSendMessage(ErrorText.Of(ex));
+                ShowDialogMessage(ErrorText.Of(ex));
                 return;
             }
 
-            Close();
+            ((System.Windows.Window)ViewModel.View)?.Close();
         }
 
         public void LoadIntoStudio()
@@ -64,14 +64,14 @@ namespace RPA.Models
             }
 
             IsLoadIntoStudio = true;
-            Close();
+            ((System.Windows.Window)ViewModel.View)?.Close();
         }
 
         private bool ValidatePath()
         {
             if (string.IsNullOrWhiteSpace(FilePath))
             {
-                OnSendMessage(LocalizeHelper.Get("lang_msg_specify_project_file"));
+                ShowDialogMessage(LocalizeHelper.Get("lang_msg_specify_project_file"));
                 return false;
             }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Activities;
 using System.Activities.Debugger;
 using System.Activities.Presentation.View;
@@ -14,7 +14,7 @@ using System.Windows.Threading;
 using ActivitiesTracker.Core;
 using ActivitiesTracker.Entities;
 
-using FW.EasyMvvm.Core;
+using Agent.Mvvm;
 using RPA.Enums;
 using RPA.Helpers;
 using RPA.Runner;

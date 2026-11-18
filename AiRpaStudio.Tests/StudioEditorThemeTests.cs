@@ -8,6 +8,7 @@ using ICSharpCode.AvalonEdit.Highlighting;
 
 using RPA.Helpers;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 
 namespace AiRpaStudio.Tests;
 

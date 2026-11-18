@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
-using FW.EasyMvvm.Core;
+using Agent.Mvvm;
 using RPA.Entities;
 using RPA.Enums;
 using RPA.Helpers;
@@ -49,7 +49,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                OnSendMessage(ErrorText.Of(ex));
+                ShowDialogMessage(ErrorText.Of(ex));
                 return;
             }
 
@@ -83,7 +83,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                OnSendMessage(ErrorText.Of(ex));
+                ShowDialogMessage(ErrorText.Of(ex));
             }
 
             return defaultProjectName;
@@ -108,26 +108,26 @@ namespace RPA.Models
 
             if (string.IsNullOrWhiteSpace(SelectedPath))
             {
-                OnSendMessage($"Укажи папку проекта.");
+                ShowDialogMessage($"Укажи папку проекта.");
                 return;
             }
 
             if (!Directory.Exists(SelectedPath))
             {
-                OnSendMessage($"Папка {SelectedPath} не существует. Укажи существующую папку проекта.");
+                ShowDialogMessage($"Папка {SelectedPath} не существует. Укажи существующую папку проекта.");
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(Project.Name))
             {
-                OnSendMessage($"Введи имя проекта.");
+                ShowDialogMessage($"Введи имя проекта.");
                 return;
             }
 
             Project.Name = Project.Name.Trim();
             if (Directory.Exists(RootFolder) && Directory.EnumerateFileSystemEntries(RootFolder).Any())
             {
-                OnSendMessage(LocalizeHelper.Get("lang_msg_project_folder_not_empty", RootFolder));
+                ShowDialogMessage(LocalizeHelper.Get("lang_msg_project_folder_not_empty", RootFolder));
                 return;
             }
 
@@ -145,12 +145,12 @@ namespace RPA.Models
 
                 if (ViewModel?.View is System.Windows.Window)
                 {
-                    Close();
+                    ((System.Windows.Window)ViewModel.View)?.Close();
                 }
             }
             catch (Exception ex)
             {
-                OnSendMessage(ErrorText.Of(ex));
+                ShowDialogMessage(ErrorText.Of(ex));
                 return;
             }
         }

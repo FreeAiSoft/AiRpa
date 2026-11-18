@@ -4,7 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 
-namespace Agent.Core.Services.Documents
+namespace Agent.Rpa.Services.Documents
 {
     /// <summary>
     /// Reader <c>pdf</c> (<c>TZ-02</c>): только текстовый слой, без сторонних пакетов и лицензий.

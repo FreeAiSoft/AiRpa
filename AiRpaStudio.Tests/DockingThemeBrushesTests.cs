@@ -1,10 +1,11 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Media;
 using AvalonDock;
 using RPA.Helpers;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 using RPA.Models;
 
 namespace AiRpaStudio.Tests;

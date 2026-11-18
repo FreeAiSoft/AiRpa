@@ -1,6 +1,6 @@
 using System;
 
-namespace Agent.Core.Services
+namespace Agent.Rpa.Services
 {
     /// <summary>
     /// Pure color math used by the theme settings (no WPF dependency).

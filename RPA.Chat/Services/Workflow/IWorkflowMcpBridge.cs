@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 
 namespace RPA.Chat.Services.Workflow
 {

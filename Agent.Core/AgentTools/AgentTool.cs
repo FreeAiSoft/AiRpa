@@ -3,8 +3,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 
-namespace Agent.Core.AgentTools
+namespace Agent.Rpa.AgentTools
 {
     /// <summary>Default tool implementation backed by a delegate.</summary>
     public sealed class AgentTool : IAgentTool

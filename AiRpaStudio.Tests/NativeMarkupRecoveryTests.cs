@@ -4,8 +4,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Core.AgentTools;
+using Agent.Rpa.AgentTools;
 using Agent.Core.Context;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 using NUnit.Framework;
 
 namespace AiRpaStudio.Tests

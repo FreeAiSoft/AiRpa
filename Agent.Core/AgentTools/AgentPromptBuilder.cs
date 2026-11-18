@@ -2,9 +2,10 @@ using System;
 using System.Linq;
 using System.Text;
 using Agent.Core.Models;
-using Agent.Core.Services;
+using Agent.Rpa.Models;
+using Agent.Rpa.Services;
 
-namespace Agent.Core.AgentTools
+namespace Agent.Rpa.AgentTools
 {
     /// <summary>Builds the agent system prompt for a mode from the base prompt + tool list.</summary>
     public static class AgentPromptBuilder
@@ -46,13 +47,13 @@ namespace Agent.Core.AgentTools
             if (toolCallingMode == ToolCallingMode.Native)
             {
                 var nativePrompt = mode == AgentMode.Act
-                    ? PromptLibrary.Load(PromptPaths.ResolvePromptsDirectory(), PromptLibrary.Categories.System, "agent-act-system-native.txt", PromptDefaults.AgentActSystemPromptNative)
-                    : PromptLibrary.Load(PromptPaths.ResolvePromptsDirectory(), PromptLibrary.Categories.System, "agent-plan-system-native.txt", PromptDefaults.AgentPlanSystemPromptNative);
+                    ? Agent.Core.Services.PromptLibrary.Load(PromptPaths.ResolvePromptsDirectory(), Agent.Core.Services.PromptLibrary.Categories.System, "agent-act-system-native.txt", PromptDefaults.AgentActSystemPromptNative)
+                    : Agent.Core.Services.PromptLibrary.Load(PromptPaths.ResolvePromptsDirectory(), Agent.Core.Services.PromptLibrary.Categories.System, "agent-plan-system-native.txt", PromptDefaults.AgentPlanSystemPromptNative);
 
                 return AppendSpecGuidance(AppendWorkflowGuidance(nativePrompt, mode, registry, toolCallingMode, allowed, allowedWays), mode, registry, allowed);
             }
 
-            var basePrompt = PromptLibrary.Load(PromptPaths.ResolvePromptsDirectory(), PromptLibrary.Categories.System, "agent-json-base.txt", PromptDefaults.AgentJsonBaseSystemPrompt);
+            var basePrompt = Agent.Core.Services.PromptLibrary.Load(PromptPaths.ResolvePromptsDirectory(), Agent.Core.Services.PromptLibrary.Categories.System, "agent-json-base.txt", PromptDefaults.AgentJsonBaseSystemPrompt);
             var modeInstructions = mode == AgentMode.Act
                 ? PromptDefaults.AgentActModeInstructions
                 : PromptDefaults.AgentPlanModeInstructions;
@@ -204,7 +205,7 @@ namespace Agent.Core.AgentTools
         private static string BuildHelpSupportPrompt()
         {
             const string preamble = "Ты очень нежный и внимательный агент поддержки, вот твоя документация - ";
-            var docs = HelpDocumentation.ReadAll();
+            var docs = Agent.Core.Services.HelpDocumentation.ReadAll();
             var body = string.IsNullOrWhiteSpace(docs)
                 ? "Документация временно недоступна. Вежливо объясни пользователю, как пользоваться расширением Vibe Coder, на основе общих знаний."
                 : docs;
@@ -233,7 +234,7 @@ namespace Agent.Core.AgentTools
         {
             var directory = docsDirectory;
             if (string.IsNullOrWhiteSpace(directory))
-                directory = HelpDocumentation.ResolveDocsDirectory();
+                directory = Agent.Core.Services.HelpDocumentation.ResolveDocsDirectory();
 
             var index = DocumentationIndex.Build(directory);
             var reference = index.BuildReference();

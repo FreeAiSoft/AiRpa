@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -7,6 +8,7 @@ using RPA.Chat.Themes;
 
 using RPA.Chat.ViewModels;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 
 namespace RPA.Chat.Views
 {
@@ -18,8 +20,6 @@ namespace RPA.Chat.Views
     public partial class ChatPanel : UserControl
     {
         private ChatViewModel _viewModel;
-        private bool _chatAutoScroll = true;
-        private bool _scrollToEndRequested;
 
         /// <summary>Словарь темы на каждое значение перечисления: третьей темы нет по определению.</summary>
         private static readonly IReadOnlyDictionary<StudioTheme, Uri> ThemeDictionaries = new Dictionary<StudioTheme, Uri>
@@ -40,12 +40,11 @@ namespace RPA.Chat.Views
             _viewModel.SettingsSaved += OnSettingsSaved;
             _viewModel.ThemeChanged += OnThemeChanged;
 
-            ChatMessages.ScrollChanged += OnChatScrollChanged;
             ChatMessages.CopyMessageRequested += OnCopyMessageRequested;
-            ChatMessages.QuestionOptionSelected += OnQuestionOptionSelected;
+            ChatMessages.QuestionAnswered += OnQuestionAnswered;
             ChatMessages.QuestionSkipped += OnQuestionSkipped;
 
-            GalleryChatMessages.ItemsSource = BuildGalleryMessages();
+            GalleryChatMessages.Messages = new ObservableCollection<ChatMessage>(BuildGalleryMessages());
 
             ApplyTheme(_viewModel.Theme);
         }
@@ -64,10 +63,10 @@ namespace RPA.Chat.Views
 
         private void OnMessageAppended()
         {
-            // Не скроллим сразу: высота нового сообщения ещё не пересчитана.
-            // Скролл выполнит OnChatScrollChanged, когда ExtentHeight обновится.
-            if (_chatAutoScroll)
-                _scrollToEndRequested = true;
+            // The shared control keeps its own auto-scroll; re-arm it once the new
+            // message has been measured and laid out.
+            Dispatcher.BeginInvoke(new Action(() => ChatMessages.ScrollToEnd()),
+                System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
         private void OnDocsNavigated()
@@ -106,29 +105,6 @@ namespace RPA.Chat.Views
             _viewModel.ShowHistoryCommand.Execute(null);
         }
 
-        private void OnChatScrollChanged(object sender, ScrollChangedEventArgs e)
-        {
-            // Чистый скролл пользователя (контент не менялся) — автопрокрутка следует за позицией.
-            if (e.ExtentHeightChange == 0)
-            {
-                _chatAutoScroll = IsAtBottom(e);
-                return;
-            }
-
-            // Контент вырос (пришло живое сообщение): если следим за низом — доводим до нового низа.
-            if (e.ExtentHeightChange > 0 && _scrollToEndRequested)
-            {
-                _scrollToEndRequested = false;
-                if (_chatAutoScroll)
-                    ChatMessages.ScrollToEnd();
-            }
-        }
-
-        private static bool IsAtBottom(ScrollChangedEventArgs e)
-        {
-            return e.ExtentHeight - e.ViewportHeight - e.VerticalOffset <= 1.0;
-        }
-
         private void OnInputPreviewKeyDown(object sender, KeyEventArgs e)
         {
             // Enter (no modifiers) sends the message; Shift+Enter inserts a new line
@@ -156,17 +132,18 @@ namespace RPA.Chat.Views
             _viewModel.CommitResultCloseCommand.Execute(null);
         }
 
-        private void OnCopyMessageRequested(RPA.Chat.ChatMessage message)
+        private void OnCopyMessageRequested(object sender, ChatMessage message)
         {
             _viewModel.CopyMessageCommand.Execute(message);
         }
 
-        private void OnQuestionOptionSelected(string option)
+        private void OnQuestionAnswered(object sender, ChatMessage message)
         {
-            _viewModel.AnswerQuestionCommand.Execute(option);
+            if (message?.Payload is QuestionPayload q && !string.IsNullOrEmpty(q.Answer))
+                _viewModel.AnswerQuestionCommand.Execute(q.Answer);
         }
 
-        private void OnQuestionSkipped()
+        private void OnQuestionSkipped(object sender, ChatMessage message)
         {
             _viewModel.SkipQuestionCommand.Execute(null);
         }

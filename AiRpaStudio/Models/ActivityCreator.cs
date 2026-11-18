@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
-using FW.EasyMvvm.Core;
+using Agent.Mvvm;
 using RPA.Helpers;
 using RPA.VsProject;
 using RPA.VsTemplate;
@@ -80,7 +80,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                OnSendMessage(ErrorText.Of(ex));
+                ShowDialogMessage(ErrorText.Of(ex));
             }
 
             return $"{defaultActivityName}.xaml";
@@ -103,19 +103,19 @@ namespace RPA.Models
 
             if (string.IsNullOrWhiteSpace(SelectedPath))
             {
-                OnSendMessage($"Укажи папку проекта.");
+                ShowDialogMessage($"Укажи папку проекта.");
                 return;
             }
 
             if (!Directory.Exists(SelectedPath))
             {
-                OnSendMessage($"Папка {SelectedPath} не существует. Укажи существующую папку проекта.");
+                ShowDialogMessage($"Папка {SelectedPath} не существует. Укажи существующую папку проекта.");
                 return;
             }
 
             if (!ProjectPathResolver.IsInsideProject(SelectedPath, Properties.Settings.Default.LastLoadedProjectPath))
             {
-                OnSendMessage($"Файл активности должен располагаться в папке проекта.");
+                ShowDialogMessage($"Файл активности должен располагаться в папке проекта.");
                 return;
             }
 
@@ -124,12 +124,12 @@ namespace RPA.Models
                 return;
             }
 
-            Close();
+            ((System.Windows.Window)ViewModel.View)?.Close();
         }
 
         /// <summary>
         /// Создаёт файлы активности в выбранной папке (без закрытия диалога). Возвращает <c>true</c>, если
-        /// активность создана; ошибка уже отправлена через <see cref="BaseModel.OnSendMessage(string)"/>.
+        /// активность создана; ошибка уже отправлена через <see cref="BaseModel.ShowDialogMessage(string)"/>.
         /// </summary>
         internal bool Create()
         {
@@ -143,14 +143,14 @@ namespace RPA.Models
                 string className = NormalizeClassName(activityName);
                 if (string.IsNullOrWhiteSpace(className))
                 {
-                    OnSendMessage("Введи имя активности.");
+                    ShowDialogMessage("Введи имя активности.");
                     return false;
                 }
 
                 string xamlPath = Path.Combine(SelectedPath, className + ".xaml");
                 if (File.Exists(xamlPath))
                 {
-                    OnSendMessage($"Файл {xamlPath} уже существует.");
+                    ShowDialogMessage($"Файл {xamlPath} уже существует.");
                     return false;
                 }
 
@@ -165,7 +165,7 @@ namespace RPA.Models
             }
             catch (Exception ex)
             {
-                OnSendMessage(ErrorText.Of(ex));
+                ShowDialogMessage(ErrorText.Of(ex));
                 return false;
             }
         }

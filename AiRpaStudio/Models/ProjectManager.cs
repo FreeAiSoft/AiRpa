@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using FW.EasyMvvm.Core;
+using Agent.Mvvm;
 using Newtonsoft.Json;
 using RPA.Core;
 using RPA.Entities;
@@ -219,19 +219,19 @@ namespace RPA.Models
         {
             if (FSNodes == null)
             {
-                OnSendMessage("Нельзя добавить активность в пустой проект");
+                ShowDialogMessage("Нельзя добавить активность в пустой проект");
                 return;
             }
 
             if (FSNodes.Count == 0)
             {
-                OnSendMessage("Проект не содержит корневого элемента");
+                ShowDialogMessage("Проект не содержит корневого элемента");
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(filePath))
             {
-                OnSendMessage("Путь к файлу не указан");
+                ShowDialogMessage("Путь к файлу не указан");
                 return;
             }
 
@@ -240,7 +240,7 @@ namespace RPA.Models
 
             if (!Directory.Exists(folder))
             {
-                OnSendMessage($"Папка файла {folder} не существует");
+                ShowDialogMessage($"Папка файла {folder} не существует");
                 return;
             }
 
@@ -251,14 +251,14 @@ namespace RPA.Models
             string rootFolder = ProjectPathResolver.GetNodeFolder(root);
             if (!ProjectPathResolver.IsInsideProject(fullPath, rootFolder ?? root.RuntimeFullPath))
             {
-                OnSendMessage($"Указанный путь к файлу {fullPath} вне папки проекта {rootFolder}");
+                ShowDialogMessage($"Указанный путь к файлу {fullPath} вне папки проекта {rootFolder}");
                 return;
             }
 
             FSNode parentNode = FindFolderNode(root, folder) ?? AddFolderChain(root, folder);
             if (parentNode == null)
             {
-                OnSendMessage($"Не удалось найти папку {folder} в дереве проекта");
+                ShowDialogMessage($"Не удалось найти папку {folder} в дереве проекта");
                 return;
             }
 
@@ -370,13 +370,13 @@ namespace RPA.Models
         {
             if (fSNode == null)
             {
-                OnSendMessage("Узел файла не может быть null");
+                ShowDialogMessage("Узел файла не может быть null");
                 return;
             }
 
             if (fSNode.FSNodeType != FSNodeType.File)
             {
-                OnSendMessage("Указанный узел не является файлом");
+                ShowDialogMessage("Указанный узел не является файлом");
                 return;
             }
 
@@ -384,7 +384,7 @@ namespace RPA.Models
             {
                 if (!File.Exists(fSNode.RuntimeFullPath))
                 {
-                    OnSendMessage($"Файл {fSNode.RuntimeFullPath} не существует");
+                    ShowDialogMessage($"Файл {fSNode.RuntimeFullPath} не существует");
                     return;
                 }
 
@@ -405,7 +405,7 @@ namespace RPA.Models
                 CallResult unregisterResult = UnregisterFileFromVsProject(filePath);
                 if (unregisterResult.Error != null)
                 {
-                    OnSendMessage(unregisterResult.Error.Message);
+                    ShowDialogMessage(unregisterResult.Error.Message);
                 }
 
                 // Удаление из дерева путем обхода
@@ -416,15 +416,15 @@ namespace RPA.Models
             }
             catch (IOException ex)
             {
-                OnSendMessage($"Ошибка ввода-вывода при удалении файла: {ex}");
+                ShowDialogMessage($"Ошибка ввода-вывода при удалении файла: {ex}");
             }
             catch (UnauthorizedAccessException ex)
             {
-                OnSendMessage($"Нет доступа для удаления файла: {ex}");
+                ShowDialogMessage($"Нет доступа для удаления файла: {ex}");
             }
             catch (Exception ex)
             {
-                OnSendMessage($"Ошибка при удалении файла: {ex}");
+                ShowDialogMessage($"Ошибка при удалении файла: {ex}");
             }
         }
 
@@ -859,7 +859,7 @@ namespace RPA.Models
                     CallResult unregisterResult = UnregisterFileFromVsProject(path);
                     if (unregisterResult.Error != null)
                     {
-                        OnSendMessage(unregisterResult.Error.Message);
+                        ShowDialogMessage(unregisterResult.Error.Message);
                     }
                 }
 

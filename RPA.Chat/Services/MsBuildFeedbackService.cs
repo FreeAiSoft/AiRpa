@@ -7,8 +7,11 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Core.Contracts;
+using Agent.Rpa.Contracts;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 using Agent.Core.Services;
+using Agent.Rpa.Services;
 
 namespace RPA.Chat.Services
 {
@@ -112,6 +115,13 @@ namespace RPA.Chat.Services
             {
                 throw new InvalidOperationException("Failed to run MSBuild: " + ex.Message, ex);
             }
+        }
+
+        public Task BuildProjectAsync(string configuration, string projectName, CancellationToken cancellationToken = default)
+        {
+            // The studio build command builds the whole solution; a project-scoped build is
+            // not supported by the MSBuild feedback service, so delegate to the solution build.
+            return BuildAsync(configuration, cancellationToken);
         }
 
         public Task<bool> HasSolutionConfigurationAsync(string configuration, CancellationToken cancellationToken = default)

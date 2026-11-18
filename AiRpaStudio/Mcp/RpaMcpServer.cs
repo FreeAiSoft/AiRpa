@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using RPA.Core;
 using RPA.Helpers;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 using RPA.Chat.Services;
 
 namespace RPA.Mcp

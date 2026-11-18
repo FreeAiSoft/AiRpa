@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 
-namespace Agent.Core.AgentTools
+namespace Agent.Rpa.AgentTools
 {
     /// <summary>
     /// Converts the informal tool parameter schema (e.g. <c>{"path":"string"}</c>) into an

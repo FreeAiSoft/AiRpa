@@ -1,4 +1,5 @@
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 
 namespace RPA.Chat.Services
 {

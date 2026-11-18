@@ -2,6 +2,7 @@ using System.Linq;
 using NUnit.Framework;
 using RPA.Chat.Services;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 
 namespace RPA.Chat.Tests
 {

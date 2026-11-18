@@ -1,14 +1,15 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows;
 using AvalonDock;
-using FW.EasyMvvm.Core;
+using Agent.Mvvm;
 using MaterialDesignThemes.Wpf;
 using RPA.Helpers;
 using RPA.Logging;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 
 namespace RPA.Models
 {
@@ -57,7 +58,7 @@ namespace RPA.Models
             }
             else
             {
-                OnSendMessage("Файл не найден");
+                ShowDialogMessage("Файл не найден");
             }
         }
 

@@ -9,7 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Windows;
 using System.Threading.Tasks;
-using FW.EasyMvvm.Core;
+using Agent.Mvvm;
 using RPA.Core;
 using RPA.Core.Generation;
 using RPA.Entities;
@@ -20,6 +20,7 @@ using RPA.ViewModels;
 using RPA.Views;
 using RPA.VsProject;
 using Agent.Core.Services;
+using Agent.Rpa.Services;
 using RpaCommon;
 
 namespace RPA.Models
@@ -177,7 +178,7 @@ namespace RPA.Models
                 await OnUiThreadAsync(() =>
                 {
                     CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_vs_project_load_error", ErrorText.Of(ex)), (int)RpaCommon.Enums.LogLevel.Error);
-                    OnSendMessage(LocalizeHelper.Get("lang_msg_vs_project_load_error", ErrorText.Of(ex)));
+                    ShowDialogMessage(LocalizeHelper.Get("lang_msg_vs_project_load_error", ErrorText.Of(ex)));
                 });
                 return;
             }
@@ -197,7 +198,7 @@ namespace RPA.Models
                 StartupTimer.Mark("LoadProject: ProjectManager.ApplyTree() применено");
                 if (!tree.Success)
                 {
-                    OnSendMessage(tree.Error.Message);
+                    ShowDialogMessage(tree.Error.Message);
                     ClearInvalidLastProjectPath(path);
                     return;
                 }
@@ -234,7 +235,7 @@ namespace RPA.Models
             catch (Exception ex)
             {
                 CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_vs_project_load_error", ErrorText.Of(ex)), (int)RpaCommon.Enums.LogLevel.Error);
-                OnSendMessage(LocalizeHelper.Get("lang_msg_vs_project_load_error", ErrorText.Of(ex)));
+                ShowDialogMessage(LocalizeHelper.Get("lang_msg_vs_project_load_error", ErrorText.Of(ex)));
             }
         }
 
@@ -373,7 +374,7 @@ namespace RPA.Models
             CallResult<string> result = ProjectManager.ImportFile(sourcePath, folderPath);
             if (result.Error != null)
             {
-                OnSendMessage(result.Error.Message);
+                ShowDialogMessage(result.Error.Message);
             }
         }
 
@@ -410,7 +411,7 @@ namespace RPA.Models
             CallResult registerResult = ProjectManager.RegisterFileInVsProject(filePath);
             if (registerResult.Error != null)
             {
-                OnSendMessage(registerResult.Error.Message);
+                ShowDialogMessage(registerResult.Error.Message);
             }
         }
 
@@ -449,13 +450,13 @@ namespace RPA.Models
                         // файл может быть занят, недоступен на запись или не быть процессом вовсе.
                         string message = LocalizeHelper.Get("lang_msg_xaml_load_failed", string.Join(Environment.NewLine, openResult.Errors));
                         CustomWfDesigner.Log(message, (int)RpaCommon.Enums.LogLevel.Error);
-                        OnSendMessage(message);
+                        ShowDialogMessage(message);
                     }
                 }
                 catch (Exception ex)
                 {
                     CustomWfDesigner.Log(LocalizeHelper.Get("lang_msg_xaml_load_failed", ErrorText.Of(ex)), (int)RpaCommon.Enums.LogLevel.Error);
-                    OnSendMessage(LocalizeHelper.Get("lang_msg_xaml_load_failed", ErrorText.Of(ex)));
+                    ShowDialogMessage(LocalizeHelper.Get("lang_msg_xaml_load_failed", ErrorText.Of(ex)));
                 }
             }
             else if (filePath.EndsWith(".sln", StringComparison.OrdinalIgnoreCase)
@@ -475,7 +476,7 @@ namespace RPA.Models
                 }
                 catch (Exception ex)
                 {
-                    OnSendMessage(LocalizeHelper.Get("lang_msg_open_file_error", ErrorText.Of(ex)));
+                    ShowDialogMessage(LocalizeHelper.Get("lang_msg_open_file_error", ErrorText.Of(ex)));
                 }
             }
         }
@@ -555,7 +556,7 @@ namespace RPA.Models
 
             if (!File.Exists(filePath))
             {
-                OnSendMessage(LocalizeHelper.Get("lang_msg_open_file_error", "File not found"));
+                ShowDialogMessage(LocalizeHelper.Get("lang_msg_open_file_error", "File not found"));
                 return;
             }
 
@@ -815,7 +816,7 @@ namespace RPA.Models
         {
             if (string.IsNullOrWhiteSpace(path))
             {
-                OnSendMessage(LocalizeHelper.Get("lang_msg_specify_path"));
+                ShowDialogMessage(LocalizeHelper.Get("lang_msg_specify_path"));
                 return;
             }
 
@@ -826,7 +827,7 @@ namespace RPA.Models
             catch (Exception ex)
             {
                 CustomWfDesigner.Log("Ошибка открытия в Visual Studio: " + ErrorText.Of(ex), (int)RpaCommon.Enums.LogLevel.Error);
-                OnSendMessage(LocalizeHelper.Get("lang_msg_open_vs_error", ErrorText.Of(ex)));
+                ShowDialogMessage(LocalizeHelper.Get("lang_msg_open_vs_error", ErrorText.Of(ex)));
             }
         }
 
@@ -864,7 +865,7 @@ namespace RPA.Models
         {
             if (string.IsNullOrWhiteSpace(path))
             {
-                OnSendMessage(LocalizeHelper.Get("lang_msg_specify_path"));
+                ShowDialogMessage(LocalizeHelper.Get("lang_msg_specify_path"));
                 return;
             }
 
@@ -1054,7 +1055,7 @@ namespace RPA.Models
             catch (Exception ex)
             {
                 CustomWfDesigner.Log($"Не удалось сохранить {document.FilePath}: {ErrorText.Of(ex)}", (int)RpaCommon.Enums.LogLevel.Error);
-                OnSendMessage(LocalizeHelper.Get("lang_msg_open_file_error", ErrorText.Of(ex)));
+                ShowDialogMessage(LocalizeHelper.Get("lang_msg_open_file_error", ErrorText.Of(ex)));
             }
         }
 
@@ -1073,7 +1074,7 @@ namespace RPA.Models
                 catch (Exception ex)
                 {
                     CustomWfDesigner.Log($"Не удалось сохранить {document.FilePath}: {ErrorText.Of(ex)}", (int)RpaCommon.Enums.LogLevel.Error);
-                    OnSendMessage(LocalizeHelper.Get("lang_msg_open_file_error", ErrorText.Of(ex)));
+                    ShowDialogMessage(LocalizeHelper.Get("lang_msg_open_file_error", ErrorText.Of(ex)));
                 }
             }
 
@@ -1087,7 +1088,7 @@ namespace RPA.Models
                 catch (Exception ex)
                 {
                     CustomWfDesigner.Log($"Не удалось сохранить {buffer.FilePath}: {ErrorText.Of(ex)}", (int)RpaCommon.Enums.LogLevel.Error);
-                    OnSendMessage(LocalizeHelper.Get("lang_msg_open_file_error", ErrorText.Of(ex)));
+                    ShowDialogMessage(LocalizeHelper.Get("lang_msg_open_file_error", ErrorText.Of(ex)));
                 }
             }
 

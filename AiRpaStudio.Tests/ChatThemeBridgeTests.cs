@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Media;
@@ -7,6 +7,7 @@ using RPA.Chat.Themes;
 using RPA.Chat.ViewModels;
 using RPA.Helpers;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 
 namespace AiRpaStudio.Tests;
 

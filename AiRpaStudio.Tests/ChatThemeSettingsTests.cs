@@ -3,6 +3,7 @@ using System.IO;
 using RPA.Chat.Services;
 using RPA.Chat.ViewModels;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 
 namespace AiRpaStudio.Tests;
 

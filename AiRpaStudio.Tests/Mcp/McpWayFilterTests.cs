@@ -1,5 +1,6 @@
 using System.Linq;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 using NUnit.Framework;
 using RPA.Mcp;
 using RPA.Mcp.Tools;

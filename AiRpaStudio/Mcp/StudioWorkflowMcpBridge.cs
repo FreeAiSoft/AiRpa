@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using RPA.Chat.Services.Workflow;

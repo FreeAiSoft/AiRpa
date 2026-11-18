@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Agent.Core.Services;
+using Agent.Rpa.Services;
 
 namespace AiRpaStudio.Tests;
 

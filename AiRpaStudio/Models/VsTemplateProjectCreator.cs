@@ -1,9 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
-using FW.EasyMvvm.Core;
+using Agent.Mvvm;
 using RPA.Helpers;
 using RPA.VsTemplate;
 
@@ -77,7 +77,7 @@ namespace RPA.Models
             string error = Validate();
             if (error != null)
             {
-                OnSendMessage(error);
+                ShowDialogMessage(error);
                 return;
             }
 
@@ -92,7 +92,7 @@ namespace RPA.Models
 
                 if (!result.Success)
                 {
-                    OnSendMessage(string.Join(Environment.NewLine, result.Errors));
+                    ShowDialogMessage(string.Join(Environment.NewLine, result.Errors));
                     return;
                 }
 
@@ -102,12 +102,12 @@ namespace RPA.Models
 
                 if (ViewModel?.View is System.Windows.Window)
                 {
-                    Close();
+                    ((System.Windows.Window)ViewModel.View)?.Close();
                 }
             }
             catch (Exception ex)
             {
-                OnSendMessage(ErrorText.Of(ex));
+                ShowDialogMessage(ErrorText.Of(ex));
             }
         }
 

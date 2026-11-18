@@ -5,6 +5,8 @@
              xmlns:controls="clr-namespace:RPA.Chat.Controls"
              xmlns:conv="clr-namespace:RPA.Chat.Converters"
              xmlns:materialIcons="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
+             xmlns:chat="clr-namespace:Agent.Toolkit.Wpf.Controls;assembly=Agent.Toolkit.Wpf"
+             xmlns:sharedconv="clr-namespace:Agent.Toolkit.Wpf.Converters;assembly=Agent.Toolkit.Wpf"
              xmlns:sys="clr-namespace:System;assembly=mscorlib">
     <UserControl.Resources>
         <ResourceDictionary>
@@ -14,7 +16,7 @@
 
             <BooleanToVisibilityConverter x:Key="BoolToVis" />
             <conv:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
-            <conv:MarkdownToElementConverter x:Key="MarkdownToElement" />
+            <sharedconv:MarkdownToElementConverter x:Key="MarkdownToElement" />
 
             <!-- Transparent icon button (toolbar / input / overlays) -->
             <Style x:Key="IconButtonStyle" TargetType="Button">
@@ -563,14 +565,12 @@
                     </Grid.RowDefinitions>
                     <controls:PinnedChatMessageControl Grid.Row="0"
                                                        MessageText="{Binding PinnedMessageText}"
-                                                       ProgressMaximum="1"
-                                                       ProgressValue="{Binding ContextFillFraction, Mode=OneWay}"
-                                                       ContextText="{Binding ContextUsageText}"
+                                                       Model="{Binding Chat}"
                                                        Visibility="{Binding IsPinnedMessageVisible, Converter={StaticResource BoolToVis}}"
                                                        CloseRequested="OnPinnedClose" />
-                    <controls:ChatMessagesControl x:Name="ChatMessages" Grid.Row="1"
-                                                  ItemsSource="{Binding ChatMessages}"
-                                                  Visibility="{Binding IsConversationView, Converter={StaticResource BoolToVis}}" />
+                    <chat:ChatMessagesControl x:Name="ChatMessages" Grid.Row="1"
+                                              Messages="{Binding Messages}"
+                                              Visibility="{Binding IsConversationView, Converter={StaticResource BoolToVis}}" />
 
                     <!-- History -->
                     <Grid Grid.Row="0" Grid.RowSpan="2" Visibility="{Binding IsConversationView, Converter={StaticResource InverseBoolToVis}}">
@@ -1072,9 +1072,7 @@
                             <StackPanel Margin="12,8">
                                 <TextBlock Text="Gallery" FontWeight="Bold" FontSize="16" Margin="0,0,0,12" Foreground="{DynamicResource Dark.Text}" />
                                 <TextBlock Text="Primary prompt (pinned)" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{DynamicResource Dark.Text}" />
-                                <controls:PinnedChatMessageControl MessageText="You: Fix the null-check in the parser and add a regression test."
-                                                                   ProgressValue="42"
-                                                                   ContextText="Context window: 12.4k / 200k" />
+                                <controls:PinnedChatMessageControl MessageText="You: Fix the null-check in the parser and add a regression test." />
                                 <TextBlock Text="Notification banners" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{DynamicResource Dark.Text}" />
                                 <controls:NotificationBanner Kind="Trace" Message="Trace sample: most verbose level." Margin="0,0,0,8" />
                                 <controls:NotificationBanner Kind="Info" Message="Info sample: informational message." Margin="0,0,0,8" />
@@ -1082,7 +1080,7 @@
                                 <controls:NotificationBanner Kind="Warning" Message="Warning sample: shows copy and send-to-chat." Margin="0,0,0,8" />
                                 <controls:NotificationBanner Kind="Error" Message="Error sample: shows copy and send-to-chat." Margin="0,0,0,8" />
                                 <TextBlock Text="Chat messages" FontWeight="SemiBold" Margin="0,16,0,8" Foreground="{DynamicResource Dark.Text}" />
-                                <controls:ChatMessagesControl x:Name="GalleryChatMessages" MaxHeight="480" />
+                                <chat:ChatMessagesControl x:Name="GalleryChatMessages" MaxHeight="480" />
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>

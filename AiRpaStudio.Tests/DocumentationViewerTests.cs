@@ -1,6 +1,7 @@
 using System.IO;
 using NUnit.Framework;
 using Agent.Core.Services;
+using Agent.Rpa.Services;
 
 namespace AiRpaStudio.Tests
 {

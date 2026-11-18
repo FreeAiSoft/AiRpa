@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 
 using Agent.Core.Services;
+using Agent.Rpa.Services;
 using NUnit.Framework;
 using RPA.Entities;
 using RPA.Enums;

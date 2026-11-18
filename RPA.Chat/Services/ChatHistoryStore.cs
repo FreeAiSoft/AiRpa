@@ -1,86 +1,19 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Text;
 using Newtonsoft.Json;
+using Agent.Core.Contracts;
 using Agent.Core.Models;
 
 namespace RPA.Chat.Services
 {
-    /// <summary>A single chat message persisted in the chat history.</summary>
-    public class ChatHistoryMessage
-    {
-        public ChatMessageKind Kind { get; set; } = ChatMessageKind.SystemNotice;
-        public string Text { get; set; } = "";
-        public string Reasoning { get; set; } = "";
-        public string Mode { get; set; } = "";
-        public string ToolName { get; set; } = "";
-        public string FullResult { get; set; } = "";
-    }
-
-    /// <summary>A saved chat conversation with its messages.</summary>
-    public class ChatConversation
-    {
-        public string Id { get; set; } = "";
-        public string Title { get; set; } = "";
-        public DateTime CreatedAtUtc { get; set; }
-        public DateTime UpdatedAtUtc { get; set; }
-        public List<ChatHistoryMessage> Messages { get; set; } = new List<ChatHistoryMessage>();
-
-        /// <summary>Text shown in the history dropdown.</summary>
-        public string DisplayTitle
-        {
-            get
-            {
-                var title = string.IsNullOrWhiteSpace(Title) ? "(empty)" : Title;
-                var when = UpdatedAtUtc == default(DateTime)
-                    ? ""
-                    : "  ·  " + UpdatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
-                return title + when;
-            }
-        }
-
-        /// <summary>Title for a history card. The default "New chat" placeholder is hidden.</summary>
-        public string CardTitle
-        {
-            get
-            {
-                if (string.IsNullOrWhiteSpace(Title)) return "";
-                return Title == "New chat" ? "" : Title;
-            }
-        }
-
-        /// <summary>Local date shown on a history card.</summary>
-        public string DisplayDate => UpdatedAtUtc == default(DateTime)
-            ? ""
-            : UpdatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
-
-        /// <summary>
-        /// First message with actual text, flattened to a single line. Used as the
-        /// one-line preview on the history card (the view truncates it with an ellipsis).
-        /// </summary>
-        public string Preview
-        {
-            get
-            {
-                if (Messages == null) return "";
-                foreach (var message in Messages)
-                {
-                    if (string.IsNullOrWhiteSpace(message?.Text)) continue;
-                    var singleLine = message.Text.Replace('\r', ' ').Replace('\n', ' ').Trim();
-                    if (singleLine.Length > 0) return singleLine;
-                }
-                return "";
-            }
-        }
-    }
-
     /// <summary>
-    /// JSON-backed chat history (replaces the VSIX SQLite store). The store lives at
-    /// %AppData%\AiRpaStudio\Chat\chat_history.json.
+    /// JSON-backed <see cref="IChatHistoryStore"/>. The store lives at
+    /// %AppData%\AiRpaStudio\Chat\chat_history.json. The studio chat does not scope history
+    /// per workspace, so <see cref="WorkspaceId"/> is accepted for the shared contract but ignored.
     /// </summary>
-    public static class ChatHistoryStore
+    public sealed class ChatHistoryStore : IChatHistoryStore
     {
         public const int MaxStoredConversations = 50;
 
@@ -89,35 +22,27 @@ namespace RPA.Chat.Services
         /// <summary>Щадящая UTF-8 без BOM: недопустимые символы заменяются на U+FFFD, а не роняют запись.</summary>
         private static readonly UTF8Encoding WriteEncoding = new UTF8Encoding(false, false);
 
-        /// <summary>Creates the history file (empty store) if it does not exist yet.</summary>
-        public static void Initialize()
+        /// <summary>Accepted for <see cref="IChatHistoryStore"/> compatibility; the studio chat does not scope history.</summary>
+        public string WorkspaceId { get; set; } = "";
+
+        /// <summary>Creates the chat data directory if needed.</summary>
+        public void Initialize()
         {
-            lock (Sync)
-            {
-                if (!File.Exists(ChatPaths.HistoryFile))
-                {
-                    ChatPaths.EnsureDirectories();
-                    WriteAll(new List<ChatConversation>());
-                }
-            }
+            ChatPaths.EnsureDirectories();
         }
 
         /// <summary>Returns conversation metadata (newest first), without messages.</summary>
-        public static IReadOnlyList<ChatConversation> ListConversations(int limit = MaxStoredConversations)
+        public IReadOnlyList<ChatConversation> ListConversations(int limit = MaxStoredConversations)
         {
-            var all = ReadAll();
-            all.Sort((a, b) => b.UpdatedAtUtc.CompareTo(a.UpdatedAtUtc));
-            if (limit <= 0) limit = MaxStoredConversations;
-            if (all.Count <= limit) return all;
-
-            var result = new List<ChatConversation>(limit);
-            for (var i = 0; i < limit; i++)
-                result.Add(all[i]);
+            var result = ReadAll();
+            result.Sort((a, b) => b.UpdatedAtUtc.CompareTo(a.UpdatedAtUtc));
+            if (result.Count > limit)
+                result.RemoveRange(limit, result.Count - limit);
             return result;
         }
 
-        /// <summary>Loads a full conversation, or null if not found.</summary>
-        public static ChatConversation LoadConversation(string id)
+        /// <summary>Loads a full conversation (messages in display order), or null if not found.</summary>
+        public ChatConversation LoadConversation(string id)
         {
             if (string.IsNullOrWhiteSpace(id)) return null;
             foreach (var conversation in ReadAll())
@@ -129,7 +54,7 @@ namespace RPA.Chat.Services
         }
 
         /// <summary>Inserts or updates a conversation and its messages.</summary>
-        public static void SaveConversation(ChatConversation conversation)
+        public void SaveConversation(ChatConversation conversation)
         {
             if (conversation == null || string.IsNullOrWhiteSpace(conversation.Id)) return;
 
@@ -167,8 +92,29 @@ namespace RPA.Chat.Services
             }
         }
 
+        /// <summary>Sets the important flag without touching messages or timestamps.</summary>
+        public void SetConversationImportant(string id, bool isImportant)
+        {
+            if (string.IsNullOrWhiteSpace(id)) return;
+            lock (Sync)
+            {
+                var all = ReadAll();
+                var changed = false;
+                foreach (var conversation in all)
+                {
+                    if (string.Equals(conversation.Id, id, StringComparison.Ordinal))
+                    {
+                        conversation.IsImportant = isImportant;
+                        changed = true;
+                        break;
+                    }
+                }
+                if (changed) WriteAll(all);
+            }
+        }
+
         /// <summary>Deletes a conversation by id.</summary>
-        public static void DeleteConversation(string id)
+        public void DeleteConversation(string id)
         {
             if (string.IsNullOrWhiteSpace(id)) return;
             lock (Sync)
@@ -180,7 +126,7 @@ namespace RPA.Chat.Services
         }
 
         /// <summary>Deletes every stored conversation.</summary>
-        public static void DeleteAllConversations()
+        public void DeleteAllConversations()
         {
             lock (Sync)
             {

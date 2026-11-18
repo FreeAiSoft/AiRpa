@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using Agent.Core.Services;
+using Agent.Rpa.Services;
 using RPA.Enums;
 using RPA.VsProject;
 using RPA.VsTemplate;

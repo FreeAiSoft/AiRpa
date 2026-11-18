@@ -10,7 +10,9 @@ using System.Threading.Tasks;
 using NUnit.Framework;
 using Agent.Core.Contracts;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 using Agent.Core.Services;
+using Agent.Rpa.Services;
 
 namespace AiRpaStudio.Tests
 {

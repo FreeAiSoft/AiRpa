@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 
 using Agent.Core.Services;
+using Agent.Rpa.Services;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using RPA.VsProject;

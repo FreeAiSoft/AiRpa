@@ -8,7 +8,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using ActivityLibraryBase.BaseActivities;
-using FW.EasyMvvm.Core;
+using Agent.Mvvm;
 using LogControlLibrary.Controls;
 using Microsoft.Win32;
 using Newtonsoft.Json;

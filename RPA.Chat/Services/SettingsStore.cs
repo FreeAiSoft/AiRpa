@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.IO;
 using Newtonsoft.Json;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 
 namespace RPA.Chat.Services
 {

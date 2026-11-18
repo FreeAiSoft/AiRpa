@@ -8,6 +8,7 @@ using RPA.VsProject;
 using RPA.VsTemplate;
 
 using Agent.Core.Services;
+using Agent.Rpa.Services;
 
 namespace AiRpaStudio.Tests;
 

@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using Agent.Core.Contracts;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 
 namespace RPA.Chat.Services.Workflow
 {

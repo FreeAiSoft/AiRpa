@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 using Agent.Core.Services;
+using Agent.Rpa.Services;
 
 namespace AiRpaStudio.Tests
 {

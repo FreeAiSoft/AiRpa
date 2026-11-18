@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Agent.Core.Services;
 
-namespace Agent.Core.Services
+namespace Agent.Rpa.Services
 {
     /// <summary>A single documentation file captured by the index.</summary>
     public sealed class DocumentationEntry

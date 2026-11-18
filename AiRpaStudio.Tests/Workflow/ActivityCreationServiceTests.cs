@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Agent.Core.Contracts;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 using NUnit.Framework;
 using RPA.Chat.Services.Workflow;
 

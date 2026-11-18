@@ -19,7 +19,7 @@ using System.Windows.Threading;
 using AvalonDock.Layout;
 using AvalonDock;
 using AvalonDock.Layout.Serialization;
-using FW.EasyMvvm.Core;
+using Agent.Mvvm;
 using Material.Icons;
 using Microsoft.Win32;
 using RPA.Controls;
@@ -777,10 +777,13 @@ namespace RPA.Views
             return layoutRoot;
         }
 
-        public void OnSendMessage(string message)
+        public bool? ShowDialogMessage(string message)
         {
             ErrorDialog.Show(message, this);
+            return null;
         }
+
+        public void NotifyMessage(Notify notify) { }
 
         private void OnDesignerErrorCaptured(object sender, RPA.Core.DesignerErrorSnapshot snapshot)
         {

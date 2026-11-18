@@ -1,7 +1,8 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 
 namespace RPA.Helpers
 {

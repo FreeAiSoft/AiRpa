@@ -4,6 +4,7 @@
              xmlns:conv="clr-namespace:RPA.Chat.Converters"
              xmlns:materialIcons="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
              xmlns:sys="clr-namespace:System;assembly=mscorlib"
+             xmlns:toolkit="clr-namespace:Agent.Toolkit.Wpf.Controls;assembly=Agent.Toolkit.Wpf"
              x:Name="Root">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
@@ -178,12 +179,8 @@
                         </ScrollViewer>
                     </Grid>
                 </Grid>
-                <ProgressBar Grid.Row="1" Height="4" Margin="0,6,0,0"
-                             Minimum="0" Maximum="{Binding ProgressMaximum, ElementName=Root}"
-                             Value="{Binding ProgressValue, ElementName=Root}"
-                             Foreground="{DynamicResource Dark.Accent}" />
-                <TextBlock Grid.Row="2" Margin="0,4,0,0" Foreground="{DynamicResource Dark.SubtleText}"
-                           Text="{Binding ContextText, ElementName=Root}" />
+                <toolkit:ContextIndicator Grid.Row="1" Grid.RowSpan="2" Margin="0,6,0,0"
+                                          Model="{Binding Model, ElementName=Root}" />
             </Grid>
             <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Top">
                 <Button Style="{StaticResource IconButtonStyle}" Width="22" Height="22"

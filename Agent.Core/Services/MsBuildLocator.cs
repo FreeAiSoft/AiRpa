@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
-namespace Agent.Core.Services
+namespace Agent.Rpa.Services
 {
     /// <summary>Visual Studio toolchain used to run MSBuild.</summary>
     public enum MsBuildToolchain

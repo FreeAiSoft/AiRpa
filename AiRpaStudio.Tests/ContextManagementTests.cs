@@ -5,9 +5,11 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using Agent.Core.AgentTools;
+using Agent.Rpa.AgentTools;
 using Agent.Core.Context;
 using Agent.Core.Contracts;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 
 namespace AiRpaStudio.Tests
 {

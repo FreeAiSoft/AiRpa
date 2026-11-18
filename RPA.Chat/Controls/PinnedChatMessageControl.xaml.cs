@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using Agent.Models;
 
 namespace RPA.Chat.Controls
 {
@@ -20,17 +21,9 @@ namespace RPA.Chat.Controls
 
         public static readonly DependencyProperty FirstLineProperty = FirstLinePropertyKey.DependencyProperty;
 
-        public static readonly DependencyProperty ProgressValueProperty = DependencyProperty.Register(
-            nameof(ProgressValue), typeof(double), typeof(PinnedChatMessageControl),
-            new PropertyMetadata(0.0));
-
-        public static readonly DependencyProperty ProgressMaximumProperty = DependencyProperty.Register(
-            nameof(ProgressMaximum), typeof(double), typeof(PinnedChatMessageControl),
-            new PropertyMetadata(100.0));
-
-        public static readonly DependencyProperty ContextTextProperty = DependencyProperty.Register(
-            nameof(ContextText), typeof(string), typeof(PinnedChatMessageControl),
-            new PropertyMetadata(string.Empty));
+        public static readonly DependencyProperty ModelProperty = DependencyProperty.Register(
+            nameof(Model), typeof(ChatModel), typeof(PinnedChatMessageControl),
+            new PropertyMetadata(null));
 
         public PinnedChatMessageControl()
         {
@@ -65,25 +58,11 @@ namespace RPA.Chat.Controls
             private set => SetValue(FirstLinePropertyKey, value);
         }
 
-        /// <summary>Current context-window fill, in <see cref="ProgressMaximum"/> units.</summary>
-        public double ProgressValue
+        /// <summary>The shared chat model the context indicator reads from.</summary>
+        public ChatModel Model
         {
-            get => (double)GetValue(ProgressValueProperty);
-            set => SetValue(ProgressValueProperty, value);
-        }
-
-        /// <summary>Upper bound of the context-window progress bar.</summary>
-        public double ProgressMaximum
-        {
-            get => (double)GetValue(ProgressMaximumProperty);
-            set => SetValue(ProgressMaximumProperty, value);
-        }
-
-        /// <summary>Human-readable context usage caption (e.g. "Context window: 12.4k / 200k").</summary>
-        public string ContextText
-        {
-            get => (string)GetValue(ContextTextProperty);
-            set => SetValue(ContextTextProperty, value);
+            get => (ChatModel)GetValue(ModelProperty);
+            set => SetValue(ModelProperty, value);
         }
 
         /// <summary>Raised when the user clicks the close button; the host decides what "close chat" means.</summary>

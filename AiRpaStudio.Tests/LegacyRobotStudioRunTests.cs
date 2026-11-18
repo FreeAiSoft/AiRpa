@@ -5,6 +5,7 @@ using System.Linq;
 
 using ActivitiesTracker.Entities;
 using Agent.Core.Services;
+using Agent.Rpa.Services;
 using NUnit.Framework;
 using RPA.Core;
 using RPA.Helpers;

@@ -8,8 +8,11 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using Agent.Core.AgentTools;
+using Agent.Rpa.AgentTools;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 using Agent.Core.Services;
+using Agent.Rpa.Services;
 
 namespace AiRpaStudio.Tests
 {

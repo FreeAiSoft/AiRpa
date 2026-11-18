@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Agent.Core.Models;
+using Agent.Rpa.Models;
 using RPA.Core.Generation;
 using RPA.Chat.Services.Workflow;
 using RPA.Mcp.Tools;
