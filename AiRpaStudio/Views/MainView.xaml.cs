@@ -20,6 +20,8 @@ using AvalonDock.Layout;
 using AvalonDock;
 using AvalonDock.Layout.Serialization;
 using Agent.Mvvm;
+using Agent.Models;
+using Agent.Toolkit.Wpf.Theming;
 using Material.Icons;
 using Microsoft.Win32;
 using RPA.Controls;
@@ -28,6 +30,7 @@ using RPA.Core;
 using RPA.Helpers;
 using RPA.Logging;
 using RPA.Models;
+using RPA.Shared.Models;
 using RPA.ViewModels;
 using RPA.VsProject;
 
@@ -160,10 +163,13 @@ namespace RPA.Views
             // Порядок смены темы задан явно: студия пересобирает палитру Studio.* (ThemeApplying)
             // ДО того, как ChatPanel применит свой словарь и перекроет кисти мостом (ThemeChanged).
             // Иначе ChatStudioBridge копирует кисти предыдущей темы и чат отстаёт на один переключатель.
-            chatPanel.ViewModel.ThemeApplying = Services.AppSettings.ApplyTheme;
+            // Тему AgentToolkit (Theme.*) при этом ведёт хост: режим Auto + трансляция в AgentThemeManager,
+            // чтобы встроенный список сообщений/карточки перекрашивались вместе со студией.
+            AgentThemeManager.SetMode(AgentThemeMode.Auto);
+            chatPanel.ViewModel.ThemeApplying = ApplyStudioAndToolkitTheme;
 
             chatPanel.ViewModel.ThemeChanged += OnChatThemeChanged;
-            Services.AppSettings.ApplyTheme(chatPanel.ViewModel.Theme);
+            ApplyStudioAndToolkitTheme(chatPanel.ViewModel.Theme);
             // Словарь чата собран в конструкторе из палитры по умолчанию, а сохранённая тема могла быть
             // светлой — перекрываем словарь актуальной палитрой студии до первого переключения.
             chatPanel.ReapplyTheme();
@@ -247,6 +253,18 @@ namespace RPA.Views
             // свой словарь. Здесь остаётся перекраска открытых документов и панелей; повторный
             // ApplyTheme дал бы второй полный прогон темы на каждый клик.
             ReapplyWorkflowControlThemes();
+        }
+
+        /// <summary>
+        /// Применяет тему студии и транслирует её в тулкит AgentToolkit (ключи <c>Theme.*</c>) одним
+        /// вызовом. Порядок обязателен: сначала <c>AppSettings.ApplyTheme</c> пересобирает <c>Studio.*</c>,
+        /// затем <c>AgentThemeManager.Apply</c> пересобирает <c>Theme.*</c> — иначе встроенные контролы
+        /// AgentToolkit (список сообщений, карточки) отстают на один переключатель.
+        /// </summary>
+        private void ApplyStudioAndToolkitTheme(StudioTheme theme)
+        {
+            Services.AppSettings.ApplyTheme(theme);
+            AgentThemeManager.Apply(theme.ToName());
         }
 
         /// <summary>После изменения NuGet-пакетов перечитываем References и активности пакетов на UI-потоке.</summary>
