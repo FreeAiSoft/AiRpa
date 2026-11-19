@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using RPA.Chat;
 using Agent.Core.Models;
-using Agent.Rpa.Models;
+using RPA.Shared.Models;
 
 namespace AiRpaStudio.Tests;
 

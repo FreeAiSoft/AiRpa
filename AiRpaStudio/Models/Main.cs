@@ -20,7 +20,7 @@ using RPA.ViewModels;
 using RPA.Views;
 using RPA.VsProject;
 using Agent.Core.Services;
-using Agent.Rpa.Services;
+using RPA.Shared.Services;
 using RpaCommon;
 
 namespace RPA.Models

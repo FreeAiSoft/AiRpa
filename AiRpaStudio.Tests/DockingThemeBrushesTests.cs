@@ -5,7 +5,7 @@ using System.Windows.Media;
 using AvalonDock;
 using RPA.Helpers;
 using Agent.Core.Models;
-using Agent.Rpa.Models;
+using RPA.Shared.Models;
 using RPA.Models;
 
 namespace AiRpaStudio.Tests;

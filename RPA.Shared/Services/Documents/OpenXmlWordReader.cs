@@ -7,7 +7,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 
-namespace Agent.Rpa.Services.Documents
+namespace RPA.Shared.Services.Documents
 {
     /// <summary>
     /// Reader <c>docx</c> (<c>TZ-02</c>): параграфы и заголовки → markdown, таблицы → markdown-таблицы,

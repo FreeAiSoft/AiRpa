@@ -6,7 +6,7 @@ using System.IO;
 using System.Linq;
 
 using Agent.Core.Services;
-using Agent.Rpa.Services;
+using RPA.Shared.Services;
 using NUnit.Framework;
 using RPA.VsProject;
 

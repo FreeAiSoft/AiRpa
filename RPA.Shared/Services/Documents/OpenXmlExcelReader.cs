@@ -5,7 +5,7 @@ using System.Text;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 
-namespace Agent.Rpa.Services.Documents
+namespace RPA.Shared.Services.Documents
 {
     /// <summary>
     /// Reader <c>xlsx</c> (<c>TZ-02</c>): каждый лист → markdown-таблица с заголовком листа.

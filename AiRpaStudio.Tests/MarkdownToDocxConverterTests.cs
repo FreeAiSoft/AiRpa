@@ -6,7 +6,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DWP = DocumentFormat.OpenXml.Drawing.Wordprocessing;
 using NUnit.Framework;
 using Agent.Core.Services;
-using Agent.Rpa.Services;
+using RPA.Shared.Services;
 
 namespace AiRpaStudio.Tests
 {

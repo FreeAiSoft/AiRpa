@@ -9,7 +9,7 @@ using MaterialDesignThemes.Wpf;
 using RPA.Helpers;
 using RPA.Logging;
 using Agent.Core.Models;
-using Agent.Rpa.Models;
+using RPA.Shared.Models;
 
 namespace RPA.Models
 {

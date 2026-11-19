@@ -23,8 +23,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AgentToolkit" Version="1.9.0" />
-    <PackageReference Include="AgentToolkit.Wpf" Version="1.9.0" />
+    <PackageReference Include="AgentToolkit" Version="1.17.0" />
+    <PackageReference Include="AgentToolkit.Wpf" Version="1.17.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RPA.Shared\RPA.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>

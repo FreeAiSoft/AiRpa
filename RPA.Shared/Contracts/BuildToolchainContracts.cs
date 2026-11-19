@@ -1,4 +1,4 @@
-namespace Agent.Rpa.Contracts
+namespace RPA.Shared.Contracts
 {
     /// <summary>
     /// AiRpa-specific: reports the MSBuild toolchain a build-feedback service is using

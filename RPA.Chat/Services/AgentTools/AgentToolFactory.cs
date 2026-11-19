@@ -8,14 +8,14 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using Agent.Rpa.AgentTools;
+using RPA.Shared.AgentTools;
 using Agent.Core.Contracts;
 using Agent.Core.Models;
-using Agent.Rpa.Models;
+using RPA.Shared.Models;
 using Agent.Core.Services;
-using Agent.Rpa.Services;
-using Agent.Rpa.Contracts;
-using Agent.Rpa.Services.Documents;
+using RPA.Shared.Services;
+using RPA.Shared.Contracts;
+using RPA.Shared.Services.Documents;
 using RPA.Chat.Services.Workflow;
 
 

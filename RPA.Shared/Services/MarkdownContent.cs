@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using Agent.Core.Models;
 
-namespace Agent.Rpa.Services
+namespace RPA.Shared.Services
 {
     /// <summary>Markdown builder helpers (tables, task list).</summary>
     public static class MarkdownContent

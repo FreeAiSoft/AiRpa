@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace Agent.Rpa.Services.Documents
+namespace RPA.Shared.Services.Documents
 {
     /// <summary>Чем закончилось извлечение текста из документа (<c>TZ-02</c>).</summary>
     public enum DocumentTextStatus

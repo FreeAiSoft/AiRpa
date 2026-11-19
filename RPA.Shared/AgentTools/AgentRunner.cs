@@ -7,10 +7,10 @@ using Agent.Core.Context;
 using Agent.Core.AgentTools;
 using Agent.Core.Contracts;
 using Agent.Core.Models;
-using Agent.Rpa.Models;
-using Agent.Rpa.Services;
+using RPA.Shared.Models;
+using RPA.Shared.Services;
 
-namespace Agent.Rpa.AgentTools
+namespace RPA.Shared.AgentTools
 {
     /// <summary>Raised when the agent invokes a tool, so the UI can show progress.</summary>
     public sealed class AgentToolCall

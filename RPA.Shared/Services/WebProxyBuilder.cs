@@ -2,7 +2,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 
-namespace Agent.Rpa.Services
+namespace RPA.Shared.Services
 {
     /// <summary>
     /// Builds an <see cref="IWebProxy"/> (and matching <see cref="HttpClient"/>) from the

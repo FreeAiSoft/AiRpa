@@ -2,9 +2,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using Agent.Core.Models;
-using Agent.Rpa.Models;
+using RPA.Shared.Models;
 
-namespace Agent.Rpa.AgentTools
+namespace RPA.Shared.AgentTools
 {
     /// <summary>A tool the agent can invoke from the chat: read-only or mutating.</summary>
     public interface IAgentTool

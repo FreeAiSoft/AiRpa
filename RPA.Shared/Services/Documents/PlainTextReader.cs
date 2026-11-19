@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace Agent.Rpa.Services.Documents
+namespace RPA.Shared.Services.Documents
 {
     /// <summary>
     /// Текстовые форматы (<c>TZ-02</c>): <c>md</c>, <c>txt</c>, <c>csv</c>, <c>json</c>, <c>xaml</c>, код.

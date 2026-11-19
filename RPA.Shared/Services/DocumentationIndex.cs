@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using Agent.Core.Services;
 
-namespace Agent.Rpa.Services
+namespace RPA.Shared.Services
 {
     /// <summary>A single documentation file captured by the index.</summary>
     public sealed class DocumentationEntry

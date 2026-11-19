@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 
-namespace Agent.Rpa.Services
+namespace RPA.Shared.Services
 {
     /// <summary>
     /// Resolves the deployed "Prompts" directory on disk. The directory is shipped

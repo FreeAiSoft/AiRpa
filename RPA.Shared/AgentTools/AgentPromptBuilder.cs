@@ -2,10 +2,10 @@ using System;
 using System.Linq;
 using System.Text;
 using Agent.Core.Models;
-using Agent.Rpa.Models;
-using Agent.Rpa.Services;
+using RPA.Shared.Models;
+using RPA.Shared.Services;
 
-namespace Agent.Rpa.AgentTools
+namespace RPA.Shared.AgentTools
 {
     /// <summary>Builds the agent system prompt for a mode from the base prompt + tool list.</summary>
     public static class AgentPromptBuilder

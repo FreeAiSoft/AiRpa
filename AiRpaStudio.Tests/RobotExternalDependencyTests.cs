@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 
 using Agent.Core.Services;
-using Agent.Rpa.Services;
+using RPA.Shared.Services;
 using NUnit.Framework;
 using RPA.Core;
 using RPA.Helpers;

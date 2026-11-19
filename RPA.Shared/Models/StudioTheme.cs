@@ -1,6 +1,6 @@
 using System;
 
-namespace Agent.Rpa.Models
+namespace RPA.Shared.Models
 {
     /// <summary>
     /// Тема студии и её контролов (окно, докинг, чат, редакторы кода, поверхность дизайнера WF).

@@ -18,7 +18,7 @@
     <ProjectReference Include="..\Rpa.Orchestrator.Contracts\Rpa.Orchestrator.Contracts.csproj" />
     <!-- Локатор MSBuild один на всё решение (`CP-04`): второй список «где искать MSBuild.exe»
          разошёлся бы со студийным молча. Отсюда только он, без агентских инструментов. -->
-    <ProjectReference Include="..\Agent.Core\Agent.Core.csproj" />
+    <ProjectReference Include="..\RPA.Shared\RPA.Shared.csproj" />
   </ItemGroup>
 
 </Project>

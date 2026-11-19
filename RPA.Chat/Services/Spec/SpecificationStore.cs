@@ -5,8 +5,8 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using Agent.Core.Services;
-using Agent.Rpa.Services;
-using Agent.Rpa.Services.Documents;
+using RPA.Shared.Services;
+using RPA.Shared.Services.Documents;
 using Newtonsoft.Json;
 
 namespace RPA.Chat.Services.Spec

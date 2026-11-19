@@ -8,12 +8,12 @@ using RPA.Chat.Services;
 using RPA.Chat.Services.AgentTools;
 using RPA.Chat.Services.Workflow;
 using Agent.Core.AgentTools;
-using Agent.Rpa.AgentTools;
+using RPA.Shared.AgentTools;
 using Agent.Core.Contracts;
 using Agent.Core.Models;
-using Agent.Rpa.Models;
+using RPA.Shared.Models;
 using Agent.Core.Services;
-using Agent.Rpa.Services;
+using RPA.Shared.Services;
 
 namespace RPA.Chat.Tests
 {

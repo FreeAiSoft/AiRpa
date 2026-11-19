@@ -8,7 +8,7 @@ using RPA.Chat.Themes;
 
 using RPA.Chat.ViewModels;
 using Agent.Core.Models;
-using Agent.Rpa.Models;
+using RPA.Shared.Models;
 
 namespace RPA.Chat.Views
 {

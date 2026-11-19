@@ -23,7 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AiRpaStudio\AiRpaStudio.csproj" />
-    <ProjectReference Include="..\Agent.Core\Agent.Core.csproj" />
+    <ProjectReference Include="..\RPA.Shared\RPA.Shared.csproj" />
     <ProjectReference Include="..\RPA.Chat\RPA.Chat.csproj" />
     <!-- OR-02: тесты раннера проверяют общий рантайм прогона напрямую. -->
     <ProjectReference Include="..\Rpa.Workflow.Runtime\Rpa.Workflow.Runtime.csproj" />

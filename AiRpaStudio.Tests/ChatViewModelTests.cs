@@ -6,7 +6,7 @@ using RPA.Chat.Markdown;
 using RPA.Chat.Services;
 using RPA.Chat.ViewModels;
 using Agent.Core.Models;
-using Agent.Rpa.Models;
+using RPA.Shared.Models;
 
 namespace AiRpaStudio.Tests;
 

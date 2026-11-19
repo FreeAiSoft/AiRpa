@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
-using Agent.Rpa.Services;
+using RPA.Shared.Services;
 
 namespace RPA.VsProject
 {

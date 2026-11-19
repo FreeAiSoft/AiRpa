@@ -9,7 +9,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RPA.Chat", "RPA.Chat\RPA.Ch
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RPA.NuGet", "RPA.NuGet\RPA.NuGet.csproj", "{B6A2C9E4-1D5F-4E7A-9C3B-8F2D6A1E4B7C}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Agent.Core", "Agent.Core\Agent.Core.csproj", "{609357CB-88DB-4FB8-A3C9-586E3D4BBD27}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RPA.Shared", "RPA.Shared\RPA.Shared.csproj", "{609357CB-88DB-4FB8-A3C9-586E3D4BBD27}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rpa.Workflow.Runtime", "Rpa.Workflow.Runtime\Rpa.Workflow.Runtime.csproj", "{3C2A6F41-9D77-4C1E-8F52-6B0D4A7E1C93}"
 EndProject

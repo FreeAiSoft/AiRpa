@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Agent.Core.Contracts;
 using Agent.Core.Services;
-using Agent.Rpa.Services;
+using RPA.Shared.Services;
 
 namespace RPA.Chat.Services
 {

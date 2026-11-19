@@ -3,7 +3,7 @@ using System.Threading;
 using System.Windows.Controls;
 using RPA.Chat.Converters;
 using Agent.Core.Services;
-using Agent.Rpa.Services;
+using RPA.Shared.Services;
 
 namespace AiRpaStudio.Tests;
 

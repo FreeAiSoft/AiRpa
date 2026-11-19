@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using RPA.Helpers;
 using Agent.Core.Models;
-using Agent.Rpa.Models;
+using RPA.Shared.Models;
 
 namespace AiRpaStudio.Tests;
 

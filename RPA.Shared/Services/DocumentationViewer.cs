@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 using Agent.Core.Services;
 
-namespace Agent.Rpa.Services
+namespace RPA.Shared.Services
 {
     /// <summary>
     /// Locale-aware viewer for the shipped user documentation. It opens the locale

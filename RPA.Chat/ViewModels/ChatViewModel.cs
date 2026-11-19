@@ -14,15 +14,15 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
-using Agent.Rpa.AgentTools;
+using RPA.Shared.AgentTools;
 using Agent.Core.Context;
 using Agent.Core.Contracts;
-using Agent.Rpa.Services.Documents;
+using RPA.Shared.Services.Documents;
 using Agent.Core.Models;
-using Agent.Rpa.Models;
+using RPA.Shared.Models;
 using Agent.Core.Services;
 using Agent.Models;
-using Agent.Rpa.Services;
+using RPA.Shared.Services;
 using RPA.Chat.Controls;
 using Agent.Toolkit.Wpf.Markdown;
 using RPA.Chat.Services;
@@ -1704,7 +1704,7 @@ namespace RPA.Chat.ViewModels
             if (_ai is IPromptReloadable reloadable)
             {
                 reloadable.ReloadPromptsFromDisk();
-                AppendChat("Prompts reloaded from disk: " + Agent.Rpa.Services.PromptPaths.ResolvePromptsDirectory());
+                AppendChat("Prompts reloaded from disk: " + RPA.Shared.Services.PromptPaths.ResolvePromptsDirectory());
             }
             else
             {

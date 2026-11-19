@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Agent.Core.Services;
-using Agent.Rpa.Services;
+using RPA.Shared.Services;
 
 namespace RPA.Packaging
 {

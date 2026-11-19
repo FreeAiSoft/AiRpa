@@ -1,6 +1,6 @@
 using System;
 
-namespace Agent.Rpa.Models
+namespace RPA.Shared.Models
 {
     /// <summary>
     /// AiRpa-specific: the MCP-based ways the agent can write a workflow.
