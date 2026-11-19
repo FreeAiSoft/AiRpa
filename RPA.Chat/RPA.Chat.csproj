@@ -13,7 +13,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Markdig" Version="1.4.2" />
-    <PackageReference Include="Material.Icons.WPF" Version="2.4.1" />
+    <PackageReference Include="Material.Icons.WPF" Version="3.0.2" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
     <!-- Единая версия пакета во всём решении: 4.5.2 даёт сборку 4.2.0.0, а студия перенаправляет
@@ -23,8 +23,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AgentToolkit" Version="1.18.0" />
-    <PackageReference Include="AgentToolkit.Wpf" Version="1.18.0" />
+    <PackageReference Include="AgentToolkit" Version="1.19.0" />
+    <PackageReference Include="AgentToolkit.Wpf" Version="1.19.0" />
   </ItemGroup>
 
   <ItemGroup>

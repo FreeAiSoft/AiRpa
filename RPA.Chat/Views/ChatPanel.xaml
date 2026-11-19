@@ -569,7 +569,6 @@
                                                        Visibility="{Binding IsPinnedMessageVisible, Converter={StaticResource BoolToVis}}"
                                                        CloseRequested="OnPinnedClose" />
                     <chat:ChatMessagesControl x:Name="ChatMessages" Grid.Row="1"
-                                              Messages="{Binding Messages}"
                                               Visibility="{Binding IsConversationView, Converter={StaticResource BoolToVis}}" />
 
                     <!-- History -->

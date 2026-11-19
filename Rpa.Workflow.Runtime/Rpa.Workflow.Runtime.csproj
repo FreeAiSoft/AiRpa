@@ -23,4 +23,12 @@
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- OR-02: события прогона приводятся к студийным TrackingEventArgs/CustomTrackingParticipant
+         (типы живут в ActivitiesTracker, а не в runtime, чтобы раннер оставался headless). -->
+    <ProjectReference Include="..\ActivitiesTracker\ActivitiesTracker.csproj" />
+    <!-- OR-03: раннер читает формат пакета робота, кэш и раскладку проекта из контрактов оркестратора. -->
+    <ProjectReference Include="..\Rpa.Orchestrator.Contracts\Rpa.Orchestrator.Contracts.csproj" />
+  </ItemGroup>
+
 </Project>

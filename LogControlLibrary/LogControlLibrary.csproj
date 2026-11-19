@@ -32,11 +32,11 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Material.Icons, Version=2.4.1.0, Culture=neutral, PublicKeyToken=34ed5903a64b4509, processorArchitecture=MSIL">
-      <HintPath>..\packages\Material.Icons.2.4.1\lib\netstandard2.0\Material.Icons.dll</HintPath>
+    <Reference Include="Material.Icons, Version=3.0.2.0, Culture=neutral, PublicKeyToken=34ed5903a64b4509, processorArchitecture=MSIL">
+      <HintPath>..\packages\Material.Icons.3.0.2\lib\netstandard2.0\Material.Icons.dll</HintPath>
     </Reference>
-    <Reference Include="Material.Icons.WPF, Version=2.4.1.0, Culture=neutral, PublicKeyToken=34ed5903a64b4509, processorArchitecture=MSIL">
-      <HintPath>..\packages\Material.Icons.WPF.2.4.1\lib\net461\Material.Icons.WPF.dll</HintPath>
+    <Reference Include="Material.Icons.WPF, Version=3.0.2.0, Culture=neutral, PublicKeyToken=34ed5903a64b4509, processorArchitecture=MSIL">
+      <HintPath>..\packages\Material.Icons.WPF.3.0.2\lib\net461\Material.Icons.WPF.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Bcl.AsyncInterfaces.8.0.0\lib\net462\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>

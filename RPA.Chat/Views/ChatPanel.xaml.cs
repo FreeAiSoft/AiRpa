@@ -34,6 +34,11 @@ namespace RPA.Chat.Views
 
             _viewModel = new ChatViewModel();
             DataContext = _viewModel;
+            // ChatMessagesControl.Messages — обычное CLR-свойство (не DependencyProperty),
+            // поэтому его нельзя привязать в XAML. Передаём коллекцию из кода и отсекаем
+            // закреплённое первое сообщение, которое уже отрисовано над списком.
+            ChatMessages.Messages = _viewModel.Messages;
+            ChatMessages.Filter = m => !ReferenceEquals(m, _viewModel.Chat.PinnedMessage);
 
             _viewModel.MessageAppended += OnMessageAppended;
             _viewModel.DocsNavigated += OnDocsNavigated;

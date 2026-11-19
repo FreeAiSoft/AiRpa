@@ -25,6 +25,12 @@
     <Resource Include="**\*.png" />
   </ItemGroup>
 
+  <!-- Тема ссылается на типы AvalonDock (LayoutAnchorablePaneControl и т.д.) из Theme.xaml:
+       сборка темы обязана собираться после библиотеки и ссылаться на неё по проекту. -->
+  <ItemGroup>
+    <ProjectReference Include="..\AvalonDock\AvalonDock.csproj" />
+  </ItemGroup>
+
   <!-- NuGet Packaging -->
   <ItemGroup>
     <None Include="LICENSE" Pack="true" PackagePath="" />
