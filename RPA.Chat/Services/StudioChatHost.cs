@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Windows;
+using System.Windows.Threading;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Core.Contracts;
@@ -38,6 +40,7 @@ namespace RPA.Chat.Services
         private AgentToolRegistry _toolRegistry;
         private AgentRunner _agentRunner;
         private readonly ContextUsageBinder _contextUsageBinder;
+        private readonly Dispatcher _dispatcher;
         private CancellationTokenSource _chatCts;
         private TaskCompletionSource<string> _questionTcs;
         private ChatMessage _activeQuestion;
@@ -49,6 +52,8 @@ namespace RPA.Chat.Services
             Model = model ?? throw new ArgumentNullException(nameof(model));
             Settings = settings ?? new SettingsData();
             SettingsPersistence = settingsPersistence;
+
+            _dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
 
             RpaAgentOptions.Load();
             _contextUsageBinder = new ContextUsageBinder(Model, SynchronizationContext.Current);
@@ -131,39 +136,66 @@ namespace RPA.Chat.Services
             Model.StartStatus();
             try
             {
+                // Reasoning buffered and flushed on a timer (like RPAWriter2) so a stream of
+                // per-token deltas does not re-layout the TextBox on every chunk.
+                var reasoningBuffer = new StringBuilder();
+                var reasoningTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+                reasoningTimer.Tick += (_, __) =>
+                {
+                    thinking.Reasoning = reasoningBuffer.ToString();
+                    reasoningTimer.Stop();
+                };
+
                 var progress = new Progress<ChatStreamDelta>(delta =>
                 {
                     if (!string.IsNullOrEmpty(delta.ReasoningDelta))
-                        thinking.Reasoning += delta.ReasoningDelta;
+                    {
+                        reasoningBuffer.Append(delta.ReasoningDelta);
+                        if (!reasoningTimer.IsEnabled)
+                            reasoningTimer.Start();
+                    }
                 });
+
                 var result = await _agentRunner.RunAsync(history, promptText, images, Model.Mode, BuildContextBudget(), cts.Token, progress);
 
-                thinking.IsThinking = false;
-                thinking.IsPartial = false;
-                if (string.IsNullOrWhiteSpace(thinking.Reasoning) && !string.IsNullOrWhiteSpace(result.Reasoning))
-                    thinking.Reasoning = result.Reasoning;
-
-                if (thinking.HasReasoning) thinking.Text = string.Empty;
-                else Model.Messages.Remove(thinking);
-
-                if (!string.IsNullOrWhiteSpace(result.FinalText))
+                reasoningTimer.Stop();
+                RunOnUi(() =>
                 {
-                    AppendChatMessage(new ChatMessage
+                    thinking.Reasoning = reasoningBuffer.ToString();
+                    thinking.IsThinking = false;
+                    thinking.IsPartial = false;
+
+                    if (string.IsNullOrWhiteSpace(thinking.Reasoning) && !string.IsNullOrWhiteSpace(result.Reasoning))
+                        thinking.Reasoning = result.Reasoning;
+
+                    if (thinking.HasReasoning)
+                        thinking.Text = string.Empty;
+                    else
+                        Model.Messages.Remove(thinking);
+
+                    if (!string.IsNullOrWhiteSpace(result.FinalText))
                     {
-                        Kind = Model.Mode == AgentMode.Act ? ChatMessageKind.ResultAnswerAct : ChatMessageKind.ResultAnswerPlan,
-                        Mode = modeName,
-                        Text = result.FinalText
-                    });
-                }
+                        AppendChatMessage(new ChatMessage
+                        {
+                            Kind = Model.Mode == AgentMode.Act ? ChatMessageKind.ResultAnswerAct : ChatMessageKind.ResultAnswerPlan,
+                            Mode = modeName,
+                            Text = result.FinalText
+                        });
+                    }
+                });
             }
             catch (OperationCanceledException)
             {
-                thinking.IsThinking = false;
-                if (Model.Messages.Contains(thinking)) AppendChat("Request cancelled.");
+                RunOnUi(() =>
+                {
+                    thinking.IsThinking = false;
+                    if (Model.Messages.Contains(thinking))
+                        AppendChat("Request cancelled.");
+                });
             }
             catch (Exception ex)
             {
-                thinking.IsThinking = false;
+                RunOnUi(() => thinking.IsThinking = false);
                 AppendExtensionError(ex);
                 ChatLog.Error(ex, "Agent chat request failed.");
             }
@@ -171,9 +203,12 @@ namespace RPA.Chat.Services
             {
                 _chatCts = null;
                 cts.Dispose();
-                Model.StopStatus();
-                SaveHistoryNow();
-                Model.PersistUiState(MainTab.Chat);
+                RunOnUi(() =>
+                {
+                    Model.StopStatus();
+                    SaveHistoryNow();
+                    Model.PersistUiState(MainTab.Chat);
+                });
             }
         }
 
@@ -574,10 +609,23 @@ namespace RPA.Chat.Services
         // Message appenders
         // ------------------------------------------------------------------
 
+        private void RunOnUi(Action action)
+        {
+            if (_dispatcher == null || _dispatcher.CheckAccess())
+            {
+                action();
+                return;
+            }
+            _dispatcher.BeginInvoke(action);
+        }
+
         private void AppendChatMessage(ChatMessage message)
         {
-            Model.AppendMessage(message);
-            SaveHistoryNow();
+            RunOnUi(() =>
+            {
+                Model.AppendMessage(message);
+                SaveHistoryNow();
+            });
         }
 
         private void AppendChat(string text) => AppendChatMessage(new ChatMessage { Kind = ChatMessageKind.SystemNotice, Text = text });
