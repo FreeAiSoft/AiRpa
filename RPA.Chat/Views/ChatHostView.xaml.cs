@@ -58,6 +58,7 @@ namespace RPA.Chat.Views
 
             // Вкладка «Chat» — тот же ChatControl, что и раньше, но теперь внутри AgentTabControl.
             _chatControl = _mainTabs.ChatPanel;
+            _chatControl.Margin = new Thickness(5, 0, 5, 5);
             _chatControl.DataContext = _model;
             _chatControl.Host = _host;
             _chatControl.Settings = _settings;
