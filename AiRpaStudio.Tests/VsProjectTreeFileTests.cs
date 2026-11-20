@@ -145,7 +145,7 @@ public class VsProjectTreeFileTests
         string csproj = CreateProjectFiles(_root);
         LoadProject(csproj);
         List<string> messages = new List<string>();
-        _manager.SendMessage += (_, message) => messages.Add(message);
+        _manager.ShowDialog += (_, message) => messages.Add(message);
 
         string outsideFolder = Path.Combine(Path.GetTempPath(), "outside_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(outsideFolder);

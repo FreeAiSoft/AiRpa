@@ -117,6 +117,11 @@ namespace RPA.Core.Workflow
                 return new LooseActivityXamlType(facade, this);
             }
 
+            if (_registry.TryGetCodeType(fullName, out Type codeType))
+            {
+                return new XamlType(codeType, this);
+            }
+
             return base.GetXamlType(xamlNamespace, name, typeArguments);
         }
 

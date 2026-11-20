@@ -51,7 +51,7 @@ namespace RPA.Chat.Views
             if (!string.IsNullOrEmpty(apiKey))
                 _settings.ApiKey = apiKey;
 
-            _model = new ChatModel(new ChatHistoryStore(), new UiStateStore(), chatSink: new HostPromptSink(this));
+            _model = new ChatModel(new ChatHistoryStore(), new UiStateStore(), chatSink: new HostPromptSink(this), logger: ChatLogLogger.Instance);
             _host = new StudioChatHost(_model, _settings, _settingsStore);
 
             _mainTabs = new AgentTabControl();

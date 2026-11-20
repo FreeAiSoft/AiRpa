@@ -28,6 +28,12 @@ namespace RPA.Core.Workflow
 
         internal IEnumerable<string> FullNames => _facades.Keys;
 
+        /// <summary>
+        /// Каталог code-behind CLR-типов (Roslyn in-memory компиляция <c>.cs</c> проекта).
+        /// Может быть <c>null</c> — тогда резолв code-behind типов отключён.
+        /// </summary>
+        internal ProjectCodeTypeCatalog CodeTypes { get; set; }
+
         internal static WorkflowTypeRegistry Scan(IEnumerable<string> xamlFiles)
         {
             var registry = new WorkflowTypeRegistry();
@@ -53,6 +59,12 @@ namespace RPA.Core.Workflow
         internal bool TryGetSourceFile(string fullName, out string sourceFile)
         {
             return _sourceFiles.TryGetValue(fullName ?? string.Empty, out sourceFile);
+        }
+
+        internal bool TryGetCodeType(string fullName, out Type type)
+        {
+            type = null;
+            return CodeTypes != null && CodeTypes.TryGetType(fullName ?? string.Empty, out type);
         }
 
         private void Index(string filePath)

@@ -38,6 +38,7 @@ namespace RPA.Core.Workflow
 
             string xaml = SerializeObject(documentRoot);
             xaml = RewriteFacades(xaml, registry);
+            xaml = RewriteCodeTypes(xaml, registry);
             xaml = EnsureActivityNamespaces(xaml, documentRoot);
             return xaml;
         }
@@ -181,6 +182,176 @@ namespace RPA.Core.Workflow
 
             return WriteDocument(document);
         }
+
+        /// <summary>
+        /// Переписывает ссылки на code-behind CLR-типы (<c>TargetType="local:Code"</c>) обратно
+        /// в короткую форму без синтетической сборки. Штатный WF-писатель сериализует
+        /// <see cref="System.Type"/> из in-memory сборки как <c>xmlns:r="clr-namespace:RPA_1;assembly=RpaLooseCode_*"</c>
+        /// и <c>TargetType="r:Code"</c>. Мы убираем <c>;assembly=RpaLooseCode_*</c> из объявления
+        /// пространства имён и переписываем значение атрибута в <c>local:Code</c>. Фасады
+        /// <c>DynamicActivity</c> (вложенные процессы) этим проходом не затрагиваются.
+        /// </summary>
+        private static string RewriteCodeTypes(string xaml, WorkflowTypeRegistry registry)
+        {
+            if (registry.CodeTypes == null || registry.CodeTypes.Count == 0)
+            {
+                return xaml;
+            }
+
+            XDocument document = XDocument.Parse(xaml, LoadOptions.PreserveWhitespace);
+            XElement root = document.Root;
+
+            if (root == null)
+            {
+                return xaml;
+            }
+
+            var syntheticPrefixes = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            foreach (XAttribute attribute in root.Attributes().Where(a => a.IsNamespaceDeclaration).ToList())
+            {
+                string prefix = attribute.Name.LocalName;
+                if (prefix == "xmlns")
+                {
+                    continue;
+                }
+
+                if (TryParseSyntheticClrNamespace(attribute.Value, out string clrNamespace, out _))
+                {
+                    syntheticPrefixes[prefix] = clrNamespace;
+                }
+            }
+
+            if (syntheticPrefixes.Count == 0)
+            {
+                return xaml;
+            }
+
+            // Учитываем уже объявленные обычные clr-namespace (без ;assembly=), чтобы EnsurePrefix
+            // переиспользовал существующий local, а не плодил local2.
+            var prefixByNamespace = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            foreach (XAttribute attribute in root.Attributes().Where(a => a.IsNamespaceDeclaration))
+            {
+                string prefix = attribute.Name.LocalName;
+                if (prefix == "xmlns")
+                {
+                    continue;
+                }
+
+                if (attribute.Value.StartsWith(ClrNamespacePrefix, StringComparison.Ordinal)
+                    && attribute.Value.IndexOf(";assembly=", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    prefixByNamespace[attribute.Value] = prefix;
+                }
+            }
+
+            // Значения атрибутов (TargetType="r:Code" и аналогичные) переписываем в "local:Code".
+            foreach (XElement element in root.DescendantsAndSelf())
+            {
+                foreach (XAttribute attribute in element.Attributes().Where(a => !a.IsNamespaceDeclaration).ToList())
+                {
+                    if (!TryRewriteCodeTypeValue(attribute.Value, syntheticPrefixes, registry, root, prefixByNamespace, out string newValue))
+                    {
+                        continue;
+                    }
+
+                    attribute.Value = newValue;
+                }
+            }
+
+            // Удаляем синтетические объявления пространств имён.
+            foreach (XAttribute attribute in root.Attributes().Where(a => a.IsNamespaceDeclaration).ToList())
+            {
+                string prefix = attribute.Name.LocalName;
+                if (prefix == "xmlns")
+                {
+                    continue;
+                }
+
+                if (syntheticPrefixes.ContainsKey(prefix))
+                {
+                    attribute.Remove();
+                }
+            }
+
+            // Гарантируем объявление clr-namespace без assembly для всех code-behind пространств имён.
+            foreach (string clrNamespace in syntheticPrefixes.Values.Distinct(StringComparer.Ordinal))
+            {
+                EnsurePrefix(root, prefixByNamespace, ClrNamespacePrefix + clrNamespace);
+            }
+
+            return WriteDocument(document);
+        }
+
+        private static bool TryRewriteCodeTypeValue(
+            string value,
+            Dictionary<string, string> syntheticPrefixes,
+            WorkflowTypeRegistry registry,
+            XElement root,
+            Dictionary<string, string> prefixByNamespace,
+            out string newValue)
+        {
+            newValue = value;
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            int colon = value.IndexOf(':');
+            if (colon <= 0)
+            {
+                return false;
+            }
+
+            string prefix = value.Substring(0, colon);
+            if (!syntheticPrefixes.TryGetValue(prefix, out string clrNamespace))
+            {
+                return false;
+            }
+
+            string typeName = value.Substring(colon + 1);
+            string fullName = clrNamespace + "." + typeName;
+
+            if (!registry.TryGetCodeType(fullName, out _))
+            {
+                return false;
+            }
+
+            string localPrefix = EnsurePrefix(root, prefixByNamespace, ClrNamespacePrefix + clrNamespace);
+            newValue = localPrefix + ":" + typeName;
+            return true;
+        }
+
+        private static bool TryParseSyntheticClrNamespace(
+            string value,
+            out string clrNamespace,
+            out string assemblyName)
+        {
+            clrNamespace = null;
+            assemblyName = null;
+
+            if (string.IsNullOrWhiteSpace(value)
+                || !value.StartsWith(ClrNamespacePrefix, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            string rest = value.Substring(ClrNamespacePrefix.Length);
+            int separator = rest.IndexOf(";assembly=", StringComparison.OrdinalIgnoreCase);
+            if (separator < 0)
+            {
+                return false;
+            }
+
+            clrNamespace = rest.Substring(0, separator).Trim();
+            assemblyName = rest.Substring(separator + ";assembly=".Length).Trim();
+
+            return clrNamespace.Length > 0
+                   && assemblyName.StartsWith("RpaLooseCode_", StringComparison.OrdinalIgnoreCase);
+        }
+
 
         private static bool IsDynamicActivity(XElement element)
         {

@@ -1,7 +1,10 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
 using NUnit.Framework;
 using RPA.Core.Workflow;
+using RPA.Entities;
+using RPA.ProjectModel;
 
 namespace AiRpaStudio.Tests.Workflow
 {
@@ -106,6 +109,49 @@ namespace AiRpaStudio.Tests.Workflow
 
             Assert.That(registry.TryGet("RPA_1.Nope", out _), Is.False);
             Assert.That(registry.TryGetSourceFile("RPA_1.Nope", out _), Is.False);
+        }
+
+        [Test]
+        public void TryGetCodeType_WithCatalog_ResolvesCodeBehindType()
+        {
+            Write("Code.cs", "namespace RPA_1 { public class Code { } }");
+            Project project = MakeProject(Compile("Code.cs"));
+
+            ProjectCodeTypeCatalog catalog = ProjectCodeTypeCatalog.Build(project);
+            WorkflowTypeRegistry registry = WorkflowTypeRegistry.Scan(Array.Empty<string>());
+            registry.CodeTypes = catalog;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(registry.TryGetCodeType("RPA_1.Code", out Type code), Is.True);
+                Assert.That(code.FullName, Is.EqualTo("RPA_1.Code"));
+            });
+        }
+
+        [Test]
+        public void TryGetCodeType_WithoutCatalog_ReturnsFalse()
+        {
+            WorkflowTypeRegistry registry = WorkflowTypeRegistry.Scan(Array.Empty<string>());
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(registry.TryGetCodeType("RPA_1.Code", out _), Is.False,
+                    "реестр без code-каталога не должен резолвить code-behind типы");
+                Assert.That(registry.TryGetCodeType(null, out _), Is.False);
+            });
+        }
+
+        private Project MakeProject(params VsProjectItem[] items)
+        {
+            var project = new Project { RootNamespace = "RPA_1" };
+            project.SetProjectDir(_tempDir);
+            project.Items = new List<VsProjectItem>(items);
+            return project;
+        }
+
+        private static VsProjectItem Compile(string include)
+        {
+            return new VsProjectItem { ItemType = "Compile", Include = include };
         }
 
         private string Write(string fileName, string content)

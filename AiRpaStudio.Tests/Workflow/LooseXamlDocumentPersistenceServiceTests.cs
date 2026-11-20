@@ -4,7 +4,10 @@ using System.Activities.Statements;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
+using System.Collections.Generic;
 using RPA.Core.Workflow;
+using RPA.Entities;
+using RPA.ProjectModel;
 
 namespace AiRpaStudio.Tests.Workflow
 {
@@ -297,6 +300,129 @@ namespace AiRpaStudio.Tests.Workflow
 
             Assert.That(declarations, Is.EqualTo(1),
                 "URI пространства имён обязан быть объявлен ровно один раз");
+        }
+
+        [Test]
+        public void Load_ResolvesInvokeMethodTargetTypeToCodeBehindType()
+        {
+            Write("Code.cs", "namespace RPA_1 { public class Code { public static void Run() { } } }");
+            Project project = MakeProject(Compile("Code.cs"));
+
+            WorkflowTypeRegistry registry = WorkflowTypeRegistry.Scan(new string[0]);
+            registry.CodeTypes = ProjectCodeTypeCatalog.Build(project);
+
+            string main = Write("CodeTest.xaml",
+                "<Activity x:Class=\"RPA_1.CodeTest\" xmlns=\"" + ActivityNs + "\" xmlns:x=\"" + XamlNs +
+                "\" xmlns:local=\"clr-namespace:RPA_1\">" +
+                "<Sequence><InvokeMethod MethodName=\"Run\" TargetType=\"local:Code\" /></Sequence>" +
+                "</Activity>");
+
+            var service = new LooseXamlDocumentPersistenceService(registry);
+
+            object root = service.Load(main);
+
+            Assert.That(root, Is.InstanceOf<ActivityBuilder>(), "loose-загрузка должна вернуть ActivityBuilder");
+
+            ActivityBuilder builder = (ActivityBuilder)root;
+            InvokeMethod invoke = WorkflowInspectionServices.GetActivities(builder.Implementation)
+                .OfType<InvokeMethod>()
+                .Single();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(invoke.TargetType, Is.Not.Null,
+                    "TargetType обязан резолвиться в настоящий System.Type");
+                Assert.That(invoke.TargetType.FullName, Is.EqualTo("RPA_1.Code"),
+                    "local:Code обязан резолвиться в тип из скомпилированной in-memory code-behind сборки");
+                Assert.That(invoke.TargetType.Assembly.GetName().Name, Does.StartWith("RpaLooseCode_"),
+                    "тип обязан приходить из синтетической сборки code-behind, а не из RPA-1.dll");
+            });
+        }
+
+        [Test]
+        public void Flush_RewritesCodeBehindTargetTypeToLocalCode()
+        {
+            Write("Code.cs", "namespace RPA_1 { public class Code { public static void Run() { } } }");
+            Project project = MakeProject(Compile("Code.cs"));
+
+            WorkflowTypeRegistry registry = WorkflowTypeRegistry.Scan(new string[0]);
+            registry.CodeTypes = ProjectCodeTypeCatalog.Build(project);
+
+            string main = Write("CodeTest.xaml",
+                "<Activity x:Class=\"RPA_1.CodeTest\" xmlns=\"" + ActivityNs + "\" xmlns:x=\"" + XamlNs +
+                "\" xmlns:local=\"clr-namespace:RPA_1\">" +
+                "<Sequence><InvokeMethod MethodName=\"Run\" TargetType=\"local:Code\" /></Sequence>" +
+                "</Activity>");
+
+            var service = new LooseXamlDocumentPersistenceService(registry);
+            ActivityBuilder builder = (ActivityBuilder)service.Load(main);
+
+            string flushed = null;
+            var flushingService = new LooseXamlDocumentPersistenceService(registry, text => flushed = text);
+            flushingService.Flush(builder);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(flushed, Is.Not.Null);
+                Assert.That(flushed, Does.Contain("TargetType=\"local:Code\""),
+                    "code-behind TargetType обязан сериализоваться обратно в короткую local:Code форму");
+                Assert.That(flushed, Does.Contain("xmlns:local=\"clr-namespace:RPA_1\""),
+                    "пространство имён local обязано быть объявлено без синтетической сборки");
+                Assert.That(flushed, Does.Not.Contain("RpaLooseCode_"),
+                    "в выводе не должно оставаться синтетической сборки code-behind");
+                Assert.That(flushed, Does.Not.Contain("DynamicActivity"),
+                    "фасады DynamicActivity не должны появляться при round-trip code-behind типа");
+            });
+        }
+
+        [Test]
+        public void Flush_RoundTripsCodeBehindTargetType()
+        {
+            Write("Code.cs", "namespace RPA_1 { public class Code { public static void Run() { } } }");
+            Project project = MakeProject(Compile("Code.cs"));
+
+            WorkflowTypeRegistry registry = WorkflowTypeRegistry.Scan(new string[0]);
+            registry.CodeTypes = ProjectCodeTypeCatalog.Build(project);
+
+            string main = Write("CodeTest.xaml",
+                "<Activity x:Class=\"RPA_1.CodeTest\" xmlns=\"" + ActivityNs + "\" xmlns:x=\"" + XamlNs +
+                "\" xmlns:local=\"clr-namespace:RPA_1\">" +
+                "<Sequence><InvokeMethod MethodName=\"Run\" TargetType=\"local:Code\" /></Sequence>" +
+                "</Activity>");
+
+            var service = new LooseXamlDocumentPersistenceService(registry);
+            ActivityBuilder builder = (ActivityBuilder)service.Load(main);
+
+            string flushed = null;
+            var flushingService = new LooseXamlDocumentPersistenceService(registry, text => flushed = text);
+            flushingService.Flush(builder);
+
+            string roundTripped = Write("CodeTest.RoundTripped.xaml", flushed);
+            object root = service.Load(roundTripped);
+
+            Assert.That(root, Is.InstanceOf<ActivityBuilder>(), "round-trip-вывод обязан снова грузиться");
+
+            InvokeMethod invoke = WorkflowInspectionServices.GetActivities(((ActivityBuilder)root).Implementation)
+                .OfType<InvokeMethod>()
+                .Single();
+
+            Assert.That(invoke.TargetType, Is.Not.Null);
+            Assert.That(invoke.TargetType.FullName, Is.EqualTo("RPA_1.Code"),
+                "после round-trip TargetType обязан снова резолвиться в code-behind тип");
+        }
+
+
+        private Project MakeProject(params VsProjectItem[] items)
+        {
+            var project = new Project { RootNamespace = "RPA_1" };
+            project.SetProjectDir(_tempDir);
+            project.Items = new List<VsProjectItem>(items);
+            return project;
+        }
+
+        private static VsProjectItem Compile(string include)
+        {
+            return new VsProjectItem { ItemType = "Compile", Include = include };
         }
 
         private static int CountOccurrences(string text, string token)

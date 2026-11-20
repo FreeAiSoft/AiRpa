@@ -6,6 +6,16 @@ using System.Threading;
 using System.Threading.Tasks;
 using Agent.Core.AgentTools;
 using RPA.Shared.AgentTools;
+using AgentTool = RPA.Shared.AgentTools.AgentTool;
+using AgentToolRegistry = RPA.Shared.AgentTools.AgentToolRegistry;
+using IAgentTool = RPA.Shared.AgentTools.IAgentTool;
+using AgentPromptBuilder = RPA.Shared.AgentTools.AgentPromptBuilder;
+using AgentRunner = RPA.Shared.AgentTools.AgentRunner;
+using AgentRunResult = RPA.Shared.AgentTools.AgentRunResult;
+using AgentToolCall = RPA.Shared.AgentTools.AgentToolCall;
+using ToolSchemaConverter = RPA.Shared.AgentTools.ToolSchemaConverter;
+using PromptDefaults = RPA.Shared.Services.PromptDefaults;
+using PromptPaths = RPA.Shared.Services.PromptPaths;
 using Agent.Core.Contracts;
 using Agent.Core.Models;
 using RPA.Shared.Models;
@@ -634,6 +644,8 @@ namespace AiRpaStudio.Tests.Workflow
         {
             public Task BuildAsync(string configuration, CancellationToken cancellationToken = default)
                 => Task.CompletedTask;
+
+            public Task BuildProjectAsync(string configuration, string projectName, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
             public Task<bool> HasSolutionConfigurationAsync(string configuration, CancellationToken cancellationToken = default)
                 => Task.FromResult(true);

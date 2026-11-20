@@ -9,16 +9,18 @@ namespace RPA.Chat.Tests
     [TestFixture]
     public class ChatHistoryStoreTests
     {
+        private ChatHistoryStore _store;
         [SetUp]
         public void SetUp()
         {
-            ChatHistoryStore.DeleteAllConversations();
+            _store = new ChatHistoryStore();
+            _store.DeleteAllConversations();
         }
 
         [TearDown]
         public void TearDown()
         {
-            ChatHistoryStore.DeleteAllConversations();
+            _store.DeleteAllConversations();
         }
 
         [Test]
@@ -34,9 +36,9 @@ namespace RPA.Chat.Tests
             conversation.Messages.Add(new ChatHistoryMessage { Kind = ChatMessageKind.User, Text = "hello" });
             conversation.Messages.Add(new ChatHistoryMessage { Kind = ChatMessageKind.AgentText, Text = "hi there" });
 
-            ChatHistoryStore.SaveConversation(conversation);
+            _store.SaveConversation(conversation);
 
-            var loaded = ChatHistoryStore.LoadConversation("conv-1");
+            var loaded = _store.LoadConversation("conv-1");
             Assert.That(loaded, Is.Not.Null);
             Assert.That(loaded.Id, Is.EqualTo("conv-1"));
             Assert.That(loaded.Title, Is.EqualTo("Test chat"));
@@ -46,7 +48,7 @@ namespace RPA.Chat.Tests
         }
 
         [Test]
-        public void SaveAndLoad_ToolCall_RoundTripsResultAndFullResult()
+        public void SaveAndLoad_ToolCall_RoundTripsResult()
         {
             var conversation = new ChatConversation { Id = "conv-tool" };
             conversation.Messages.Add(new ChatHistoryMessage
@@ -54,26 +56,24 @@ namespace RPA.Chat.Tests
                 Kind = ChatMessageKind.ToolCall,
                 Text = "short result",
                 ToolName = "activity_search",
-                FullResult = "full result"
             });
 
-            ChatHistoryStore.SaveConversation(conversation);
+            _store.SaveConversation(conversation);
 
-            var loaded = ChatHistoryStore.LoadConversation("conv-tool");
+            var loaded = _store.LoadConversation("conv-tool");
             Assert.That(loaded, Is.Not.Null);
             Assert.That(loaded.Messages[0].Kind, Is.EqualTo(ChatMessageKind.ToolCall));
             Assert.That(loaded.Messages[0].Text, Is.EqualTo("short result"));
             Assert.That(loaded.Messages[0].ToolName, Is.EqualTo("activity_search"));
-            Assert.That(loaded.Messages[0].FullResult, Is.EqualTo("full result"));
         }
 
         [Test]
         public void ListConversations_ReturnsNewestFirst()
         {
-            ChatHistoryStore.SaveConversation(new ChatConversation { Id = "a", Title = "A", UpdatedAtUtc = System.DateTime.UtcNow.AddMinutes(-5) });
-            ChatHistoryStore.SaveConversation(new ChatConversation { Id = "b", Title = "B", UpdatedAtUtc = System.DateTime.UtcNow });
+            _store.SaveConversation(new ChatConversation { Id = "a", Title = "A", UpdatedAtUtc = System.DateTime.UtcNow.AddMinutes(-5) });
+            _store.SaveConversation(new ChatConversation { Id = "b", Title = "B", UpdatedAtUtc = System.DateTime.UtcNow });
 
-            var list = ChatHistoryStore.ListConversations();
+            var list = _store.ListConversations();
             Assert.That(list.Count, Is.EqualTo(2));
             Assert.That(list[0].Id, Is.EqualTo("b"));
         }
@@ -81,18 +81,18 @@ namespace RPA.Chat.Tests
         [Test]
         public void DeleteConversation_RemovesIt()
         {
-            ChatHistoryStore.SaveConversation(new ChatConversation { Id = "x", Title = "X" });
-            ChatHistoryStore.DeleteConversation("x");
+            _store.SaveConversation(new ChatConversation { Id = "x", Title = "X" });
+            _store.DeleteConversation("x");
 
-            Assert.That(ChatHistoryStore.LoadConversation("x"), Is.Null);
+            Assert.That(_store.LoadConversation("x"), Is.Null);
         }
 
         [Test]
         public void SaveConversation_DefaultsEmptyTitle()
         {
-            ChatHistoryStore.SaveConversation(new ChatConversation { Id = "t" });
+            _store.SaveConversation(new ChatConversation { Id = "t" });
 
-            var loaded = ChatHistoryStore.LoadConversation("t");
+            var loaded = _store.LoadConversation("t");
             Assert.That(loaded.Title, Is.EqualTo("New chat"));
         }
 
@@ -106,9 +106,9 @@ namespace RPA.Chat.Tests
                 Text = "hello \uD83D"
             });
 
-            Assert.That(() => ChatHistoryStore.SaveConversation(conversation), Throws.Nothing);
+            Assert.That(() => _store.SaveConversation(conversation), Throws.Nothing);
 
-            var loaded = ChatHistoryStore.LoadConversation("conv-surrogate");
+            var loaded = _store.LoadConversation("conv-surrogate");
             Assert.That(loaded, Is.Not.Null);
             Assert.That(loaded.Messages.Count, Is.EqualTo(1));
         }
@@ -123,9 +123,9 @@ namespace RPA.Chat.Tests
                 Text = "\uD83D\uDC4D ok"
             });
 
-            ChatHistoryStore.SaveConversation(conversation);
+            _store.SaveConversation(conversation);
 
-            var loaded = ChatHistoryStore.LoadConversation("conv-emoji");
+            var loaded = _store.LoadConversation("conv-emoji");
             Assert.That(loaded.Messages[0].Text, Is.EqualTo("\uD83D\uDC4D ok"));
         }
     }

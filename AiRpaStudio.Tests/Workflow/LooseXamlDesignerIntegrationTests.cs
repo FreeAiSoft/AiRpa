@@ -114,6 +114,89 @@ namespace AiRpaStudio.Tests.Workflow
         }
 
         [Test]
+        public void Rpa1_CodeTestOpensLoose_WithCodeType()
+        {
+            string rpa1 = FindRpa1();
+            string[] xamlFiles = Directory.GetFiles(rpa1, "*.xaml", SearchOption.TopDirectoryOnly);
+
+            LooseOpenReport report = DesignerBenchProxy.Shared.LooseOpen(
+                Path.Combine(rpa1, "CodeTest.xaml"),
+                xamlFiles);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(report.Error, Is.Null.Or.Empty,
+                    "loose-загрузка CodeTest.xaml упала." + Environment.NewLine + report.Description);
+                Assert.That(report.LoadSucceeded, Is.True, report.Description);
+            });
+        }
+
+        [Test]
+        public void Rpa1_CodeTestRoundTrips_TargetTypeStaysLocalCode()
+        {
+            string rpa1 = FindRpa1();
+            string[] xamlFiles = Directory.GetFiles(rpa1, "*.xaml", SearchOption.TopDirectoryOnly);
+            string csproj = Directory.GetFiles(rpa1, "*.csproj", SearchOption.TopDirectoryOnly).First();
+
+            WorkflowTypeRegistry registry = WorkflowTypeRegistry.Scan(xamlFiles);
+            RPA.ProjectModel.ProjectLoadResult loaded = RPA.ProjectModel.ProjectLoader.Load(csproj);
+            registry.CodeTypes = loaded?.Project == null ? null : ProjectCodeTypeCatalog.Build(loaded.Project);
+
+            var service = new LooseXamlDocumentPersistenceService(registry);
+            var builder = (System.Activities.ActivityBuilder)service.Load(Path.Combine(rpa1, "CodeTest.xaml"));
+
+            string flushed = null;
+            var flushingService = new LooseXamlDocumentPersistenceService(registry, text => flushed = text);
+            flushingService.Flush(builder);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(flushed, Does.Contain("TargetType=\"local:Code\""),
+                    "после Flush TargetType обязан остаться local:Code, а не clr-namespace с синтетической сборкой");
+                Assert.That(flushed, Does.Contain("xmlns:local=\"clr-namespace:RPA_1\""),
+                    "xmlns:local обязан быть объявлен без assembly");
+                Assert.That(flushed, Does.Not.Contain("RpaLooseCode_"),
+                    "в выводе не должно оставаться синтетической сборки code-behind");
+            });
+
+            string roundTrippedPath = Path.Combine(Path.GetTempPath(), "airpa_code_roundtrip_" + Guid.NewGuid().ToString("N") + ".xaml");
+            File.WriteAllText(roundTrippedPath, flushed);
+
+
+            try
+            {
+                object root = service.Load(roundTrippedPath);
+                Assert.That(root, Is.InstanceOf<System.Activities.ActivityBuilder>(),
+                    "round-trip-вывод обязан снова грузиться");
+
+                System.Activities.ActivityBuilder roundTripBuilder = (System.Activities.ActivityBuilder)root;
+                System.Activities.Statements.InvokeMethod invoke = roundTripBuilder.Implementation
+                    as System.Activities.Statements.InvokeMethod;
+
+                if (invoke == null)
+                {
+                    invoke = System.Activities.WorkflowInspectionServices
+                        .GetActivities(roundTripBuilder.Implementation)
+                        .OfType<System.Activities.Statements.InvokeMethod>()
+                        .Single();
+                }
+
+                Assert.That(invoke, Is.Not.Null, "после round-trip InvokeMethod обязан присутствовать в корне документа");
+                Assert.That(invoke.TargetType, Is.Not.Null);
+                Assert.That(invoke.TargetType.FullName, Is.EqualTo("RPA_1.Code"),
+                    "после round-trip TargetType обязан снова резолвиться в code-behind тип");
+            }
+            finally
+            {
+                if (File.Exists(roundTrippedPath))
+                {
+                    File.Delete(roundTrippedPath);
+                }
+            }
+        }
+
+
+        [Test]
         public void LoadActivityToDesigner_SkipsAutoSaveForWorkflowProject()
         {
             string method = MethodBody(ReadSource(@"AiRpaStudio\Helpers\LoadActivityToDesignerHelper.cs"), "LoadActivityToDesigner");
@@ -168,6 +251,90 @@ namespace AiRpaStudio.Tests.Workflow
             });
         }
 
+
+        [Test]
+        public void LooseActivityXamlSchemaContext_ChecksCodeCatalogAfterFacades()
+        {
+            string method = MethodBody(
+                ReadSource(@"AiRpaStudio\Core\Workflow\LooseActivityXamlSchemaContext.cs"),
+                "GetXamlType");
+
+            int facadeCheck = method.IndexOf("_registry.TryGet(", StringComparison.Ordinal);
+            int codeCatalogCheck = method.IndexOf("_registry.TryGetCodeType(", StringComparison.Ordinal);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(facadeCheck, Is.GreaterThanOrEqualTo(0),
+                    "резолв фасада (_registry.TryGet) обязан остаться первым шагом GetXamlType");
+                Assert.That(codeCatalogCheck, Is.GreaterThanOrEqualTo(0),
+                    "ветка резолва code-behind (_registry.TryGetCodeType) обязана существовать — её снятие ломает local:Code");
+                Assert.That(facadeCheck, Is.LessThan(codeCatalogCheck),
+                    "code-каталог обязан проверяться ПОСЛЕ фасадов: XAML-фасад при совпадении имени должен побеждать");
+                Assert.That(method, Does.Contain("return new XamlType(codeType, this);"),
+                    "code-behind тип обязан резолвиться в настоящий System.Type через new XamlType(codeType, this)");
+            });
+        }
+
+        [Test]
+        public void LooseXamlProjectService_AttachesCodeTypesToRegistry()
+        {
+            string method = MethodBody(
+                ReadSource(@"AiRpaStudio\Core\Workflow\LooseXamlProjectService.cs"),
+                "BuildRegistry");
+
+            int scan = method.IndexOf("WorkflowTypeRegistry.Scan(EnumerateXamlFiles(project))", StringComparison.Ordinal);
+            int attach = method.IndexOf("registry.CodeTypes = ProjectCodeTypeCatalog.Build(project)", StringComparison.Ordinal);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(scan, Is.GreaterThanOrEqualTo(0),
+                    "реестр обязан строиться сканом XAML-файлов проекта");
+                Assert.That(attach, Is.GreaterThanOrEqualTo(0),
+                    "реестр обязан прикреплять code-каталог: иначе local:Code не резолвится в настоящий Type");
+                Assert.That(scan, Is.LessThan(attach),
+                    "code-каталог прикрепляется ПОСЛЕ скана фасадов");
+            });
+        }
+
+        [Test]
+        public void LoadActivityToDesignerHelper_UsesCatalogCarryingRegistryWithoutNewBranches()
+        {
+            string method = MethodBody(
+                ReadSource(@"AiRpaStudio\Helpers\LoadActivityToDesignerHelper.cs"),
+                "LoadActivityToDesigner");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(method, Does.Contain("if (looseTypeRegistry != null)"),
+                    "loose-путь выбирается по registry, а не по отдельному признаку code-каталога");
+                Assert.That(method, Does.Contain("LooseXamlDesignerLoader.Open(workflowDesignerEx, sourceFile, looseTypeRegistry, xamlText)"),
+                    "loose-загрузчик получает реестр (с CodeTypes) без новой сигнатуры");
+                Assert.That(method, Does.Not.Contain("CodeTypes"),
+                    "для code-behind резолва не должно появляться отдельных веток: каталог едет внутри registry");
+                Assert.That(method, Does.Not.Contain("ProjectCodeTypeCatalog"),
+                    "хелпер не должен строить/трогать code-каталог напрямую — это делает LooseXamlProjectService");
+            });
+        }
+
+        [Test]
+        public void DebuggerMappingsHelper_UsesCatalogCarryingSchemaWithoutNewBranches()
+        {
+            string method = MethodBody(
+                ReadSource(@"AiRpaStudio\Helpers\DebuggerMappingsHelper.cs"),
+                "DeserializeFreshDocument");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(method, Does.Contain("registry != null"),
+                    "loose-схема выбирается по registry, а не по отдельному признаку code-каталога");
+                Assert.That(method, Does.Contain("new LooseActivityXamlSchemaContext(registry)"),
+                    "десериализация обязана идти через LooseActivityXamlSchemaContext: она резолвит и фасады, и CodeTypes");
+                Assert.That(method, Does.Not.Contain("CodeTypes"),
+                    "в хелпере не должно появляться отдельных веток code-behind: каталог едет внутри registry");
+                Assert.That(method, Does.Not.Contain("TryGetCodeType"),
+                    "хелпер не должен резолвить code-типы напрямую — это делает схема");
+            });
+        }
 
         private static string MethodBody(string source, string methodName)
         {

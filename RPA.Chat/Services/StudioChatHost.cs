@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Windows;
 using System.Windows.Threading;
@@ -125,54 +126,40 @@ namespace RPA.Chat.Services
 
             var modeName = Model.Mode.ToString();
             var history = BuildTranscript();
+            var lastTranscriptIsUser = history.Count > 0 &&
+                string.Equals(history[history.Count - 1].Role, "user", StringComparison.OrdinalIgnoreCase);
+            Model.HasOrphanedUserInTranscript = lastTranscriptIsUser;
+            ChatLog.Info("[cache-diag] send: mode=" + modeName +
+                ", historyCount=" + history.Count +
+                ", lastTranscriptIsUser=" + lastTranscriptIsUser +
+                ", roles=" + string.Join(",", history.Select(m => m.Role ?? "?")));
             Model.EnsureActiveConversation();
             AppendChatMessage(new ChatMessage { Kind = ChatMessageKind.User, Text = uiText });
-
-            var thinking = new ChatMessage { Kind = ChatMessageKind.AgentText, Mode = modeName, IsThinking = true, IsPartial = true, Text = "Thinking…" };
-            AppendChatMessage(thinking);
 
             var cts = new CancellationTokenSource();
             _chatCts = cts;
             Model.StartStatus();
+            // Separate reasoning blocks: the assembler assigns a stable SegmentId per segment,
+            // and ChatReasoningSegmentBinder maps each segment to its own ChatMessage.
+            // The final answer is not streamed here; it remains a single result.FinalText block.
+            var assembler = new ChatStreamAssembler();
+            var binder = new ChatReasoningSegmentBinder(
+                append: msg => AppendChatMessage(msg),
+                remove: msg => RunOnUi(() => Model.Messages.Remove(msg)),
+                mode: modeName);
+
             try
             {
-                // Reasoning buffered and flushed on a timer (like RPAWriter2) so a stream of
-                // per-token deltas does not re-layout the TextBox on every chunk.
-                var reasoningBuffer = new StringBuilder();
-                var reasoningTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
-                reasoningTimer.Tick += (_, __) =>
-                {
-                    thinking.Reasoning = reasoningBuffer.ToString();
-                    reasoningTimer.Stop();
-                };
+                assembler.SegmentChanged += (s, e) => binder.Apply(e);
 
-                var progress = new Progress<ChatStreamDelta>(delta =>
-                {
-                    if (!string.IsNullOrEmpty(delta.ReasoningDelta))
-                    {
-                        reasoningBuffer.Append(delta.ReasoningDelta);
-                        if (!reasoningTimer.IsEnabled)
-                            reasoningTimer.Start();
-                    }
-                });
+                var progress = new Progress<ChatStreamDelta>(delta => assembler.OnDelta(delta));
 
                 var result = await _agentRunner.RunAsync(history, promptText, images, Model.Mode, BuildContextBudget(), cts.Token, progress);
 
-                reasoningTimer.Stop();
                 RunOnUi(() =>
                 {
-                    thinking.Reasoning = reasoningBuffer.ToString();
-                    thinking.IsThinking = false;
-                    thinking.IsPartial = false;
-
-                    if (string.IsNullOrWhiteSpace(thinking.Reasoning) && !string.IsNullOrWhiteSpace(result.Reasoning))
-                        thinking.Reasoning = result.Reasoning;
-
-                    if (thinking.HasReasoning)
-                        thinking.Text = string.Empty;
-                    else
-                        Model.Messages.Remove(thinking);
-
+                    // Reasoning segments are already closed by the assembler (ReasoningEnd/TurnEnd);
+                    // the final answer is appended as a single block, as before.
                     if (!string.IsNullOrWhiteSpace(result.FinalText))
                     {
                         AppendChatMessage(new ChatMessage
@@ -186,16 +173,16 @@ namespace RPA.Chat.Services
             }
             catch (OperationCanceledException)
             {
+                ChatLog.Info("[cache-diag] cancelled: request aborted before usage was recorded");
                 RunOnUi(() =>
                 {
-                    thinking.IsThinking = false;
-                    if (Model.Messages.Contains(thinking))
-                        AppendChat("Request cancelled.");
+                    binder.StopAll();
+                    AppendChat("Request cancelled.");
                 });
             }
             catch (Exception ex)
             {
-                RunOnUi(() => thinking.IsThinking = false);
+                RunOnUi(() => binder.StopAll());
                 AppendExtensionError(ex);
                 ChatLog.Error(ex, "Agent chat request failed.");
             }
@@ -214,6 +201,7 @@ namespace RPA.Chat.Services
 
         public void CancelAgentRun()
         {
+            ChatLog.Info("[cache-diag] cancel requested: running=" + (_chatCts != null));
             _chatCts?.Cancel();
         }
 
@@ -483,6 +471,30 @@ namespace RPA.Chat.Services
             ChatLog.Warn("Agent retry: " + (e.Kind ?? "") + " attempt " + e.Attempt + "/" + e.AttemptLimit + " - " + (e.Detail ?? ""));
         }
 
+        private void OnPromptAssembled(object sender, PromptAssembledEventArgs e)
+        {
+            var system = e.SystemPrompt ?? "";
+            var roles = string.Join(",", (e.Messages ?? new List<ChatMessageData>()).Select(m => m?.Role ?? "?"));
+            ChatLog.Info("[cache-diag] prompt: sha256=" + ComputeSha256(system) +
+                ", systemLen=" + system.Length +
+                ", messages=[" + roles + "]");
+        }
+
+        private static string ComputeSha256(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return "";
+
+            using (var sha = SHA256.Create())
+            {
+                var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(value));
+                var sb = new StringBuilder(bytes.Length * 2);
+                foreach (var b in bytes)
+                    sb.Append(b.ToString("x2"));
+                return sb.ToString();
+            }
+        }
+
         // ------------------------------------------------------------------
         // Settings / provider / tools
         // ------------------------------------------------------------------
@@ -512,12 +524,14 @@ namespace RPA.Chat.Services
         {
             if (_ai is IMessageNotifier m) m.MessageSent += OnAiMessageSent;
             if (_ai is IRetryNotifier r) r.RetryAttempt += OnRetryAttempt;
+            if (_ai is IPromptNotifier p) p.PromptAssembled += OnPromptAssembled;
         }
 
         private void UnhookAiNotifiers()
         {
             if (_ai is IMessageNotifier m) m.MessageSent -= OnAiMessageSent;
             if (_ai is IRetryNotifier r) r.RetryAttempt -= OnRetryAttempt;
+            if (_ai is IPromptNotifier p) p.PromptAssembled -= OnPromptAssembled;
         }
 
         private void UnhookAgentRunner()

@@ -6,6 +6,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Agent.Core.AgentTools;
 using RPA.Shared.AgentTools;
+using AgentToolRegistry = RPA.Shared.AgentTools.AgentToolRegistry;
+using IAgentTool = RPA.Shared.AgentTools.IAgentTool;
 using Agent.Core.Contracts;
 using Agent.Core.Models;
 using RPA.Shared.Models;
@@ -594,6 +596,8 @@ namespace AiRpaStudio.Tests.Workflow
         private sealed class FakeBuildFeedbackService : IBuildFeedbackService
         {
             public Task BuildAsync(string configuration, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+            public Task BuildProjectAsync(string configuration, string projectName, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
             public Task<bool> HasSolutionConfigurationAsync(string configuration, CancellationToken cancellationToken = default)
                 => Task.FromResult(true);

@@ -2,6 +2,16 @@ using System.IO;
 using NUnit.Framework;
 using Agent.Core.Services;
 using RPA.Shared.Services;
+using AgentTool = RPA.Shared.AgentTools.AgentTool;
+using AgentToolRegistry = RPA.Shared.AgentTools.AgentToolRegistry;
+using IAgentTool = RPA.Shared.AgentTools.IAgentTool;
+using AgentPromptBuilder = RPA.Shared.AgentTools.AgentPromptBuilder;
+using AgentRunner = RPA.Shared.AgentTools.AgentRunner;
+using AgentRunResult = RPA.Shared.AgentTools.AgentRunResult;
+using AgentToolCall = RPA.Shared.AgentTools.AgentToolCall;
+using ToolSchemaConverter = RPA.Shared.AgentTools.ToolSchemaConverter;
+using PromptDefaults = RPA.Shared.Services.PromptDefaults;
+using PromptPaths = RPA.Shared.Services.PromptPaths;
 
 namespace AiRpaStudio.Tests
 {

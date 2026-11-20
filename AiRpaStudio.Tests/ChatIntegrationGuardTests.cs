@@ -68,6 +68,23 @@ public class ChatIntegrationGuardTests
     }
 
     [Test]
+    public void StudioChatHost_BindsReasoningSegmentsThroughBinder()
+    {
+        string code = Read(@"RPA.Chat\Services\StudioChatHost.cs");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(code, Does.Contain("new ChatReasoningSegmentBinder("),
+                "reasoning-сегменты должны маппиться через ChatReasoningSegmentBinder");
+            Assert.That(code, Does.Contain("binder.Apply(e)"),
+                "события ассемблера должны уходить в binder.Apply");
+            Assert.That(code, Does.Not.Contain("var thinking = new ChatMessage"),
+                "не должно оставаться старого одиночного thinking-сообщения");
+        });
+    }
+
+
+    [Test]
     public void MainView_ThemeUsesAgentThemeManager_NotChatStudioBridge()
     {
         string code = Read(@"AiRpaStudio\Views\MainView.xaml.cs");

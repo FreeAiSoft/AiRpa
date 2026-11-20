@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using Agent.Core.AgentTools;
-using RPA.Shared.AgentTools;
 using Agent.Core.Context;
 using Agent.Core.Models;
 using RPA.Shared.Models;

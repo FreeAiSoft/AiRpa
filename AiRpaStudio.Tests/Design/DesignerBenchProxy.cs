@@ -26,6 +26,9 @@ using RPA.CSharpExpressionEditor;
 
 using RPA.Core.Services;
 using System.Activities.Statements;
+using System.IO;
+using RPA.Entities;
+using RPA.ProjectModel;
 
 namespace AiRpaStudio.Tests.Design;
 
@@ -928,6 +931,7 @@ public sealed class DesignerBenchProxy : MarshalByRefObject
             try
             {
                 WorkflowTypeRegistry registry = WorkflowTypeRegistry.Scan(projectXamlFiles);
+                registry.CodeTypes = BuildCodeTypeCatalog(mainXaml);
                 var designer = new WorkflowDesignerEx();
                 WfDesignerEnvironment.Configure(designer);
                 LooseXamlDesignerLoader.Open(designer, mainXaml, registry);
@@ -956,6 +960,48 @@ public sealed class DesignerBenchProxy : MarshalByRefObject
 
             return report;
         });
+    }
+
+    private static ProjectCodeTypeCatalog BuildCodeTypeCatalog(string mainXaml)
+    {
+        string projectFile = FindProjectFile(mainXaml);
+        if (string.IsNullOrWhiteSpace(projectFile))
+        {
+            return null;
+        }
+
+        Project project = ProjectLoader.Load(projectFile)?.Project;
+        if (project == null || !project.IsWorkflowProject)
+        {
+            return null;
+        }
+
+        return ProjectCodeTypeCatalog.Build(project);
+    }
+
+    private static string FindProjectFile(string mainXaml)
+    {
+        if (string.IsNullOrWhiteSpace(mainXaml))
+        {
+            return null;
+        }
+
+        string directory;
+        try
+        {
+            directory = Path.GetDirectoryName(mainXaml);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+        {
+            return null;
+        }
+
+        return Directory.GetFiles(directory, "*.csproj", SearchOption.TopDirectoryOnly).FirstOrDefault();
     }
 
     /// <summary>
@@ -2256,7 +2302,7 @@ public sealed class DesignerBenchProxy : MarshalByRefObject
                     enableSubagents: false,
                     subagentMaxDepth: 2);
 
-                Agent.Core.AgentTools.AgentToolRegistry registry = factory.CreateRegistry();
+                RPA.Shared.AgentTools.AgentToolRegistry registry = factory.CreateRegistry();
 
                 // 1. Файл открыт конструктором: текстовая запись отклоняется, файл на диске не меняется.
                 string before = System.IO.File.ReadAllText(openPath);
@@ -2287,11 +2333,11 @@ public sealed class DesignerBenchProxy : MarshalByRefObject
     }
 
     private static string RunWorkflowXamlTool(
-        Agent.Core.AgentTools.AgentToolRegistry registry,
+        RPA.Shared.AgentTools.AgentToolRegistry registry,
         string name,
         Newtonsoft.Json.Linq.JObject arguments)
     {
-        Agent.Core.AgentTools.IAgentTool tool = registry.Find(name);
+        RPA.Shared.AgentTools.IAgentTool tool = registry.Find(name);
         if (tool == null)
         {
             return "(no tool " + name + ")";
@@ -2304,6 +2350,8 @@ public sealed class DesignerBenchProxy : MarshalByRefObject
     private sealed class SilentWorkflowXamlBuildFeedback : Agent.Core.Contracts.IBuildFeedbackService
     {
         public Task BuildAsync(string configuration, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task BuildProjectAsync(string configuration, string projectName, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task<bool> HasSolutionConfigurationAsync(string configuration, CancellationToken cancellationToken = default)
             => Task.FromResult(true);

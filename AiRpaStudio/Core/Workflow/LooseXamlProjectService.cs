@@ -39,6 +39,7 @@ namespace RPA.Core.Workflow
             }
 
             WorkflowTypeRegistry registry = WorkflowTypeRegistry.Scan(EnumerateXamlFiles(project));
+            registry.CodeTypes = ProjectCodeTypeCatalog.Build(project);
             return registry.Count > 0 ? registry : null;
         }
 

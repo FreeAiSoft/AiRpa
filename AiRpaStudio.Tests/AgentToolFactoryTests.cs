@@ -241,6 +241,8 @@ namespace RPA.Chat.Tests
         {
             public Task BuildAsync(string configuration, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+            public Task BuildProjectAsync(string configuration, string projectName, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
             public Task<bool> HasSolutionConfigurationAsync(string configuration, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
             public Task<IReadOnlyList<BuildError>> GetCompilationErrorsAsync(CancellationToken cancellationToken = default)

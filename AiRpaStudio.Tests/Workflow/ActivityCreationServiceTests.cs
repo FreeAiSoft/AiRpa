@@ -422,6 +422,8 @@ public class ActivityCreationServiceTests
 
         public Task BuildAsync(string configuration, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+        public Task BuildProjectAsync(string configuration, string projectName, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
         public Task<bool> HasSolutionConfigurationAsync(string configuration, CancellationToken cancellationToken = default)
             => Task.FromResult(true);
 
