@@ -23,12 +23,16 @@ public class DesignerToCodeTabTests
                 "буфер дизайнера сериализуется в Text перед переносом");
             Assert.That(method, Does.Contain("designer.Text"),
                 "текст редактора кода берётся из сериализованного XAML дизайнера");
-            Assert.That(method, Does.Contain("CodeDocument.FromText(filePath, designer.Text, designer.IsEdited)"),
+            Assert.That(method, Does.Contain("CodeDocument.FromText(filePath, xamlText, designer.IsEdited)"),
                 "признак «изменён» переносится из дизайнера в код-документ");
             Assert.That(method, Does.Contain("BeginReplaceDesignerTab(filePath)"),
                 "вкладка дизайнера заменяется редактором кода, а не открывается вторая вкладка");
             Assert.That(method, Does.Contain("DetachDesignerForCodeView(filePath)"),
                 "дизайнер убирается из модели без закрытия вкладки");
+            Assert.That(method, Does.Contain("string.IsNullOrWhiteSpace(xamlText)"),
+                "пустой буфер недогруженного дизайнера не открывается как пустой редактор");
+            Assert.That(method, Does.Contain("CodeDocument.Load(filePath)"),
+                "при пустом буфере XAML читается с диска, а не теряется");
         });
     }
 
@@ -71,7 +75,7 @@ public class DesignerToCodeTabTests
             @"(override|internal|public|private|protected)[^\r\n]*\b" + Regex.Escape(methodName) + @"\s*\(");
 
         Assert.That(match.Success, Is.True, $"не найден метод {methodName}");
-        return source.Substring(match.Index, Math.Min(2500, source.Length - match.Index));
+        return source.Substring(match.Index, Math.Min(6000, source.Length - match.Index));
     }
 
     private static string ReadSource(string relativePath)

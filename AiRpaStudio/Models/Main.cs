@@ -576,8 +576,32 @@ namespace RPA.Models
             {
                 // Файл открыт в дизайнере: сериализуем буфер и переносим его (вместе с признаком
                 // «изменён») в редактор кода той же вкладки — дизайнер из вкладки убирается.
-                designer.Flush();
-                CodeDocument document = CodeDocument.FromText(filePath, designer.Text, designer.IsEdited);
+                string xamlText = null;
+                try
+                {
+                    designer.Flush();
+                    xamlText = designer.Text;
+                }
+                catch (Exception ex)
+                {
+                    CustomWfDesigner.Log(
+                        $"Не удалось сериализовать буфер дизайнера {filePath}: {ErrorText.Of(ex)}",
+                        (int)RpaCommon.Enums.LogLevel.Warn);
+                }
+
+                if (string.IsNullOrWhiteSpace(xamlText))
+                {
+                    // Дизайнер не загрузился (ошибка открытия) или ещё грузится: его буфер пуст.
+                    // Не показываем пустой редактор — открываем исходный XAML с диска в той же вкладке,
+                    // а «зомби-дизайнер», оставшийся в модели после неудачной загрузки, отсоединяем.
+                    CodeDocument diskDocument = CodeDocument.Load(filePath);
+                    view?.BeginReplaceDesignerTab(filePath);
+                    CustomWfDesigner.DetachDesignerForCodeView(filePath);
+                    OpenCodeDocuments.Add(diskDocument);
+                    return;
+                }
+
+                CodeDocument document = CodeDocument.FromText(filePath, xamlText, designer.IsEdited);
                 view?.BeginReplaceDesignerTab(filePath);
                 CustomWfDesigner.DetachDesignerForCodeView(filePath);
                 OpenCodeDocuments.Add(document);
