@@ -57,7 +57,7 @@ namespace RPA.Views
         public LogControlLibrary.Controls.LogViewerControl LogViewerControl { get; private set; }
         private ProjectManagerControl projectManagerControl;
         private Border wfProjectBorder;
-        private Chat.Views.ChatPanel chatPanel;
+        private Chat.Views.ChatHostView chatPanel;
         private NuGet.Views.NuGetPanel nuGetPanel;
         /// <summary>ContentId вкладки NuGet: по нему панель находится при повторном открытии.</summary>
         private const string NuGetContentId = "NuGet";
@@ -126,7 +126,7 @@ namespace RPA.Views
             {
                 Child = projectManagerControl
             };
-            chatPanel = new Chat.Views.ChatPanel();
+            chatPanel = new Chat.Views.ChatHostView();
             RPA.Core.DesignerErrorReporter.Captured += OnDesignerErrorCaptured;
             RPA.Core.DesignerErrorReporter.SendRequested += OnDesignerErrorSendRequested;
             // Route chat diagnostics to the studio log (viewed via LogControlLibrary).
@@ -161,23 +161,23 @@ namespace RPA.Views
 
             // Theme: the studio window follows the chat theme (single source of truth).
             // Порядок смены темы задан явно: студия пересобирает палитру Studio.* (ThemeApplying)
-            // ДО того, как ChatPanel применит свой словарь и перекроет кисти мостом (ThemeChanged).
-            // Иначе ChatStudioBridge копирует кисти предыдущей темы и чат отстаёт на один переключатель.
+            // ДО того, как ChatHostView применит AgentThemeManager.Apply (Theme.*).
+            // Иначе ChatControl прочитает кисти предыдущей темы и чат отстанет на один переключатель.
             // Тему AgentToolkit (Theme.*) при этом ведёт хост: режим Auto + трансляция в AgentThemeManager,
             // чтобы встроенный список сообщений/карточки перекрашивались вместе со студией.
             AgentThemeManager.SetMode(AgentThemeMode.Auto);
-            chatPanel.ViewModel.ThemeApplying = ApplyStudioAndToolkitTheme;
+            chatPanel.ThemeApplying = ApplyStudioAndToolkitTheme;
 
-            chatPanel.ViewModel.ThemeChanged += OnChatThemeChanged;
-            ApplyStudioAndToolkitTheme(chatPanel.ViewModel.Theme);
-            // Словарь чата собран в конструкторе из палитры по умолчанию, а сохранённая тема могла быть
-            // светлой — перекрываем словарь актуальной палитрой студии до первого переключения.
-            chatPanel.ReapplyTheme();
+            chatPanel.ThemeChanged += OnChatThemeChanged;
+            ApplyStudioAndToolkitTheme(chatPanel.Theme);
+            // ChatHostView загружает сохранённую тему из настроек и применяет её к студии.
+
+            // ReapplyTheme больше не нужен: ChatControl перекрашивается через DynamicResource Theme.*.
 
             _ = ThemeToggleButton.SetBinding(ToggleButton.IsCheckedProperty,
-                new Binding(nameof(Chat.ViewModels.ChatViewModel.IsDarkTheme))
+                new Binding(nameof(Chat.Views.ChatHostView.IsDarkTheme))
                 {
-                    Source = chatPanel.ViewModel,
+                    Source = chatPanel,
                     Mode = BindingMode.TwoWay
                 });
 
@@ -833,7 +833,7 @@ namespace RPA.Views
             }
 
             ActivateChatPanel();
-            await chatPanel.ViewModel.SendPromptAsync(prompt);
+            await chatPanel.SendPromptAsync(prompt);
         }
 
         private void ActivateChatPanel()

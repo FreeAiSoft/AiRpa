@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Media;
@@ -41,9 +41,9 @@ public class ThemeAcceptanceTests
         @"AvalonDock.Themes.Metro\Theme.xaml",
         @"AvalonDock\Themes\generic.xaml",
         @"LogControlLibrary\Controls\LogViewerControl.xaml",
-        @"RPA.Chat\Views\ChatPanel.xaml",
-        @"RPA.Chat\Controls\ChatMessagesControl.xaml",
-        @"RPA.Chat\Controls\PinnedChatMessageControl.xaml",
+        @"RPA.Chat\Views\ChatHostView.xaml",
+        // ChatMessagesControl теперь живёт в AgentToolkit.Wpf, а не в RPA.Chat.
+        // PinnedChatMessageControl удалён вместе со старым ChatPanel.
         @"RPA.NuGet\Views\NuGetPanel.xaml",
         @"RPA.NuGet\Views\NuGetPanel.Styles.xaml",
     };
@@ -347,7 +347,7 @@ public class ThemeAcceptanceTests
 
         // Порядок задан явно: студия пересобирает Studio.* в ThemeApplying раньше, чем ChatPanel
         // применит свой словарь и перекроет кисти мостом, иначе чат отстаёт на один переключатель.
-        Assert.That(code, Does.Contain("chatPanel.ViewModel.ThemeApplying = Services.AppSettings.ApplyTheme"),
+        Assert.That(code, Does.Contain("chatPanel.ThemeApplying = ApplyStudioAndToolkitTheme"),
             "MainView должен подписать ThemeApplying на AppSettings.ApplyTheme");
 
         int start = code.IndexOf("private void OnChatThemeChanged()", StringComparison.Ordinal);

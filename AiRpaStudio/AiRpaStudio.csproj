@@ -266,19 +266,19 @@
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
     <Reference Include="Agent.Core">
-      <HintPath>..\packages\AgentToolkit.1.19.0\lib\netstandard2.0\Agent.Core.dll</HintPath>
+      <HintPath>..\packages\AgentToolkit.1.19.1\lib\netstandard2.0\Agent.Core.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Agent.Models">
-      <HintPath>..\packages\AgentToolkit.1.19.0\lib\netstandard2.0\Agent.Models.dll</HintPath>
+      <HintPath>..\packages\AgentToolkit.1.19.1\lib\netstandard2.0\Agent.Models.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Agent.Mvvm">
-      <HintPath>..\packages\AgentToolkit.1.19.0\lib\netstandard2.0\Agent.Mvvm.dll</HintPath>
+      <HintPath>..\packages\AgentToolkit.1.19.1\lib\netstandard2.0\Agent.Mvvm.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Agent.Toolkit.Wpf">
-      <HintPath>..\packages\AgentToolkit.Wpf.1.19.0\lib\net472\Agent.Toolkit.Wpf.dll</HintPath>
+      <HintPath>..\packages\AgentToolkit.Wpf.1.19.1\lib\net472\Agent.Toolkit.Wpf.dll</HintPath>
       <Private>True</Private>
     </Reference>
   </ItemGroup>

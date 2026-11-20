@@ -12,9 +12,6 @@
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Markdig" Version="1.4.2" />
-    <PackageReference Include="Material.Icons.WPF" Version="3.0.2" />
-    <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
     <!-- Единая версия пакета во всём решении: 4.5.2 даёт сборку 4.2.0.0, а студия перенаправляет
          привязку на 4.2.0.1 (пакет 4.5.4). Разные копии одной сборки в папке приложения роняли
@@ -23,8 +20,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AgentToolkit" Version="1.19.0" />
-    <PackageReference Include="AgentToolkit.Wpf" Version="1.19.0" />
+    <PackageReference Include="AgentToolkit" Version="1.19.1" />
+    <PackageReference Include="AgentToolkit.Wpf" Version="1.19.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,19 +32,8 @@
     <Reference Include="System.Net.Http" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- Theme resource dictionaries (no x:Class): compiled to BAML and swapped at runtime. -->
-    <Page Remove="Themes\**\*.xaml" />
-    <None Remove="Themes\**\*.xaml" />
-    <Page Include="Themes\ChatTheme.Dark.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Themes\ChatTheme.Light.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-  </ItemGroup>
+  <!-- Тема чата теперь живёт в AgentToolkit.Wpf (ключи Theme.* через AgentThemeManager);
+       отдельные ChatTheme.*.xaml и ChatStudioBridge удалены. -->
   <Target Name="CopyWebView2LoaderToOutput" AfterTargets="Build">
     <!-- The WebView2 NuGet package only drops the native loader under runtimes\ for this
          SDK-style net48 project. Copy the x64 loader next to the managed assemblies so the

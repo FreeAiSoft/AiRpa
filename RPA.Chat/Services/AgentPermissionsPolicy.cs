@@ -1,5 +1,5 @@
 using Agent.Core.Models;
-using RPA.Shared.Models;
+using Agent.Core.Services;
 
 namespace RPA.Chat.Services
 {
@@ -21,8 +21,8 @@ namespace RPA.Chat.Services
     public static class AgentPermissionsPolicy
     {
         /// <summary>
-        /// Собирает маску разрешений из настроек чата. <c>null</c> настроек даёт пустую маску:
-        /// ранняя инициализация не должна превращаться в полный доступ к инструментам.
+        /// Собирает маску разрешений из канонических настроек чата. <c>null</c> настроек даёт пустую
+        /// маску: ранняя инициализация не должна превращаться в полный доступ к инструментам.
         /// </summary>
         public static AgentPermissions Resolve(SettingsData settings)
         {
@@ -37,6 +37,7 @@ namespace RPA.Chat.Services
             if (settings.AllowEditFiles) allowed |= AgentPermissions.EditFiles;
             if (settings.AllowExecuteCommand) allowed |= AgentPermissions.ExecuteCommand;
             if (settings.AllowWebFetch) allowed |= AgentPermissions.WebFetch;
+            if (settings.AllowMcp) allowed |= AgentPermissions.Mcp;
             if (settings.AllowSubagents) allowed |= AgentPermissions.Subagents;
 
             return allowed;

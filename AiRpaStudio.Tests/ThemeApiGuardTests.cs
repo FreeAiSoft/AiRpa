@@ -92,20 +92,20 @@ public class ThemeApiGuardTests
     {
         string root = FindRepositoryRoot();
 
-        string viewModel = Read(root, @"RPA.Chat\ViewModels\ChatViewModel.cs");
-        string panel = Read(root, @"RPA.Chat\Views\ChatPanel.xaml.cs");
+        string hostView = Read(root, @"RPA.Chat\Views\ChatHostView.xaml.cs");
+        string settingsStore = Read(root, @"RPA.Chat\Services\ChatSettingsStore.cs");
         string settings = Read(root, @"RPA.Chat\Services\SettingsStore.cs");
 
         Assert.Multiple(() =>
         {
-            Assert.That(viewModel, Does.Contain("public StudioTheme Theme"),
+            Assert.That(hostView, Does.Contain("public StudioTheme Theme"),
                 "ChatViewModel.Theme — источник истины, bool остаётся только проекцией тумблера");
-            Assert.That(viewModel, Does.Contain("Action<StudioTheme> ThemeApplying"),
+            Assert.That(hostView, Does.Contain("Action<StudioTheme> ThemeApplying"),
                 "хост студии получает значение перечисления");
-            Assert.That(panel, Does.Contain("ApplyTheme(StudioTheme theme)"));
-            Assert.That(settings, Does.Contain("public string Theme"),
+            Assert.That(settingsStore, Does.Contain("MigrateLegacyTheme"));
+            Assert.That(settingsStore, Does.Contain("BaseTheme"),
                 "в JSON лежит имя перечисления, а не bool");
-            Assert.That(settings, Does.Not.Contain("public bool UseDarkTheme"),
+            Assert.That(settingsStore, Does.Not.Contain("public string Theme"),
                 "старое bool-поле осталось только как легаси для миграции");
         });
     }
@@ -117,8 +117,8 @@ public class ThemeApiGuardTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(code, Does.Contain("Services.AppSettings.ApplyTheme(chatPanel.ViewModel.Theme)"));
-            Assert.That(code, Does.Not.Contain("ApplyTheme(chatPanel.ViewModel.IsDarkTheme)"),
+            Assert.That(code, Does.Contain("ApplyStudioAndToolkitTheme(chatPanel.Theme)"));
+            Assert.That(code, Does.Not.Contain("ApplyStudioAndToolkitTheme(chatPanel.IsDarkTheme)"),
                 "студия не должна получать проекцию тумблера вместо темы");
         });
     }
