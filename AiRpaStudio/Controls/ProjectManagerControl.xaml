@@ -463,6 +463,95 @@
                                 </materialIcons:MaterialIcon.Style>
                             </materialIcons:MaterialIcon>
 
+                            <!-- Иконка для .cs файлов -->
+                            <materialIcons:MaterialIcon Kind="LanguageCsharp"
+                                                        Width="12"
+                                                        Height="12"
+                                                        Foreground="{DynamicResource Studio.ForegroundMuted}"
+                                                        Margin="0,0,4,0"
+                                                        VerticalAlignment="Center">
+                                <materialIcons:MaterialIcon.Style>
+                                    <Style TargetType="materialIcons:MaterialIcon">
+                                        <Setter Property="Visibility"
+                                                Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding FSNodeType}"
+                                                               Value="{x:Static enums:FSNodeType.File}" />
+                                                    <Condition Binding="{Binding Name, Converter={StaticResource FileExtensionConverter}, ConverterParameter='.cs'}"
+                                                               Value="True" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility"
+                                                        Value="Visible" />
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </materialIcons:MaterialIcon.Style>
+                            </materialIcons:MaterialIcon>
+
+                            <!-- Иконка по умолчанию для неизвестных расширений -->
+                            <materialIcons:MaterialIcon Kind="FileOutline"
+                                                        Width="12"
+                                                        Height="12"
+                                                        Foreground="{DynamicResource Studio.ForegroundMuted}"
+                                                        Margin="0,0,4,0"
+                                                        VerticalAlignment="Center">
+                                <materialIcons:MaterialIcon.Style>
+                                    <Style TargetType="materialIcons:MaterialIcon">
+                                        <Setter Property="Visibility"
+                                                Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding FSNodeType}"
+                                                         Value="{x:Static enums:FSNodeType.File}">
+                                                <Setter Property="Visibility"
+                                                        Value="Visible" />
+                                            </DataTrigger>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding FSNodeType}"
+                                                               Value="{x:Static enums:FSNodeType.File}" />
+                                                    <Condition Binding="{Binding Name, Converter={StaticResource FileExtensionConverter}, ConverterParameter='.xaml'}"
+                                                               Value="True" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility"
+                                                        Value="Collapsed" />
+                                            </MultiDataTrigger>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding FSNodeType}"
+                                                               Value="{x:Static enums:FSNodeType.File}" />
+                                                    <Condition Binding="{Binding Name, Converter={StaticResource FileExtensionConverter}, ConverterParameter='.json'}"
+                                                               Value="True" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility"
+                                                        Value="Collapsed" />
+                                            </MultiDataTrigger>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding FSNodeType}"
+                                                               Value="{x:Static enums:FSNodeType.File}" />
+                                                    <Condition Binding="{Binding Name, Converter={StaticResource FileExtensionConverter}, ConverterParameter='.config'}"
+                                                               Value="True" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility"
+                                                        Value="Collapsed" />
+                                            </MultiDataTrigger>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding FSNodeType}"
+                                                               Value="{x:Static enums:FSNodeType.File}" />
+                                                    <Condition Binding="{Binding Name, Converter={StaticResource FileExtensionConverter}, ConverterParameter='.cs'}"
+                                                               Value="True" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility"
+                                                        Value="Collapsed" />
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </materialIcons:MaterialIcon.Style>
+                            </materialIcons:MaterialIcon>
+
                             <!-- Иконка зависимости Reference -->
                             <materialIcons:MaterialIcon Kind="PackageVariant"
                                                         Width="12"
