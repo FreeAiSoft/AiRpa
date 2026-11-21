@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 
 namespace AiRpaStudio.Tests;
@@ -132,11 +133,13 @@ public class DocumentTabsCloseWiringTests
     /// <summary>Тело метода по имени (грубая, но устойчивая к форматированию выборка).</summary>
     private static string MethodBody(string source, string methodName)
     {
-        // Берём последнее вхождение: у метода есть определение и место вызова, тело нужно от определения.
-        int signature = source.LastIndexOf(methodName + "(", StringComparison.Ordinal);
-        Assert.That(signature, Is.GreaterThanOrEqualTo(0), $"не найден метод {methodName}");
+        // Ищем объявление метода (строка начинается с модификатора доступа), а не место вызова.
 
-        int start = source.LastIndexOf('\n', signature);
+
+        Match match = Regex.Match(source, @"(?m)^[ \t]*(?:public|private|internal|protected)[^\r\n]*\b" + Regex.Escape(methodName) + @"\s*\(");
+        Assert.That(match.Success, Is.True, $"не найден метод {methodName}");
+
+        int start = source.LastIndexOf('\n', match.Index);
         return source.Substring(start, Math.Min(2600, source.Length - start));
     }
 

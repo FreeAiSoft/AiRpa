@@ -1184,10 +1184,6 @@ namespace RPA.Models
         internal bool CloseProjectCore(CloseProjectChangesResult? choice)
         {
             string projectPath = Properties.Settings.Default.LastLoadedProjectPath;
-            if (string.IsNullOrWhiteSpace(projectPath))
-            {
-                return true;
-            }
 
             if (choice == CloseProjectChangesResult.Save)
             {
@@ -1195,7 +1191,16 @@ namespace RPA.Models
             }
             else if (choice == CloseProjectChangesResult.SaveToBuffer)
             {
-                CaptureProjectBuffers(projectPath);
+                if (string.IsNullOrWhiteSpace(projectPath))
+                {
+                    // Проект не загружен: буфер проекта некуда положить, поэтому правки
+                    // сохраняем на диск — иначе они бы потерялись.
+                    SaveAllChanges();
+                }
+                else
+                {
+                    CaptureProjectBuffers(projectPath);
+                }
             }
 
             // Финальное сохранение порядка вкладок (до очистки, пока активная вкладка ещё известна).

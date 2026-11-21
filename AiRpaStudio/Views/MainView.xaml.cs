@@ -15,6 +15,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using AvalonDock.Layout;
 using AvalonDock;
@@ -83,6 +84,13 @@ namespace RPA.Views
         /// <summary>Путь к файлу, чью вкладку редактора кода надо заменить дизайнером при следующем добавлении вкладки дизайнера.</summary>
         private string _designerReplacesCodePath;
         private bool _paletteRebuildInProgress;
+
+        // Dragging a maximized window by its title bar: armed on left-button press.
+        private bool _maximizedDragArmed;
+        // Grab point relative to the title bar (DIPs), so the window does not jump after restoring.
+        private Point _maximizedDragHeaderPoint;
+        // Cursor screen position at press time (DIPs).
+        private Point _maximizedDragStartScreen;
 
         /// <summary>Каркас окна инициализирован (панели созданы, раскладка подготовлена к подъёму).</summary>
         private bool _shellInitialized;
@@ -391,15 +399,90 @@ namespace RPA.Views
                 return;
             }
 
-            if (WindowState == WindowState.Maximized)
+            if (e.LeftButton != MouseButtonState.Pressed)
             {
                 return;
             }
 
-            if (e.LeftButton == MouseButtonState.Pressed)
+            if (WindowState != WindowState.Maximized)
             {
                 DragMove();
+                return;
             }
+
+            // Maximized window: DragMove() throws InvalidOperationException, so arm the drag
+            // and restore the window under the cursor in MouseMove.
+            var titleBar = sender as UIElement;
+            if (titleBar == null)
+            {
+                return;
+            }
+
+            _maximizedDragArmed = true;
+            _maximizedDragHeaderPoint = e.GetPosition(titleBar);
+            _maximizedDragStartScreen = ToDip(titleBar.PointToScreen(_maximizedDragHeaderPoint));
+            titleBar.CaptureMouse();
+        }
+
+        private void TitleBar_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!_maximizedDragArmed)
+            {
+                return;
+            }
+
+            var titleBar = sender as UIElement;
+            if (titleBar == null)
+            {
+                return;
+            }
+
+            Point currentScreen = ToDip(titleBar.PointToScreen(e.GetPosition(titleBar)));
+            Vector delta = currentScreen - _maximizedDragStartScreen;
+
+            // A plain click must not restore the window: wait for the system drag threshold.
+            if (Math.Abs(delta.X) < SystemParameters.MinimumHorizontalDragDistance &&
+                Math.Abs(delta.Y) < SystemParameters.MinimumVerticalDragDistance)
+            {
+                return;
+            }
+
+            EndMaximizedDrag(titleBar);
+
+            // Restore the window so the grabbed point stays under the cursor, then hand off to DragMove().
+            WindowState = WindowState.Normal;
+            UpdateLayout();
+
+            Left = currentScreen.X - _maximizedDragHeaderPoint.X;
+            Top = currentScreen.Y - _maximizedDragHeaderPoint.Y;
+
+            DragMove();
+        }
+
+        private void TitleBar_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_maximizedDragArmed)
+            {
+                EndMaximizedDrag(sender as UIElement);
+            }
+        }
+
+        private void EndMaximizedDrag(UIElement titleBar)
+        {
+            _maximizedDragArmed = false;
+            if (titleBar != null && titleBar.IsMouseCaptured)
+            {
+                titleBar.ReleaseMouseCapture();
+            }
+        }
+
+        /// <summary>Converts PointToScreen device pixels to DIPs for correct Left/Top under Windows scaling.</summary>
+        private Point ToDip(Point devicePoint)
+        {
+            PresentationSource source = PresentationSource.FromVisual(this);
+            return source?.CompositionTarget != null
+                ? source.CompositionTarget.TransformFromDevice.Transform(devicePoint)
+                : devicePoint;
         }
 
         private void TitleBarMinimize_Click(object sender, RoutedEventArgs e)

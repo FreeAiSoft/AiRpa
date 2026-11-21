@@ -499,7 +499,9 @@
         <Grid Grid.Row="0"
               Background="{DynamicResource Studio.TitleBarBackground}"
               shell:WindowChrome.IsHitTestVisibleInChrome="True"
-              MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+              MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
+              MouseMove="TitleBar_MouseMove"
+              MouseLeftButtonUp="TitleBar_MouseLeftButtonUp">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />

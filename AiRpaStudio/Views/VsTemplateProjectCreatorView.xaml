@@ -60,6 +60,9 @@
                         CommandParameter="SetFolder"
                         Margin="8,0,0,0"
                         Width="28"
+                        Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
                         Grid.Column="1"/>
             </Grid>
             <ComboBox Grid.Row="2"

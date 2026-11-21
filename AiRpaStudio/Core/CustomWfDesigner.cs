@@ -858,6 +858,19 @@ namespace RPA.Core
         /// </summary>
         internal void ClearProject()
         {
+            // Закрываем вкладки по одной, а не bulk-ом: только так каждая вкладка дизайнера
+            // отсоединяет фоновую валидацию (DetachValidation) и корректно уходит из панели
+            // документов. Bulk WorkflowDesigners.Clear() оставлял «зомби»-валидацию и часть
+            // вкладок в UI (AvalonDock не чистит Parent/TabItem/контент при Reset).
+            foreach (string loadedFile in WorkflowDesigners
+                         .Select(GetLoadedFile)
+                         .Where(file => !string.IsNullOrWhiteSpace(file))
+                         .ToList())
+            {
+                RemoveDesignerByLoadedFile(loadedFile, stashUnsaved: false);
+            }
+
+            // Страховка от вкладок без файла и повторных вызовов.
             WorkflowDesigners.Clear();
             ActiveWorkflowDesignerEx = null;
             Project = null;

@@ -83,7 +83,7 @@ public class UnsavedDocumentBufferWiringTests
         string helper = MethodBody(ReadSource(@"AiRpaStudio\Core\CustomWfDesigner.cs"), "private void StashUnsavedDesigner");
         Assert.Multiple(() =>
         {
-            Assert.That(helper, Does.Contain("designer.Flush()"), "перед сохранением буфер дизайнера сериализуется");
+            Assert.That(helper, Does.Contain("TryCaptureUnsavedBuffer(designer"), "перед сохранением буфер дизайнера сериализуется (через TryCaptureUnsavedBuffer)");
             Assert.That(helper, Does.Contain("UnsavedDocumentBuffers.Set"), "буфер кладётся в коллекцию несохранённых");
         });
     }
@@ -146,7 +146,7 @@ public class UnsavedDocumentBufferWiringTests
     {
         Match match = Regex.Match(source, Regex.Escape(methodSignature));
         Assert.That(match.Success, Is.True, $"не найден метод {methodSignature}");
-        return source.Substring(match.Index, Math.Min(2500, source.Length - match.Index));
+        return source.Substring(match.Index, Math.Min(5000, source.Length - match.Index));
     }
 
     private static string ReadSource(string relativePath)

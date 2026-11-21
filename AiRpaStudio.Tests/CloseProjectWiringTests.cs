@@ -90,6 +90,21 @@ public class CloseProjectWiringTests
         });
     }
 
+
+    [Test]
+    public void CustomWfDesigner_ClearProject_ClosesDesignersIndividually()
+    {
+        string method = MethodBody(ReadSource(@"AiRpaStudio\Core\CustomWfDesigner.cs"), "internal void ClearProject()");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(method, Does.Contain("RemoveDesignerByLoadedFile(loadedFile, stashUnsaved: false)"),
+                "вкладки дизайнера закрываются штатным путём (DetachValidation + закрытие UI-вкладки)");
+            Assert.That(method, Does.Contain(".Select(GetLoadedFile)"),
+                "файлы для закрытия берутся из открытых дизайнеров");
+        });
+    }
+
     [Test]
     public void MainView_FileMenu_ContainsCloseProjectItem()
     {

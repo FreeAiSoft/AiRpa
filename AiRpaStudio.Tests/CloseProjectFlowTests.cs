@@ -117,4 +117,25 @@ public class CloseProjectFlowTests
             Assert.That(buffers[0].Kind, Is.EqualTo("code"));
         });
     }
+
+    [Test]
+    public void CloseProjectCore_Save_WithoutProjectPath_StillSavesAndClearsTabs()
+    {
+        RPA.Properties.Settings.Default.LastLoadedProjectPath = string.Empty;
+        var main = new RPA.Models.Main();
+        string file = Path.Combine(tempDir, "sample.txt");
+        File.WriteAllText(file, "disk");
+
+        main.OpenCodeDocuments.Add(CodeDocument.FromText(file, "edited", isDirty: true));
+
+        bool closed = main.CloseProjectCore(CloseProjectChangesResult.Save);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(closed, Is.True);
+            Assert.That(main.OpenCodeDocuments, Is.Empty, "вкладки закрываются даже без загруженного проекта");
+            Assert.That(File.ReadAllText(file), Is.EqualTo("edited"), "выбор «Сохранить» применяется и без загруженного проекта");
+        });
+    }
+
 }
