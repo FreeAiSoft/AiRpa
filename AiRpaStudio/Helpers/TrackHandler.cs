@@ -1,13 +1,15 @@
-using System;
+﻿using System;
 using System.Activities;
 using System.Activities.Debugger;
 using System.Activities.Tracking;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
+using ActivitiesTracker.Core;
 using ActivitiesTracker.Entities;
 using RPA.Core;
 using RPA.Extensions;
@@ -17,6 +19,29 @@ namespace RPA.Helpers
 {
     internal class TrackHandler
     {
+        private static ILocalsProvider ResolveLocalsProvider()
+        {
+            return LocalsProviderFactory.Create(ReadLocalsProviderMode());
+        }
+
+        private static LocalsProviderMode ReadLocalsProviderMode()
+        {
+            try
+            {
+                string raw = Properties.Settings.Default.LocalsProviderMode;
+                if (Enum.TryParse(raw, true, out LocalsProviderMode mode))
+                {
+                    return mode;
+                }
+            }
+            catch
+            {
+                // Нечитаемая настройка не должна ломать отладку — используем смешанный режим.
+            }
+
+            return LocalsProviderMode.Mixed;
+        }
+
         public static void HandleTrackingRecord(
             TrackingEventArgs trackingEventArgs,
             WorkflowDesignerEx workflowDesignerEx,
@@ -64,7 +89,7 @@ namespace RPA.Helpers
 
                 if (sourceLocation != null)
                 {
-                    ShowDebug(trackingEventArgs.Activity, sourceLocation, workflowDesignerEx, resumeRuntimeFromHost, dispatcher);
+                    ShowDebug(trackingEventArgs.Activity, sourceLocation, workflowDesignerEx, resumeRuntimeFromHost, dispatcher, trackingEventArgs.Record as ActivityStateRecord);
                 }
                 else
                 {
@@ -93,7 +118,7 @@ namespace RPA.Helpers
         /// а <c>WaitOne()</c> остаётся на фоновом потоке прогона — иначе точка останова заморозила бы
         /// студию.
         /// </summary>
-        private static void ShowDebug(Activity activity, SourceLocation srcLoc, WorkflowDesignerEx workflowDesignerEx, AutoResetEvent resumeRuntimeFromHost, Dispatcher dispatcher)
+        private static void ShowDebug(Activity activity, SourceLocation srcLoc, WorkflowDesignerEx workflowDesignerEx, AutoResetEvent resumeRuntimeFromHost, Dispatcher dispatcher, ActivityStateRecord record)
         {
             bool isBreakpointHit = false;
 
@@ -115,6 +140,9 @@ namespace RPA.Helpers
 
                 SourceLocation displayLocation = ResolveDesignerLocation(targetDesigner.DesignerSourceLocationMapping, activity) ?? normalized;
                 targetDesigner.DebugManagerView.CurrentLocation = displayLocation;
+
+                // Prestart (record == null) — только подсветка следующей активности.
+                if (record == null) return;
 
                 // Check if this is where any BP is set
                 foreach (SourceLocation src in targetDesigner.BreakpointList)
@@ -141,12 +169,72 @@ namespace RPA.Helpers
                     // случаях: текущий дизайнер, уже открытая вкладка, только что открытый файл.
                     CustomWfDesigner.GetInstance().ActiveWorkflowDesignerEx = targetDesigner;
                     CustomWfDesigner.GetInstance().CustomWfDesignerState = CustomWfDesignerState.Breakpoint;
+
+                    // Этап 4 «Панель Locals»: заполняем переменные текущего скоупа снимком выбранного
+                    // источника (Tracking / ActivityInstance / Mixed). Модель обновляется на
+                    // UI-потоке, до блокировки WaitOne() на фоновом потоке прогона.
+                    var localsModel = CustomWfDesigner.GetInstance().LocalsModel;
+                    if (localsModel != null)
+                    {
+                        LocalsSnapshot snapshot = ResolveLocalsProvider().GetSnapshot(record);
+                        TraceLocalsDiagnostics(record, snapshot);
+                        localsModel.Update(snapshot);
+                    }
                 }
             });
 
             if (isBreakpointHit)
             {
                 _ = resumeRuntimeFromHost.WaitOne();
+            }
+        }
+
+        // TODO(диагностика, Шаг 0 плана Locals_Scope_Correctness_Plan): временный трейс для
+        // фиксации того, какой источник/провайдер даёт утечку родительской переменной. Удалить
+        // после диагностики прогона RPA-1.
+        private static void TraceLocalsDiagnostics(ActivityStateRecord record, LocalsSnapshot snapshot)
+        {
+            try
+            {
+                LocalsProviderMode mode = ReadLocalsProviderMode();
+                object instance = record?.Activity == null ? null : TryGetActivityInfoInstance(record.Activity);
+
+                int instanceCount = 0;
+                int trackingCount = 0;
+                try { instanceCount = new ActivityInstanceLocalsProvider().GetSnapshot(record).Locals.Count; } catch { }
+                try { trackingCount = new TrackingLocalsProvider().GetSnapshot(record).Locals.Count; } catch { }
+
+                string names = snapshot == null
+                    ? "<null>"
+                    : string.Join(",", snapshot.Locals.Select(l => l.VarName));
+
+                CustomWfDesigner.GetInstance().Log(
+                    "[LocalsDiag] mode=" + mode
+                    + " activity=" + (record?.Activity?.Name ?? "<null>")
+                    + " instance=" + (instance == null ? "no" : "yes")
+                    + " instanceLocals=" + instanceCount
+                    + " trackingLocals=" + trackingCount
+                    + " chosen=" + (snapshot?.Locals.Count ?? 0)
+                    + " names=[" + names + "]");
+            }
+            catch (Exception ex)
+            {
+                CustomWfDesigner.GetInstance().Log("[LocalsDiag] error: " + ex.Message);
+            }
+        }
+
+        private static object TryGetActivityInfoInstance(ActivityInfo activityInfo)
+        {
+            try
+            {
+                PropertyInfo property = typeof(ActivityInfo).GetProperty(
+                    "Instance",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                return property?.GetValue(activityInfo, null);
+            }
+            catch
+            {
+                return null;
             }
         }
 

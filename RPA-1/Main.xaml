@@ -1,4 +1,11 @@
-<Activity x:Class="RPA_1.Main" sap2010:ExpressionActivityEditor.ExpressionActivityEditor="C#" sap2010:WorkflowViewState.IdRef="RPA_1.Main_1" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:mca="clr-namespace:Microsoft.CSharp.Activities;assembly=System.Activities" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=mscorlib" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:RPA_1" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:sads="http://schemas.microsoft.com/netfx/2010/xaml/activities/debugger" mc:Ignorable="sads sap sap2010">
+﻿<Activity x:Class="RPA_1.Main" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:mca="clr-namespace:Microsoft.CSharp.Activities;assembly=System.Activities" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=mscorlib" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:RPA_1" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:sads="http://schemas.microsoft.com/netfx/2010/xaml/activities/debugger" mc:Ignorable="sads">
+  <x:Members>
+    <x:Property Name="argument1" Type="InArgument(x:String)" />
+    <x:Property Name="argument2" Type="InArgument(x:String)" />
+  </x:Members>
+  <sap2010:ExpressionActivityEditor.ExpressionActivityEditor>C#</sap2010:ExpressionActivityEditor.ExpressionActivityEditor>
+  
+  <sap2010:WorkflowViewState.IdRef>RPA_1.Main_1</sap2010:WorkflowViewState.IdRef>
   <TextExpression.NamespacesForImplementation>
     <sco:Collection x:TypeArguments="x:String">
       <x:String>System</x:String>
@@ -43,24 +50,40 @@
   <Sequence sap2010:WorkflowViewState.IdRef="Sequence_1">
     <Sequence.Variables>
       <Variable x:TypeArguments="x:String" Name="output" />
+      <Variable x:TypeArguments="x:String" Name="variable1" />
+      <Variable x:TypeArguments="x:String" Name="variable2" />
     </Sequence.Variables>
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
     <Assign sap2010:WorkflowViewState.IdRef="Assign_1">
       <Assign.To>
         <OutArgument x:TypeArguments="x:String">
-          <mca:CSharpReference x:TypeArguments="x:String">output</mca:CSharpReference>
+          <mca:CSharpReference x:TypeArguments="x:String">
+            <mca:CSharpReference.Result>
+              <OutArgument x:TypeArguments="Location(x:String)" />
+            </mca:CSharpReference.Result>output</mca:CSharpReference>
         </OutArgument>
       </Assign.To>
       <Assign.Value>
         <InArgument x:TypeArguments="x:String">
-          <mca:CSharpValue x:TypeArguments="x:String">"Hello from RPA-1"</mca:CSharpValue>
+          <mca:CSharpValue x:TypeArguments="x:String">
+            <mca:CSharpValue.Result>
+              <OutArgument x:TypeArguments="x:String" />
+            </mca:CSharpValue.Result>"Hello from RPA-1"</mca:CSharpValue>
         </InArgument>
       </Assign.Value>
     </Assign>
     <local:SubProcess1 sap2010:WorkflowViewState.IdRef="SubProcess1_1" />
-    <WriteLine sap2010:WorkflowViewState.IdRef="WriteLine_1">
+    <WriteLine sap2010:WorkflowViewState.IdRef="WriteLine_1" TextWriter="{x:Null}">
       <InArgument x:TypeArguments="x:String">
-        <mca:CSharpValue x:TypeArguments="x:String">output</mca:CSharpValue>
+        <mca:CSharpValue x:TypeArguments="x:String">
+          <mca:CSharpValue.Result>
+            <OutArgument x:TypeArguments="x:String" />
+          </mca:CSharpValue.Result>output</mca:CSharpValue>
       </InArgument>
     </WriteLine>
-  <sads:DebugSymbol.Symbol>dy1DOlxVc2Vyc1xNYXh4eFxEZXNrdG9wXEFJLVJQQVxSUEEtMVxNYWluLnhhbWwIKwNNWQIBATQFPw4CAQdABUYQAgEGRwVHfAIBBUgFTBECAQI8CzxbAgEKNws3VwIBCEoJSk0CAQM=</sads:DebugSymbol.Symbol></Sequence>
+  <sads:DebugSymbol.Symbol>dy1DOlxVc2Vyc1xNYXh4eFxEZXNrdG9wXEFJLVJQQVxSUEEtMVxNYWluLnhhbWwHMgNYWQIBAT0FTg4CAQhPBU9KAgEHUAVXEQIBAkgLS0oCAQ1AC0NGAgEJUglVPAIBAw==</sads:DebugSymbol.Symbol></Sequence>
 </Activity>

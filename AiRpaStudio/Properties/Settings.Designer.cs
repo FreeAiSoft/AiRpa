@@ -224,6 +224,21 @@ namespace RPA.Properties {
             }
         }
         
+        /// <summary>
+        /// Source of the Locals panel when stopped at a breakpoint: "Tracking", "ActivityInstance" or "Mixed".
+        /// </summary>
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Mixed")]
+        public string LocalsProviderMode {
+            get {
+                return ((string)(this["LocalsProviderMode"]));
+            }
+            set {
+                this["LocalsProviderMode"] = value;
+            }
+        }
+        
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]

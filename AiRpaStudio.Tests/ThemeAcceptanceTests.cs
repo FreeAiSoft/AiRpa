@@ -34,6 +34,7 @@ public class ThemeAcceptanceTests
         @"AiRpaStudio\Controls\StudioTitleBar.xaml",
         @"AiRpaStudio\Controls\ProjectManagerControl.xaml",
         @"AiRpaStudio\Controls\ToolboxPanel.xaml",
+        @"AiRpaStudio\Controls\LocalsControl.xaml",
         @"AiRpaStudio\CSharpExpressionEditor\RoslynExpressionEditor.xaml",
         @"AiRpaStudio\Resources\ButtonStyles.xaml",
         @"AiRpaStudio\Themes\StudioTheme.xaml",

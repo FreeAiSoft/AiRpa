@@ -1,0 +1,153 @@
+<UserControl x:Class="RPA.Controls.LocalsControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:RPA.Controls"
+             mc:Ignorable="d"
+             FontFamily="{DynamicResource Studio.FontFamily}"
+             Background="{DynamicResource Studio.Surface}"
+             d:DesignHeight="450" d:DesignWidth="640">
+    <UserControl.Resources>
+        <Style x:Key="LocalsTreeViewItemStyle" TargetType="TreeViewItem">
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Foreground" Value="{DynamicResource Studio.Foreground}" />
+            <Setter Property="FontFamily" Value="{DynamicResource Studio.FontFamily}" />
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Studio.Selected}" />
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Studio.Hover}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <HierarchicalDataTemplate x:Key="LocalsNodeTemplate" ItemsSource="{Binding Children}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="LocalsName" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="LocalsType" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="{Binding Name}"
+                           Foreground="{DynamicResource Studio.Foreground}"
+                           FontFamily="{DynamicResource Studio.FontFamily}"
+                           Margin="2,0,6,0"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1"
+                           Text="{Binding DisplayValue}"
+                           Foreground="{DynamicResource Studio.ForegroundMuted}"
+                           FontFamily="{DynamicResource Studio.FontFamily}"
+                           Margin="0,0,6,0"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="2"
+                           Text="{Binding TypeName}"
+                           Foreground="{DynamicResource Studio.ForegroundMuted}"
+                           FontFamily="{DynamicResource Studio.FontFamily}"
+                           Margin="0,0,2,0"
+                           TextTrimming="CharacterEllipsis" />
+            </Grid>
+        </HierarchicalDataTemplate>
+
+        <DataTemplate x:Key="LocalsDetailScalarTemplate">
+            <Border Background="{DynamicResource Studio.Surface}"
+                    BorderBrush="{DynamicResource Studio.Separator}"
+                    BorderThickness="0,1,0,0"
+                    Padding="8">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding Name}"
+                               Foreground="{DynamicResource Studio.Foreground}"
+                               FontFamily="{DynamicResource Studio.FontFamily}"
+                               Margin="0,0,8,0" />
+                    <TextBlock Text="{Binding DisplayValue}"
+                               Foreground="{DynamicResource Studio.ForegroundMuted}"
+                               FontFamily="{DynamicResource Studio.FontFamily}"
+                               Margin="0,0,8,0" />
+                    <TextBlock Text="{Binding TypeName}"
+                               Foreground="{DynamicResource Studio.ForegroundMuted}"
+                               FontFamily="{DynamicResource Studio.FontFamily}" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="LocalsDetailTreeTemplate">
+            <TreeView ItemsSource="{Binding Children}"
+                      ItemTemplate="{StaticResource LocalsNodeTemplate}"
+                      ItemContainerStyle="{StaticResource LocalsTreeViewItemStyle}"
+                      Background="{DynamicResource Studio.Surface}"
+                      BorderThickness="0"
+                      Foreground="{DynamicResource Studio.Foreground}"
+                      FontFamily="{DynamicResource Studio.FontFamily}" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="LocalsDetailTableTemplate">
+            <DataGrid ItemsSource="{Binding Value}"
+                      AutoGenerateColumns="True"
+                      IsReadOnly="True"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      HeadersVisibility="Column"
+                      RowHeaderWidth="0"
+                      GridLinesVisibility="All"
+                      Background="{DynamicResource Studio.Surface}"
+                      Foreground="{DynamicResource Studio.Foreground}"
+                      RowBackground="{DynamicResource Studio.Surface}"
+                      AlternatingRowBackground="{DynamicResource Studio.SurfaceAlt}"
+                      BorderBrush="{DynamicResource Studio.Separator}"
+                      BorderThickness="0,1,0,0"
+                      FontFamily="{DynamicResource Studio.FontFamily}" />
+        </DataTemplate>
+
+        <local:LocalsNodeTemplateSelector x:Key="LocalsNodeTemplateSelector"
+                                          ScalarTemplate="{StaticResource LocalsDetailScalarTemplate}"
+                                          TreeTemplate="{StaticResource LocalsDetailTreeTemplate}"
+                                          TableTemplate="{StaticResource LocalsDetailTableTemplate}" />
+    </UserControl.Resources>
+
+    <Grid Background="{DynamicResource Studio.Surface}" Grid.IsSharedSizeScope="True">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="2*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="{Binding ActivityDisplayName}"
+                   Foreground="{DynamicResource Studio.Foreground}"
+                   FontFamily="{DynamicResource Studio.FontFamily}"
+                   Margin="8,6,8,4"
+                   TextTrimming="CharacterEllipsis" />
+
+        <TreeView x:Name="LocalsTree"
+                  Grid.Row="1"
+                  ItemsSource="{Binding Roots}"
+                  ItemTemplate="{StaticResource LocalsNodeTemplate}"
+                  ItemContainerStyle="{StaticResource LocalsTreeViewItemStyle}"
+                  SelectedItemChanged="LocalsTree_SelectedItemChanged"
+                  Background="{DynamicResource Studio.Surface}"
+                  BorderBrush="{DynamicResource Studio.Separator}"
+                  BorderThickness="0,0,0,1"
+                  Foreground="{DynamicResource Studio.Foreground}"
+                  FontFamily="{DynamicResource Studio.FontFamily}" />
+
+        <GridSplitter Grid.Row="2"
+                      Height="4"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Center"
+                      Background="{DynamicResource Studio.Separator}"
+                      ResizeDirection="Rows"
+                      ResizeBehavior="PreviousAndNext" />
+
+        <ContentControl Grid.Row="3"
+                        Content="{Binding SelectedNode}"
+                        ContentTemplateSelector="{StaticResource LocalsNodeTemplateSelector}"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
+                        Background="{DynamicResource Studio.Surface}"
+                        Foreground="{DynamicResource Studio.Foreground}" />
+    </Grid>
+</UserControl>

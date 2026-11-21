@@ -357,6 +357,10 @@
       <DependentUpon>ProjectManagerControl.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controls\TextBoxFocusBehavior.cs" />
+    <Compile Include="Controls\LocalsControl.xaml.cs">
+      <DependentUpon>LocalsControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controls\LocalsNodeTemplateSelector.cs" />
     <Compile Include="Controls\ToolboxPanel.xaml.cs">
       <DependentUpon>ToolboxPanel.xaml</DependentUpon>
     </Compile>
@@ -371,6 +375,7 @@
     </Compile>
     <Compile Include="Helpers\CodeLanguageProvider.cs" />
     <Compile Include="Models\CodeDocument.cs" />
+    <Compile Include="Models\LocalsModel.cs" />
     <Compile Include="Converters\DocumentTitleConverter.cs" />
     <Compile Include="Converters\FileExtensionConverter.cs" />
     <Compile Include="Converters\InverseBooleanToVisibilityConverter.cs" />
@@ -450,6 +455,9 @@
     <Compile Include="CSharpExpressionEditor\VariableInfo.cs" />
     <Compile Include="CSharpExpressionEditor\XamlUtilities.cs" />
     <Compile Include="Entities\Project.cs" />
+    <Compile Include="Locals\LocalsNode.cs" />
+    <Compile Include="Locals\LocalsNodeKind.cs" />
+    <Compile Include="Locals\ValueInspector.cs" />
     <Compile Include="EntryPoint.cs" />
     <Compile Include="Enums\FSNodeType.cs" />
     <Compile Include="Enums\ProjectType.cs" />
@@ -601,6 +609,9 @@
     <Compile Include="Views\StartScriptView.xaml.cs">
       <DependentUpon>StartScriptView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\LocalsProviderModeView.xaml.cs">
+      <DependentUpon>LocalsProviderModeView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\MainView.xaml.cs">
       <DependentUpon>MainView.xaml</DependentUpon>
     </Compile>
@@ -629,6 +640,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Controls\CodeEditorView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controls\LocalsControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -673,6 +688,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\StartScriptView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\LocalsProviderModeView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

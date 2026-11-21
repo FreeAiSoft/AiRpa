@@ -59,6 +59,11 @@ namespace RPA.Views
         private Border wfProjectBorder;
         private Chat.Views.ChatHostView chatPanel;
         private NuGet.Views.NuGetPanel nuGetPanel;
+        private Border localsBorder;
+        private LocalsModel localsModel;
+
+        /// <summary>Модель панели «Локальные переменные» для привязки к точке останова (TrackHandler/ActivityRunner).</summary>
+        internal LocalsModel LocalsModel => localsModel;
         /// <summary>ContentId вкладки NuGet: по нему панель находится при повторном открытии.</summary>
         private const string NuGetContentId = "NuGet";
 
@@ -127,6 +132,10 @@ namespace RPA.Views
                 Child = projectManagerControl
             };
             chatPanel = new Chat.Views.ChatHostView();
+            // Панель «Локальные переменные»: модель данных + контрол, обёрнутый в Border для раскладки.
+            localsModel = new LocalsModel();
+            LocalsControl localsControl = new LocalsControl { DataContext = localsModel };
+            localsBorder = new Border { Child = localsControl };
             RPA.Core.DesignerErrorReporter.Captured += OnDesignerErrorCaptured;
             RPA.Core.DesignerErrorReporter.SendRequested += OnDesignerErrorSendRequested;
             // Route chat diagnostics to the studio log (viewed via LogControlLibrary).
@@ -545,6 +554,11 @@ namespace RPA.Views
                         {
                             args.Content = chatPanel;
                         }
+                        else if (contentId == "Locals" || args.Model.Title == (FindResource("lang_main_locals") as string))
+                        {
+                            args.Content = localsBorder;
+                        }
+
                         // NuGet открывается вкладкой панели документов (как менеджер пакетов VS).
                         // Ветка обязана стоять до отмены LayoutDocument ниже: иначе сохранённая
                         // вкладка NuGet не восстановится при старте студии.
@@ -773,6 +787,20 @@ namespace RPA.Views
             logPane.Children.Add(logAnchorable);
             rightLayoutAnchorablePaneGroup.Children.Add(logPane);
 
+            // Locals pane
+            LayoutAnchorablePane localsPane = new LayoutAnchorablePane();
+            LayoutAnchorable localsAnchorable = new LayoutAnchorable
+            {
+                ContentId = "Locals",
+                Title = FindResource("lang_main_locals") as string,
+                CanClose = false,
+                CanHide = false,
+                Content = localsBorder
+            };
+            localsPane.Children.Add(localsAnchorable);
+            rightLayoutAnchorablePaneGroup.Children.Add(localsPane);
+
+
             // Chat pane
             LayoutAnchorablePane chatPane = new LayoutAnchorablePane();
             LayoutAnchorable chatAnchorable = new LayoutAnchorable
@@ -850,6 +878,48 @@ namespace RPA.Views
             }
         }
 
+        private void ShowLocalsPanel()
+        {
+            var anchorable = dockManager?.Layout?
+                .Descendents()
+                .OfType<LayoutAnchorable>()
+                .FirstOrDefault(a => string.Equals(a.ContentId, "Locals", StringComparison.Ordinal));
+
+            if (anchorable != null)
+            {
+                anchorable.IsActive = true;
+                anchorable.Show();
+            }
+            else
+            {
+                if (dockManager?.Layout == null)
+                {
+                    return;
+                }
+
+                // Панель отсутствует в текущей раскладке (например, сохранённая до появления Locals
+                // раскладка ADLayout не содержит anchorable «Locals»). Создаём её заново и докаем
+                // в правую группу, как в дефолтной раскладке.
+                anchorable = new LayoutAnchorable
+                {
+                    ContentId = "Locals",
+                    Title = FindResource("lang_main_locals") as string,
+                    CanClose = false,
+                    CanHide = false,
+                    Content = localsBorder
+                };
+                anchorable.AddToLayout(dockManager, AnchorableShowStrategy.Right);
+                anchorable.IsActive = true;
+                anchorable.Show();
+            }
+        }
+
+        private void LocalsPanelMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            ShowLocalsPanel();
+        }
+
+
         private void NuGetPanelMenuItem_Click(object sender, RoutedEventArgs e)
         {
             ShowNuGetPanel();
@@ -917,6 +987,19 @@ namespace RPA.Views
 
             _ = view.ShowDialog();
         }
+
+        /// <summary>Пункт «Настройки → Локальные переменные…»: диалог выбора источника данных панели Locals.</summary>
+        private void LocalsProviderModeMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            LocalsProviderModeView view = new LocalsProviderModeView
+            {
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+
+            _ = view.ShowDialog();
+        }
+
 
         private void ShowNuGetPanel()
         {

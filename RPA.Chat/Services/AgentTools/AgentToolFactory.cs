@@ -979,21 +979,27 @@ namespace RPA.Chat.Services.AgentTools
             }
 
 
+            ChatLog.Info("[build] tool requested: configuration=" + configuration + ", toolchain=" + (requestedToolchain ?? "auto"));
+
             try
             {
                 await _buildFeedback.BuildAsync(configuration, ct).ConfigureAwait(false);
                 var errors = await _buildFeedback.GetCompilationErrorsAsync(ct).ConfigureAwait(false);
                 var errorCount = (errors ?? new List<BuildError>()).Count(e => e != null && string.Equals(e.Severity, "Error", StringComparison.OrdinalIgnoreCase));
-                return errorCount == 0
+                var result = errorCount == 0
                     ? "Build succeeded (" + configuration + ")." + toolchainInfo
                     : "Build finished with " + errorCount + " error(s) (" + configuration + "). Use read_errors to inspect them." + toolchainInfo;
+                ChatLog.Info("[build] tool finished: " + result);
+                return result;
             }
             catch (OperationCanceledException)
             {
+                ChatLog.Warn("[build] tool cancelled");
                 throw;
             }
             catch (Exception ex)
             {
+                ChatLog.Warn("[build] tool failed: " + ex.Message);
                 return "Build failed: " + ex.Message;
             }
         }

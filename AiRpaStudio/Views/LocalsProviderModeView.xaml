@@ -1,0 +1,106 @@
+<Window x:Class="RPA.Views.LocalsProviderModeView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:RPA.Controls"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        mc:Ignorable="d"
+        Height="250"
+        Width="520"
+        FontFamily="{DynamicResource Studio.FontFamily}"
+        Title="{DynamicResource lang_locals_provider_mode_title}"
+        WindowStartupLocation="CenterOwner"
+        WindowState="Normal"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="{DynamicResource Studio.Surface}"
+        Foreground="{DynamicResource Studio.Foreground}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            ResizeBorderThickness="0"
+                            GlassFrameThickness="0"
+                            CornerRadius="8"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+    <!--
+        Диалог «Режим локальных переменных»: выбор источника данных панели Locals
+        (Tracking / ActivityInstance / Mixed). Заголовок рисует студия (StudioTitleBar);
+        цвета — только ключи палитры Studio.*.
+    -->
+    <Border BorderBrush="{DynamicResource Studio.Separator}" BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="32" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <controls:StudioTitleBar Grid.Row="0"
+                                     ShowMinimize="False" />
+
+            <Grid Grid.Row="1"
+                  Margin="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="{DynamicResource lang_locals_provider_mode_label}"
+                           Foreground="{DynamicResource Studio.ForegroundMuted}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,8" />
+
+                <RadioButton x:Name="TrackingRadio"
+                             Grid.Row="1"
+                             GroupName="LocalsProviderMode"
+                             Content="{DynamicResource lang_locals_provider_mode_tracking}"
+                             Foreground="{DynamicResource Studio.Foreground}"
+                             Margin="0,0,0,6" />
+
+                <RadioButton x:Name="ActivityInstanceRadio"
+                             Grid.Row="2"
+                             GroupName="LocalsProviderMode"
+                             Content="{DynamicResource lang_locals_provider_mode_instance}"
+                             Foreground="{DynamicResource Studio.Foreground}"
+                             Margin="0,0,0,6" />
+
+                <RadioButton x:Name="MixedRadio"
+                             Grid.Row="3"
+                             GroupName="LocalsProviderMode"
+                             Content="{DynamicResource lang_locals_provider_mode_mixed}"
+                             Foreground="{DynamicResource Studio.Foreground}"
+                             Margin="0,0,0,12" />
+
+                <Grid Grid.Row="4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button x:Name="SaveButton"
+                            Grid.Column="1"
+                            Content="{DynamicResource lang_save}"
+                            Height="32"
+                            MinWidth="120"
+                            Margin="0,0,8,0"
+                            IsDefault="True"
+                            Click="SaveButton_Click" />
+
+                    <Button x:Name="CancelButton"
+                            Grid.Column="2"
+                            Content="{DynamicResource lang_cancel}"
+                            Height="32"
+                            MinWidth="120"
+                            IsCancel="True"
+                            Click="CancelButton_Click" />
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

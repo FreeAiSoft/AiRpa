@@ -39,6 +39,12 @@ namespace RPA.Chat.Services
         /// <summary>Requested toolchain: "auto" (newest installed), "vs2022" or "vs2026".</summary>
         public string MsBuildToolchain { get; set; } = "auto";
 
+        /// <summary>Maximum wall-clock time for one build before the MSBuild process tree is killed.</summary>
+        public TimeSpan BuildTimeout { get; set; } = TimeSpan.FromMinutes(15);
+
+        /// <summary>How often a long-running build logs a "still running" heartbeat line.</summary>
+        public TimeSpan BuildWatchdogInterval { get; set; } = TimeSpan.FromSeconds(30);
+
         /// <summary>Which MSBuild.exe the last build used, or which one a build would use now.</summary>
         public string DescribeToolchain()
         {
@@ -74,30 +80,66 @@ namespace RPA.Chat.Services
             foreach (var pair in MsBuildLocator.GetEnvironmentOverrides(location))
                 psi.EnvironmentVariables[pair.Key] = pair.Value;
 
+            // Keep /m worker nodes from outliving this build: reused nodes hold file locks and
+            // can hang a subsequent build long after the current one finished or was cancelled.
+            psi.EnvironmentVariables["MSBUILDDISABLENODEREUSE"] = "1";
+
+            ChatLog.Info("[build] start: config=" + config + ", toolchain=" + MsBuildToolchain + ", msbuild=" + location.Path + ", args=" + psi.Arguments);
+
             try
             {
                 using (var process = new Process { StartInfo = psi })
                 {
+                    var output = new StringBuilder();
+                    var outputLock = new object();
+
+                    process.OutputDataReceived += (s, e) => { if (e.Data == null) return; lock (outputLock) output.AppendLine(e.Data); };
+                    process.ErrorDataReceived += (s, e) => { if (e.Data == null) return; lock (outputLock) output.AppendLine(e.Data); };
+
                     if (!process.Start())
                         throw new InvalidOperationException("Failed to start MSBuild.");
 
-                    var stdoutTask = process.StandardOutput.ReadToEndAsync();
-                    var stderrTask = process.StandardError.ReadToEndAsync();
-                    var exitTask = Task.Run(() => process.WaitForExit());
+                    var pid = process.Id;
+                    ChatLog.Info("[build] started: pid=" + pid);
 
-                    var completed = await Task.WhenAny(exitTask, Task.Delay(Timeout.Infinite, cancellationToken)).ConfigureAwait(false);
-                    if (completed != exitTask)
+                    var stopwatch = Stopwatch.StartNew();
+                    process.BeginOutputReadLine();
+                    process.BeginErrorReadLine();
+
+                    // The parameterless WaitForExit also drains the async stdout/stderr handlers,
+                    // so by the time exitTask completes the StringBuilder holds the whole output.
+                    var exitTask = Task.Run(() => process.WaitForExit());
+                    var timeoutTask = Task.Delay(BuildTimeout, cancellationToken);
+
+                    using (StartBuildWatchdog(process, stopwatch))
                     {
-                        try { process.Kill(); } catch { }
-                        cancellationToken.ThrowIfCancellationRequested();
+                        var completed = await Task.WhenAny(exitTask, timeoutTask).ConfigureAwait(false);
+                        if (completed != exitTask)
+                        {
+                            var timedOut = !cancellationToken.IsCancellationRequested;
+                            var reason = timedOut
+                                ? "timed out after " + (int)BuildTimeout.TotalSeconds + "s"
+                                : "cancelled";
+                            ChatLog.Warn("[build] " + reason + ": pid=" + pid + ", elapsed=" + stopwatch.Elapsed + ", alive=" + IsAlive(process));
+                            KillProcessTree(process);
+
+                            // Let the readers flush whatever they already captured, then keep it
+                            // for read_output/read_errors so the caller can inspect partial output.
+                            await Task.WhenAny(exitTask, Task.Delay(3000)).ConfigureAwait(false);
+                            stopwatch.Stop();
+                            _lastOutput = location.Describe() + Environment.NewLine + output.ToString();
+
+                            if (timedOut)
+                                throw new InvalidOperationException("Build timed out after " + (int)BuildTimeout.TotalSeconds + " seconds. See the build output for partial progress.");
+                            cancellationToken.ThrowIfCancellationRequested();
+                        }
                     }
 
-                    var stdout = await stdoutTask.ConfigureAwait(false);
-                    var stderr = await stderrTask.ConfigureAwait(false);
+                    stopwatch.Stop();
+                    var text = output.ToString();
+                    _lastOutput = location.Describe() + Environment.NewLine + text;
 
-                    // The toolchain line is part of the build output, so it is visible in the studio log
-                    // window and in read_build_output instead of being an invisible implementation detail.
-                    _lastOutput = location.Describe() + Environment.NewLine + stdout + stderr;
+                    ChatLog.Info("[build] finished: pid=" + pid + ", exitCode=" + process.ExitCode + ", elapsed=" + stopwatch.Elapsed + ", outputChars=" + text.Length);
 
                     if (process.ExitCode != 0)
                         throw new InvalidOperationException("Build failed (exit code " + process.ExitCode + "). See the build output for details.");
@@ -183,9 +225,83 @@ namespace RPA.Chat.Services
             return result;
         }
 
+        private Timer StartBuildWatchdog(Process process, Stopwatch stopwatch)
+        {
+            var interval = BuildWatchdogInterval;
+            if (interval <= TimeSpan.Zero)
+                interval = TimeSpan.FromSeconds(30);
+
+            return new Timer(
+                _ =>
+                {
+                    int pid;
+                    bool alive;
+                    try
+                    {
+                        pid = process.Id;
+                        alive = !process.HasExited;
+                    }
+                    catch
+                    {
+                        return;
+                    }
+                    if (!alive) return;
+                    ChatLog.Warn("[build] still running: pid=" + pid + ", elapsed=" + stopwatch.Elapsed);
+                },
+                null,
+                interval,
+                interval);
+        }
+
+        private static bool IsAlive(Process process)
+        {
+            try { return !process.HasExited; }
+            catch { return false; }
+        }
+
+        private static void KillProcessTree(Process process)
+        {
+            int pid;
+            try
+            {
+                if (process.HasExited) return;
+                pid = process.Id;
+            }
+            catch
+            {
+                return;
+            }
+
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "taskkill.exe",
+                    Arguments = "/PID " + pid + " /T /F",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+                using (var killer = new Process { StartInfo = psi })
+                {
+                    if (killer.Start())
+                    {
+                        try { killer.WaitForExit(10000); } catch { }
+                    }
+                }
+            }
+            catch
+            {
+                // Fall through to killing just the root process below.
+            }
+
+            try { process.Kill(); } catch { }
+        }
+
         private static string BuildArguments(string path, string configuration)
         {
-            return "\"" + path + "\" /nologo /m /v:minimal /p:Configuration=" + configuration;
+            return "\"" + path + "\" /nologo /m /nodeReuse:false /v:minimal /p:Configuration=" + configuration;
         }
     }
 }

@@ -52,6 +52,9 @@
     <Setting Name="DefaultRunScript" Type="System.String" Scope="User">
       <Value Profile="(Default)">Main.xaml</Value>
     </Setting>
+    <Setting Name="LocalsProviderMode" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Mixed</Value>
+    </Setting>
     <Setting Name="NuGetSelectedSources" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>

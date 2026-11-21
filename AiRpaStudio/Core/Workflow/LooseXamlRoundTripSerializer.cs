@@ -23,6 +23,8 @@ namespace RPA.Core.Workflow
         private const string ClrNamespacePrefix = "clr-namespace:";
         private const string DynamicActivityName = "DynamicActivity";
         private const string NameAttribute = "Name";
+        private const string DesignerNamespace = "http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation";
+        private const string Designer2010Namespace = "http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation";
 
         internal static string Serialize(object documentRoot, WorkflowTypeRegistry registry)
         {
@@ -37,6 +39,7 @@ namespace RPA.Core.Workflow
             }
 
             string xaml = SerializeObject(documentRoot);
+            xaml = RemoveDirectHintSize(xaml);
             xaml = RewriteFacades(xaml, registry);
             xaml = RewriteCodeTypes(xaml, registry);
             xaml = EnsureActivityNamespaces(xaml, documentRoot);
@@ -108,6 +111,53 @@ namespace RPA.Core.Workflow
             }
 
             return text.ToString();
+        }
+
+        /// <summary>
+        /// Убирает прямые <c>sap:VirtualizedContainerService.HintSize</c> с элементов активностей.
+        /// Канонический размер живёт только в <c>sap2010:ViewStateData</c>; иначе штатный загрузчик WF
+        /// (конвертация ViewState в attached properties) выставляет HintSize второй раз и получает
+        /// «'HintSize' property has already been set» при повторном открытии пересохранённого файла.
+        /// </summary>
+        private static string RemoveDirectHintSize(string xaml)
+        {
+            XDocument document = XDocument.Parse(xaml, LoadOptions.PreserveWhitespace);
+            XElement root = document.Root;
+
+            if (root == null)
+            {
+                return xaml;
+            }
+
+            bool changed = false;
+
+            foreach (XElement element in root.DescendantsAndSelf().ToList())
+            {
+                // ViewStateData хранит канонический HintSize — его не трогаем.
+                if (element.Name.LocalName == "ViewStateData"
+                    && element.Name.NamespaceName == Designer2010Namespace)
+                {
+                    continue;
+                }
+
+                foreach (XAttribute attribute in element.Attributes().Where(a =>
+                    a.Name.NamespaceName == DesignerNamespace
+                    && a.Name.LocalName == "VirtualizedContainerService.HintSize").ToList())
+                {
+                    attribute.Remove();
+                    changed = true;
+                }
+
+                foreach (XElement child in element.Elements().Where(e =>
+                    e.Name.NamespaceName == DesignerNamespace
+                    && e.Name.LocalName == "VirtualizedContainerService.HintSize").ToList())
+                {
+                    child.Remove();
+                    changed = true;
+                }
+            }
+
+            return changed ? WriteDocument(document) : xaml;
         }
 
         /// <summary>

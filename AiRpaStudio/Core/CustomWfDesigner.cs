@@ -19,6 +19,7 @@ using RPA.Core.Generation;
 using RPA.Core.Services;
 
 using RPA.Helpers;
+using RPA.Models;
 using RPA.Views;
 using RpaCommon;
 
@@ -77,6 +78,8 @@ namespace RPA.Core
         public WorkflowDesignerEx RootWorkflowDesigner { get; private set; }
 
         public LogViewerControl LogViewerControl => ((MainView)ViewModel.View).LogViewerControl;
+
+        public LocalsModel LocalsModel => (ViewModel?.View as MainView)?.LocalsModel;
 
         public Project Project { get; private set; }
 

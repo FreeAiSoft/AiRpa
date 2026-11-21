@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Activities;
 using System.Activities.Tracking;
 using System.Collections.Generic;
@@ -73,6 +73,8 @@ namespace ActivitiesTracker.Core
                     {
                         return;
                     }
+
+                    LocalsScopeTracker.Observe(activityStateRecord);
 
                     Activity trackingActivity = activityStateRecord.Activity.GetProperty<Activity>("Activity");
                     string trackingMessage = CreateActivityStateMessage(activityStateRecord);

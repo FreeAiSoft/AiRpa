@@ -962,6 +962,40 @@ public sealed class DesignerBenchProxy : MarshalByRefObject
         });
     }
 
+    public LooseFlushReport LooseFlush(string mainXaml, string[] projectXamlFiles)
+    {
+        DesignerTestHost host = DesignerTestHost.Shared;
+
+        return host.Invoke(() =>
+        {
+            var report = new LooseFlushReport();
+
+            try
+            {
+                WorkflowTypeRegistry registry = WorkflowTypeRegistry.Scan(projectXamlFiles);
+                registry.CodeTypes = BuildCodeTypeCatalog(mainXaml);
+                var designer = new WorkflowDesignerEx();
+                WfDesignerEnvironment.Configure(designer);
+                LooseXamlDesignerLoader.Open(designer, mainXaml, registry);
+
+                // Сбрасываем отложенную раскладку DesignerView при живом кэше шрифтов, чтобы она не
+                // сработала при выгрузке домена и не уронила процесс (см. CodeViewSwitchScenario).
+                RealizeDesignerSurface(designer);
+
+                designer.Flush();
+                report.FlushedText = designer.Text;
+                report.Description = "loose-сохранение выполнено";
+            }
+            catch (Exception ex)
+            {
+                report.Error = ErrorText.Of(ex);
+                report.Description = "loose-сохранение упало: " + report.Error;
+            }
+
+            return report;
+        });
+    }
+
     private static ProjectCodeTypeCatalog BuildCodeTypeCatalog(string mainXaml)
     {
         string projectFile = FindProjectFile(mainXaml);

@@ -144,6 +144,10 @@
   <data name="lang_main_log" xml:space="preserve">
     <value>Лог</value>
   </data>
+  <data name="lang_main_locals" xml:space="preserve">
+    <value>Локальные переменные</value>
+  </data>
+
   <data name="lang_main_outline" xml:space="preserve">
     <value>Структура</value>
   </data>
@@ -348,5 +352,26 @@
   </data>
   <data name="lang_cancel" xml:space="preserve">
     <value>Отмена</value>
+  </data>
+  <data name="lang_main_locals_provider_mode" xml:space="preserve">
+    <value>Режим локальных переменных…</value>
+  </data>
+  <data name="lang_locals_provider_mode_title" xml:space="preserve">
+    <value>Режим локальных переменных</value>
+  </data>
+  <data name="lang_locals_provider_mode_label" xml:space="preserve">
+    <value>Источник локальных переменных при остановке на точке останова:</value>
+  </data>
+  <data name="lang_locals_provider_mode_tracking" xml:space="preserve">
+    <value>Трекинг (снимок)</value>
+  </data>
+  <data name="lang_locals_provider_mode_instance" xml:space="preserve">
+    <value>Экземпляр активности (живые значения)</value>
+  </data>
+  <data name="lang_locals_provider_mode_mixed" xml:space="preserve">
+    <value>Смешанный: инстанс с фолбэком на трекинг</value>
+  </data>
+  <data name="lang_save" xml:space="preserve">
+    <value>Сохранить</value>
   </data>
 </root>

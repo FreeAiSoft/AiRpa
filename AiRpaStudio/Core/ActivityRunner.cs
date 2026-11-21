@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Activities;
 using System.Activities.Debugger;
 using System.Activities.Presentation.View;
@@ -98,6 +98,7 @@ namespace RPA.Core
                     // открытых дизайнерах (старая точка останова), затем разбудить фоновый
                     // поток прогона — иначе рамка предыдущей точки останова задваивается.
                     OnUi(ClearCurrentLocationOnAllDesigners);
+                    OnUi(ClearLocalsPanel);
                     _resumeRuntimeFromHost?.Set();
                 }
             }
@@ -107,6 +108,8 @@ namespace RPA.Core
                 OnUi(() =>
                 {
                     ClearCurrentLocationOnAllDesigners();
+                    ClearLocalsPanel();
+                    LocalsScopeTracker.Reset();
                     WorkflowState = WorkflowState.StartingError;
                 });
                 SetDesignerIsReadonly(false);
@@ -117,6 +120,8 @@ namespace RPA.Core
         private void Start(string pathToXaml)
         {
             _resumeRuntimeFromHost = new AutoResetEvent(false);
+            OnUi(ClearLocalsPanel);
+            LocalsScopeTracker.Reset();
 
             // CP-08: зависимости робота ищутся в его выходном каталоге — до десериализации XAML,
             // иначе собственные пакеты робота (bin\<Config>[\<TFM>]) не находятся и WF падает.
@@ -430,6 +435,8 @@ namespace RPA.Core
                 {
                     SetDesignerIsReadonly(false);
                     ClearCurrentLocationOnAllDesigners();
+                    ClearLocalsPanel();
+                    LocalsScopeTracker.Reset();
                     WorkflowState = WorkflowState.StartingError;
                 });
                 RaiseRunFinished(WorkflowState.StartingError);
@@ -470,6 +477,8 @@ namespace RPA.Core
             {
                 SetDesignerIsReadonly(false);
                 ClearCurrentLocationOnAllDesigners();
+                ClearLocalsPanel();
+                LocalsScopeTracker.Reset();
 
                 WorkflowState = WorkflowState.Complete;
             });
@@ -505,6 +514,8 @@ namespace RPA.Core
             OnUi(() =>
             {
                 SetDesignerIsReadonly(false);
+                ClearLocalsPanel();
+                LocalsScopeTracker.Reset();
                 ClearCurrentLocationOnAllDesigners();
 
                 WorkflowState = WorkflowState.Aborted;
@@ -578,6 +589,7 @@ namespace RPA.Core
                 catch (Exception ex)
                 {
                     Log(ErrorText.Of(ex), RpaCommon.Enums.LogLevel.Error);
+                    LocalsScopeTracker.Reset();
                     OnUi(() =>
                     {
                         SetDesignerIsReadonly(false);
@@ -608,6 +620,8 @@ namespace RPA.Core
                 OnUi(() =>
                 {
                     ClearCurrentLocationOnAllDesigners();
+                    ClearLocalsPanel();
+                    LocalsScopeTracker.Reset();
                     WorkflowState = WorkflowState.Aborted;
                 });
                 RaiseRunFinished(WorkflowState.Aborted);
@@ -644,6 +658,15 @@ namespace RPA.Core
             {
                 designer.DebugManagerView.CurrentLocation = null;
             }
+        }
+
+        /// <summary>
+        /// Clears the Locals panel. Must be called on the UI thread: the model mutates an
+        /// ObservableCollection the panel binds to.
+        /// </summary>
+        private static void ClearLocalsPanel()
+        {
+            CustomWfDesigner.GetInstance().LocalsModel?.Clear();
         }
 
         private void Log(string message, RpaCommon.Enums.LogLevel level)

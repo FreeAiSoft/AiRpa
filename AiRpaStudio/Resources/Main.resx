@@ -144,6 +144,10 @@
   <data name="lang_main_log" xml:space="preserve">
     <value>Log</value>
   </data>
+  <data name="lang_main_locals" xml:space="preserve">
+    <value>Locals</value>
+  </data>
+
   <data name="lang_main_outline" xml:space="preserve">
     <value>Outline</value>
   </data>
@@ -348,5 +352,26 @@
   </data>
   <data name="lang_cancel" xml:space="preserve">
     <value>Cancel</value>
+  </data>
+  <data name="lang_main_locals_provider_mode" xml:space="preserve">
+    <value>Locals Provider Mode…</value>
+  </data>
+  <data name="lang_locals_provider_mode_title" xml:space="preserve">
+    <value>Locals Provider Mode</value>
+  </data>
+  <data name="lang_locals_provider_mode_label" xml:space="preserve">
+    <value>Source of local variables when stopped at a breakpoint:</value>
+  </data>
+  <data name="lang_locals_provider_mode_tracking" xml:space="preserve">
+    <value>Tracking (snapshot)</value>
+  </data>
+  <data name="lang_locals_provider_mode_instance" xml:space="preserve">
+    <value>Activity instance (live values)</value>
+  </data>
+  <data name="lang_locals_provider_mode_mixed" xml:space="preserve">
+    <value>Mixed: instance with tracking fallback</value>
+  </data>
+  <data name="lang_save" xml:space="preserve">
+    <value>Save</value>
   </data>
 </root>

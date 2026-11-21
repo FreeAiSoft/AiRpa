@@ -43,10 +43,20 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Enums\ActivityState.cs" />
+    <Compile Include="Core\ActivityInstanceLocalsProvider.cs" />
     <Compile Include="Core\CustomTrackingParticipant.cs" />
     <Compile Include="Extensions\StringExtensions.cs" />
     <Compile Include="Core\LocalsHelper.cs" />
+    <Compile Include="Core\LocalsScopeTracker.cs" />
+    <Compile Include="Core\ILocalsProvider.cs" />
+    <Compile Include="Core\LocalsScopeResolver.cs" />
+    <Compile Include="Core\LocalsProviderFactory.cs" />
+    <Compile Include="Core\LocalsProviderMode.cs" />
+    <Compile Include="Core\MixedLocalsProvider.cs" />
+    <Compile Include="Core\TrackingLocalsProvider.cs" />
     <Compile Include="Entities\LocalVar.cs" />
+
+    <Compile Include="Entities\LocalsSnapshot.cs" />
     <Compile Include="Extensions\ObjectExtensions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Entities\TrackingEventArgs.cs" />
