@@ -1405,6 +1405,13 @@ namespace RPA.Views
                 mainModel.SaveSessionState();
             }
 
+            // При закрытии студии останавливаем запущенный WF-процесс: иначе фоновый
+            // WorkflowApplication продолжает отладку и удерживает процесс в памяти после
+            // закрытия окна. Остановка идёт после подтверждения закрытия (при отмене прогон
+            // остаётся живым) и до финального сохранения раскладки.
+            StopRunningWorkflowOnClose();
+
+
 
             // Save layout one final time before closing
             if (_layoutSaveTimer != null)
@@ -1427,6 +1434,35 @@ namespace RPA.Views
 
             base.OnClosing(e);
         }
+
+        /// <summary>
+        /// Останавливает запущенный WF-процесс при закрытии главного окна.
+        /// Без этого фоновый <c>WorkflowApplication</c> (в т.ч. остановленный на точке останова)
+        /// продолжает жить после закрытия окна, и процесс студии не завершается.
+        /// </summary>
+        private void StopRunningWorkflowOnClose()
+        {
+            try
+            {
+                CustomWfDesigner designer = CustomWfDesigner.GetInstance();
+                CustomWfDesignerState state = designer?.CustomWfDesignerState ?? CustomWfDesignerState.Stop;
+
+                RPA.Logging.Log.Write($"OnClosing: состояние WF-дизайнера перед закрытием окна = {state}.");
+
+                if (state == CustomWfDesignerState.Stop)
+                {
+                    return;
+                }
+
+                RPA.Logging.Log.Write("OnClosing: запущен WF-процесс — вызываю CustomWfDesigner.WorkflowStop().");
+                designer.WorkflowStop();
+            }
+            catch (Exception ex)
+            {
+                RPA.Logging.Log.Write("OnClosing: не удалось остановить WF-процесс.", ex);
+            }
+        }
+
 
         private void SyncWFControls(WorkflowDesigner workflowDesigner)
         {

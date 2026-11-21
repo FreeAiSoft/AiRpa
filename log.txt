@@ -1,0 +1,178 @@
+[10:46:58:345]  [Startup] App: конструктор завершён (обработчики падений + AssemblyBindingUnifier): +0 ms (total 0 ms)
+
+[10:46:58:812]  [Startup] StartupCore: начало (после разбора App.xaml): +467 ms (total 467 ms)
+
+[10:46:58:833]  [Startup] StartupCore: язык и культуры установлены: +21 ms (total 488 ms)
+
+[10:46:58:837]  [Startup] StartupCore: StudioBrushes.ApplyToApplication(): +4 ms (total 492 ms)
+
+[10:46:58:845]  [Startup] StartupCore: StudioFonts.ApplyToApplication(): +8 ms (total 500 ms)
+
+[10:46:58:850]  [Startup] StartupCore: WfDesignerTheme.ApplyToApplication(): +5 ms (total 505 ms)
+
+[10:46:58:855]  Цвета WF: словарь палитры установлен в кэш шаблонов (8 цветов, 27 ключей).
+
+[10:46:58:856]  [Startup] StartupCore: WfColorResourcesOverride.TryInstall(): +6 ms (total 511 ms)
+
+[10:46:58:945]  [Startup] StartupCore: WindowCorner.EnableAvalonDockWindows(): +89 ms (total 600 ms)
+
+[10:46:59:035]  [Startup] EntryPoint.Run: начало: +90 ms (total 690 ms)
+
+[10:46:59:086]  [Startup] EntryPoint.Run: new Models.Main() создан: +51 ms (total 741 ms)
+
+[10:46:59:086]  [Startup] EntryPoint.Run: CustomWfDesigner.GetInstance(): +1 ms (total 742 ms)
+
+[10:46:59:086]  [Startup] EntryPoint.Run: ProjectManager.GetInstance(): +0 ms (total 742 ms)
+
+[10:46:59:157]  [Startup] MainView: конструктор, начало: +69 ms (total 811 ms)
+
+[10:46:59:157]  [Startup] MainView: StudioBrushes + StudioFonts: +1 ms (total 812 ms)
+
+[10:46:59:505]  [Startup] MainView: InitializeComponent(): +349 ms (total 1161 ms)
+
+[10:46:59:506]  [Startup] MainView: SetDockingManager(): +1 ms (total 1162 ms)
+
+[10:46:59:506]  [Startup] MainView: каркас окна готов (тяжёлые панели отложены до первого кадра): +0 ms (total 1162 ms)
+
+[10:46:59:508]  [Startup] Main.Run: начало: +1 ms (total 1163 ms)
+
+[10:46:59:557]  [Startup] Main.Run: DesignerMetadata().Register(): +50 ms (total 1213 ms)
+
+[10:46:59:570]  [Startup] Main.Run: SetLanguage(): +12 ms (total 1225 ms)
+
+[10:46:59:570]  [Startup] Main.Run: AppSettings.GetInstance(): +1 ms (total 1226 ms)
+
+[10:47:00:480]  [Palette] EnsureStudioLibrariesLoaded: +46 ms
+
+[10:47:00:481]  [Palette] BuiltinCategories: +47 ms, категорий=6
+
+[10:47:00:483]  [Palette] CategoryFromLoadedAssembly(Activities.Flow): +2 ms, типов=1, найдена=True
+
+[10:47:00:483]  [Palette] CategoryFromLoadedAssembly(Activities.Debug): +0 ms, типов=0, найдена=False
+
+[10:47:00:483]  [Palette] CategoryFromLoadedAssembly(Activities.OS): +0 ms, типов=0, найдена=False
+
+[10:47:00:484]  [Palette] StudioActivityPalette.Categories: всего +50 ms, категорий=7, типов=29
+
+[10:47:00:492]  [Palette]     Prop DoWhile.Variables: GetType=0 ms, Describe=1 ms
+
+[10:47:00:496]  [Palette]     Prop DoWhile.Condition: GetType=0 ms, Describe=3 ms
+
+[10:47:00:496]  [Palette] Describe(System.Activities.Statements.DoWhile): GetProperties=0 ms, всего=5 ms
+
+[10:47:00:497]  [Palette] Describe(System.Activities.Statements.ForEach`1): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:498]  [Palette] Describe(System.Activities.Statements.If): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:498]  [Palette] Describe(System.Activities.Statements.Sequence): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:498]  [Palette] Describe(System.Activities.Statements.Switch`1): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:499]  [Palette] Describe(System.Activities.Statements.While): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:499]  [Palette] Describe(System.Activities.Statements.Parallel): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:499]  [Palette] Describe(System.Activities.Statements.ParallelForEach`1): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:500]  [Palette] Describe(System.Activities.Statements.Pick): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:500]  [Palette] Describe(System.Activities.Statements.Flowchart): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:500]  [Palette] Describe(System.Activities.Statements.StateMachine): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:501]  [Palette] Describe(System.Activities.Statements.Assign): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:501]  [Palette] Describe(System.Activities.Statements.Delay): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:501]  [Palette] Describe(System.Activities.Statements.InvokeDelegate): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:502]  [Palette] Describe(System.Activities.Statements.InvokeMethod): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:502]  [Palette] Describe(System.Activities.Statements.WriteLine): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:503]  [Palette] Describe(System.Activities.Statements.AddToCollection`1): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:503]  [Palette] Describe(System.Activities.Statements.ClearCollection`1): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:503]  [Palette] Describe(System.Activities.Statements.ExistsInCollection`1): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:504]  [Palette] Describe(System.Activities.Statements.RemoveFromCollection`1): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:504]  [Palette] Describe(System.Activities.Statements.Rethrow): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:504]  [Palette] Describe(System.Activities.Statements.Throw): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:505]  [Palette] Describe(System.Activities.Statements.TryCatch): GetProperties=0 ms, всего=0 ms
+
+[10:47:00:518]  [Palette]     Prop RunScript.PathToXamlActivity: GetType=0 ms, Describe=12 ms
+
+[10:47:00:530]  [Palette]     Prop RunScript.IsEnabled: GetType=0 ms, Describe=11 ms
+
+[10:47:00:530]  [Palette] Describe(Activities.Flow.RunScript): GetProperties=0 ms, всего=25 ms
+
+[10:47:00:532]  [Palette] StudioActivityCatalog: ActivityPaletteRegistry построен +0 ms (активностей=24)
+
+[10:47:00:534]  [Palette] StudioActivityCatalog: построен +2 ms (типов=29, активностей=29, категорий=7)
+
+[10:47:00:610]  [Startup] MainView: InitializeControls(): +1040 ms (total 2266 ms)
+
+[10:47:00:690]  [Startup] MainView: PrepareLayout(): +80 ms (total 2346 ms)
+
+[10:47:00:692]  [Startup] Main.Loaded: начало: +1 ms (total 2347 ms)
+
+[10:47:00:693]  [Startup] LoadProjectIntoStudioAsync: начало (этап 4): +2 ms (total 2349 ms)
+
+[10:47:00:694]  [Startup] Main.Loaded: LoadProjectIntoStudio() запланирован: +1 ms (total 2350 ms)
+
+[10:47:00:912]  [Startup] EntryPoint.Run: MvvmFactory.CreateWindow() завершён: +217 ms (total 2567 ms)
+
+[10:47:00:912]  [Startup] StartupCore: EntryPoint.Run() завершён: +1 ms (total 2568 ms)
+
+[10:47:01:012]  [Startup] LoadProject: ProjectManager.ApplyTree() применено: +100 ms (total 2668 ms)
+
+[10:47:01:509]  [Startup] LoadProject: RestoreSessionState(): +496 ms (total 3164 ms)
+
+[10:47:01:525]  [Startup] LoadProject: SaveSessionState(): +16 ms (total 3180 ms)
+
+[10:47:01:925]  [Startup] MainView: раскладка поднята после первого кадра: +400 ms (total 3580 ms)
+
+[10:47:01:932]  [Palette] RefreshActivityPalette: начало (поток 1, UI-поток=True)
+
+[10:47:01:933]  [Palette] EnsureStudioLibrariesLoaded: +0 ms
+
+[10:47:01:933]  [Palette] BuiltinCategories: +0 ms, категорий=6
+
+[10:47:01:934]  [Palette] CategoryFromLoadedAssembly(Activities.Flow): +1 ms, типов=1, найдена=True
+
+[10:47:01:934]  [Palette] CategoryFromLoadedAssembly(Activities.Debug): +0 ms, типов=0, найдена=False
+
+[10:47:01:935]  [Palette] CategoryFromLoadedAssembly(Activities.OS): +0 ms, типов=0, найдена=False
+
+[10:47:01:935]  [Palette] StudioActivityPalette.Categories: всего +2 ms, категорий=7, типов=29
+
+[10:47:01:945]  [Palette] Дисковый кэш палитры записан: 24 дескрипторов (C:\Users\Maxxx\AppData\Local\AiRpaStudio\PaletteCache\rM0hB2Mcuk6EtoRS2LOXIgGf31srZFHR1Jn_ubGDCec-.json)
+
+[10:47:01:945]  [Palette] StudioActivityCatalog: ActivityPaletteRegistry построен +0 ms (активностей=24)
+
+[10:47:01:945]  [Palette] StudioActivityCatalog: построен +0 ms (типов=29, активностей=29, категорий=7)
+
+[10:47:01:953]  [Palette] WFToolboxHelper.BuildModel: CreateCategory +6 ms, категорий=7
+
+[10:47:01:979]  [Palette] WFToolboxHelper.BuildModel: preload ToolboxItem +25 ms, категорий=7
+
+[10:47:02:596]  [Palette] BuildPaletteModel (фон): +665 ms
+
+[10:47:02:598]  [Palette] WFToolboxHelper.BuildControl: начало (поток 1)
+
+[10:47:02:614]  [Palette] WFToolboxHelper.BuildControl: завершён +16 ms, ActivitiesCount=29
+
+[10:47:02:620]  [Palette] WFToolboxHelper.BuildControl + SetToolboxControl: +688 ms
+
+[10:47:02:620]  [Palette] ApplyTheme: +689 ms
+
+[10:47:02:620]  [Palette] InstallActivityCatalog: +689 ms
+
+[10:47:02:621]  Палитра «Активности» пересобрана: появилась новая библиотека активностей. (всего 689 ms)
+
+[12:55:54:412]  OnClosing: состояние WF-дизайнера перед закрытием окна = Stop.
+

@@ -426,7 +426,9 @@ namespace RPA.Core
         {
             try
             {
+                RPA.Logging.Log.Write("ActivityRunner.RunWorkflowApplication: фоновый поток прогона стартовал, вызываю _wfApp.Run().");
                 _wfApp.Run();
+                RPA.Logging.Log.Write("ActivityRunner.RunWorkflowApplication: _wfApp.Run() вернулся (прогон завершён).");
             }
             catch (Exception ex)
             {
@@ -461,6 +463,7 @@ namespace RPA.Core
 
         private void OnCompleted(WorkflowApplicationCompletedEventArgs args)
         {
+            RPA.Logging.Log.Write("ActivityRunner.OnCompleted: прогон завершён (WorkflowApplication Completed).");
             try
             {
                 foreach (KeyValuePair<string, object> item in args.Outputs)
@@ -511,6 +514,7 @@ namespace RPA.Core
 
         private void OnAborted(WorkflowApplicationAbortedEventArgs args)
         {
+            RPA.Logging.Log.Write("ActivityRunner.OnAborted: прогон прерван (WorkflowApplication Aborted).");
             OnUi(() =>
             {
                 SetDesignerIsReadonly(false);
@@ -607,12 +611,14 @@ namespace RPA.Core
 
         public void WorkflowStop()
         {
+            RPA.Logging.Log.Write("ActivityRunner.WorkflowStop: остановка запущенного прогона (запрос от студии).");
             _subWorkflowActivityRunner?.WorkflowStop();
             _resumeRuntimeFromHost?.Set();
 
             if (_wfApp != null)
             {
                 // Aborted-обработчик очистит UI и сообщит итог; Set выше разблокирует брейкпоинт/паузу.
+                RPA.Logging.Log.Write("ActivityRunner.WorkflowStop: вызываю _wfApp.Abort().");
                 _wfApp.Abort("Stopped by User");
             }
             else
